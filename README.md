@@ -1,4 +1,4 @@
-# veritas-template
+# Frouio Math
 
 ## GitHub configuration
 
