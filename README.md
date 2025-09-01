@@ -1,4 +1,4 @@
-# Frouio Math
+# Frourio Math
 
 ## GitHub configuration
 
