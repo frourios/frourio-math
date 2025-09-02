@@ -1,5 +1,7 @@
 import Frourio.Basic
 import Frourio.Algebra.Operators
+import Frourio.Algebra.CrossedProduct
+import Frourio.Algebra.PBWDistributivity
 import Frourio.Algebra.Properties
 import Frourio.Examples
 

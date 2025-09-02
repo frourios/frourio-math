@@ -1,4 +1,5 @@
 import Frourio.Algebra.Properties
+import Frourio.Algebra.CrossedProduct
 import Mathlib.Data.Real.Sqrt
 import Mathlib.Tactic
 
@@ -44,5 +45,20 @@ noncomputable def ThreePointExample (δ : ℝ) (hδ : 0 < δ) : FrourioOperator 
       -- pow_pos は自然数乗に対して正の値を保つ
       exact pow_pos hδ (i.1 + 1)
   }
+
+end Frourio
+
+namespace Frourio
+
+/-- 交叉積の自明作用における簡単な計算例（m=2, Λ=φ）。 -/
+example :
+    CrossedProduct.mul (trivialZmAction ℝ 2)
+      { base := φ, scales := fun _ => (0 : ℤ) }
+      { base := 1, scales := fun i : Fin 2 => if i = 0 then (1 : ℤ) else 0 }
+      =
+      { base := φ, scales := fun i : Fin 2 => if i = 0 then (1 : ℤ) else 0 } := by
+  -- 自明作用では base は通常の積、scales は加法
+  have hzero : (fun _ : Fin 2 => (0 : ℤ)) = (0 : Fin 2 → ℤ) := rfl
+  simp [CrossedProduct.mul, trivialZmAction, φ, hzero]
 
 end Frourio
