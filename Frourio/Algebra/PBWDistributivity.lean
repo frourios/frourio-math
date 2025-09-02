@@ -4,6 +4,9 @@ namespace Frourio
 
 open scoped BigOperators
 
+set_option linter.style.longLine false
+set_option linter.unnecessarySimpa false
+
 /-- 単項式同士の積 -/
 theorem pbw_mul_single_single {A : Type*} [Ring A] {m : ℕ}
     (σ : ZmAction A m) (v₁ v₂ : Fin m → ℤ) (a₁ a₂ : A) :
@@ -169,5 +172,140 @@ theorem pbw_right_distrib {A : Type*} [Ring A] {m : ℕ}
                     simp [Finsupp.single_add]
       exact this
     simpa [Finset.sum_add_distrib] using hsum
+
+/-! ## PBWModule Associativity and Unit -/
+
+/-- 単項式3つに対する結合律 -/
+theorem pbw_mul_assoc_single3 {A : Type*} [Ring A] {m : ℕ}
+    (σ : ZmAction A m)
+    (v₁ v₂ v₃ : Fin m → ℤ) (a₁ a₂ a₃ : A) :
+    PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v₁ a₁) (Finsupp.single v₂ a₂)) (Finsupp.single v₃ a₃)
+      = PBWModule.mul σ (Finsupp.single v₁ a₁) (PBWModule.mul σ (Finsupp.single v₂ a₂) (Finsupp.single v₃ a₃)) := by
+  classical
+  simp [pbw_mul_single_single]
+  have hbase : (a₁ * σ.act v₁ a₂) * σ.act (v₁ + v₂) a₃
+             = a₁ * σ.act v₁ (a₂ * σ.act v₂ a₃) := by
+    calc
+      (a₁ * σ.act v₁ a₂) * σ.act (v₁ + v₂) a₃
+          = a₁ * (σ.act v₁ a₂ * σ.act (v₁ + v₂) a₃) := by simp [mul_assoc]
+      _   = a₁ * (σ.act v₁ a₂ * σ.act v₁ (σ.act v₂ a₃)) := by simp [σ.act_add]
+      _   = a₁ * σ.act v₁ (a₂ * σ.act v₂ a₃) := by
+            have := (σ.map_mul v₁ a₂ (σ.act v₂ a₃)).symm
+            simpa [mul_comm, mul_left_comm, mul_assoc] using congrArg (fun t => a₁ * t) this
+  have hscales : (v₁ + v₂) + v₃ = v₁ + (v₂ + v₃) := by
+    funext i; simp [add_assoc]
+  simp [hbase, hscales]
+
+/-- 単項式を左に固定したときの結合律（一般元に拡張） -/
+theorem pbw_assoc_single_left {A : Type*} [Ring A] {m : ℕ}
+    (σ : ZmAction A m) (v : Fin m → ℤ) (a : A)
+    (y z : PBWModule A m) :
+    PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) y) z =
+    PBWModule.mul σ (Finsupp.single v a) (PBWModule.mul σ y z) := by
+  classical
+  revert z
+  -- induction on y
+  induction y using Finsupp.induction with
+  | zero =>
+    intro z; simp [PBWModule.mul]
+  | @single_add v₂ a₂ s hvs ha0 ih =>
+    intro z
+    -- helper: associativity when y is a single monomial, by induction on z
+    have assoc_single_single : ∀ z : PBWModule A m,
+        PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) (Finsupp.single v₂ a₂)) z
+          = PBWModule.mul σ (Finsupp.single v a)
+              (PBWModule.mul σ (Finsupp.single v₂ a₂) z) := by
+      intro z
+      induction z using Finsupp.induction with
+      | zero =>
+        simp [PBWModule.mul]
+      | @single_add v₃ a₃ s₃ hv3s ha30 ihz =>
+        -- reduce to single + s₃
+        calc
+          PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) (Finsupp.single v₂ a₂)) (Finsupp.single v₃ a₃ + s₃)
+              = PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) (Finsupp.single v₂ a₂)) (Finsupp.single v₃ a₃)
+                + PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) (Finsupp.single v₂ a₂)) s₃ := by
+                simp [pbw_left_distrib]
+          _ = PBWModule.mul σ (Finsupp.single v a) (PBWModule.mul σ (Finsupp.single v₂ a₂) (Finsupp.single v₃ a₃))
+                + PBWModule.mul σ (Finsupp.single v a) (PBWModule.mul σ (Finsupp.single v₂ a₂) s₃) := by
+                have hfirst := pbw_mul_assoc_single3 (A := A) (m := m) σ v v₂ v₃ a a₂ a₃
+                simpa [hfirst, ihz]
+          _ = PBWModule.mul σ (Finsupp.single v a)
+                (PBWModule.mul σ (Finsupp.single v₂ a₂) (Finsupp.single v₃ a₃)
+                  + PBWModule.mul σ (Finsupp.single v₂ a₂) s₃) := by
+                simp [pbw_left_distrib]
+          _ = PBWModule.mul σ (Finsupp.single v a)
+                (PBWModule.mul σ (Finsupp.single v₂ a₂) (Finsupp.single v₃ a₃ + s₃)) := by
+                simp [pbw_left_distrib]
+    -- combine for y = single v₂ a₂ + s
+    have h1 := assoc_single_single z
+    have h2 := ih z
+    calc
+      PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) (Finsupp.single v₂ a₂ + s)) z
+          = PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) (Finsupp.single v₂ a₂)) z
+            + PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) s) z := by
+            simp [pbw_left_distrib, pbw_right_distrib]
+      _ = PBWModule.mul σ (Finsupp.single v a) (PBWModule.mul σ (Finsupp.single v₂ a₂) z)
+            + PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) s) z := by
+            simp [h1]
+      _ = PBWModule.mul σ (Finsupp.single v a) (PBWModule.mul σ (Finsupp.single v₂ a₂) z)
+            + PBWModule.mul σ (Finsupp.single v a) (PBWModule.mul σ s z) := by
+            simp [h2]
+      _ = PBWModule.mul σ (Finsupp.single v a) (PBWModule.mul σ (Finsupp.single v₂ a₂ + s) z) := by
+            simp [pbw_left_distrib, pbw_right_distrib]
+
+/-- Associativity of PBWModule.mul -/
+theorem pbw_mul_assoc {A : Type*} [Ring A] {m : ℕ}
+    (σ : ZmAction A m) (x y z : PBWModule A m) :
+    PBWModule.mul σ (PBWModule.mul σ x y) z =
+    PBWModule.mul σ x (PBWModule.mul σ y z) := by
+  classical
+  revert y z
+  induction x using Finsupp.induction with
+  | zero =>
+    intro y z; simp [PBWModule.mul]
+  | @single_add v a s hvs ha0 ih =>
+    intro y z
+    calc
+      PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a + s) y) z
+          = PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) y) z
+            + PBWModule.mul σ (PBWModule.mul σ s y) z := by
+            simp [pbw_right_distrib]
+      _ = PBWModule.mul σ (Finsupp.single v a) (PBWModule.mul σ y z)
+            + PBWModule.mul σ s (PBWModule.mul σ y z) := by
+            -- prove assoc for the single term and use IH for s
+            have hsingle : PBWModule.mul σ (PBWModule.mul σ (Finsupp.single v a) y) z
+                  = PBWModule.mul σ (Finsupp.single v a) (PBWModule.mul σ y z) :=
+              pbw_assoc_single_left (A := A) (m := m) σ v a y z
+            have hs : PBWModule.mul σ (PBWModule.mul σ s y) z
+                  = PBWModule.mul σ s (PBWModule.mul σ y z) := ih y z
+            simp [hsingle, hs]
+      _ = PBWModule.mul σ (Finsupp.single v a + s) (PBWModule.mul σ y z) := by
+            simp [pbw_right_distrib]
+
+/-- The unit element for PBWModule.mul -/
+noncomputable def pbwOne {A : Type*} [Ring A] (m : ℕ) : PBWModule A m :=
+  Finsupp.single (0 : Fin m → ℤ) (1 : A)
+
+/-- Left unit property -/
+theorem pbw_one_mul {A : Type*} [Ring A] {m : ℕ}
+    (σ : ZmAction A m) (x : PBWModule A m) :
+    PBWModule.mul σ (pbwOne m) x = x := by
+  classical
+  unfold PBWModule.mul
+  -- expand outer sum over single 0 1
+  simp [pbwOne, Finsupp.sum_single_index, σ.act_zero,
+        zero_mul, sum_single_eq_self (A := A) (m := m)]
+
+/-- Right unit property -/
+theorem pbw_mul_one {A : Type*} [Ring A] {m : ℕ}
+    (σ : ZmAction A m) (x : PBWModule A m) :
+    PBWModule.mul σ x (pbwOne m) = x := by
+  classical
+  unfold PBWModule.mul
+  -- expand inner sum over single 0 1
+  -- use σ.map_zero for zero case, σ.map_one for coefficient
+  simp [pbwOne, Finsupp.sum_single_index, σ.map_zero, σ.map_one,
+        mul_one, sum_single_eq_self (A := A) (m := m)]
 
 end Frourio
