@@ -1,4 +1,5 @@
 import Frourio.Algebra.Properties
+import Frourio.Algebra.StructureSequence
 import Frourio.Algebra.CrossedProduct
 import Mathlib.Data.Real.Sqrt
 import Mathlib.Tactic
@@ -30,6 +31,65 @@ lemma golden_ratio_property : φ^2 = φ + 1 := by
     _   = (6 + 2 * Real.sqrt 5) / 4 := by ring
     _   = (3 + Real.sqrt 5) / 2 := by ring
     _   = φ + 1 := by simp [h2]
+
+/-- 黄金比は正 -/
+lemma phi_pos : 0 < φ := by
+  -- φ = (1 + √5) / 2 > 0
+  have h₁ : 0 < 1 + Real.sqrt 5 := by
+    have hs : 0 < Real.sqrt 5 := Real.sqrt_pos.mpr (by norm_num)
+    linarith
+  have h₂ : 0 < (2 : ℝ) := by norm_num
+  have : 0 < (1 + Real.sqrt 5) / 2 := div_pos h₁ h₂
+  simpa [φ] using this
+
+/-- 黄金比の逆数：φ⁻¹ = φ - 1 -/
+lemma phi_inv : φ⁻¹ = φ - 1 := by
+  have hφ : φ ^ 2 = φ + 1 := golden_ratio_property
+  have hne : φ ≠ 0 := ne_of_gt phi_pos
+  -- φ*(φ-1) = 1
+  have hmul : φ * (φ - 1) = 1 := by
+    have h' : φ * φ = φ + 1 := by simpa [pow_two] using hφ
+    calc
+      φ * (φ - 1) = φ * φ - φ := by ring
+      _ = (φ + 1) - φ := by simp [h']
+      _ = 1 := by simp
+  -- (φ-1) = φ⁻¹
+  have hmul' : (φ - 1) * φ = 1 := by simpa [mul_comm] using hmul
+  have : (φ - 1) * φ * φ⁻¹ = 1 * φ⁻¹ := congrArg (fun t => t * φ⁻¹) hmul'
+  have : (φ - 1) = φ⁻¹ := by simp [hne] at this; simpa using this
+  simp [this]
+
+/-- 具体例：S_1(φ) = φ - 1/φ -/
+example : S φ (1 : ℤ) = φ - 1 / φ := by
+  simp [Frourio.S_one]
+
+/-- 具体例：S_1(φ) = 1 -/
+example : S φ (1 : ℤ) = 1 := by
+  calc
+    S φ (1 : ℤ) = φ - 1 / φ := by simp [Frourio.S_one]
+    _ = φ - φ⁻¹ := by simp [one_div]
+    _ = φ - (φ - 1) := by simp [phi_inv]
+    _ = 1 := by ring
+
+/-- 具体例：S_2(φ) = φ -/
+lemma S_phi_two : S φ (2 : ℤ) = 2 * φ - 1 := by
+  -- S φ 2 = φ^2 - (φ⁻¹)^2
+  have hcalc : S φ (2 : ℤ) = φ ^ 2 - (φ⁻¹) ^ 2 := by
+    simp [S, zpow_ofNat, zpow_neg]
+  -- φ^2 = φ + 1, φ⁻¹ = φ - 1
+  have : S φ (2 : ℤ) = (φ + 1) - (φ - 1) ^ 2 := by
+    simp [hcalc, golden_ratio_property, phi_inv]
+  -- (φ - 1)^2 = 2 - φ を経由して計算
+  have hsq : (φ - 1) ^ 2 = 2 - φ := by
+    have hφ2 : φ ^ 2 = φ + 1 := golden_ratio_property
+    calc
+      (φ - 1) ^ 2 = φ ^ 2 - 2 * φ + 1 := by ring
+      _ = (φ + 1) - 2 * φ + 1 := by simp [hφ2]
+      _ = 2 - φ := by ring
+  calc
+    S φ (2 : ℤ) = (φ + 1) - (φ - 1) ^ 2 := this
+    _ = φ + 1 - (2 - φ) := by simp [hsq]
+    _ = 2 * φ - 1 := by ring
 
 /-- 黄金Frourio作用素のMellin記号 -/
 noncomputable def goldenMellinSymbol (s : ℂ) : ℂ :=
