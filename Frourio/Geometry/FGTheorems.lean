@@ -2,6 +2,7 @@ import Mathlib.Topology.MetricSpace.Basic
 import Frourio.Geometry.FGCore
 import Frourio.Analysis.EVI
 import Frourio.Analysis.DoobTransform
+import Frourio.Geometry.GradientFlowFramework
 
 /-!
 # FG Theorems (Phase G2): Statement-only wrappers
@@ -135,5 +136,25 @@ by
   simpa [zero_mul, add_comm, add_left_comm, add_assoc] using h t
 
 end X2
+
+/-- Re-export: gradient-flow equivalence (PLFA = EDE = EVI = JKO). -/
+def flow_equivalence {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X) : Prop :=
+  gradient_flow_equiv S
+
+/-- Re-export: effective lambda lower bound statement. -/
+def lambda_eff_lower {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X) : Prop :=
+  lambda_eff_lower_bound S
+
+/-- Re-export: two-EVI with external force (squared-distance synchronization). -/
+def two_evi_with_force_alias {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X) : Prop :=
+  two_evi_with_force S
+
+/-- Multiscale EVI parameter rule alias (m-dimensional scale composition). -/
+def evi_multiscale_rule {m : ℕ}
+  (Λ α κ : Fin m → ℝ) (k : Fin m → ℤ) : Prop :=
+  multiscale_lambda_rule Λ α κ k
 
 end Frourio
