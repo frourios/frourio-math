@@ -4,6 +4,7 @@ import Frourio.Algebra.CrossedProduct
 import Frourio.Algebra.PBWDistributivity
 import Frourio.Algebra.Properties
 import Frourio.Algebra.StructureSequence
+import Frourio.Analysis.MellinTransform
 import Frourio.Examples
 
 /-!
