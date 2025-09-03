@@ -22,6 +22,29 @@ CD-type lower bound with parameter `λ`. This is kept abstract at this
 phase and will be refined later. -/
 def HasCD {X : Type*} (_D : Diffusion X) (_lam : ℝ) : Prop := True
 
+/-- Symmetric bilinear form associated to `Gamma` by polarization.
+This provides a concrete `Γ(f,g)` using the unary `Γ` available in `Diffusion`.
+-/
+noncomputable def gammaPair {X : Type*} (D : Diffusion X)
+  (f g : X → ℝ) : X → ℝ :=
+  fun x =>
+    ((D.Gamma (fun y => f y + g y)) x - (D.Gamma f) x - (D.Gamma g) x) / 2
+
+/-- Minimal Leibniz rule for the generator `L` using `gammaPair` for the
+cross term. This is a concrete predicate, not a placeholder. -/
+def HasLeibnizL {X : Type*} (D : Diffusion X) : Prop :=
+  ∀ f g : X → ℝ,
+    D.L (fun x => f x * g x) =
+      (fun x => f x * (D.L g) x + g x * (D.L f) x - 2 * gammaPair D f g x)
+
+/-- Product rule for `Γ` in a minimal concrete form via `gammaPair`. -/
+def HasLeibnizGamma {X : Type*} (D : Diffusion X) : Prop :=
+  ∀ f g : X → ℝ,
+    D.Gamma (fun x => f x * g x) =
+      (fun x => (f x) ^ (2 : ℕ) * (D.Gamma g) x
+        + (g x) ^ (2 : ℕ) * (D.Gamma f) x
+        + 2 * f x * g x * gammaPair D f g x)
+
 /- Pointwise Doob-transformed generator.
    L^h f := h^{-1} · L (h · f) with a zero-guard for safety. -/
 noncomputable def doobL {X : Type*} (D : Diffusion X)
@@ -43,9 +66,12 @@ We keep core analytic identities as fields so that theoremization becomes
 trivial at this phase; later, these fields will be derivable from
 positivity and Leibniz/Bochner hypotheses. -/
 structure DoobAssumptions {X : Type*} (h : X → ℝ) (D : Diffusion X) : Prop where
-  (h_pos : True)            -- later: ∀ x, 0 < h x
-  (leibniz_L : True)        -- later: L(fg) = f L g + g L f - 2 Γ(f,g)
-  (leibniz_Gamma : True)    -- later: Γ(fg) = f² Γ(g) + g² Γ(f) + 2 f g Γ(f,g)
+  /-- Strict positivity of `h` ensuring the Doob transform is well-defined. -/
+  (h_pos : ∀ x : X, 0 < h x)
+  /-- Concrete Leibniz rule for the generator. -/
+  (leibniz_L : HasLeibnizL D)
+  /-- Concrete product rule for `Γ`. -/
+  (leibniz_Gamma : HasLeibnizGamma D)
   (gamma_eq : (Doob h D).Gamma = D.Gamma)
   (gamma2_eq : ∀ f : X → ℝ, (Doob h D).Gamma2 f = D.Gamma2 f)
   /-- Curvature-dimension shift: for any CD parameter `lam` of `D`, there exists

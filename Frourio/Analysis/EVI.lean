@@ -186,6 +186,8 @@ abbrev evi_contraction {X : Type*} [PseudoMetricSpace X]
   (hu : IsEVISolution P u) (hv : IsEVISolution P v) : Prop :=
   eviContraction P u v hu hv
 
+-- moved below after `eviContraction_general`
+
 /--
 EVI contraction (self-curve special case).
 
@@ -240,6 +242,27 @@ by
   apply Hbridge
   exact evi_contraction_sq_from_gronwall P u v hu hv Hineq2 Hgr
 
+/--
+EVI contraction (named theorem form, P0 skeleton).
+
+Proof strategy: Assume the squared-distance Dini inequality and a Grönwall
+exponential decay statement for `W t = d2 (u t) (v t)`. This yields a
+`ContractionPropertySq`. A bridge hypothesis converts it into the linear
+`ContractionProperty`. Heavy analytic parts are abstracted as inputs.
+-/
+theorem eviContraction_thm
+  {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (Hineq2 : ∀ t : ℝ,
+    DiniUpper (fun τ : ℝ => d2 (u τ) (v τ)) t
+      + (2 * P.lam) * d2 (u t) (v t) ≤ 0)
+  (Hgr : gronwall_exponential_contraction P.lam (fun t => d2 (u t) (v t)))
+  (Hbridge : Hbridge P u v) :
+  ContractionProperty P u v :=
+by
+  exact eviContraction_general P u v hu hv Hineq2 Hgr Hbridge
+
 /- Mixed-error bound skeleton for a pair (u, v). The `bound` field can
 encode any intended inequality along a selected geodesic; we keep it
 abstract at this stage. -/
@@ -256,6 +279,41 @@ def eviSumWithError {X : Type*} [PseudoMetricSpace X]
   ∀ t : ℝ,
     (1 / 2 : ℝ) * DiniUpper (fun τ : ℝ => d2 (u τ) (v τ)) t
       + P.lam * d2 (u t) (v t) ≤ hR.η
+
+/--
+Squared-distance synchronization with error (P0 skeleton).
+
+Assume a mixed EVI inequality with error term `η` for `W t = d2(u t, v t)`
+and an inhomogeneous Grönwall lemma. Then
+
+  d2(u t, v t) ≤ exp (-(2 λ) t) · d2(u 0, v 0) + (2 η) t.
+
+Bridging to linear distance can be added separately via a dedicated lemma.
+-/
+def ContractionPropertySqWithError {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X) (η : ℝ) : Prop :=
+  ∀ t : ℝ,
+    d2 (u t) (v t)
+      ≤ Real.exp (-(2 * P.lam) * t) * d2 (u 0) (v 0) + (2 * η) * t
+
+/-- Synchronization with error in squared distance via inhomogeneous Grönwall. -/
+theorem eviSynchronizationSq_with_error {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (_geodesicBetween : Prop) (hR : MixedErrorBound X u v)
+  (Hsum : eviSumWithError P u v hu hv _geodesicBetween hR)
+  (Hgr : gronwall_exponential_contraction_with_error_half P.lam hR.η
+    (fun t => d2 (u t) (v t))) :
+  ContractionPropertySqWithError P u v hR.η :=
+by
+  intro t
+  -- Apply the provided Grönwall lemma to W(t) = d2(u t, v t)
+  have :
+      ∀ s : ℝ, (1 / 2 : ℝ) * DiniUpper (fun τ : ℝ => d2 (u τ) (v τ)) s
+        + P.lam * d2 (u s) (v s) ≤ hR.η := by
+    intro s; simpa using Hsum s
+  simpa using Hgr this t
+
 
 /- Optional: time-domain wrapper aligning (ℝ≥0 → X) with (ℝ → X) without
 importing NNReal. We model nonnegative times as a subtype. -/
@@ -289,21 +347,27 @@ structure MoscoSystem (ι : Type*) where
 
 attribute [instance] MoscoSystem.hx MoscoSystem.x
 
-/- Externalized Mosco predicates (placeholders to be refined later). These
-are kept as `Prop`-valued definitions so that `MoscoAssumptions` can store
-their proofs as fields, following the design intent. -/
-def MoscoGeodesicComplete {ι : Type*} (_S : MoscoSystem ι) : Prop := True
-/-- Mosco tightness placeholder: kept as a dedicated predicate rather than `True`
-to allow later refinement without API breaks. -/
-def MoscoTight {ι : Type*} (_S : MoscoSystem ι) : Prop := True
-/-- Mosco M1 condition placeholder (liminf). -/
-def MoscoM1 {ι : Type*} (_S : MoscoSystem ι) : Prop := True
-/-- Mosco M2 condition placeholder (recovery sequence). -/
-def MoscoM2 {ι : Type*} (_S : MoscoSystem ι) : Prop := True
+/- Externalized Mosco predicates (minimal, nontrivial P0 forms).
+They remain `Prop`-valued and lightweight, but relate the system fields
+to avoid `True` stubs. -/
+/- Geodesic completeness surrogate: nonemptiness of the limit space. -/
+def MoscoGeodesicComplete {ι : Type*} (S : MoscoSystem ι) : Prop :=
+  Nonempty S.X
 
-/-- Assumption pack (kept as trivial proofs for now). The concrete
-predicates `MoscoTight`, `MoscoM1`, `MoscoM2` are defined above and will
-replace `True` fields in later phases. -/
+/- Uniform lower bound (coercivity) for prelimit energies. -/
+def MoscoTight {ι : Type*} (S : MoscoSystem ι) : Prop :=
+  ∃ C : ℝ, ∀ (h : ι) (x : S.Xh h), S.Eh h x ≥ -C
+
+/- Minimal liminf-type inequality along the identification maps `Th`. -/
+def MoscoM1 {ι : Type*} (S : MoscoSystem ι) : Prop :=
+  ∀ (h : ι) (x : S.Xh h), S.E (S.Th h x) ≤ S.Eh h x
+
+/- Minimal recovery-type condition: for any `x` in the limit, there exists a
+preimage with no energy inflation. -/
+def MoscoM2 {ι : Type*} (S : MoscoSystem ι) : Prop :=
+  ∀ x : S.X, ∃ (h : ι) (xh : S.Xh h), S.Th h xh = x ∧ S.Eh h xh ≤ S.E x
+
+/-- Assumption pack using the minimal nontrivial Mosco predicates. -/
 structure MoscoAssumptions {ι : Type*} (S : MoscoSystem ι) : Prop where
   (geodesic_complete : MoscoGeodesicComplete S)
   (tightness : MoscoTight S)

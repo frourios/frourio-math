@@ -1,6 +1,7 @@
 import Mathlib.Analysis.SpecialFunctions.Complex.Log
 import Mathlib.Analysis.Complex.Trigonometric
 import Mathlib.Algebra.GroupWithZero.Basic
+import Mathlib.Algebra.BigOperators.Group.Finset.Defs
 import Mathlib.Tactic
 -- Note: We deliberately avoid heavy `MeasureTheory` imports at this stage
 -- to keep CI fast; the integral-based definition is recorded as a signature
@@ -25,6 +26,7 @@ will be proved in later phases once the analytic infrastructure is in place.
 -/
 
 -- no `open` to keep this file command-lean across toolchain versions
+open scoped BigOperators
 
 /-- Domain control for Mellin transform (placeholder for analytic hypotheses).
 `MellinDomain f` is a Prop that, in later phases, will encode the integrability
@@ -316,10 +318,22 @@ def phi_diff_symbolization (Λ : ℝ) (f : ℝ → ℂ) (s : ℂ) : Prop :=
     mellinTransform (mellinPhiDiff Λ f) s =
       phiSymbol Λ s * mellinTransform f (s + 1)
 
-/-- m-point Mellin-difference symbol `S_m` (signature placeholder).
-The concrete closed form (for example, a finite-difference combination of
-`φ`-symbols) is introduced in later phases; here we only fix the arity. -/
-noncomputable def SmSymbol (_m : ℕ) (_Λ : ℝ) (_s : ℂ) : ℂ := 0
+/--
+Concrete m-point Mellin-difference symbol `phi_m` as a finite linear
+combination of the two-point symbol `phiSymbol` with phase weights. The
+weights use m-th roots of unity `exp(2π i j / m)` and unit shifts in `s`.
+For `m = 0`, we set `phi_m` to `0` by convention.
+-/
+noncomputable def SmSymbol (m : ℕ) (Λ : ℝ) (s : ℂ) : ℂ :=
+  if _h : m = 0 then 0 else
+    ∑ j : Fin m,
+      let w : ℂ := Complex.exp (Complex.I * (2 * Real.pi) * ((j.1 : ℝ) / (m : ℝ)))
+      w * phiSymbol Λ (s + (j.1 : ℂ))
+
+@[simp] lemma SmSymbol_zero_m (Λ : ℝ) (s : ℂ) : SmSymbol 0 Λ s = 0 := by
+  simp [SmSymbol]
+
+-- (Replaced below by the concrete `phi_m` and an alias `SmSymbol`.)
 
 /-- Design zero set for `S_m` (placeholder). In later phases this will
 be the corresponding arithmetic lattice generalizing `mellinZeros` for `m=2`. -/
