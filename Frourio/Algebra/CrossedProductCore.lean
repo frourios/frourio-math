@@ -8,6 +8,7 @@ import Mathlib.Analysis.SpecialFunctions.Exp
 import Mathlib.Tactic
 import Mathlib.Data.Finsupp.Basic
 import Mathlib.Algebra.Module.Basic
+import Mathlib.Data.Matrix.Basic
 
 namespace Frourio
 
@@ -321,6 +322,12 @@ structure IsSigmaDerivation {A : Type*} [Ring A]
   (map_add : ∀ a b, δ (a + b) = δ a + δ b)
   (map_mul : ∀ a b, δ (a * b) = σ a * δ b + δ a * b)
 
+/-- `δ = 0` は自明な σ-導分。 -/
+lemma isSigmaDerivation_zero {A : Type*} [Ring A]
+    (σ : A →+* A) : IsSigmaDerivation σ (fun _ : A => 0) :=
+  { map_add := by intro a b; simp
+  , map_mul := by intro a b; simp }
+
 /-- Ore拡大の抽象データ。
 `E` は拡大環、`Algebra A E` を通して `A` を埋め込み、記号元 `Δ : E` を持つ。
 基本交換関係 `Δ⋅a - σ(a)⋅Δ = δ(a)`（右辺は `A` を `E` へ持ち上げたもの）を仮定。 -/
@@ -404,6 +411,65 @@ noncomputable def phiOreSystem : OreSystem ℝ :=
     have h₂ : 0 < (2 : ℝ) := by norm_num
     have : 0 < (1 + Real.sqrt 5) / 2 := div_pos h₁ h₂
     simpa [φ] using this)).toTrivialOreSystem ℝ
+
+/-- 具体例（非自明 Δ, 自明 σ）: 2×2 Jordan ブロックによる Ore 系。
+  `E = M₂(A)`, `Δ = J`, `σ = id`, `δ = 0`。標準の `algebraMap : A → M₂(A)`（スカラー埋め込み）
+  の下で、スカラー行列は中心的に振る舞うため、`[Δ, a] = 0` が成り立つ。 -/
+noncomputable def OreSystem.matrixJordanId (A : Type*) [CommRing A] : OreSystem A :=
+  { E := Matrix (Fin 2) (Fin 2) A
+  , Δ := ![![0, (1 : A)], ![0, 0]]
+  , σ := RingHom.id A
+  , δ := fun _ => 0
+  , isSigmaDerivation := isSigmaDerivation_zero (RingHom.id A)
+  , ore_rel := by
+      intro a
+      -- Notation for the Jordan block and the scalar embedding
+      let J : Matrix (Fin 2) (Fin 2) A := ![![0, (1 : A)], ![0, 0]]
+      have hAlg : (a • (1 : Matrix (Fin 2) (Fin 2) A))
+                    = (algebraMap A (Matrix (Fin 2) (Fin 2) A)) a := by
+        -- In any algebra, `a • 1 = algebraMap a`.
+        simp [Algebra.smul_def]
+      -- Right multiplication by a scalar matrix equals scalar action
+      have hRight : J * (algebraMap A (Matrix (Fin 2) (Fin 2) A) a)
+                      = a • J := by
+        calc
+          J * (algebraMap A (Matrix (Fin 2) (Fin 2) A) a)
+              = J * (a • (1 : Matrix (Fin 2) (Fin 2) A)) := by
+                simp [hAlg]
+          _   = a • (J * (1 : Matrix (Fin 2) (Fin 2) A)) := by
+                simp [Algebra.mul_smul_comm]
+          _   = a • J := by
+                simp
+      -- Left multiplication by a scalar matrix equals scalar action
+      have hLeft : (algebraMap A (Matrix (Fin 2) (Fin 2) A) a) * J
+                      = a • J := by
+        calc
+          (algebraMap A (Matrix (Fin 2) (Fin 2) A) a) * J
+              = (a • (1 : Matrix (Fin 2) (Fin 2) A)) * J := by
+                simp [hAlg]
+          _   = a • ((1 : Matrix (Fin 2) (Fin 2) A) * J) := by
+                simp [Algebra.smul_mul_assoc]
+          _   = a • J := by
+                simp
+      -- Conclude `[J, a] = 0` hence δ = 0 satisfies Ore relation
+      -- rewrite both products to `a • J` and simplify
+      have : J * (algebraMap A (Matrix (Fin 2) (Fin 2) A) a)
+               - (algebraMap A (Matrix (Fin 2) (Fin 2) A) a) * J
+               = (0 : Matrix (Fin 2) (Fin 2) A) := by
+        simp [hRight, hLeft]
+      simpa using this }
+
+/-- Ore 交換式を右辺へ移項した正規化形：`Δ a = σ(a) Δ + δ(a)`。 -/
+lemma ore_rewrite_one {A : Type*} [CommRing A]
+    (sys : OreSystem A) (a : A) :
+    sys.Δ * algebraMap A sys.E a
+      = algebraMap A sys.E (sys.σ a) * sys.Δ + algebraMap A sys.E (sys.δ a) := by
+  -- start from the defining Ore relation and move terms to the RHS
+  have h := sys.ore_rel a
+  -- Δ a - σ(a) Δ = δ(a)
+  -- ⇒ Δ a = σ(a) Δ + δ(a)
+  simpa [sub_eq_add_neg, add_comm, add_left_comm, add_assoc] using
+    congrArg (fun t => t + algebraMap A sys.E (sys.σ a) * sys.Δ) h
 
 /-- 交叉積における「単項式」：係数1と指数ベクトル `v` を持つ元。 -/
 def monomial {A : Type*} [Ring A] {m : ℕ}
