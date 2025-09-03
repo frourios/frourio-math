@@ -6,6 +6,9 @@ import Frourio.Algebra.Properties
 import Frourio.Algebra.StructureSequence
 import Frourio.Analysis.MellinTransform
 import Frourio.Analysis.EVI
+import Frourio.Analysis.DoobTransform
+import Frourio.Analysis.YoungConvolution
+import Frourio.Geometry.DiracIndex
 import Frourio.Examples
 
 /-!
