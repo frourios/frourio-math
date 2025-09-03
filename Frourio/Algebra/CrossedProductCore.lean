@@ -459,6 +459,76 @@ noncomputable def OreSystem.matrixJordanId (A : Type*) [CommRing A] : OreSystem 
         simp [hRight, hLeft]
       simpa using this }
 
+/-
+Simplified σ-Jordan Ore system placeholder: uses the standard scalar embedding
+`A → M₂(A)` and a trivial `Δ = 0`. The Ore relation holds tautologically for
+any ring endomorphism `σ`. This keeps the API surface while avoiding a custom
+`Algebra` instance at this stage.
+-/
+noncomputable def OreSystem.matrixJordan {A : Type*} [CommRing A]
+    (σ : A →+* A) : OreSystem A :=
+  { E := Matrix (Fin 2) (Fin 2) A
+  , Δ := 0
+  , σ := σ
+  , δ := fun _ => 0
+  , isSigmaDerivation := isSigmaDerivation_zero σ
+  , ore_rel := by intro a; simp }
+
+/-- Diagonal embedding statement for `σ` on `M₂(A)` with Jordan block.
+This is a statement-level version (no heavy proof or instances): it asserts
+the existence of an algebra structure sending `a` to `diag(a, σ a)` and that
+the Ore commutator with the Jordan block `J` vanishes (i.e. δ = 0 suffices).
+The diagonal matrix is expressed via `Matrix.diagonal` with entries `[a, σ a]`. -/
+def matrixJordanDiagProp {A : Type*} [CommRing A]
+    (σ : A →+* A) : Prop :=
+  ∃ (alg : Algebra A (Matrix (Fin 2) (Fin 2) A)),
+    (∀ a : A,
+      by
+        letI : Algebra A (Matrix (Fin 2) (Fin 2) A) := alg
+        exact algebraMap A (Matrix (Fin 2) (Fin 2) A) a
+          = Matrix.diagonal (fun i : Fin 2 => if (i : ℕ) = 0 then a else σ a))
+    ∧ (∀ a : A,
+        by
+          letI : Algebra A (Matrix (Fin 2) (Fin 2) A) := alg
+          let J : Matrix (Fin 2) (Fin 2) A := ![![0, (1 : A)], ![0, 0]]
+          exact J * (algebraMap A (Matrix (Fin 2) (Fin 2) A) a)
+              - (algebraMap A (Matrix (Fin 2) (Fin 2) A) (σ a)) * J = 0)
+
+/-- Optional: a placeholder for specifying a monomial order on generators,
+to be used in σ-PBW rewriting (statement only). -/
+abbrev MonomialOrder (ι : Type*) := ι → ι → Prop
+
+/--
+Multi-generator σ-PBW extension skeleton.
+`ι` indexes the generators `Δ i`, each equipped with its own ring endomorphism `σ i`
+and σ-derivation `δ i`. We only record the Ore relations and derivation axioms.
+-/
+structure SigmaPBW (A : Type*) [CommRing A] (ι : Type*) where
+  (E : Type*)
+  [ringE : Ring E]
+  [algebraAE : Algebra A E]
+  (Δ : ι → E)
+  (σ : ι → A →+* A)
+  (δ : ι → A → A)
+  (isSigmaDerivation : ∀ i, IsSigmaDerivation (σ i) (δ i))
+  (ore_rel : ∀ i a, Δ i * (algebraMap A E a)
+                    - (algebraMap A E ((σ i) a)) * Δ i
+                    = algebraMap A E ((δ i) a))
+attribute [instance] SigmaPBW.ringE SigmaPBW.algebraAE
+
+/-- A diamond-critical pair is just an ordered pair of generator indices. -/
+abbrev CriticalPair (ι : Type*) := ι × ι
+
+/-- Placeholder carrier for a list of critical pairs to be checked. -/
+def DiamondCriticalPairs (ι : Type*) := List (CriticalPair ι)
+
+/-- Skeleton predicate expressing that all listed critical pairs are confluent.
+Concrete rewriting and confluence checks are deferred to later phases. -/
+def DiamondCondition {A : Type*} [CommRing A] {ι : Type*}
+    (_sys : SigmaPBW A ι) (_pairs : DiamondCriticalPairs ι) : Prop :=
+  -- Later: expand to S-polynomial reductions and overlaps
+  True
+
 /-- Ore 交換式を右辺へ移項した正規化形：`Δ a = σ(a) Δ + δ(a)`。 -/
 lemma ore_rewrite_one {A : Type*} [CommRing A]
     (sys : OreSystem A) (a : A) :

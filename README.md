@@ -1,5 +1,12 @@
 # Frourio Math
 
+![GitHub CI](https://github.com/frourios/frourio-math/actions/workflows/lean_action_ci.yml/badge.svg?branch=main)
+[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/frourios/frourio-math)
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/frourios/frourio-math)
+
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/frourios/frourio-math)
+
 ## GitHub configuration
 
 To set up your new GitHub repository, follow these steps:

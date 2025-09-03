@@ -1,6 +1,7 @@
 import Mathlib.Analysis.SpecialFunctions.Complex.Log
-import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
+import Mathlib.Analysis.Complex.Trigonometric
 import Mathlib.Algebra.GroupWithZero.Basic
+import Mathlib.Tactic
 -- Note: We deliberately avoid heavy `MeasureTheory` imports at this stage
 -- to keep CI fast; the integral-based definition is recorded as a signature
 -- and documented, with a lightweight placeholder for now.
@@ -267,6 +268,78 @@ noncomputable def Tphi (_Λ : ℝ) (σ : ℝ) : Hσ σ → Hσ (σ - 1) :=
 /-- Candidate operator-norm bound expression (design quantity). -/
 noncomputable def phiSymbolBound (Λ σ : ℝ) : ℝ :=
   2 * Real.cosh (σ * Real.log Λ) / (Λ - Λ⁻¹)
+
+/-!
+D1: Statements-only additions for Mellin (P2 finish + m-point intro)
+
+We record the key laws and bounds as `Prop`-valued signatures, postponing
+proofs and heavy analysis to later phases. This keeps API stable while
+maintaining a lightweight dependency footprint (no `sorry`/`axiom`).
+-/
+
+/-- Scaling statement for the Mellin transform (signature only).
+Design intent (analytic form): for `α > 0` and `hf : MellinDomain f`,
+`M[f(α·)](s) = α^{-s} · M[f](s)`. We write `α^{-s}` as
+`Complex.exp (-s * Real.log α)` to avoid non-integer powers on `ℝ`.
+This is a `Prop` describing the intended equality; no proof is provided here. -/
+def mellin_scaling (α : ℝ) (f : ℝ → ℂ) (s : ℂ) : Prop :=
+  0 < α → MellinDomain f →
+    mellinTransform (fun x => f (α * x)) s
+      = Complex.exp (-s * (Real.log α : ℂ)) * mellinTransform f s
+
+/-- Helper: division by `x` for `ℝ → ℂ` functions. -/
+noncomputable def divByX (g : ℝ → ℂ) : ℝ → ℂ := fun x => g x / (x : ℂ)
+
+/-- Division-by-`x` (shift) statement for the Mellin transform (signature only).
+Design intent (analytic form): `M[g/x](s) = M[g](s+1)` under `MellinDomain`.
+This is a `Prop` describing the intended equality; no proof is provided here. -/
+def mellin_div_x (g : ℝ → ℂ) (s : ℂ) : Prop :=
+  MellinDomain g → mellinTransform (divByX g) s = mellinTransform g (s + 1)
+
+/-- Placeholder for the operator norm of `Tphi Λ` acting `H_σ → H_{σ-1}`.
+We keep it as a design quantity referencing the operator one would get
+by Mellin-side multiplication with `phiSymbol`. -/
+noncomputable def opNorm_Tphi (_Λ : ℝ) (_σ : ℝ) : ℝ := 0
+
+/-- Operator-norm bound statement for `Tphi` along the vertical line `Re s = σ`.
+Design intent: for `Λ > 1`, `‖T_{Φ,Λ}‖ ≤ phiSymbolBound Λ σ`.
+Recorded as a `Prop` inequality between a placeholder norm and the explicit RHS. -/
+def op_norm_bound (Λ σ : ℝ) : Prop :=
+  1 < Λ → opNorm_Tphi Λ σ ≤ phiSymbolBound Λ σ
+
+/-- Φ-difference operator on the physical side (placeholder). -/
+noncomputable def mellinPhiDiff (_Λ : ℝ) (f : ℝ → ℂ) : ℝ → ℂ := fun x => f x
+
+/-- Φ-difference symbolization statement (signature only). -/
+def phi_diff_symbolization (Λ : ℝ) (f : ℝ → ℂ) (s : ℂ) : Prop :=
+  0 < Λ → Λ ≠ 1 → MellinDomain f →
+    mellinTransform (mellinPhiDiff Λ f) s =
+      phiSymbol Λ s * mellinTransform f (s + 1)
+
+/-- m-point Mellin-difference symbol `S_m` (signature placeholder).
+The concrete closed form (for example, a finite-difference combination of
+`φ`-symbols) is introduced in later phases; here we only fix the arity. -/
+noncomputable def SmSymbol (_m : ℕ) (_Λ : ℝ) (_s : ℂ) : ℂ := 0
+
+/-- Design zero set for `S_m` (placeholder). In later phases this will
+be the corresponding arithmetic lattice generalizing `mellinZeros` for `m=2`. -/
+def SmZeros (_m : ℕ) (_Λ : ℝ) : Set ℂ := { _s | False }
+
+/-- Statement (as a `Prop`) that the zero-locus of `S_m` is described by `SmZeros`.
+No proof is provided at this phase. -/
+def Sm_zero_locus (m : ℕ) (Λ : ℝ) : Prop :=
+  ∀ s : ℂ, SmSymbol m Λ s = 0 ↔ s ∈ SmZeros m Λ
+
+/-- Bohr almost periodicity predicate on `ℝ → ℂ` (minimalist version).
+We use a classical ε–T formulation of relatively dense ε-almost periods. -/
+def IsBohrAlmostPeriodic (F : ℝ → ℂ) : Prop :=
+  ∀ ε > 0, ∀ T > 0, ∃ τ : ℝ, |τ| ≤ T ∧ ∀ t : ℝ, ‖F (t + τ) - F t‖ < ε
+
+/-- Statement (as a `Prop`) that the vertical-line trace of `S_m` is
+Bohr almost periodic. This captures the intended regularity in the design
+without committing to the full harmonic-analytic development at this stage. -/
+def Sm_bohr_almost_periodic (m : ℕ) (Λ σ : ℝ) : Prop :=
+  IsBohrAlmostPeriodic (fun t : ℝ => SmSymbol m Λ (σ + Complex.I * (t : ℂ)))
 
 /-!
 Zero-locus equivalence for `phiSymbol` (Λ > 1)

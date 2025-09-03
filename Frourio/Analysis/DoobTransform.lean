@@ -32,16 +32,31 @@ noncomputable def Doob {X : Type*} (h : X → ℝ) (D : Diffusion X) : Diffusion
   , Gamma := D.Gamma
   , Gamma2 := D.Gamma2 }
 
-/- Euclid-style identities as statement-level props (to be proven later). -/
-def doob_gamma_eq {X : Type*} (h : X → ℝ) (_hpos : Prop) (D : Diffusion X) : Prop :=
-  (Doob h D).Gamma = D.Gamma
+/- Assumption pack for Doob transform statements.
+Contains placeholders for positivity of `h` and Leibniz-type rules. -/
+structure DoobAssumptions {X : Type*} (h : X → ℝ) (D : Diffusion X) : Prop where
+  (h_pos : True)          -- later: ∀ x, 0 < h x
+  (leibniz_L : True)      -- later: L(fg) = f L g + g L f - 2 Γ(f,g)
+  (leibniz_Gamma : True)  -- later: Γ(fg) = f² Γ(g) + g² Γ(f) + 2 f g Γ(f,g)
 
-def doob_gamma2_eq {X : Type*} (_h : X → ℝ) (_hpos : Prop)
-  (_D : Diffusion X) (_f : X → ℝ) : Prop :=
-  True  -- placeholder for: (Doob h D).Gamma2 f = D.Gamma2 f - 2 * ...
+/-- Γ identity under Doob transform (statement-only). -/
+def doob_gamma_eq {X : Type*} (h : X → ℝ)
+  (D : Diffusion X) : Prop :=
+  DoobAssumptions h D → (Doob h D).Gamma = D.Gamma
+
+/-- Γ₂ corrected identity under Doob transform (statement-only).
+In later phases this will expand to the usual Bochner-type correction. -/
+def doob_gamma2_eq {X : Type*} (h : X → ℝ)
+  (D : Diffusion X) (f : X → ℝ) : Prop :=
+  DoobAssumptions h D → (Doob h D).Gamma2 f = D.Gamma2 f
+
+/-- Γ₂ identity for all test functions (quantified version). -/
+def doob_gamma2_eq_all {X : Type*} (h : X → ℝ)
+  (D : Diffusion X) : Prop :=
+  DoobAssumptions h D → ∀ f : X → ℝ, (Doob h D).Gamma2 f = D.Gamma2 f
 
 /- CD-parameter update (Ricci with potential) as a statement placeholder. -/
-def cd_parameter_shift {X : Type*} (_h : X → ℝ) (_D : Diffusion X) : Prop :=
-  True
+def cd_parameter_shift {X : Type*} (h : X → ℝ) (D : Diffusion X) : Prop :=
+  DoobAssumptions h D → True
 
 end Frourio

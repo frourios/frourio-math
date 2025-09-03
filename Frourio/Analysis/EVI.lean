@@ -79,6 +79,17 @@ def toRge0 (t : ℝ) : Rge0 := ⟨max t 0, by exact le_max_right _ _⟩
 def restrictNonneg {X : Type*} (u : Rge0 → X) : ℝ → X :=
   fun t => u (toRge0 t)
 
+/-- EVI predicate on nonnegative time curves via the `restrictNonneg` wrapper. -/
+def IsEVISolutionNonneg {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u : Rge0 → X) : Prop :=
+  IsEVISolution P (restrictNonneg u)
+
+/-- Contraction statement for nonnegative-time curves (wrapper version). -/
+def evi_contraction_nonneg {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : Rge0 → X)
+  (_hu : IsEVISolutionNonneg P u) (_hv : IsEVISolutionNonneg P v) : Prop :=
+  ContractionProperty P (restrictNonneg u) (restrictNonneg v)
+
 /- Mosco scaffold (index type ι for the family) -/
 structure MoscoSystem (ι : Type*) where
   (Xh : ι → Type*)
@@ -91,12 +102,23 @@ structure MoscoSystem (ι : Type*) where
 
 attribute [instance] MoscoSystem.hx MoscoSystem.x
 
+/- Externalized Mosco predicates (placeholders to be refined later). These
+are kept as `Prop`-valued definitions so that `MoscoAssumptions` can store
+their proofs as fields, following the design intent. -/
+def MoscoGeodesicComplete {ι : Type*} (_S : MoscoSystem ι) : Prop := True
+def MoscoTight {ι : Type*} (_S : MoscoSystem ι) : Prop := True
+def MoscoM1 {ι : Type*} (_S : MoscoSystem ι) : Prop := True
+def MoscoM2 {ι : Type*} (_S : MoscoSystem ι) : Prop := True
+
+/-- Assumption pack (kept as trivial proofs for now). The concrete
+predicates `MoscoTight`, `MoscoM1`, `MoscoM2` are defined above and will
+replace `True` fields in later phases. -/
 structure MoscoAssumptions {ι : Type*} (S : MoscoSystem ι) : Prop where
-  (geodesic_complete : True)
-  (tightness : True)
+  (geodesic_complete : MoscoGeodesicComplete S)
+  (tightness : MoscoTight S)
   (lsc_Ent : True)
-  (M1 : True)
-  (M2 : True)
+  (M1 : MoscoM1 S)
+  (M2 : MoscoM2 S)
 
 /- EVI inheritance statement placeholder. In later phases this will be
 strengthened to explicit quantitative inequalities. -/
