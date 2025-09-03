@@ -11,12 +11,10 @@ import Frourio.Analysis.EVI
 import Frourio.Analysis.DoobTransform
 import Frourio.Analysis.YoungConvolution
 import Frourio.Geometry.DiracIndex
+import Frourio.Geometry.FGCore
+import Frourio.Geometry.FGInterop
+import Frourio.Geometry.MPointCalibration
+import Frourio.Geometry.FGTheorems
 import Frourio.Theorems.NoGoTheorem
 import Frourio.Theorems.GoldenExtremality
 import Frourio.Examples
-
-/-!
-# Frourio代数学
-
-m点Frourio作用素の形式化
--/
