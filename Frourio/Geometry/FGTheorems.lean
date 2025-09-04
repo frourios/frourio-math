@@ -68,26 +68,26 @@ theorem evi_scale_rule_similarity (FG : FGData X) (S : ScaleAction X)
   · exact Or.inr hSim
   · intro k; refine ⟨effectiveLambda α κ S.Lambda k FG.lam, rfl⟩
 
+end X
+
 /- G2-T2: Doob×Scale commute (sufficient-condition shell)
 We keep this abstract: for any weight `h` and scale step `k`, the Doob
 transform should commute with the scale action under suitable (omitted)
 assumptions. -/
-def doob_scale_commute (_D : Diffusion X) (_S : ScaleAction X) : Prop :=
+def doob_scale_commute {X : Type*} (_D : Diffusion X) (_S : ScaleAction X) : Prop :=
   ∀ (_h : X → ℝ) (_k : ℤ), True
 
 /-- Sufficient condition placeholder for Doob×Scale commutation.
 Intended to encode `h ∘ S_Λ = c · h` (eigenfunction condition) per step `k`. -/
-def doob_scale_commute_sufficient (_D : Diffusion X) (_S : ScaleAction X) : Prop :=
+def doob_scale_commute_sufficient {X : Type*} (_D : Diffusion X) (_S : ScaleAction X) : Prop :=
   ∀ (_h : X → ℝ) (_k : ℤ), True
 
 /-- If the sufficient condition holds (e.g. `h ∘ S_Λ = c · h`), then the
 Doob transform commutes with the scale action (statement-level). -/
-theorem doob_scale_commute_of_sufficient (D : Diffusion X) (S : ScaleAction X)
+theorem doob_scale_commute_of_sufficient {X : Type*} (D : Diffusion X) (S : ScaleAction X)
   (H : doob_scale_commute_sufficient D S) : doob_scale_commute D S :=
 by
   intro h k; exact H h k
-
-end X
 
 /- G2-T3: Mosco inheritance bridge (re-export to analysis layer) -/
 def mosco_inheritance {ι : Type*} (S : MoscoSystem ι)
@@ -262,7 +262,10 @@ theorem ede_evi_pack_for_FG
   (H : EDE_EVI_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
   EDEEVIAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
 by
-  refine build_EDEEVI_pack_from_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) HC SUB H
+  refine build_EDEEVI_pack_from_flags
+    (FrourioFunctional.F S.func)
+    (lambdaBE S.base.lam S.eps)
+    HC SUB H
 
 /-- Step 3 (FG-level wrapper): from analytic flags for `F := Ent + γ·Dσm` with
 `λ_eff := lambdaBE λ ε` and a PLFA⇔EDE analytic bridge, obtain the component
@@ -309,7 +312,8 @@ theorem jko_plfa_pack_for_FG
   (H : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func)) :
   JKOPLFAAssumptions (FrourioFunctional.F S.func) :=
 by
-  refine build_JKOPLFA_pack_from_flags (FrourioFunctional.F S.func) H A.proper A.lsc A.coercive A.jkoStable
+  refine build_JKOPLFA_pack_from_flags
+    (FrourioFunctional.F S.func) H A.proper A.lsc A.coercive A.jkoStable
 
 /-- Step 2 (FG-level theorem): from analytic flags and bridges (JKO⇒PLFA and
 PLFA⇔EDE), conclude `JKO ⇒ EDE` for `F := Ent + γ·Dσm`. -/
@@ -318,10 +322,13 @@ theorem jko_ede_for_FG
   (S : GradientFlowSystem X)
   (A : AnalyticFlags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
   (Hjko : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func))
-  (HplfaEde : PLFA_EDE_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
-  ∀ ρ0 : X, JKO (FrourioFunctional.F S.func) ρ0 → ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ EDE (FrourioFunctional.F S.func) ρ :=
+  (HplfaEde : PLFA_EDE_from_analytic_flags (FrourioFunctional.F S.func)
+      (lambdaBE S.base.lam S.eps)) :
+  ∀ ρ0 : X, JKO (FrourioFunctional.F S.func) ρ0 →
+    ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ EDE (FrourioFunctional.F S.func) ρ :=
 by
-  exact jko_to_ede_from_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
+  exact jko_to_ede_from_flags
+    (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
     Hjko HplfaEde A.proper A.lsc A.coercive A.jkoStable A.HC A.SUB
 
 /-- Step 2 (FG-level theorem): from analytic flags and bridges (JKO⇒PLFA,
@@ -331,12 +338,16 @@ theorem jko_evi_for_FG
   (S : GradientFlowSystem X)
   (A : AnalyticFlags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
   (Hjko : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func))
-  (HplfaEde : PLFA_EDE_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
-  (HedeEvi : EDE_EVI_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
-  ∀ ρ0 : X, JKO (FrourioFunctional.F S.func) ρ0 → ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧
-    IsEVISolution ({ E := FrourioFunctional.F S.func, lam := lambdaBE S.base.lam S.eps } : EVIProblem X) ρ :=
+  (HplfaEde : PLFA_EDE_from_analytic_flags (FrourioFunctional.F S.func)
+      (lambdaBE S.base.lam S.eps))
+  (HedeEvi : EDE_EVI_from_analytic_flags (FrourioFunctional.F S.func)
+      (lambdaBE S.base.lam S.eps)) :
+  ∀ ρ0 : X, JKO (FrourioFunctional.F S.func) ρ0 →
+    ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ IsEVISolution
+      ({ E := FrourioFunctional.F S.func, lam := lambdaBE S.base.lam S.eps } : EVIProblem X) ρ :=
 by
-  exact jko_to_evi_from_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
+  exact jko_to_evi_from_flags
+    (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
     Hjko HplfaEde HedeEvi A.proper A.lsc A.coercive A.jkoStable A.HC A.SUB
 
 /-! Concrete sufficient conditions (FG-side, statement-level)
@@ -371,9 +382,15 @@ theorem analytic_bridges_from_component_packs
   AnalyticBridges (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
 by
   -- Build bridges by instantiating the general pack-to-bridge lemmas
-  refine { plfaEde := plfa_ede_bridge_from_pack (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) Hplfa_ede,
-           edeEvi := ede_evi_bridge_from_pack (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) Hede_evi,
-           jkoPlfa := jko_plfa_bridge_from_pack (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) Hjko_plfa }
+  refine { plfaEde :=
+             plfa_ede_bridge_from_pack (FrourioFunctional.F S.func)
+               (lambdaBE S.base.lam S.eps) Hplfa_ede,
+           edeEvi :=
+             ede_evi_bridge_from_pack (FrourioFunctional.F S.func)
+               (lambdaBE S.base.lam S.eps) Hede_evi,
+           jkoPlfa :=
+             jko_plfa_bridge_from_pack (FrourioFunctional.F S.func)
+               (lambdaBE S.base.lam S.eps) Hjko_plfa }
 
 /-- Build `AnalyticBridges` from an equivalence-assumption pack. -/
 theorem analytic_bridges_from_equiv_pack
@@ -382,9 +399,15 @@ theorem analytic_bridges_from_equiv_pack
   (H : EquivBuildAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
   AnalyticBridges (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
 by
-  refine { plfaEde := plfa_ede_bridge_from_equiv_pack (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) H,
-           edeEvi := ede_evi_bridge_from_equiv_pack (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) H,
-           jkoPlfa := jko_plfa_bridge_from_equiv_pack (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) H }
+  refine { plfaEde :=
+             plfa_ede_bridge_from_equiv_pack (FrourioFunctional.F S.func)
+               (lambdaBE S.base.lam S.eps) H,
+           edeEvi :=
+             ede_evi_bridge_from_equiv_pack (FrourioFunctional.F S.func)
+               (lambdaBE S.base.lam S.eps) H,
+           jkoPlfa :=
+             jko_plfa_bridge_from_equiv_pack (FrourioFunctional.F S.func)
+               (lambdaBE S.base.lam S.eps) H }
 
 /-- Bridge-eliminated variant: given analytic flags and an equivalence pack for
 `F := Ent + γ·Dσm` with `λ_eff := lambdaBE λ ε`, synthesize the analytic bridges

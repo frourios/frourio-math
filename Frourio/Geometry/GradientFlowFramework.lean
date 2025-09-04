@@ -101,7 +101,9 @@ theorem gradient_flow_suite
   (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
   gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S := by
   refine And.intro (gradient_flow_equiv_of_pack S G) ?hrest
-  refine And.intro (lambda_eff_lower_bound_of S (lamEff := lamEff) hLam) (two_evi_with_force_of S Htwo)
+  refine And.intro
+    (lambda_eff_lower_bound_of S (lamEff := lamEff) hLam)
+    (two_evi_with_force_of S Htwo)
 
 end Xsuite
 

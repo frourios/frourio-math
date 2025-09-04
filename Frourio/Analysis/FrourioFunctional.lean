@@ -51,6 +51,35 @@ This encodes that the extra term does not invert convexity trends. -/
 def K4m {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) : Prop := 0 ≤ A.gamma
 
+/-- If the K-transform has a uniform lower bound at `s = 0` by `-C0` and the
+scale `Ssup` is nonnegative, then the derived `Dσm(x) = Ssup · K.map x 0` is
+bounded below by `-(Ssup · C0)`. Hence the `K1′` surrogate holds for the
+functional built from `K`. -/
+theorem k1prime_ofK_from_uniform_lower_bound {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup C0 : ℝ)
+  (hS : 0 ≤ Ssup) (hLB : UniformLowerBoundAtZero K C0) :
+  K1prime (FrourioFunctional.ofK Ent K gamma Ssup) :=
+by
+  refine ⟨Ssup * C0, ?_⟩
+  intro x
+  dsimp [FrourioFunctional.ofK, DsigmamFromK]
+  have h' : -C0 ≤ K.map x 0 := by simpa using (hLB x)
+  have hineq' : Ssup * (-C0) ≤ Ssup * K.map x 0 :=
+    mul_le_mul_of_nonneg_left h' hS
+  -- rewrite `Ssup * (-C0)` as `-(Ssup * C0)` and flip to a `≥`-shaped bound
+  have : -(Ssup * C0) ≤ Ssup * K.map x 0 := by
+    simpa [mul_comm, mul_left_comm, mul_assoc, mul_neg, neg_mul] using hineq'
+  simpa [ge_iff_le] using this
+
+/-- Specialization of `k1prime_ofK_from_uniform_lower_bound` to the 1D basic
+model, which satisfies the uniform lower bound for `C0 = 0`. -/
+theorem k1prime_for_F_of_basic1D
+  (Ent : ℝ → ℝ) (gamma Ssup : ℝ) (hS : 0 ≤ Ssup) :
+  K1prime (FrourioFunctional.ofK Ent (KTransform.basic1D) gamma Ssup) :=
+by
+  have hLB := UniformLowerBoundAtZero_basic1D
+  simpa using (k1prime_ofK_from_uniform_lower_bound Ent (KTransform.basic1D) gamma Ssup 0 hS hLB)
+
 /- Promote K-side predicates to a statement-level slope bound builder.
    (moved below after slope-based predicates are introduced).
    Given (K1′), (K4^m), and nonnegativity of the proxies, we produce the
@@ -98,14 +127,58 @@ signature to match the review action. -/
 theorem lambdaEffLowerBound_from_doobAssumptions_mpoint {X : Type*}
   [PseudoMetricSpace X]
   (A : FrourioFunctional X) (budget : ConstantBudget)
-  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
+  (h : X → ℝ) (D : Diffusion X) (_H : DoobAssumptions h D)
   (lam eps lamEff Ssup XiNorm : ℝ)
   (_hM : MPointZeroOrderBound Ssup XiNorm)
   (_hB : BudgetNonneg budget)
   (_hγ : 0 ≤ A.gamma)
-  (hChoice : lamEff ≥ lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)) :
+  (hChoice : lamEff ≥
+      lambdaBE lam eps
+        - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)) :
   lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm :=
   lambdaEffLowerBound_thm A budget hChoice
+
+/-- Explicit lambda-eff lower bound using the explicit Doob CD shift.
+Assume `D` has `CD(λ,∞)` and a Doob weight `h` satisfies the Hessian bound
+`∇² log h ≤ ε g`. Then, for nonnegative proxies and coupling, we obtain the
+budgeted inequality with the effective parameter chosen as `λ_eff = λ - 2ε`.
+
+This theorem tracks the Doob assumptions and the Hessian bound in its
+signature; the numerical inequality follows from nonnegativity. -/
+theorem lambdaEffLowerBound_from_doob_explicit_mpoint {X : Type*}
+  [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (budget : ConstantBudget)
+  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
+  (lam eps Ssup XiNorm : ℝ)
+  (Hhess : HessianLogBound h D eps) (hCD : HasCD D lam)
+  (hM : MPointZeroOrderBound Ssup XiNorm)
+  (hB : BudgetNonneg budget)
+  (hγ : 0 ≤ A.gamma) :
+  lambdaEffLowerBound A budget lam eps (lambdaBE lam eps) Ssup XiNorm :=
+by
+  -- Track the explicit Doob CD shift at the type level.
+  have _ := cd_parameter_shift_explicit h D H eps Hhess (lam := lam) hCD
+  -- Show `λ - 2ε ≥ (λ - 2ε) - γ * (c⋆ S^2 + cD Ξ)` from nonnegativity.
+  -- First, the budgeted bracket is nonnegative.
+  have hS2 : 0 ≤ Ssup ^ (2 : ℕ) := by simpa using pow_nonneg hM.1 (2 : ℕ)
+  have hterm1 : 0 ≤ budget.cStar * Ssup ^ (2 : ℕ) := mul_nonneg hB.1 hS2
+  have hterm2 : 0 ≤ budget.cD * XiNorm := mul_nonneg hB.2 hM.2
+  have hsum : 0 ≤ budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm :=
+    add_nonneg hterm1 hterm2
+  have hγsum : 0 ≤ A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
+    mul_nonneg hγ hsum
+  -- Use `a - b ≤ a` for `b ≥ 0`, with `a = λ - 2ε` and `b = γ * (...)`.
+  have hineq : lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)
+                ≤ lambdaBE lam eps := by
+    -- `a - b ≤ a` iff `a ≤ a + b`, which holds for `b ≥ 0`.
+    have := hγsum
+    exact (sub_le_iff_le_add').mpr (by
+      have : 0 ≤ A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) := this
+      -- `a ≤ a + b` for `b ≥ 0`.
+      simpa using (le_add_of_nonneg_right this : lambdaBE lam eps ≤ lambdaBE lam eps
+        + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)))
+  -- Repackage as the target `λ_eff ≥ (λ - 2ε) - γ * (...)` with `λ_eff = λ - 2ε`.
+  exact hineq
 
 /-- Constructive variant using `DoobAssumptions`: produce an explicit
 `lamEff` witnessing the lower bound, given m-point zero-order bounds and
@@ -129,7 +202,7 @@ by
 will be replaced by a metric slope/descending slope. Kept numeric to state
 strong upper bounds algebraically. -/
 noncomputable def slope {X : Type*} [PseudoMetricSpace X]
-  (G : X → ℝ) (x : X) : ℝ := 0
+  (_G : X → ℝ) (_x : X) : ℝ := 0
 
 /-- Predicate for a strong upper bound on the slope of `F = Ent + γ·Dσm`:
   |∂F|(x) ≤ |∂Ent|(x) + γ · (cStar · Ssup^2 + cD · XiNorm)
@@ -167,10 +240,45 @@ theorem slope_strong_upper_bound_from_K {X : Type*} [PseudoMetricSpace X]
   (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
   (budget : ConstantBudget) (Ssup XiNorm : ℝ)
   (H : StrongSlopeFromK_flags Ent K gamma budget Ssup XiNorm)
-  (hK1 : K1primeK K) (hK4 : K4mK K) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma) :
+  (_hK1 : K1primeK K) (_hK4 : K4mK K) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma) :
   StrongSlopeUpperBound_pred (FrourioFunctional.ofK Ent K gamma Ssup) budget Ssup XiNorm :=
 by
-  exact H ⟨hK1, hK4, hS, hX, hγ⟩
+  exact H ⟨_hK1, _hK4, hS, hX, hγ⟩
+
+/-- A trivial slope upper bound using the dummy slope = 0 and nonnegativity. -/
+theorem slope_upper_bound_trivial {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ)
+  (hB : BudgetNonneg budget) (hγ : 0 ≤ A.gamma) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) :
+  StrongSlopeUpperBound_pred A budget Ssup XiNorm :=
+by
+  intro x
+  -- Left-hand side is 0 by the `slope` definition.
+  simp [slope]
+  -- We need to show `0 ≤ slope Ent x + γ * (...)`, which follows from nonnegativity.
+  have hS2 : 0 ≤ Ssup ^ (2 : ℕ) := by simpa using pow_nonneg hS (2 : ℕ)
+  have hterm1 : 0 ≤ budget.cStar * Ssup ^ (2 : ℕ) :=
+    mul_nonneg hB.1 hS2
+  have hterm2 : 0 ≤ budget.cD * XiNorm := mul_nonneg hB.2 hX
+  have hsum : 0 ≤ budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm :=
+    add_nonneg hterm1 hterm2
+  have hγsum : 0 ≤ A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
+    mul_nonneg hγ hsum
+  -- `slope A.Ent x = 0` by definition, so the target is exactly `0 ≤ γ * (...)`.
+  simpa [slope] using hγsum
+
+/-- Concrete builder: from K-side flags and nonnegativity, produce a strong
+upper bound on the slope of `F := Ent + γ·Dσm` using the trivial inequality. -/
+theorem slope_strong_upper_bound_from_K_trivial {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm : ℝ)
+  (_hK1 : K1primeK K) (_hK4 : K4mK K)
+  (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma)
+  (hB : BudgetNonneg budget) :
+  StrongSlopeUpperBound_pred (FrourioFunctional.ofK Ent K gamma Ssup) budget Ssup XiNorm :=
+by
+  -- Ignore `hK1`, `hK4` at this phase and use the trivial slope upper bound.
+  exact slope_upper_bound_trivial (FrourioFunctional.ofK Ent K gamma Ssup)
+    budget Ssup XiNorm hB (by simpa using hγ) hS hX
 
 /-
 Bridging to PLFA analytic flags for `F := Ent + γ·Dσm`.
@@ -181,7 +289,7 @@ corresponding flags for `F`.
 
 /-- Half-convexity flag for `F` from nonnegative coupling (placeholder). -/
 theorem halfConvex_flag_for_F {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (lamEff : ℝ) (hγ : 0 ≤ A.gamma) :
+  (A : FrourioFunctional X) (lamEff : ℝ) (_hγ : 0 ≤ A.gamma) :
   HalfConvex (FrourioFunctional.F A) lamEff :=
 by
   -- `HalfConvex` is a placeholder (`True`) at this phase.
@@ -217,31 +325,12 @@ theorem jkoStable_flag_for_F {X : Type*} [PseudoMetricSpace X]
   change True; exact trivial
 
 /-- Aggregate: build PLFA analytic flags for `F := Ent + γ·Dσm` from K-side inputs. -/
-/- A trivial slope upper bound using the dummy slope = 0 and nonnegativity. -/
-theorem slope_upper_bound_trivial {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ)
-  (hB : BudgetNonneg budget) (hγ : 0 ≤ A.gamma) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) :
-  StrongSlopeUpperBound_pred A budget Ssup XiNorm :=
-by
-  intro x
-  -- Left-hand side is 0 by the `slope` definition.
-  simp [slope]
-  -- We need to show `0 ≤ slope Ent x + γ * (...)`, which follows from nonnegativity.
-  have hS2 : 0 ≤ Ssup ^ (2 : ℕ) := by exact pow_two_nonneg _
-  have hterm1 : 0 ≤ budget.cStar * Ssup ^ (2 : ℕ) :=
-    mul_nonneg hB.1 hS2
-  have hterm2 : 0 ≤ budget.cD * XiNorm := mul_nonneg hB.2 hX
-  have hsum : 0 ≤ budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm :=
-    add_nonneg hterm1 hterm2
-  have hγsum : 0 ≤ A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
-    mul_nonneg hγ hsum
-  -- `slope A.Ent x = 0` by definition, so the target is exactly `0 ≤ γ * (...)`.
-  simpa [slope] using hγsum
+-- (moved above to avoid forward reference)
 
 theorem analytic_flags_for_F_from_K {X : Type*} [PseudoMetricSpace X]
   (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
   (budget : ConstantBudget) (Ssup XiNorm lamEff : ℝ)
-  (hK1 : K1primeK K) (hK4 : K4mK K) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma)
+  (_hK1 : K1primeK K) (_hK4 : K4mK K) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma)
   (hB : BudgetNonneg budget) :
   AnalyticFlags (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
 by
@@ -257,5 +346,19 @@ by
       (slope_upper_bound_trivial A budget Ssup XiNorm hB
         (by simpa using hγ) hS hX)
   · exact jkoStable_flag_for_F A
+
+/-- Convenience: build analytic flags for `F` using the 1D basic K-transform
+model and nonnegativity assumptions. -/
+theorem analytic_flags_for_F_from_basic1D
+  (Ent : ℝ → ℝ) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm lamEff : ℝ)
+  (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma)
+  (hB : BudgetNonneg budget) :
+  AnalyticFlags
+    (FrourioFunctional.F (FrourioFunctional.ofK Ent (KTransform.basic1D) gamma Ssup))
+    lamEff :=
+by
+  refine analytic_flags_for_F_from_K Ent (KTransform.basic1D) gamma budget Ssup XiNorm lamEff
+    (K1prime_basic1D) (K4mK_basic1D) hS hX hγ hB
 
 end Frourio

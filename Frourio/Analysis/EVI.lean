@@ -3,6 +3,9 @@ import Mathlib.Data.Real.Sqrt
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Data.Real.Basic
 import Mathlib.Topology.Basic
+import Mathlib.Topology.Order.DenselyOrdered
+import Mathlib.Order.LiminfLimsup
+import Mathlib.Tactic
 
 namespace Frourio
 
@@ -20,19 +23,76 @@ intentionally deferred to later phases; here we only fix APIs and types.
 noncomputable def d2 {X : Type*} [PseudoMetricSpace X] (x y : X) : ℝ :=
   (dist x y) ^ (2 : ℕ)
 
-/- Upper Dini derivative (upper right Dini via limsup of forward quotients). -/
+/- Upper Dini derivative into EReal (avoids coboundedness hassles). -/
+noncomputable def DiniUpperE (φ : ℝ → ℝ) (t : ℝ) : EReal :=
+  Filter.limsup (fun h : ℝ => (((φ (t + h) - φ t) / h : ℝ) : EReal))
+    (nhdsWithin (0 : ℝ) (Set.Ioi 0))
+
+
+
+/-- Time shift: `t ↦ s + t` just shifts the evaluation point (EReal form). -/
+theorem DiniUpperE_shift (φ : ℝ → ℝ) (s t : ℝ) :
+  DiniUpperE (fun τ => φ (s + τ)) t = DiniUpperE φ (s + t) := by
+  -- Unfold and normalize using associativity of addition.
+  dsimp [DiniUpperE]
+  -- `(s + (t + h)) = (s + t) + h`
+  simp [add_assoc]
+
+/-- Adding a constant does not change the upper Dini derivative (EReal form). -/
+theorem DiniUpperE_add_const (ψ : ℝ → ℝ) (c t : ℝ) :
+  DiniUpperE (fun τ => ψ τ + c) t = DiniUpperE ψ t := by
+  -- The constant cancels in the forward difference quotient.
+  dsimp [DiniUpperE]
+  -- `(ψ (t+h) + c) - (ψ t + c) = ψ (t+h) - ψ t`
+  simp
+
+/- If `φ` is nonincreasing, then the upper Dini derivative is ≤ 0 (EReal form). -/
+theorem DiniUpper_nonpos_of_nonincreasing (φ : ℝ → ℝ) (t : ℝ)
+  (Hmono : ∀ ⦃s u : ℝ⦄, s ≤ u → φ u ≤ φ s) :
+  DiniUpperE φ t ≤ (0 : EReal) := by
+  -- Show the forward difference quotient is eventually ≤ 0 for h → 0+.
+  have hEv : ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+      ((φ (t + h) - φ t) / h : ℝ) ≤ 0 := by
+    refine Filter.eventually_of_mem (by exact self_mem_nhdsWithin) ?_;
+    intro h hh
+    have hpos : 0 < h := hh
+    have hmon : φ (t + h) ≤ φ t := by
+      have : t ≤ t + h := by exact le_of_lt (by simpa using hpos)
+      simpa using (Hmono this)
+    have hnum_nonpos : φ (t + h) - φ t ≤ 0 := sub_nonpos.mpr hmon
+    have : (φ (t + h) - φ t) / h ≤ 0 := by
+      exact div_nonpos_of_nonpos_of_nonneg hnum_nonpos (le_of_lt hpos)
+    simpa using this
+  -- Promote to EReal and conclude via `limsup ≤` monotonicity there.
+  have hEvE : ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+      (((φ (t + h) - φ t) / h : ℝ) : EReal) ≤ (0 : EReal) :=
+    hEv.mono (fun _ hh => by simpa using hh)
+  have hbound :
+      Filter.limsup (fun h : ℝ => (((φ (t + h) - φ t) / h : ℝ) : EReal))
+          (nhdsWithin (0 : ℝ) (Set.Ioi 0)) ≤ (0 : EReal) :=
+    Filter.limsup_le_of_le (h := hEvE)
+  simpa [DiniUpperE] using hbound
+
+/- Real-valued upper Dini derivative retained for EVI statements. -/
 noncomputable def DiniUpper (φ : ℝ → ℝ) (t : ℝ) : ℝ :=
   Filter.limsup (fun h : ℝ => (φ (t + h) - φ t) / h)
     (nhdsWithin (0 : ℝ) (Set.Ioi 0))
 
-/- If `φ` is nonincreasing, then the upper Dini derivative is ≤ 0. -/
-theorem DiniUpper_nonpos_of_nonincreasing (φ : ℝ → ℝ) (t : ℝ)
-  (Hmono : ∀ ⦃s u : ℝ⦄, s ≤ u → φ u ≤ φ s) :
-  DiniUpper φ t ≤ 0 := by
-  -- Detailed filter-based proof deferred; standard fact from real analysis.
-  -- Each forward quotient `(φ (t + h) - φ t)/h` is ≤ 0 for `h > 0`,
-  -- hence the limsup is ≤ 0.
-  admit
+/-- Time shift: `t ↦ s + t` just shifts the evaluation point (Real form). -/
+theorem DiniUpper_shift (φ : ℝ → ℝ) (s t : ℝ) :
+  DiniUpper (fun τ => φ (s + τ)) t = DiniUpper φ (s + t) := by
+  -- Unfold and normalize using associativity of addition.
+  dsimp [DiniUpper]
+  -- `(s + (t + h)) = (s + t) + h`
+  simp [add_assoc]
+
+/-- Adding a constant to the function does not change the upper Dini derivative (Real form). -/
+theorem DiniUpper_add_const (ψ : ℝ → ℝ) (c t : ℝ) :
+  DiniUpper (fun τ => ψ τ + c) t = DiniUpper ψ t := by
+  -- The constant cancels in the forward difference quotient.
+  dsimp [DiniUpper]
+  -- `(ψ (t+h) + c) - (ψ t + c) = ψ (t+h) - ψ t`
+  simp
 
 /- EVI problem datum: an energy and a parameter λ -/
 structure EVIProblem (X : Type*) [PseudoMetricSpace X] where
@@ -178,6 +238,44 @@ theorem sqrt_exp_halves_prop (x : ℝ) : sqrt_exp_halves x := by
   -- Conclude via `sqrt (y^2) = |y|` and positivity of `exp`.
   simp [hx', Real.sqrt_sq_eq_abs, abs_of_pos hxpos]
 
+/-- Subadditivity surrogate: for nonnegative `a, b`,
+`√(a + b) ≤ √a + √b`. -/
+theorem sqrt_add_le_sqrt_add_sqrt_prop (a b : ℝ) (ha : 0 ≤ a) (hb : 0 ≤ b) :
+  Real.sqrt (a + b) ≤ Real.sqrt a + Real.sqrt b := by
+  -- Compare squares; both sides are nonnegative.
+  have hA_nonneg : 0 ≤ Real.sqrt (a + b) := Real.sqrt_nonneg _
+  have hB_nonneg : 0 ≤ Real.sqrt a + Real.sqrt b :=
+    add_nonneg (Real.sqrt_nonneg _) (Real.sqrt_nonneg _)
+  -- Square both sides and compare.
+  have hsq : (Real.sqrt (a + b)) ^ (2 : ℕ) ≤ (Real.sqrt a + Real.sqrt b) ^ (2 : ℕ) := by
+    -- Left square: `a + b`. Right square: `a + b + 2 √a √b`.
+    have hL : (Real.sqrt (a + b)) ^ (2 : ℕ) = a + b := by
+      simp [pow_two, Real.mul_self_sqrt, add_nonneg ha hb]
+    have hR : (Real.sqrt a + Real.sqrt b) ^ (2 : ℕ)
+            = a + b + 2 * Real.sqrt a * Real.sqrt b := by
+      have hpoly :
+          (Real.sqrt a + Real.sqrt b) ^ (2 : ℕ)
+            = Real.sqrt a ^ (2 : ℕ) + 2 * Real.sqrt a * Real.sqrt b + Real.sqrt b ^ (2 : ℕ) := by
+        ring_nf
+      simpa [pow_two, add_comm, add_left_comm, add_assoc,
+             mul_comm, mul_left_comm, mul_assoc,
+             Real.mul_self_sqrt ha, Real.mul_self_sqrt hb] using hpoly
+    have hcross : 0 ≤ 2 * Real.sqrt a * Real.sqrt b := by
+      have : 0 ≤ (2 : ℝ) := by norm_num
+      have hprod : 0 ≤ Real.sqrt a * Real.sqrt b :=
+        mul_nonneg (Real.sqrt_nonneg _) (Real.sqrt_nonneg _)
+      simpa [mul_assoc] using mul_nonneg this hprod
+    -- Conclude `a + b ≤ a + b + 2 √a √b`.
+    have hle : a + b ≤ a + b + 2 * Real.sqrt a * Real.sqrt b :=
+      le_add_of_nonneg_right hcross
+    simpa [hL, hR] using hle
+  -- From `A^2 ≤ B^2` and nonnegativity, infer `A ≤ B`.
+  have habs : |Real.sqrt (a + b)| ≤ |Real.sqrt a + Real.sqrt b| := (sq_le_sq).1 hsq
+  have hA : |Real.sqrt (a + b)| = Real.sqrt (a + b) := abs_of_nonneg hA_nonneg
+  have hB : |Real.sqrt a + Real.sqrt b| = Real.sqrt a + Real.sqrt b := abs_of_nonneg hB_nonneg
+  -- Conclude after removing absolute values on both sides.
+  simpa [hA, hB] using habs
+
 /-- DiniUpper additivity upper bound (wrapper theorem from the predicate). -/
 theorem DiniUpper_add_le (φ ψ : ℝ → ℝ) (t : ℝ)
   (H : DiniUpper_add_le_pred φ ψ t) :
@@ -237,6 +335,40 @@ theorem gronwall_exponential_contraction_with_error_zero
     intro t; simpa using (Hineq0 t))
   intro t; simpa [zero_mul, add_comm] using h t
 
+/- Homogeneous Grönwall at λ = 0 (direct form, analysis deferred) -/
+
+
+/-- Homogeneous Grönwall inequality (core theorem):
+If `(DiniUpper W) + (2 λ) W ≤ 0` pointwise, then
+`W t ≤ exp (-(2 λ) t) · W 0`. -/
+/- Auxiliary: product rule upper bound for `exp(2λ·) * W` (not needed at this stage). -/
+
+theorem gronwall_exponential_contraction_core (lam : ℝ) (W : ℝ → ℝ)
+  (H : gronwall_exponential_contraction_pred lam W)
+  (Hineq : ∀ t : ℝ, DiniUpper W t + (2 * lam) * W t ≤ 0) :
+  ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 :=
+by
+  exact H Hineq
+
+-- The closed predicate form is supplied externally when needed; a
+-- local, argument-taking wrapper is available via `gronwall_exponential_contraction`.
+
+/-- Homogeneous Grönwall at λ = 0 (direct form):
+If `DiniUpper W ≤ 0` pointwise, then `W` is nonincreasing: `W t ≤ W 0`. -/
+theorem gronwall_zero (W : ℝ → ℝ)
+  (H : gronwall_exponential_contraction_pred (0 : ℝ) W)
+  (Hineq0 : ∀ t : ℝ, DiniUpper W t ≤ 0) :
+  ∀ t : ℝ, W t ≤ W 0 := by
+  -- Use the closed predicate at `λ = 0` and simplify the exponential factor.
+  have h := gronwall_exponential_contraction (0 : ℝ) W H
+    (by intro t; simpa [zero_mul, add_comm] using (Hineq0 t))
+  intro t
+  simpa [zero_mul, Real.exp_zero] using h t
+
+/- Inhomogeneous Grönwall (half version): kept as predicate-level result below. -/
+
+-- (Predicate-level closure for the inhomogeneous half version is deferred to later phases.)
+
 /-- Concrete bridge from squared-distance contraction to linear-distance
 contraction using monotonicity of `Real.sqrt` and algebraic identities. -/
 theorem bridge_contraction {X : Type*} [PseudoMetricSpace X]
@@ -266,9 +398,8 @@ theorem bridge_contraction_concrete {X : Type*} [PseudoMetricSpace X]
     exact mul_nonneg hx hy
   have hsqrt :
       Real.sqrt (d2 (u t) (v t)) ≤
-        Real.sqrt (Real.exp (-(2 * P.lam) * t) * d2 (u 0) (v 0)) := by
-    -- `sqrt` is monotone on nonnegative reals
-    exact Real.sqrt_le_sqrt h
+        Real.sqrt (Real.exp (-(2 * P.lam) * t) * d2 (u 0) (v 0)) :=
+    Real.sqrt_le_sqrt h
   -- Normalize associativity in the exponential argument.
   have hassoc3 : (-(2 * P.lam) * t) = (-(2 * P.lam * t)) := by simp [mul_assoc]
   have hsqrt' :
@@ -286,43 +417,26 @@ theorem bridge_contraction_concrete {X : Type*} [PseudoMetricSpace X]
     have hx : 0 ≤ Real.exp (-(2 * P.lam * t)) := le_of_lt (Real.exp_pos _)
     have hy : 0 ≤ d2 (u 0) (v 0) := by dsimp [d2]; exact sq_nonneg _
     simpa using sqrt_mul_nonneg_prop (Real.exp (-(2 * P.lam * t))) (d2 (u 0) (v 0)) hx hy
-  have hErw : Real.sqrt (Real.exp (-(2 * P.lam) * t)) = Real.exp (-(P.lam) * t) := by
-    -- √(exp(x)) = exp(x/2) with x = -(2 λ) t; simplify (-(2λ) t)/2 = -(λ t).
-    have hx := sqrt_exp_halves_prop (-(2 * P.lam * t))
+  have hErw : Real.sqrt (Real.exp (-(2 * P.lam * t))) = Real.exp (-(P.lam) * t) := by
+    -- √(exp(x)) = exp(x/2) with x = (-(2 λ) t); then simplify the half.
+    have hx := sqrt_exp_halves_prop (x := (-(2 * P.lam * t)))
+    dsimp [sqrt_exp_halves] at hx
     have h2 : (2 : ℝ) ≠ 0 := by norm_num
-    have hassoc : (2 * P.lam * t) = 2 * (P.lam * t) := by simp [mul_assoc]
     have hdiv : ((2 : ℝ) * (P.lam * t)) / 2 = (P.lam * t) := by
-      simpa [mul_comm] using (mul_div_cancel (P.lam * t) h2)
-    -- ((-(2λ) * t)) / 2 = -(λ * t)
-    have hhalf : ((-(2 * P.lam) * t)) / 2 = -(P.lam * t) := by
-      -- rewrite to -(2 * (λ * t)) / 2
-      have : (-(2 * P.lam) * t) = -((2 * P.lam * t)) := by simp [mul_assoc]
-      -- and use `neg_div` + `mul_div_cancel'`
-      have hneg : -((2 * P.lam * t)) / 2 = -(((2 * P.lam * t)) / 2) := by
-        simpa [neg_div]
-      have : -(((2 * P.lam * t)) / 2) = -(P.lam * t) := by
-        simpa [hassoc, hdiv]
-      simpa [this] using hneg
-    -- put pieces together
-    have hstep : Real.sqrt (Real.exp (-(2 * P.lam) * t)) = Real.exp (((-(2 * P.lam) * t)) / 2) := by
-      -- convert to the associativity form used in `hx`
-      have hassoc2 : (-(2 * P.lam) * t) = (-(2 * P.lam * t)) := by
-        simp [mul_assoc]
-      simpa [hassoc2] using hx
-    -- align the halving rewrite with the associativity form
-    have hassoc2' : (-(2 * P.lam) * t) = (-(2 * P.lam * t)) := by
-      simp [mul_assoc]
-    have hhalf2 : (-(2 * P.lam * t)) / 2 = -(P.lam * t) := by
-      simpa [hassoc2'] using hhalf
-    simpa [hhalf2] using hstep
+      have h2 : (2 : ℝ) ≠ 0 := by norm_num
+      simp [mul_comm, h2]
+    have hhalf : (-(2 * P.lam * t)) / 2 = -(P.lam * t) := by
+      have : (-(2 * P.lam * t)) = -((2 : ℝ) * (P.lam * t)) := by ring
+      have hneg : -((2 : ℝ) * (P.lam * t)) / 2 = -(((2 : ℝ) * (P.lam * t)) / 2) := by
+        simp [neg_div]
+      simpa [this, hdiv] using hneg
+    simpa [hhalf] using hx
   have h0rw : Real.sqrt (d2 (u 0) (v 0)) = dist (u 0) (v 0) :=
     sqrt_d2_dist_prop _ _
-  have hErw' : Real.sqrt (Real.exp (-(2 * P.lam * t))) = Real.exp (-(P.lam) * t) := by
-    simpa [hassoc3] using hErw
   have hRrw :
       Real.sqrt (Real.exp (-(2 * P.lam * t)) * d2 (u 0) (v 0)) =
         Real.exp (-(P.lam) * t) * dist (u 0) (v 0) := by
-    simpa [hErw', h0rw] using hMul
+    simpa [hErw, h0rw] using hMul
   -- Conclude after rewriting.
   simpa [hLrw, hRrw] using hsqrt'
 
@@ -534,6 +648,102 @@ theorem bridge_with_error {X : Type*} [PseudoMetricSpace X]
   (Hsq : ContractionPropertySqWithError P u v η) :
   ContractionPropertyWithError P u v η :=
 H Hsq
+
+/-- Concrete error-bridge: from squared-distance synchronization with error to
+distance-version with error, using `√(x + y) ≤ √x + √y` and the algebraic
+identities for `√(exp)` and `√(a·b)`. -/
+theorem bridge_contraction_with_error_concrete {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X) (η : ℝ) :
+  HbridgeWithError P u v η :=
+by
+  intro hSq; intro t
+  -- Start from the squared-distance bound with error.
+  have h := hSq t
+  -- Set `a := exp (-(2λ) t) · d2(u0,v0)` and `b0 := (2η) t`.
+  set a := Real.exp (-(2 * P.lam) * t) * d2 (u 0) (v 0) with ha
+  set b0 := (2 * η) * t with hb0
+  -- Monotonicity of `sqrt` with `b := max 0 b0`.
+  have hmax : b0 ≤ max 0 b0 := le_max_right _ _
+  have ha_nonneg : 0 ≤ a := by
+    have hx : 0 ≤ Real.exp (-(2 * P.lam) * t) := le_of_lt (Real.exp_pos _)
+    have hy : 0 ≤ d2 (u 0) (v 0) := by dsimp [d2]; exact sq_nonneg _
+    simpa [ha] using mul_nonneg hx hy
+  have hb_nonneg : 0 ≤ max 0 b0 := le_max_left _ _
+  have hsum_le : d2 (u t) (v t) ≤ a + max 0 b0 := by
+    have : d2 (u t) (v t) ≤ a + b0 := by simpa [ha, hb0] using h
+    exact this.trans (add_le_add_left hmax a)
+  -- Apply `sqrt` to both sides and then subadditivity.
+  have hL_nonneg' : 0 ≤ d2 (u t) (v t) := by dsimp [d2]; exact sq_nonneg _
+  have hRsum_nonneg : 0 ≤ a + max 0 b0 := add_nonneg ha_nonneg hb_nonneg
+  have hsqrt1 : Real.sqrt (d2 (u t) (v t)) ≤ Real.sqrt (a + max 0 b0) :=
+    Real.sqrt_le_sqrt hsum_le
+  have hsqrt2 : Real.sqrt (a + max 0 b0) ≤ Real.sqrt a + Real.sqrt (max 0 b0) := by
+    exact sqrt_add_le_sqrt_add_sqrt_prop a (max 0 b0) ha_nonneg hb_nonneg
+  have hsqrt : Real.sqrt (d2 (u t) (v t)) ≤ Real.sqrt a + Real.sqrt (max 0 b0) :=
+    hsqrt1.trans hsqrt2
+  -- Rewrite the left side and the `a`-term on the right.
+  have hLrw : Real.sqrt (d2 (u t) (v t)) = dist (u t) (v t) :=
+    sqrt_d2_dist_prop _ _
+  -- Factor `√(a)` into `√(exp) * √(d2)` and simplify.
+  have hMul : Real.sqrt a =
+      Real.sqrt (Real.exp (-(2 * P.lam) * t)) * Real.sqrt (d2 (u 0) (v 0)) := by
+    have hx : 0 ≤ Real.exp (-(2 * P.lam) * t) := le_of_lt (Real.exp_pos _)
+    have hy : 0 ≤ d2 (u 0) (v 0) := by dsimp [d2]; exact sq_nonneg _
+    simpa [ha] using (sqrt_mul_nonneg_prop (Real.exp (-(2 * P.lam) * t)) (d2 (u 0) (v 0)) hx hy)
+  -- `√(exp(-(2λ)t)) = exp(-(λ) t)` by halving the exponent.
+  have hErw : Real.sqrt (Real.exp (-(2 * P.lam) * t)) = Real.exp (-(P.lam) * t) := by
+    have hx := sqrt_exp_halves_prop (x := (-(2 * P.lam * t)))
+    dsimp [sqrt_exp_halves] at hx
+    have h2 : (2 : ℝ) ≠ 0 := by norm_num
+    have hdiv : ((2 : ℝ) * (P.lam * t)) / 2 = (P.lam * t) := by
+      have h2 : (2 : ℝ) ≠ 0 := by norm_num
+      simp [mul_comm, h2]
+    have hhalf : (-(2 * P.lam * t)) / 2 = -(P.lam * t) := by
+      have : (-(2 * P.lam * t)) = -((2 : ℝ) * (P.lam * t)) := by ring
+      have hneg : -((2 : ℝ) * (P.lam * t)) / 2 = -(((2 : ℝ) * (P.lam * t)) / 2) := by
+        simp [neg_div]
+      simpa [this, hdiv] using hneg
+    simpa [hhalf] using hx
+  have h0rw : Real.sqrt (d2 (u 0) (v 0)) = dist (u 0) (v 0) := sqrt_d2_dist_prop _ _
+  -- Align factor order and exponential argument shape robustly.
+  have hMul2' : Real.sqrt a = Real.sqrt (Real.exp (-(2 * P.lam) * t)) * dist (u 0) (v 0) := by
+    simpa [h0rw] using hMul
+  have hErw' : Real.sqrt (Real.exp (-(2 * P.lam) * t)) = Real.exp (-(P.lam * t)) := by
+    simpa [neg_mul] using hErw
+  have hErw'' : Real.sqrt (Real.exp (-(2 * P.lam * t))) = Real.exp (-(P.lam * t)) := by
+    -- adjust associativity inside the exponential argument
+    simpa [mul_assoc] using hErw'
+  have hRArw : Real.sqrt a = Real.exp (-(P.lam * t)) * dist (u 0) (v 0) := by
+    simpa [hErw''] using hMul2'
+  -- Rewrite the inequality into the target shape.
+  have hfinal :
+      dist (u t) (v t)
+        ≤ Real.exp (-(P.lam) * t) * dist (u 0) (v 0) + Real.sqrt (max 0 b0) := by
+    simpa [hLrw, hRArw, hb0]
+      using hsqrt
+  -- Conclude by replacing `√(max 0 b0)` with `√(max 0 ((2η) t))`.
+  simpa [hb0] using hfinal
+
+/-- End-to-end: from a mixed EVI sum and an inhomogeneous Grönwall helper,
+obtain the distance-version synchronization with error via the concrete bridge. -/
+theorem evi_synchronization_with_error_thm_concrete {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (geodesicBetween : Prop) (hR : MixedErrorBound X u v)
+  (Hsum : eviSumWithError P u v hu hv geodesicBetween hR)
+  (Hgr : (∀ t : ℝ, (1 / 2 : ℝ) *
+            DiniUpper (fun τ : ℝ => d2 (u τ) (v τ)) t
+            + P.lam * d2 (u t) (v t) ≤ hR.η) →
+          ∀ t : ℝ,
+            d2 (u t) (v t)
+              ≤ Real.exp (-(2 * P.lam) * t) * d2 (u 0) (v 0) + (2 * hR.η) * t) :
+  ContractionPropertyWithError P u v hR.η :=
+by
+  -- First, obtain the squared-distance synchronization via inhomogeneous Grönwall.
+  have hSq : ContractionPropertySqWithError P u v hR.η :=
+    eviSynchronizationSq_with_error P u v hu hv geodesicBetween hR Hsum Hgr
+  -- Then apply the concrete bridge with error.
+  exact bridge_contraction_with_error_concrete P u v hR.η hSq
 
 
 /- Optional: time-domain wrapper aligning (ℝ≥0 → X) with (ℝ → X) without

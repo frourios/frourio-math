@@ -79,6 +79,12 @@ structure DoobAssumptions {X : Type*} (h : X → ℝ) (D : Diffusion X) : Prop w
   Later phases will refine this to an explicit formula using `∇² log h`. -/
   (cd_shift : ∀ lam : ℝ, HasCD D lam → ∃ lam' : ℝ, HasCD (Doob h D) lam' ∧ lam' ≤ lam)
 
+/-- Placeholder for the Hessian bound on `log h` used in the explicit
+Doob curvature update: `∇² log h ≤ ε · g`. In the current lightweight
+phase this is a `Prop` alias of `True` so that the API can be wired
+without heavy differential-geometry dependencies. -/
+def HessianLogBound {X : Type*} (_h : X → ℝ) (_D : Diffusion X) (_eps : ℝ) : Prop := True
+
 /-- Γ identity under Doob transform (theoremized via assumptions). -/
 theorem doob_gamma_eq {X : Type*} (h : X → ℝ)
   (D : Diffusion X) (H : DoobAssumptions h D) : (Doob h D).Gamma = D.Gamma :=
@@ -103,5 +109,23 @@ theorem cd_parameter_shift {X : Type*} (h : X → ℝ) (D : Diffusion X)
   (H : DoobAssumptions h D) {lam : ℝ} (hCD : HasCD D lam) :
   ∃ lam' : ℝ, HasCD (Doob h D) lam' ∧ lam' ≤ lam :=
   H.cd_shift lam hCD
+
+/-- Explicit CD-parameter shift under a Hessian bound on `log h`.
+If `D` satisfies `CD(λ,∞)` and `∇² log h ≤ ε g`, then the Doob transform
+`Doob h D` satisfies `CD(λ − 2ε,∞)`. This is the explicit (three-line)
+Ricci-with-potential correction quoted in the design notes; here it is
+provided as a lightweight theorem with assumptions tracked at the type level.
+
+Note: `HasCD` is a placeholder (`True`) in this phase, so the proof is
+trivial; the purpose is to stabilize the API and dependencies. -/
+theorem cd_parameter_shift_explicit {X : Type*}
+  (h : X → ℝ) (D : Diffusion X) (_H : DoobAssumptions h D)
+  (eps : ℝ) (_Hhess : HessianLogBound h D eps)
+  {lam : ℝ} (_hCD : HasCD D lam) :
+  HasCD (Doob h D) (lam - 2 * eps) :=
+by
+  -- With `HasCD = True` the statement is immediate. This theorem pins down
+  -- the intended explicit parameter `lam - 2*eps` for downstream use.
+  change True; exact trivial
 
 end Frourio

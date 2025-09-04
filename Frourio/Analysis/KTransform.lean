@@ -26,7 +26,13 @@ structure KTransform (X : Type*) [PseudoMetricSpace X] where
 def K1primeK (K : KTransform X) : Prop := K.narrowContinuous
 
 /-- (K4^m) surrogate: geodesic affinity predicate (placeholder). -/
-def K4mK (K : KTransform X) : Prop := True
+def K4mK (_K : KTransform X) : Prop := True
+
+/-- Auxiliary predicate: a uniform lower bound for the kernel at `s = 0`.
+This lightweight surrogate is used to produce coercivity-style bounds for
+`Dσm` when building the functional layer. -/
+def UniformLowerBoundAtZero (K : KTransform X) (C0 : ℝ) : Prop :=
+  ∀ x : X, K.map x 0 ≥ -C0
 
 /-- Interface: build `Dσm` from a `KTransform` and a supplied sup-norm bound.
 We keep it algebraic via a simple evaluation `map x 0`, scaled by `Ssup`. -/
@@ -48,6 +54,12 @@ theorem K1prime_basic1D : K1primeK (KTransform.basic1D) := by
 theorem K4mK_basic1D : K4mK (KTransform.basic1D) := by
   change True
   exact trivial
+
+/-- In the 1D basic model, the kernel at `s = 0` is exactly `0`, hence admits
+the uniform lower bound with `C0 = 0`. -/
+theorem UniformLowerBoundAtZero_basic1D :
+  UniformLowerBoundAtZero (KTransform.basic1D) 0 := by
+  intro x; dsimp [UniformLowerBoundAtZero, KTransform.basic1D]; simp
 
 end X
 
