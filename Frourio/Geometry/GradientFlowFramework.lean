@@ -39,16 +39,55 @@ the functional `F = Ent + γ·Dσm` and effective parameter `λ_BE = λ - 2ε`. 
 def gradient_flow_equiv (S : GradientFlowSystem X) : Prop :=
   plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
 
+/-- Equivalence theorem (wrapper): if the packaged equivalence holds for
+`F := Ent + γ·Dσm` and `λ_BE := λ - 2ε`, then the gradient-flow equivalence holds. -/
+theorem gradient_flow_equiv_of_pack (S : GradientFlowSystem X)
+  (G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
+  gradient_flow_equiv S :=
+  G
+
 /-- Effective lambda lower bound statement: there exists `λ_eff` satisfying the
 budgeted inequality with Doob-corrected parameter. -/
 def lambda_eff_lower_bound (S : GradientFlowSystem X) : Prop :=
   ∃ lamEff : ℝ, lambdaEffLowerBound S.func S.budget S.base.lam S.eps lamEff S.Ssup S.XiNorm
 
+/-- Lower bound theorem (wrapper): a provided inequality instantiates the
+`lambda_eff_lower_bound` statement. -/
+theorem lambda_eff_lower_bound_of (S : GradientFlowSystem X)
+  {lamEff : ℝ}
+  (h : lambdaEffLowerBound S.func S.budget S.base.lam S.eps lamEff S.Ssup S.XiNorm) :
+  lambda_eff_lower_bound S :=
+by
+  exact ⟨lamEff, h⟩
+
 /-- Two-EVI with external forcing: packaged via the analysis-layer predicate. -/
 def two_evi_with_force (S : GradientFlowSystem X) : Prop :=
   ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v
 
+/-- two-EVI with force theorem (wrapper): pass through an analysis-layer result. -/
+theorem two_evi_with_force_of (S : GradientFlowSystem X)
+  (H : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
+  two_evi_with_force S :=
+  H
+
 end X
+
+section Xsuite
+variable {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+
+/-- Integrated gradient-flow suite: bundles the equivalence package,
+the lambda_eff lower bound, and the two-EVI with force into a single statement. -/
+theorem gradient_flow_suite
+  (S : GradientFlowSystem X)
+  (G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (lamEff : ℝ)
+  (hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps lamEff S.Ssup S.XiNorm)
+  (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
+  gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S := by
+  refine And.intro (gradient_flow_equiv_of_pack S G) ?hrest
+  refine And.intro (lambda_eff_lower_bound_of S (lamEff := lamEff) hLam) (two_evi_with_force_of S Htwo)
+
+end Xsuite
 
 /-- Minimal tensorization predicate (placeholder with nontrivial content):
 requires coercivity surrogates and nonnegative coupling for both factors. -/
@@ -64,6 +103,11 @@ noncomputable def effective_lambda_multiscale {m : ℕ}
   (α κ Λ : Fin m → ℝ) (k : Fin m → ℤ) (lam : ℝ) : ℝ :=
   lam * ∏ j : Fin m,
     Real.exp (((κ j - 2 * α j) * (k j : ℝ)) * Real.log (Λ j))
+
+/-- Alias used in the design notes. -/
+noncomputable abbrev effectiveLambdaVec {m : ℕ}
+  (α κ Λ : Fin m → ℝ) (k : Fin m → ℤ) (lam : ℝ) : ℝ :=
+  effective_lambda_multiscale α κ Λ k lam
 
 /-- Multi-scale rule statement: for any base parameter `λ`, there exists an
 effective parameter obtained by the product formula. -/
