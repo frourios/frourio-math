@@ -2,6 +2,7 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Topology.MetricSpace.Basic
 import Frourio.Analysis.KTransform
 import Frourio.Analysis.DoobTransform
+import Frourio.Analysis.PLFA
 
 namespace Frourio
 
@@ -82,47 +83,12 @@ theorem lambdaEffLowerBound_thm {X : Type*} [PseudoMetricSpace X]
   lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm :=
   h
 
-/-- Sufficient-condition placeholders to derive the λ_eff lower bound from
-Doob degradation and zero-order bounds of the multi-point term. -/
-def DoobCDShift (_lam _eps lamBE : ℝ) : Prop := True ∧ lamBE = lambdaBE _lam _eps
-
 def MPointZeroOrderBound (Ssup XiNorm : ℝ) : Prop := 0 ≤ Ssup ∧ 0 ≤ XiNorm
 
 def BudgetNonneg (budget : ConstantBudget) : Prop := 0 ≤ budget.cStar ∧ 0 ≤ budget.cD
 
-/-- From (placeholder) Doob shift, nonnegativity assumptions, and a chosen
-effective parameter meeting the target inequality, conclude the packaged
-`lambdaEffLowerBound`. The analytic content will be elaborated in later phases. -/
-theorem lambdaEffLowerBound_from_doob_mpoint {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (lam eps lamEff Ssup XiNorm : ℝ)
-  (_hDoob : DoobCDShift lam eps (lambdaBE lam eps))
-  (_hM : MPointZeroOrderBound Ssup XiNorm)
-  (_hB : BudgetNonneg budget)
-  (_hγ : 0 ≤ A.gamma)
-  (hChoice : lamEff ≥ lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)) :
-  lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm :=
-  lambdaEffLowerBound_thm A budget hChoice
-
-/-- Constructive λ_eff lower bound from Doob-CD shift and m-point zero-order bounds.
-We choose the explicit value
-
-  lamEff := lambdaBE lam eps - A.gamma * (budget.cStar * Ssup^2 + budget.cD * XiNorm),
-
-which trivially satisfies the inequality by reflexivity. This removes the
-ad-hoc `hChoice` premise and packages the existence of a valid `lamEff`. -/
-theorem lambdaEffLowerBound_construct_from_doob_mpoint {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (lam eps Ssup XiNorm : ℝ)
-  (_hDoob : DoobCDShift lam eps (lambdaBE lam eps))
-  (_hM : MPointZeroOrderBound Ssup XiNorm)
-  (_hB : BudgetNonneg budget)
-  (_hγ : 0 ≤ A.gamma) :
-  ∃ lamEff : ℝ, lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm :=
-by
-  refine ⟨lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm), ?_⟩
-  -- The inequality holds by reflexivity for this choice.
-  exact le_of_eq rfl
+-- Earlier scalar Doob-CD shift placeholders have been removed in favor of
+-- DoobAssumptions-based variants below.
 
 /-- Variant using the concrete Doob assumptions pack. This theorem connects
 `DoobAssumptions` to the λ_eff lower bound generation in the same
@@ -205,5 +171,91 @@ theorem slope_strong_upper_bound_from_K {X : Type*} [PseudoMetricSpace X]
   StrongSlopeUpperBound_pred (FrourioFunctional.ofK Ent K gamma Ssup) budget Ssup XiNorm :=
 by
   exact H ⟨hK1, hK4, hS, hX, hγ⟩
+
+/-
+Bridging to PLFA analytic flags for `F := Ent + γ·Dσm`.
+We keep these lightweight: PLFA’s flags are Prop-valued placeholders,
+so we expose builders that consume K-side assumptions and return the
+corresponding flags for `F`.
+-/
+
+/-- Half-convexity flag for `F` from nonnegative coupling (placeholder). -/
+theorem halfConvex_flag_for_F {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (lamEff : ℝ) (hγ : 0 ≤ A.gamma) :
+  HalfConvex (FrourioFunctional.F A) lamEff :=
+by
+  -- `HalfConvex` is a placeholder (`True`) at this phase.
+  change True; exact trivial
+
+/-- Strong-upper-bound flag for `F` from a strong slope upper bound predicate. -/
+theorem strongUpperBound_flag_for_F {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ)
+  (_H : StrongSlopeUpperBound_pred A budget Ssup XiNorm) :
+  StrongUpperBound (FrourioFunctional.F A) :=
+by
+  -- `StrongUpperBound` is a placeholder (`True`) at this phase.
+  change True; exact trivial
+
+/-- Properness flag for `F` under the K1′ coercivity surrogate of `Dσm` (placeholder). -/
+theorem proper_flag_for_F {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) : Proper (FrourioFunctional.F A) := by
+  change True; exact trivial
+
+/-- Lower semicontinuity flag for `F` (placeholder builder). -/
+theorem lsc_flag_for_F {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) : LowerSemicontinuous (FrourioFunctional.F A) := by
+  change True; exact trivial
+
+/-- Coercivity flag for `F` from the K1′ surrogate (placeholder builder). -/
+theorem coercive_flag_for_F {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) : Coercive (FrourioFunctional.F A) := by
+  change True; exact trivial
+
+/-- JKO stability flag for `F` (placeholder builder). -/
+theorem jkoStable_flag_for_F {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) : JKOStable (FrourioFunctional.F A) := by
+  change True; exact trivial
+
+/-- Aggregate: build PLFA analytic flags for `F := Ent + γ·Dσm` from K-side inputs. -/
+/- A trivial slope upper bound using the dummy slope = 0 and nonnegativity. -/
+theorem slope_upper_bound_trivial {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ)
+  (hB : BudgetNonneg budget) (hγ : 0 ≤ A.gamma) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) :
+  StrongSlopeUpperBound_pred A budget Ssup XiNorm :=
+by
+  intro x
+  -- Left-hand side is 0 by the `slope` definition.
+  simp [slope]
+  -- We need to show `0 ≤ slope Ent x + γ * (...)`, which follows from nonnegativity.
+  have hS2 : 0 ≤ Ssup ^ (2 : ℕ) := by exact pow_two_nonneg _
+  have hterm1 : 0 ≤ budget.cStar * Ssup ^ (2 : ℕ) :=
+    mul_nonneg hB.1 hS2
+  have hterm2 : 0 ≤ budget.cD * XiNorm := mul_nonneg hB.2 hX
+  have hsum : 0 ≤ budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm :=
+    add_nonneg hterm1 hterm2
+  have hγsum : 0 ≤ A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
+    mul_nonneg hγ hsum
+  -- `slope A.Ent x = 0` by definition, so the target is exactly `0 ≤ γ * (...)`.
+  simpa [slope] using hγsum
+
+theorem analytic_flags_for_F_from_K {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm lamEff : ℝ)
+  (hK1 : K1primeK K) (hK4 : K4mK K) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma)
+  (hB : BudgetNonneg budget) :
+  AnalyticFlags (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
+by
+  -- Construct the functional and discharge all component flags via placeholders.
+  let A := FrourioFunctional.ofK Ent K gamma Ssup
+  refine ⟨?proper, ?lsc, ?coercive, ?hc, ?sub, ?jko⟩
+  · exact proper_flag_for_F A
+  · exact lsc_flag_for_F A
+  · exact coercive_flag_for_F A
+  · exact halfConvex_flag_for_F A lamEff (by simpa using hγ)
+  · -- Strong upper bound via a trivial slope inequality using nonnegativity.
+    exact strongUpperBound_flag_for_F A budget Ssup XiNorm
+      (slope_upper_bound_trivial A budget Ssup XiNorm hB
+        (by simpa using hγ) hS hX)
+  · exact jkoStable_flag_for_F A
 
 end Frourio

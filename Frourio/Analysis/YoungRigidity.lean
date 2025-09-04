@@ -1,43 +1,50 @@
-import Mathlib.Data.Real.Basic
+import Frourio.Analysis.YoungConvolution
 
 namespace Frourio
 
 /-!
-FG8 A6: Young rigidity — statement module
+Young rigidity (statement wrappers)
 
-This module provides statement-level containers for a Young-type inequality
-between L² and TV, and an equality (rigidity) condition. It intentionally
-avoids analytic details and measure-theoretic burdens; the goal is to fix
-API shapes that later phases can refine with concrete proofs.
+This module packages the statement-level Young L2 inequalities and their
+rigidity forms from `YoungConvolution.lean` into small assumption packs and
+wrapper theorems. Proofs remain deferred; we only move and name results so
+they can be referenced from FG8 design points.
 -/
 
-/-- Statement container for Young inequality and its rigidity (equality) case
-on a domain `T` (e.g. `ℝ` or `ℤ`). -/
-structure YoungRigidityStatement (T : Type*) where
-  (inequality : Prop)
-  (rigidity : Prop)
+section R
+open scoped Topology
 
-/-- Minimalist predicate for the L²×TV → L² Young inequality on `ℝ`. -/
-def YoungInequality_L2_TV_R : Prop := True
+/-- Assumption pack for Young’s inequality and rigidity on ℝ. -/
+structure YoungRigidityPackR (ν : Frourio.MeasureR) : Prop where
+  (assm : YoungAssumptionsR ν)
+  (ineq_all : young_L2_R_all ν)
+  (rigidity : young_rigidity_R ν)
 
-/-- Minimalist predicate for the L²×TV → L² Young inequality on `ℤ`. -/
-def YoungInequality_L2_TV_Z : Prop := True
+/-- Wrapper: from the pack, obtain the L2 inequality for all test functions. -/
+theorem young_L2_R_from_pack (ν : Frourio.MeasureR) (P : YoungRigidityPackR ν) :
+  ∀ f : ℝ → ℂ, L2NormR (convR_measure f ν) ≤ L2NormR f * TVNorm ν :=
+by
+  intro f; exact (P.ineq_all P.assm f)
 
-/-- Minimalist predicate describing the equality (rigidity) case on `ℝ`. -/
-def YoungRigidity_R : Prop := True
+/-- Wrapper: expose the rigidity equivalence from the pack. -/
+theorem young_rigidity_R_from_pack (ν : Frourio.MeasureR) (P : YoungRigidityPackR ν) :
+  young_rigidity_R ν := P.rigidity
 
-/-- Minimalist predicate describing the equality (rigidity) case on `ℤ`. -/
-def YoungRigidity_Z : Prop := True
+end R
 
-/-- Packaged statement for `ℝ` combining inequality and rigidity. -/
-def youngRigidityPackR : YoungRigidityStatement ℝ :=
-  { inequality := YoungInequality_L2_TV_R
-  , rigidity := YoungRigidity_R }
+section Z
 
-/-- Packaged statement for `ℤ` combining inequality and rigidity. -/
-def youngRigidityPackZ : YoungRigidityStatement ℤ :=
-  { inequality := YoungInequality_L2_TV_Z
-  , rigidity := YoungRigidity_Z }
+/-- Assumption pack for the discrete (ℤ) Young inequality. -/
+structure YoungRigidityPackZ (μ : ℤ → ℂ) : Prop where
+  (ineq : ∀ a : ℤ → ℂ, young_L2_Z a μ)
+  (rigidity : young_rigidity_Z μ)
+
+theorem young_L2_Z_from_pack (μ : ℤ → ℂ) (P : YoungRigidityPackZ μ) :
+  ∀ a : ℤ → ℂ, young_L2_Z a μ := P.ineq
+
+theorem young_rigidity_Z_from_pack (μ : ℤ → ℂ) (P : YoungRigidityPackZ μ) :
+  young_rigidity_Z μ := P.rigidity
+
+end Z
 
 end Frourio
-

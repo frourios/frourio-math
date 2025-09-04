@@ -447,23 +447,17 @@ theorem flow_suite_from_doob_mpoint
   (HC : HalfConvex (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
   (SUB : StrongUpperBound (FrourioFunctional.F S.func))
   (Hpack : EquivBuildAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
   (hM : MPointZeroOrderBound S.Ssup S.XiNorm)
   (hB : BudgetNonneg S.budget)
   (hg : 0 ≤ S.func.gamma)
   (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
   gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S :=
 by
-  -- Choose λ_eff as the RHS target to satisfy the inequality by reflexivity.
-  let lamEff := lambdaBE S.base.lam S.eps
-    - S.func.gamma * (S.budget.cStar * S.Ssup ^ (2 : ℕ) + S.budget.cD * S.XiNorm)
-  have hDoob : DoobCDShift S.base.lam S.eps (lambdaBE S.base.lam S.eps) := by
-    exact ⟨trivial, rfl⟩
-  have hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps lamEff S.Ssup S.XiNorm := by
-    refine lambdaEffLowerBound_from_doob_mpoint S.func S.budget
-      S.base.lam S.eps lamEff S.Ssup S.XiNorm hDoob hM hB hg ?ineq
-    -- lamEff ≥ lamEff
-    exact le_of_eq rfl
-  -- Invoke the pack-based suite with the constructed lower bound.
+  -- Construct a λ_eff via the DoobAssumptions-based analysis helper.
+  rcases lambdaEffLowerBound_construct_from_doobAssumptions_mpoint S.func S.budget h D H
+      S.base.lam S.eps S.Ssup S.XiNorm hM hB hg with ⟨lamEff, hLam⟩
+  -- Invoke the pack-based suite with the constructed witness.
   have G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
     build_plfaEdeEvi_package_weak (FrourioFunctional.F S.func)
       (lambdaBE S.base.lam S.eps) HC SUB Hpack

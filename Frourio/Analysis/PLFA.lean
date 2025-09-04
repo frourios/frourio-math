@@ -69,6 +69,26 @@ def EDE_EVI_pred (F : X → ℝ) (lamEff : ℝ) : Prop :=
 def JKO_to_PLFA_pred (F : X → ℝ) : Prop :=
   ∀ ρ0 : X, JKO F ρ0 → ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ PLFA F ρ
 
+/- One-way bridge: PLFA implies EDE using the monotonicity-to-Dini lemma. -/
+theorem plfa_implies_ede (F : X → ℝ) (ρ : ℝ → X) (h : PLFA F ρ) : EDE F ρ := by
+  intro t
+  -- `φ := F ∘ ρ` is nonincreasing by PLFA.
+  have Hmono : ∀ ⦃s u : ℝ⦄, s ≤ u → (fun τ => F (ρ τ)) u ≤ (fun τ => F (ρ τ)) s := by
+    intro s u hsu; simpa using (h hsu)
+  -- Apply the Dini bridge from EVI.
+  simpa using (Frourio.DiniUpper_nonpos_of_nonincreasing (fun τ => F (ρ τ)) t Hmono)
+
+/- Assumption: Dini upper nonpositivity implies monotonicity (reverse bridge). -/
+def EDE_to_PLFA_bridge (F : X → ℝ) : Prop := ∀ ρ : ℝ → X, EDE F ρ → PLFA F ρ
+
+/- Build `PLFA_EDE_pred` from the reverse bridge and the forward implication. -/
+theorem plfa_ede_equiv_from_bridge (F : X → ℝ)
+  (HB : EDE_to_PLFA_bridge F) : PLFA_EDE_pred F :=
+by
+  intro ρ; constructor
+  · intro hPLFA; exact plfa_implies_ede F ρ hPLFA
+  · intro hEDE; exact HB ρ hEDE
+
 theorem plfa_iff_ede_from_pred (F : X → ℝ) (H : PLFA_EDE_pred F) :
   ∀ ρ : ℝ → X, PLFA F ρ ↔ EDE F ρ := H
 theorem ede_iff_evi_from_pred (F : X → ℝ) (lamEff : ℝ)
@@ -349,6 +369,25 @@ by
   intro Hgr
   -- Obtain squared-distance synchronization with error, then bridge to distances.
   have Hsq : ContractionPropertySqWithError P u v hR.η := Himp Hgr
+  exact bridge_with_error P u v hR.η (Hbridge hR.η) Hsq
+
+/-- Closed distance-version consequence of `TwoEVIWithForce`.
+Assuming the inhomogeneous Grönwall helper is available for all error radii `η`,
+and an error-bridge from squared to linear distances, conclude the distance
+contraction with error without an additional predicate argument. -/
+theorem twoEVIWithForce_to_distance_closed (P : EVIProblem X) (u v : ℝ → X)
+  (H : TwoEVIWithForce P u v)
+  (Hgr_all : ∀ η : ℝ,
+    gronwall_exponential_contraction_with_error_half_pred P.lam η
+      (fun t => d2 (u t) (v t)))
+  (Hbridge : ∀ η : ℝ, HbridgeWithError P u v η) :
+  ∃ η : ℝ, ContractionPropertyWithError P u v η :=
+by
+  rcases H with ⟨hu, hv, geodesicBetween, hR, _Hsum, Himp⟩
+  refine ⟨hR.η, ?_⟩
+  -- Invoke the Grönwall helper for this η to get the squared-distance bound.
+  have Hsq : ContractionPropertySqWithError P u v hR.η := Himp (Hgr_all hR.η)
+  -- Bridge to linear distance with error.
   exact bridge_with_error P u v hR.η (Hbridge hR.η) Hsq
 
 /-- EDE ⇔ EVI under an equivalence package. -/

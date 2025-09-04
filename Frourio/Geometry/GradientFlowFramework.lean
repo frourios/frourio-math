@@ -130,4 +130,12 @@ effective parameter obtained by the product formula. -/
 def multiscale_lambda_rule {m : ℕ} (Λ α κ : Fin m → ℝ) (k : Fin m → ℤ) : Prop :=
   ∀ lam : ℝ, ∃ lamEff : ℝ, lamEff = effective_lambda_multiscale α κ Λ k lam
 
+/-- Trivial constructor for the multiscale effective-λ rule: choose the
+right-hand side as the witness. -/
+theorem multiscale_lambda_rule_thm {m : ℕ}
+  (Λ α κ : Fin m → ℝ) (k : Fin m → ℤ) :
+  multiscale_lambda_rule Λ α κ k :=
+by
+  intro lam; exact ⟨effective_lambda_multiscale α κ Λ k lam, rfl⟩
+
 end Frourio

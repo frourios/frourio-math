@@ -1,32 +1,29 @@
-import Mathlib.Data.Real.Basic
+import Frourio.Analysis.MellinTransform
 
 namespace Frourio
 
 /-!
-FG8 A6: Φ-operator (Mellin anchor) — statement module
+Phi-operator (statement wrappers)
 
-We provide a lightweight container for a Φ-operator with a scale parameter
-`Λ`, along with statement-level predicates encoding the existence of a
-Mellin symbol and an inter-Hσ norm equality. The aim is to define stable
-APIs without committing to analytic content in this phase.
+This module wraps Mellin-side statements for the Φ-difference operator into
+assumption packs and exposes lightweight theorems for reuse from FG8.
 -/
 
-/-- Φ-operator with an associated scale parameter `Λ`. -/
-structure PhiOperator where
-  (Φ : ℝ → ℝ)
-  (Λ : ℝ)
+/-- Assumption pack for Φ-operator symbolization and norm bound along `H_σ`. -/
+structure PhiOperatorAssumptions (Λ σ : ℝ) : Prop where
+  (op_bound : op_norm_bound Λ σ)
+  (symbolization : ∀ f : ℝ → ℂ, ∀ s : ℂ, phi_diff_symbolization Λ f s)
 
-/-- Statement-level predicate: the Mellin symbol exists and has the intended
-properties for the operator. -/
-def MellinSymbolProp (P : PhiOperator) : Prop := True
+/-- Wrapper: obtain the operator-norm bound statement from the pack. -/
+theorem phi_operator_norm_bound_of (Λ σ : ℝ)
+  (A : PhiOperatorAssumptions Λ σ) : op_norm_bound Λ σ :=
+  A.op_bound
 
-/-- Statement-level predicate: norm equality across H_σ spaces for the
-Φ-operator, parameterized by `σ`. -/
-def NormEqualityHσ (P : PhiOperator) (σ : ℝ) : Prop := True
-
-/-- Bundle of Mellin symbol and norm-equality statements for a given operator. -/
-def PhiOperatorStatement (P : PhiOperator) : Prop :=
-  MellinSymbolProp P ∧ (∀ σ : ℝ, NormEqualityHσ P σ)
+/-- Wrapper: obtain the Mellin-side symbolization statement from the pack. -/
+theorem phi_operator_symbolization_of (Λ σ : ℝ)
+  (A : PhiOperatorAssumptions Λ σ) :
+  ∀ f : ℝ → ℂ, ∀ s : ℂ, phi_diff_symbolization Λ f s :=
+  A.symbolization
 
 end Frourio
 

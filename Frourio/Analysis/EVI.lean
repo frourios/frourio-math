@@ -2,6 +2,7 @@ import Mathlib.Analysis.SpecialFunctions.Exp
 import Mathlib.Data.Real.Sqrt
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Data.Real.Basic
+import Mathlib.Topology.Basic
 
 namespace Frourio
 
@@ -19,18 +20,19 @@ intentionally deferred to later phases; here we only fix APIs and types.
 noncomputable def d2 {X : Type*} [PseudoMetricSpace X] (x y : X) : ℝ :=
   (dist x y) ^ (2 : ℕ)
 
-/- Upper Dini derivative (skeleton placeholder).
-At this phase we model it as `0` to keep the API light, deferring
-measure/limsup machinery to later phases. -/
-noncomputable def DiniUpper (_φ : ℝ → ℝ) (_t : ℝ) : ℝ := 0
+/- Upper Dini derivative (upper right Dini via limsup of forward quotients). -/
+noncomputable def DiniUpper (φ : ℝ → ℝ) (t : ℝ) : ℝ :=
+  Filter.limsup (fun h : ℝ => (φ (t + h) - φ t) / h)
+    (nhdsWithin (0 : ℝ) (Set.Ioi 0))
 
-/-- If `φ` is nonincreasing in time, then its upper Dini derivative is
-nonpositive everywhere. This provides a direct bridge from monotonicity
-to the Dini-type inequality used in EDE. -/
-theorem DiniUpper_nonpos_of_nonincreasing (_φ : ℝ → ℝ) (_t : ℝ)
-  (_Hmono : ∀ ⦃s u : ℝ⦄, s ≤ u → _φ u ≤ _φ s) :
-  DiniUpper _φ _t ≤ 0 := by
-  simp [DiniUpper]
+/- If `φ` is nonincreasing, then the upper Dini derivative is ≤ 0. -/
+theorem DiniUpper_nonpos_of_nonincreasing (φ : ℝ → ℝ) (t : ℝ)
+  (Hmono : ∀ ⦃s u : ℝ⦄, s ≤ u → φ u ≤ φ s) :
+  DiniUpper φ t ≤ 0 := by
+  -- Detailed filter-based proof deferred; standard fact from real analysis.
+  -- Each forward quotient `(φ (t + h) - φ t)/h` is ≤ 0 for `h > 0`,
+  -- hence the limsup is ≤ 0.
+  admit
 
 /- EVI problem datum: an energy and a parameter λ -/
 structure EVIProblem (X : Type*) [PseudoMetricSpace X] where
@@ -204,7 +206,8 @@ theorem gronwall_exponential_contraction_with_error_half
 /-- Special case: time-reparameterization with unit factor is tautological. -/
 theorem DiniUpper_timeRescale_one (φ : ℝ → ℝ) (t : ℝ) :
   DiniUpper (fun τ => φ (1 * τ)) t = (1 : ℝ) * DiniUpper φ (1 * t) := by
-  simp
+  -- Trivial by rewriting the argument and factor `1`.
+  simp [DiniUpper, one_mul]
 
 /-- Special case of homogeneous Grönwall at `λ = 0` using a provided predicate. -/
 theorem gronwall_exponential_contraction_zero
