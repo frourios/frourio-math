@@ -158,4 +158,87 @@ by
 
 end X0
 
+/-! Unit-test style exercises for builder routes from analytic flags.
+These theorems "exercise" the pack builders `PLFA_EDE_from_analytic_flags`
+and `JKO_PLFA_from_analytic_flags` by constructing the corresponding packs
+and predicates and exposing their core consequences in a compact form. -/
+
+section BuilderExercises
+variable {X : Type*}
+
+theorem exercise_flags_to_predicates (F : X → ℝ) (lamEff : ℝ)
+  (A : AnalyticFlags F lamEff)
+  (Hede : PLFA_EDE_from_analytic_flags F lamEff)
+  (Hjko : JKO_PLFA_from_analytic_flags F) :
+  PLFA_EDE_pred F ∧ JKO_to_PLFA_pred F :=
+by
+  -- Unpack flags
+  rcases A with ⟨hP, hL, hC, HC, SUB, hJ⟩
+  -- Build the two component predicates from the flags and builders
+  have hPLFA_EDE : PLFA_EDE_pred F := Hede ⟨hP, hL, hC, HC, SUB⟩
+  have hJKO_PLFA : JKO_to_PLFA_pred F := Hjko ⟨hP, hL, hC, hJ⟩
+  exact ⟨hPLFA_EDE, hJKO_PLFA⟩
+
+theorem exercise_build_packs (F : X → ℝ) (lamEff : ℝ)
+  (A : AnalyticFlags F lamEff)
+  (Hede : PLFA_EDE_from_analytic_flags F lamEff)
+  (Hjko : JKO_PLFA_from_analytic_flags F) :
+  PLFAEDEAssumptions F ∧ JKOPLFAAssumptions F :=
+by
+  rcases A with ⟨hP, hL, hC, HC, SUB, hJ⟩
+  have pack1 : PLFAEDEAssumptions F :=
+    build_PLFAEDE_pack_from_flags F lamEff hP hL hC HC SUB Hede
+  have pack2 : JKOPLFAAssumptions F :=
+    build_JKOPLFA_pack_from_flags F Hjko hP hL hC hJ
+  exact ⟨pack1, pack2⟩
+
+theorem exercise_apply_packs (F : X → ℝ) (lamEff : ℝ)
+  (A : AnalyticFlags F lamEff)
+  (Hede : PLFA_EDE_from_analytic_flags F lamEff)
+  (Hjko : JKO_PLFA_from_analytic_flags F) :
+  (∀ ρ : ℝ → X, PLFA F ρ ↔ EDE F ρ) ∧
+  (∀ ρ0 : X, JKO F ρ0 → ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ PLFA F ρ) :=
+by
+  rcases (exercise_build_packs F lamEff A Hede Hjko) with ⟨pack1, pack2⟩
+  -- Use the packs to expose the expected consequences
+  have h1 : ∀ ρ : ℝ → X, PLFA F ρ ↔ EDE F ρ := pack1.plfa_iff_ede
+  have h2 : ∀ ρ0 : X, JKO F ρ0 → ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ PLFA F ρ := pack2.jko_to_plfa
+  exact ⟨h1, fun ρ0 hJ => h2 ρ0 hJ⟩
+
+end BuilderExercises
+
+/-! Shortest non-metric route: use `jko_to_ede_from_flags` directly to obtain
+`JKO ⇒ EDE` from analytic flags, without any bridge dependencies. -/
+
+section ShortestRoute
+variable {X : Type*}
+
+/-- Predicate: from a JKO initializer, produce an EDE evolution. -/
+def JKO_to_EDE_pred (F : X → ℝ) : Prop :=
+  ∀ ρ0 : X, JKO F ρ0 → ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ EDE F ρ
+
+/-- Shortest non-metric route `JKO ⇒ EDE` from analytic flags: exercise the
+relocated lemma `jko_to_ede_from_flags`. -/
+theorem jko_to_ede_shortest_from_flags (F : X → ℝ) (lamEff : ℝ)
+  (A : AnalyticFlags F lamEff)
+  (Hjko : JKO_PLFA_from_analytic_flags F)
+  (HplfaEde : PLFA_EDE_from_analytic_flags F lamEff) :
+  JKO_to_EDE_pred F :=
+by
+  intro ρ0 hJKO
+  rcases A with ⟨hP, hL, hC, HC, SUB, hJ⟩
+  exact jko_to_ede_from_flags F lamEff Hjko HplfaEde hP hL hC hJ HC SUB ρ0 hJKO
+
+/-- Direct exercise form (non-predicate): `JKO ⇒ EDE` from flags. -/
+theorem exercise_jko_to_ede_from_flags (F : X → ℝ) (lamEff : ℝ)
+  (A : AnalyticFlags F lamEff)
+  (Hjko : JKO_PLFA_from_analytic_flags F)
+  (HplfaEde : PLFA_EDE_from_analytic_flags F lamEff) :
+  ∀ ρ0 : X, JKO F ρ0 → ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ EDE F ρ :=
+by
+  have h := jko_to_ede_shortest_from_flags F lamEff A Hjko HplfaEde
+  intro ρ0 hJKO; exact h ρ0 hJKO
+
+end ShortestRoute
+
 end Frourio

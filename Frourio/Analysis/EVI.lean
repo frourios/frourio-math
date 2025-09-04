@@ -115,7 +115,7 @@ time reparameterization `t ↦ σ t` (to be proven in later phases). -/
 def DiniUpper_timeRescale_pred (σ : ℝ) (φ : ℝ → ℝ) (t : ℝ) : Prop :=
   DiniUpper (fun τ => φ (σ * τ)) t = σ * DiniUpper φ (σ * t)
 
-/--
+/-
 Basic subadditivity lemma (statement): the upper Dini derivative of a
 sum is bounded above by the sum of upper Dini derivatives. This is a
 statement-only placeholder used in G-proofs; the quantitative proof is
@@ -277,6 +277,7 @@ theorem sqrt_add_le_sqrt_add_sqrt_prop (a b : ℝ) (ha : 0 ≤ a) (hb : 0 ≤ b)
   simpa [hA, hB] using habs
 
 /-- DiniUpper additivity upper bound (wrapper theorem from the predicate). -/
+/- DiniUpper additivity upper bound (wrapper theorem from the predicate). -/
 theorem DiniUpper_add_le (φ ψ : ℝ → ℝ) (t : ℝ)
   (H : DiniUpper_add_le_pred φ ψ t) :
   DiniUpper (fun τ => φ τ + ψ τ) t ≤ DiniUpper φ t + DiniUpper ψ t := H
@@ -300,6 +301,17 @@ theorem gronwall_exponential_contraction_with_error_half
         ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 + (2 * η) * t)
   (Hineq : ∀ t : ℝ, (1 / 2 : ℝ) * DiniUpper W t + lam * W t ≤ η) :
   ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 + (2 * η) * t := H Hineq
+
+/-- Inhomogeneous Grönwall inequality (`half` form, core statement):
+If `(1/2)·DiniUpper W + lam·W ≤ η` pointwise, then
+`W t ≤ exp (-(2 lam) t) · W 0 + (2 η) t`. -/
+theorem gronwall_exponential_contraction_with_error_half_core
+  (lam η : ℝ) (W : ℝ → ℝ)
+  (H : gronwall_exponential_contraction_with_error_half_pred lam η W)
+  (Hineq : ∀ t : ℝ, (1 / 2 : ℝ) * DiniUpper W t + lam * W t ≤ η) :
+  ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 + (2 * η) * t :=
+by
+  exact H Hineq
 
 /-- Special case: time-reparameterization with unit factor is tautological. -/
 theorem DiniUpper_timeRescale_one (φ : ℝ → ℝ) (t : ℝ) :
@@ -447,9 +459,7 @@ theorem Hbridge_concrete {X : Type*} [PseudoMetricSpace X]
 by
   intro hSq; exact bridge_contraction_concrete P u v hSq
 
-/-- Concrete bridge: from squared-distance contraction to linear-distance
-contraction using monotonicity of `Real.sqrt` and algebraic identities. -/
--- A concrete bridge proof can be added in a later phase by combining
+-- The concrete bridge proof below combines
 -- `sqrt_d2_dist_prop`, `sqrt_mul_nonneg_prop`, and `sqrt_exp_halves_prop`
 -- with `Real.sqrt_le_sqrt` and elementary arithmetic rewrites.
 
@@ -649,6 +659,37 @@ theorem bridge_with_error {X : Type*} [PseudoMetricSpace X]
   ContractionPropertyWithError P u v η :=
 H Hsq
 
+/-- two‑EVI (with external force): squared-distance synchronization from a
+single mixed EVI sum hypothesis and an inhomogeneous Grönwall lemma. -/
+theorem twoEVI_sq_with_error_from_sum {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (geodesicBetween : Prop) (hR : MixedErrorBound X u v)
+  (Hsum : eviSumWithError P u v hu hv geodesicBetween hR)
+  (Hgr : gronwall_exponential_contraction_with_error_half_pred P.lam hR.η
+            (fun t => d2 (u t) (v t))) :
+  ContractionPropertySqWithError P u v hR.η :=
+by
+  exact eviSynchronizationSq_with_error P u v hu hv geodesicBetween hR Hsum Hgr
+
+/-- two‑EVI (with external force): distance synchronization with error from a
+single mixed sum hypothesis, an inhomogeneous Grönwall lemma, and a bridge. -/
+theorem twoEVI_with_error_dist_from_sum {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (geodesicBetween : Prop) (hR : MixedErrorBound X u v)
+  (Hsum : eviSumWithError P u v hu hv geodesicBetween hR)
+  (Hgr : gronwall_exponential_contraction_with_error_half_pred P.lam hR.η
+            (fun t => d2 (u t) (v t)))
+  (Hbridge : HbridgeWithError P u v hR.η) :
+  ContractionPropertyWithError P u v hR.η :=
+by
+  -- First obtain the squared-distance synchronization via inhomogeneous Grönwall
+  have hSq : ContractionPropertySqWithError P u v hR.η :=
+    twoEVI_sq_with_error_from_sum P u v hu hv geodesicBetween hR Hsum Hgr
+  -- Then bridge to distances using the provided error bridge
+  exact bridge_with_error P u v hR.η Hbridge hSq
+
 /-- Concrete error-bridge: from squared-distance synchronization with error to
 distance-version with error, using `√(x + y) ≤ √x + √y` and the algebraic
 identities for `√(exp)` and `√(a·b)`. -/
@@ -822,5 +863,152 @@ theorem eviInheritance {ι : Type*} (S : MoscoSystem ι)
   (H : MoscoAssumptions S) : EVILimitHolds S := by
   rcases H with ⟨Hg, Ht, _Hlsc, HM1, HM2⟩
   exact And.intro HM1 (And.intro HM2 (And.intro Ht Hg))
+
+/-!
+Sufficient conditions tailored to an “Entropy + Dirichlet form” setting.
+
+We introduce lightweight predicates named after the intended analytic
+assumptions and show how they imply the minimal Mosco predicates used by
+this file (Tight/M1/M2). These remain Prop‑valued and proof‑light.
+-/
+
+/-- Uniform entropy lower bound (coercivity surrogate) across the prelimit
+family: `∃ C, ∀ h x, E_h(x) ≥ -C`. -/
+def EntropyUniformLowerBound {ι : Type*} (S : MoscoSystem ι) : Prop :=
+  ∃ C : ℝ, ∀ (h : ι) (x : S.Xh h), S.Eh h x ≥ -C
+
+/-- Dirichlet‑form liminf inequality along the identification maps. -/
+def DirichletFormLiminf {ι : Type*} (S : MoscoSystem ι) : Prop :=
+  ∀ (h : ι) (x : S.Xh h), S.E (S.Th h x) ≤ S.Eh h x
+
+/-- Dirichlet‑form recovery inequality (no energy inflation at a preimage). -/
+def DirichletFormRecovery {ι : Type*} (S : MoscoSystem ι) : Prop :=
+  ∀ x : S.X, ∃ (h : ι) (xh : S.Xh h), S.Th h xh = x ∧ S.Eh h xh ≤ S.E x
+
+/-- Entropy lower bound implies `MoscoTight`. -/
+theorem MoscoTight_from_entropy {ι : Type*} (S : MoscoSystem ι)
+  (H : EntropyUniformLowerBound S) : MoscoTight S :=
+by
+  rcases H with ⟨C, hC⟩; exact ⟨C, hC⟩
+
+/-- Dirichlet liminf implies `MoscoM1`. -/
+theorem MoscoM1_from_dirichlet_liminf {ι : Type*} (S : MoscoSystem ι)
+  (H : DirichletFormLiminf S) : MoscoM1 S := H
+
+/-- Dirichlet recovery implies `MoscoM2`. -/
+theorem MoscoM2_from_dirichlet_recovery {ι : Type*} (S : MoscoSystem ι)
+  (H : DirichletFormRecovery S) : MoscoM2 S := H
+
+/-- Build `MoscoAssumptions` from entropy lower bound and Dirichlet liminf/recovery
+statements, plus geodesic completeness (nonemptiness of the limit space). -/
+theorem build_MoscoAssumptions_from_entropy_dirichlet {ι : Type*}
+  (S : MoscoSystem ι)
+  (Hg : MoscoGeodesicComplete S)
+  (Hent : EntropyUniformLowerBound S)
+  (Hlim : DirichletFormLiminf S)
+  (Hrec : DirichletFormRecovery S) : MoscoAssumptions S :=
+by
+  refine ⟨Hg, MoscoTight_from_entropy S Hent, ?lsc, MoscoM1_from_dirichlet_liminf S Hlim,
+    MoscoM2_from_dirichlet_recovery S Hrec⟩
+  · -- Placeholder: entropy l.s.c. is recorded as available in this phase.
+    trivial
+
+/-- From the entropy/Dirichlet sufficient conditions, obtain the minimal
+`EVILimitHolds` predicate used in this file. -/
+theorem EVILimit_from_entropy_dirichlet {ι : Type*} (S : MoscoSystem ι)
+  (Hg : MoscoGeodesicComplete S)
+  (Hent : EntropyUniformLowerBound S)
+  (Hlim : DirichletFormLiminf S)
+  (Hrec : DirichletFormRecovery S) : EVILimitHolds S :=
+by
+  exact eviInheritance S (build_MoscoAssumptions_from_entropy_dirichlet S Hg Hent Hlim Hrec)
+
+/- Sufficient conditions for the Mosco predicates (lightweight wrappers). -/ 
+
+/-- A uniform lower bound on all prelimit energies implies `MoscoTight`. -/
+theorem MoscoTight_of_uniform_lower_bound {ι : Type*} (S : MoscoSystem ι)
+  (C : ℝ) (h : ∀ (h' : ι) (x : S.Xh h'), S.Eh h' x ≥ -C) : MoscoTight S :=
+by
+  exact ⟨C, h⟩
+
+/-- Pointwise liminf inequality along `Th` is exactly `MoscoM1`. -/
+theorem MoscoM1_of_liminf_along_Th {ι : Type*} (S : MoscoSystem ι)
+  (h : ∀ (h' : ι) (x : S.Xh h'), S.E (S.Th h' x) ≤ S.Eh h' x) : MoscoM1 S :=
+by
+  exact h
+
+/-- Existence of recovery points with no energy inflation is exactly `MoscoM2`. -/
+theorem MoscoM2_of_recovery_no_inflation {ι : Type*} (S : MoscoSystem ι)
+  (h : ∀ x : S.X, ∃ (h' : ι) (xh : S.Xh h'), S.Th h' xh = x ∧ S.Eh h' xh ≤ S.E x) :
+  MoscoM2 S :=
+by
+  exact h
+
+/-- Pack of sufficient conditions (uniform bound, liminf, recovery, nonempty limit). -/
+structure MoscoSufficientConditions {ι : Type*} (S : MoscoSystem ι) : Prop where
+  (uniform_lower : ∃ C : ℝ, ∀ (h : ι) (x : S.Xh h), S.Eh h x ≥ -C)
+  (liminf_along_Th : ∀ (h : ι) (x : S.Xh h), S.E (S.Th h x) ≤ S.Eh h x)
+  (recovery_no_inflation : ∀ x : S.X, ∃ (h : ι) (xh : S.Xh h), S.Th h xh = x ∧ S.Eh h xh ≤ S.E x)
+  (geodesic_complete : Nonempty S.X)
+
+/-- Build `MoscoAssumptions` from sufficient conditions. -/
+theorem build_MoscoAssumptions_from_sufficient {ι : Type*} (S : MoscoSystem ι)
+  (H : MoscoSufficientConditions S) : MoscoAssumptions S :=
+by
+  rcases H with ⟨⟨C, hUB⟩, hM1, hM2, hGC⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · -- geodesic completeness surrogate
+    exact hGC
+  · -- tightness from the uniform lower bound
+    exact ⟨C, hUB⟩
+  · -- placeholder: Entropy l.s.c. will be plugged later
+    trivial
+  · -- M1
+    exact hM1
+  · -- M2
+    exact hM2
+
+/-- From sufficient conditions, obtain the minimal `EVILimitHolds` predicate. -/
+theorem EVILimit_from_sufficient {ι : Type*} (S : MoscoSystem ι)
+  (H : MoscoSufficientConditions S) : EVILimitHolds S :=
+by
+  have HA : MoscoAssumptions S := build_MoscoAssumptions_from_sufficient S H
+  exact eviInheritance S HA
+
+/-!
+Upgrade: record additional (statement‑level) conclusions typically used in
+EVIs under Mosco convergence: tightness of JKO schemes and stability of EDE/EVI.
+We keep them as lightweight `Prop` predicates for this phase and provide
+theoremized wrappers that extract them from `MoscoAssumptions` alongside
+`EVILimitHolds`.
+-/
+
+/-- Placeholder: tightness of JKO minimizing movement schemes under Mosco. -/
+def JKOTightUnderMosco {ι : Type*} (_S : MoscoSystem ι) : Prop := True
+
+/-- Placeholder: stability of EDE solutions under Mosco (limit is EDE for `E`). -/
+def EDEStabilityUnderMosco {ι : Type*} (_S : MoscoSystem ι) : Prop := True
+
+/-- Placeholder: stability of EVI solutions under Mosco (limit is EVI for `E`). -/
+def EVIStabilityUnderMosco {ι : Type*} (_S : MoscoSystem ι) : Prop := True
+
+/-- Suite: from `MoscoAssumptions`, obtain `EVILimitHolds` together with the
+statement‑level conclusions (JKO tightness and EDE/EVI stability). -/
+theorem EVILimitHolds_suite {ι : Type*} (S : MoscoSystem ι)
+  (_H : MoscoAssumptions S) :
+  EVILimitHolds S ∧ JKOTightUnderMosco S ∧ EDEStabilityUnderMosco S ∧ EVIStabilityUnderMosco S :=
+by
+  refine And.intro (eviInheritance S ‹_›) ?rest
+  -- Provide the placeholder conclusions.
+  exact And.intro (by exact trivial) (And.intro (by exact trivial) (by exact trivial))
+
+/-- Suite from sufficient conditions: package `EVILimitHolds` with the
+JKO tightness and EDE/EVI stability placeholders. -/
+theorem EVILimitHolds_suite_from_sufficient {ι : Type*} (S : MoscoSystem ι)
+  (H : MoscoSufficientConditions S) :
+  EVILimitHolds S ∧ JKOTightUnderMosco S ∧ EDEStabilityUnderMosco S ∧ EVIStabilityUnderMosco S :=
+by
+  have HA : MoscoAssumptions S := build_MoscoAssumptions_from_sufficient S H
+  exact EVILimitHolds_suite S HA
 
 end Frourio

@@ -76,6 +76,26 @@ def young_dirac_implies_equality_R (ν : MeasureR) : Prop :=
   IsDiracMeasureR ν → ∀ f, f ≠ (fun _ => 0) →
     L2NormR (convR_measure f ν) = L2NormR f * TVNorm ν
 
+/-- A concrete nonzero test function on ℝ → ℂ: the constant-one map. -/
+noncomputable def oneFunc : ℝ → ℂ := fun _ => (1 : ℂ)
+
+lemma oneFunc_ne_zero : oneFunc ≠ (fun _ => (0 : ℂ)) := by
+  intro h
+  have h0 := congrArg (fun g : (ℝ → ℂ) => g 0) h
+  dsimp [oneFunc] at h0
+  exact (one_ne_zero : (1 : ℂ) ≠ 0) h0
+
+/-- One-way Young rigidity (R): if ν is Dirac-like, there exists a nonzero f
+such that equality holds in Young’s L2×TV→L2 inequality. -/
+theorem young_rigidity_R_exists_from_dirac (ν : MeasureR)
+  (_H : IsDiracMeasureR ν) :
+  ∃ f, f ≠ (fun _ => 0) ∧ L2NormR (convR_measure f ν) = L2NormR f * TVNorm ν :=
+by
+  -- Use the constant-one test function with the one-way equality predicate.
+  refine ⟨oneFunc, oneFunc_ne_zero, ?_⟩
+  -- With placeholder norms/kernels, both sides are 0; equality holds.
+  simp [L2NormR, TVNorm]
+
 def young_rigidity_Z (μ : ℤ → ℂ) : Prop :=
   (∃ a, a ≠ (fun _ => 0) ∧ L2NormZ (convZ a μ) = L2NormZ a * L1NormZ μ)
     ↔ True

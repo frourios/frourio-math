@@ -80,6 +80,62 @@ by
   have hLB := UniformLowerBoundAtZero_basic1D
   simpa using (k1prime_ofK_from_uniform_lower_bound Ent (KTransform.basic1D) gamma Ssup 0 hS hLB)
 
+/-- Numeric lower bound for `F = Ent + γ · Dσm` built from a `KTransform` with
+uniform kernel lower bound at `s = 0`. If `γ ≥ 0` and `Ssup ≥ 0`, then
+
+  F(x) ≥ Ent(x) - γ · (Ssup · C0).
+
+This inequality is used as a coercivity proxy downstream. -/
+theorem F_lower_bound_of_ofK {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup C0 : ℝ)
+  (hγ : 0 ≤ gamma) (hS : 0 ≤ Ssup) (hLB : UniformLowerBoundAtZero K C0) :
+  ∀ x : X,
+    FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup) x
+      ≥ Ent x - gamma * (Ssup * C0) :=
+by
+  intro x
+  dsimp [FrourioFunctional.F, FrourioFunctional.ofK, DsigmamFromK]
+  -- `Ent x + γ Ssup K.map x 0 ≥ Ent x + γ Ssup (-C0)`
+  have hK : -C0 ≤ K.map x 0 := by simpa using (hLB x)
+  have hmul : gamma * (Ssup * (-C0)) ≤ gamma * (Ssup * K.map x 0) := by
+    have hS' : 0 ≤ Ssup := hS
+    have hγS : 0 ≤ gamma * Ssup := mul_nonneg hγ hS'
+    have hSmul : Ssup * (-C0) ≤ Ssup * K.map x 0 :=
+      mul_le_mul_of_nonneg_left hK hS'
+    exact mul_le_mul_of_nonneg_left hSmul hγ
+  have : Ent x + gamma * (Ssup * K.map x 0)
+            ≥ Ent x + gamma * (Ssup * (-C0)) := by
+    exact add_le_add_left hmul (Ent x)
+  -- Rewrite the RHS to the target shape.
+  have : Ent x + gamma * (Ssup * K.map x 0)
+            ≥ Ent x - gamma * (Ssup * C0) := by
+    simpa [mul_comm, mul_left_comm, mul_assoc, mul_neg, neg_mul, sub_eq_add_neg]
+      using this
+  exact this
+
+/-- Convenience: if `Ent` is (placeholder) l.s.c. and `K` satisfies a continuity
+template (tracked outside this file), then the combined functional inherits the
+placeholder l.s.c. predicate used in the PLFA layer. -/
+theorem ofK_lower_semicontinuous {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
+  (_hEnt : LowerSemicontinuous Ent) (_hKcont : True) :
+  LowerSemicontinuous (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
+by
+  -- Placeholder: PLFA-side `LowerSemicontinuous` is a light Prop at this phase.
+  exact trivial
+
+/-- Convenience: if `Ent` and the kernel admit global lower bounds and `γ,Ssup ≥ 0`,
+then the combined functional satisfies the (placeholder) coercivity predicate. -/
+theorem ofK_coercive_from_bounds {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup CEnt C0 : ℝ)
+  (_hEntLB : ∀ x : X, Ent x ≥ -CEnt)
+  (hγ : 0 ≤ gamma) (hS : 0 ≤ Ssup) (hLB : UniformLowerBoundAtZero K C0) :
+  Coercive (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
+by
+  -- Combine the numeric bounds into a global lower bound and discharge the placeholder.
+  have _ := F_lower_bound_of_ofK Ent K gamma Ssup C0 hγ hS hLB
+  exact trivial
+
 /- Promote K-side predicates to a statement-level slope bound builder.
    (moved below after slope-based predicates are introduced).
    Given (K1′), (K4^m), and nonnegativity of the proxies, we produce the
@@ -156,8 +212,10 @@ theorem lambdaEffLowerBound_from_doob_explicit_mpoint {X : Type*}
   (hγ : 0 ≤ A.gamma) :
   lambdaEffLowerBound A budget lam eps (lambdaBE lam eps) Ssup XiNorm :=
 by
-  -- Track the explicit Doob CD shift at the type level.
-  have _ := cd_parameter_shift_explicit h D H eps Hhess (lam := lam) hCD
+  -- Track the explicit Doob CD shift at the type level (CD(λ,∞) → CD(λ−2ε,∞)).
+  have hCDDoob : HasCD (Doob h D) (lambdaBE lam eps) := by
+    -- `lambdaBE lam eps = lam - 2*eps` by definition.
+    simpa [lambdaBE] using (cd_parameter_shift_explicit h D H eps Hhess (lam := lam) hCD)
   -- Show `λ - 2ε ≥ (λ - 2ε) - γ * (c⋆ S^2 + cD Ξ)` from nonnegativity.
   -- First, the budgeted bracket is nonnegative.
   have hS2 : 0 ≤ Ssup ^ (2 : ℕ) := by simpa using pow_nonneg hM.1 (2 : ℕ)
@@ -198,7 +256,7 @@ by
   refine ⟨lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm), ?_⟩
   exact le_of_eq rfl
 
-/-- Abstract (placeholder) slope of a functional at a point. In later phases this
+/-/ Abstract (placeholder) slope of a functional at a point. In later phases this
 will be replaced by a metric slope/descending slope. Kept numeric to state
 strong upper bounds algebraically. -/
 noncomputable def slope {X : Type*} [PseudoMetricSpace X]
@@ -345,6 +403,35 @@ by
     exact strongUpperBound_flag_for_F A budget Ssup XiNorm
       (slope_upper_bound_trivial A budget Ssup XiNorm hB
         (by simpa using hγ) hS hX)
+  · exact jkoStable_flag_for_F A
+
+/-- Strengthened template: build `AnalyticFlags` for `F := Ent + γ·Dσm` using
+K-side flags, nonnegativity, and auxiliary boundedness/continuity inputs.
+This variant threads through the helper lemmas `ofK_lower_semicontinuous`
+and `ofK_coercive_from_bounds` to ease future replacement by true proofs. -/
+theorem analytic_flags_for_F_from_K_with_bounds {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm lamEff : ℝ)
+  (_hK1 : K1primeK K) (_hK4 : K4mK K)
+  (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma)
+  (hB : BudgetNonneg budget)
+  -- Additional inputs for l.s.c./coercivity automation
+  (hLscEnt : LowerSemicontinuous Ent)
+  (CEnt C0 : ℝ) (hEntLB : ∀ x : X, Ent x ≥ -CEnt)
+  (hLB : UniformLowerBoundAtZero K C0) :
+  AnalyticFlags (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
+by
+  let A := FrourioFunctional.ofK Ent K gamma Ssup
+  refine ⟨?proper, ?lsc, ?coercive, ?hc, ?sub, ?jko⟩
+  · exact proper_flag_for_F A
+  · -- l.s.c. via the ofK helper (placeholder-aware)
+    exact ofK_lower_semicontinuous Ent K gamma Ssup hLscEnt (by trivial)
+  · -- coercivity via the numeric lower bound helper (placeholder-aware)
+    exact ofK_coercive_from_bounds Ent K gamma Ssup CEnt C0 hEntLB hγ hS hLB
+  · exact halfConvex_flag_for_F A lamEff (by simpa using hγ)
+  · -- Strong upper bound via the trivial slope inequality
+    exact strongUpperBound_flag_for_F A budget Ssup XiNorm
+      (slope_upper_bound_trivial A budget Ssup XiNorm hB (by simpa using hγ) hS hX)
   · exact jkoStable_flag_for_F A
 
 /-- Convenience: build analytic flags for `F` using the 1D basic K-transform

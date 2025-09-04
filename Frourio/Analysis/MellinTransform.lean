@@ -267,6 +267,18 @@ the function along to keep the interface available. -/
 noncomputable def Tphi (_Λ : ℝ) (σ : ℝ) : Hσ σ → Hσ (σ - 1) :=
   fun u => ⟨u.F⟩
 
+/-- Placeholder norm on `H_σ` (to be replaced by the Mellin–Plancherel norm). -/
+noncomputable def HσNorm (σ : ℝ) (_u : Hσ σ) : ℝ := 0
+
+/-- Norm identity (skeleton): `Tphi` acts isometrically between the placeholder
+spaces `H_σ → H_{σ-1}`. This records the intended isometry at the statement level.
+It will be replaced by a true equality after introducing the Mellin–Plancherel
+norm in later phases. -/
+theorem Tphi_norm_identity (Λ σ : ℝ) (u : Hσ σ) :
+  HσNorm (σ - 1) (Tphi Λ σ u) = HσNorm σ u := by
+  -- Both sides are 0 with the placeholder norm.
+  simp [HσNorm, Tphi]
+
 /-- Candidate operator-norm bound expression (design quantity). -/
 noncomputable def phiSymbolBound (Λ σ : ℝ) : ℝ :=
   2 * Real.cosh (σ * Real.log Λ) / (Λ - Λ⁻¹)

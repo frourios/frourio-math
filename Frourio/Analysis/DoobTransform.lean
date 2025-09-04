@@ -85,6 +85,22 @@ phase this is a `Prop` alias of `True` so that the API can be wired
 without heavy differential-geometry dependencies. -/
 def HessianLogBound {X : Type*} (_h : X → ℝ) (_D : Diffusion X) (_eps : ℝ) : Prop := True
 
+/-- Minimal Bochner-style correction statement needed to realize the explicit
+CD parameter shift under a Doob transform. Parameterized by `eps` from the
+Hessian bound on `log h`. -/
+def BochnerMinimal {X : Type*} (h : X → ℝ) (D : Diffusion X) (eps : ℝ) : Prop :=
+  ∀ lam : ℝ, HasCD D lam → HasCD (Doob h D) (lam - 2 * eps)
+
+/-- From the (placeholder) Hessian bound and structural Doob assumptions,
+obtain the minimal Bochner-style correction needed for the explicit CD shift.
+In later phases, this will be proven from a genuine Bochner identity. -/
+theorem bochner_from_hessian {X : Type*} (h : X → ℝ) (D : Diffusion X)
+  (_H : DoobAssumptions h D) (eps : ℝ) (_Hhess : HessianLogBound h D eps) :
+  BochnerMinimal h D eps :=
+by
+  -- With `HasCD = True` at this phase, provide the required map.
+  intro lam _hCD; change True; exact trivial
+
 /-- Γ identity under Doob transform (theoremized via assumptions). -/
 theorem doob_gamma_eq {X : Type*} (h : X → ℝ)
   (D : Diffusion X) (H : DoobAssumptions h D) : (Doob h D).Gamma = D.Gamma :=
@@ -104,6 +120,32 @@ theorem doob_gamma2_eq_all {X : Type*} (h : X → ℝ)
   ∀ f : X → ℝ, (Doob h D).Gamma2 f = D.Gamma2 f :=
   H.gamma2_eq
 
+/-- Under strict positivity of `h`, the Doob generator evaluates without
+the `if` guard. This provides a convenient pointwise formula. -/
+theorem doobL_pointwise {X : Type*} (D : Diffusion X)
+  (h : X → ℝ) (H : DoobAssumptions h D) (f : X → ℝ) (x : X) :
+  doobL D h f x = (1 / h x) * D.L (fun y => h y * f y) x := by
+  have hx : h x ≠ 0 := ne_of_gt (H.h_pos x)
+  simp [doobL, hx]
+
+/-- Pairwise carré-du-champ agrees under the Doob transform when `Γ` agrees. -/
+theorem gammaPair_doob_eq {X : Type*} (h : X → ℝ) (D : Diffusion X)
+  (H : DoobAssumptions h D) (f g : X → ℝ) :
+  gammaPair (Doob h D) f g = gammaPair D f g := by
+  -- Replace `(Doob h D).Gamma` by `D.Gamma` using the assumption.
+  have hG : (Doob h D).Gamma = D.Gamma := doob_gamma_eq h D H
+  ext x; simp [gammaPair, hG]
+
+/-- If `Γ` satisfies the product rule for `D`, then it also does for `Doob h D`
+when the `Γ` fields agree (operator-level compatibility). -/
+theorem hasLeibnizGamma_doob_of_base {X : Type*} (h : X → ℝ) (D : Diffusion X)
+  (H : DoobAssumptions h D) (HG : HasLeibnizGamma D) :
+  HasLeibnizGamma (Doob h D) := by
+  intro f g
+  -- Use equality of `Γ` and of `gammaPair` under Doob.
+  have hG : (Doob h D).Gamma = D.Gamma := doob_gamma_eq h D H
+  simpa [hG, gammaPair_doob_eq h D H] using (HG f g)
+
 /- CD-parameter update (Ricci with potential) — theoremized placeholder. -/
 theorem cd_parameter_shift {X : Type*} (h : X → ℝ) (D : Diffusion X)
   (H : DoobAssumptions h D) {lam : ℝ} (hCD : HasCD D lam) :
@@ -119,13 +161,13 @@ provided as a lightweight theorem with assumptions tracked at the type level.
 Note: `HasCD` is a placeholder (`True`) in this phase, so the proof is
 trivial; the purpose is to stabilize the API and dependencies. -/
 theorem cd_parameter_shift_explicit {X : Type*}
-  (h : X → ℝ) (D : Diffusion X) (_H : DoobAssumptions h D)
-  (eps : ℝ) (_Hhess : HessianLogBound h D eps)
-  {lam : ℝ} (_hCD : HasCD D lam) :
+  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
+  (eps : ℝ) (Hhess : HessianLogBound h D eps)
+  {lam : ℝ} (hCD : HasCD D lam) :
   HasCD (Doob h D) (lam - 2 * eps) :=
 by
-  -- With `HasCD = True` the statement is immediate. This theorem pins down
-  -- the intended explicit parameter `lam - 2*eps` for downstream use.
-  change True; exact trivial
+  -- Derive the minimal Bochner correction from the Hessian bound, then apply it.
+  have HB : BochnerMinimal h D eps := bochner_from_hessian h D H eps Hhess
+  exact HB lam hCD
 
 end Frourio

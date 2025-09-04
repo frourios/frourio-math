@@ -23,6 +23,10 @@ namespace Frourio
 section X
 variable {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
 
+/-- Placeholder predicate standing for “uniform over all geodesics between u and v”.
+Refine this in later phases to a genuine geodesic-uniformity hypothesis. -/
+def GeodesicUniform (_u _v : ℝ → X) : Prop := True
+
 /- G2-T1: EVI scale rule (statement-level)
 We package the isometry/similarity toggle and generator homogeneity and
 expose the effective parameter via `effectiveLambda`. -/
@@ -114,6 +118,14 @@ def evi_sum_with_error (P : EVIProblem X) (u v : ℝ → X) : Prop :=
       eviSumWithError P u v hu hv geodesicBetween
         ({ η := η, bound := fun _t => True } : MixedErrorBound X u v)
 
+/-- Uniform-geodesic variant: use a shared `GeodesicUniform` predicate as the
+geodesic hypothesis passed to `eviSumWithError`. -/
+def evi_sum_with_error_uniform (P : EVIProblem X) (u v : ℝ → X)
+  (_GU : GeodesicUniform (X := X) u v) (η : ℝ) : Prop :=
+  ∃ (hu : IsEVISolution P u) (hv : IsEVISolution P v),
+    eviSumWithError P u v hu hv True
+      ({ η := η, bound := fun _t => True } : MixedErrorBound X u v)
+
 /-- Two-EVI synchronization: squared-distance bound with an error term.
 Given the statement-level `eviSumWithError` and an inhomogeneous Grönwall
 lemma in the `half` form, we obtain a linear-in-time upper bound for the
@@ -137,6 +149,22 @@ by
     -- This is exactly the inequality packaged by `eviSumWithError`.
     simpa using (Hsum t))
   intro t; simpa using h t
+
+/-- Uniform-geodesic variant of squared-distance synchronization with error. -/
+theorem evi_two_sync_sq_with_error_uniform
+  (P : EVIProblem X) (u v : ℝ → X)
+  (_hu : IsEVISolution P u) (_hv : IsEVISolution P v)
+  (GU : GeodesicUniform (X := X) u v) (η : ℝ)
+  (Hgr : gronwall_exponential_contraction_with_error_half_pred P.lam η
+    (fun t => d2 (u t) (v t))) :
+  (evi_sum_with_error_uniform P u v GU η) →
+  ∀ t : ℝ,
+    d2 (u t) (v t) ≤
+      Real.exp (-(2 * P.lam) * t) * d2 (u 0) (v 0) + (2 * η) * t :=
+by
+  intro HsumU; rcases HsumU with ⟨hu', hv', Hsum⟩
+  have := evi_two_sync_sq_with_error P u v hu' hv' True η Hgr Hsum
+  intro t; simpa using this t
 
 /-- Error-free synchronization corollary: with zero error term and a
 `half`-form Grönwall lemma, we recover squared-distance contraction. -/
@@ -183,6 +211,30 @@ by
   have hdist := bridge_with_error P u v η Hbridge Hsq
   simpa using hdist t
 
+/-- Uniform-geodesic variant of distance synchronization with error. -/
+theorem evi_two_sync_with_error_dist_uniform
+  (P : EVIProblem X) (u v : ℝ → X)
+  (_hu : IsEVISolution P u) (_hv : IsEVISolution P v)
+  (GU : GeodesicUniform (X := X) u v) (η : ℝ)
+  (Hgr : gronwall_exponential_contraction_with_error_half_pred P.lam η
+    (fun t => d2 (u t) (v t)))
+  (Hbridge : HbridgeWithError P u v η) :
+  (evi_sum_with_error_uniform P u v GU η) →
+  ∀ t : ℝ,
+    dist (u t) (v t) ≤
+      Real.exp (-(P.lam) * t) * dist (u 0) (v 0) + Real.sqrt (max 0 ((2 * η) * t)) :=
+by
+  intro HsumU
+  rcases HsumU with ⟨hu', hv', Hsum⟩
+  -- First obtain the squared-distance synchronization with error
+  have Hsq : ContractionPropertySqWithError P u v η := by
+    have hs := evi_two_sync_sq_with_error P u v hu' hv' True η Hgr Hsum
+    exact hs
+  -- Bridge to distances using the provided error-bridge
+  intro t
+  have hdist := bridge_with_error P u v η Hbridge Hsq
+  simpa using hdist t
+
 end X2
 
 /-- Integrated suite corollary: from weak hypothesis flags and an
@@ -223,6 +275,26 @@ by
   have G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
     build_package_from_flags_and_bridges (FrourioFunctional.F S.func)
       (lambdaBE S.base.lam S.eps) A B
+  exact gradient_flow_suite S G (lambdaBE S.base.lam S.eps) hLam Htwo
+
+/-- Proof-backed variant: use analytic flags and an `EDEEVIAssumptions` pack
+to construct the equivalence package, then assemble the integrated suite. -/
+theorem flow_suite_from_flags_and_ede_evi_pack
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (A : AnalyticFlags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HplfaEde : PLFA_EDE_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (P : EDEEVIAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HjkoPlfa : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func))
+  (hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps
+            (lambdaBE S.base.lam S.eps) S.Ssup S.XiNorm)
+  (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
+  gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S :=
+by
+  -- Build the equivalence from flags and EDE⇔EVI pack, then use the suite.
+  have G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
+    build_package_from_flags_and_ede_evi_pack
+      (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) A HplfaEde P HjkoPlfa
   exact gradient_flow_suite S G (lambdaBE S.base.lam S.eps) hLam Htwo
 
 /-- Tensorization (min rule) theoremized: if both factors satisfy the

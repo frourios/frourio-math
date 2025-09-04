@@ -30,6 +30,16 @@ by
 theorem young_rigidity_R_from_pack (ν : Frourio.MeasureR) (P : YoungRigidityPackR ν) :
   young_rigidity_R ν := P.rigidity
 
+/-- One-way equality (existence) from Dirac-like assumption, via the skeleton
+convolution and norm models. -/
+theorem young_rigidity_R_dirac_exists_from_pack (ν : Frourio.MeasureR)
+  (_P : YoungRigidityPackR ν) :
+  IsDiracMeasureR ν →
+    ∃ f, f ≠ (fun _ => 0) ∧
+      L2NormR (convR_measure f ν) = L2NormR f * TVNorm ν :=
+by
+  intro hD; exact young_rigidity_R_exists_from_dirac ν hD
+
 end R
 
 section Z

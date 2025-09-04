@@ -71,4 +71,7 @@ parameter at scale k is Λ^{(κ - 2α) k} · λ. We model the real power via
 noncomputable def effectiveLambda (α κ Λ : ℝ) (k : ℤ) (lam : ℝ) : ℝ :=
   Real.exp (((κ - 2 * α) * (k : ℝ)) * Real.log Λ) * lam
 
+-- Arithmetic form via `Real.rpow` is available in multiscale form; see
+-- `effective_lambda_multiscale_rpow` in `GradientFlowFramework`.
+
 end Frourio

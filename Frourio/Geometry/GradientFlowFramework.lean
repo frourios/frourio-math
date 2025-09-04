@@ -105,6 +105,24 @@ theorem gradient_flow_suite
     (lambda_eff_lower_bound_of S (lamEff := lamEff) hLam)
     (two_evi_with_force_of S Htwo)
 
+/-- Proof-backed variant: build the equivalence package from analytic flags and
+an `EDEEVIAssumptions` pack (EDE ⇔ EVI), then assemble the integrated suite. -/
+theorem gradient_flow_suite_from_flags_and_ede_evi_pack
+  (S : GradientFlowSystem X)
+  (A : AnalyticFlags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HplfaEde : PLFA_EDE_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (P : EDEEVIAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HjkoPlfa : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func))
+  (lamEff : ℝ)
+  (hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps lamEff S.Ssup S.XiNorm)
+  (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
+  gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S :=
+by
+  have G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
+    build_package_from_flags_and_ede_evi_pack
+      (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) A HplfaEde P HjkoPlfa
+  exact gradient_flow_suite S G lamEff hLam Htwo
+
 end Xsuite
 
 /-- Minimal tensorization predicate (placeholder with nontrivial content):
@@ -139,5 +157,24 @@ theorem multiscale_lambda_rule_thm {m : ℕ}
   multiscale_lambda_rule Λ α κ k :=
 by
   intro lam; exact ⟨effective_lambda_multiscale α κ Λ k lam, rfl⟩
+
+/-- Arithmetic form: multiscale effective λ as a product of real powers when
+each `Λ j > 0`. -/
+theorem effective_lambda_multiscale_rpow {m : ℕ}
+  (α κ Λ : Fin m → ℝ) (k : Fin m → ℤ) (lam : ℝ)
+  (hΛ : ∀ j : Fin m, 0 < Λ j) :
+  effective_lambda_multiscale α κ Λ k lam =
+    lam * ∏ j : Fin m, Real.rpow (Λ j) (((κ j - 2 * α j) * (k j : ℝ))) :=
+by
+  -- Use `a^b = exp(b · log a)` for each factor.
+  have hdef : ∀ j : Fin m,
+      Real.exp (((κ j - 2 * α j) * (k j : ℝ)) * Real.log (Λ j))
+        = Real.rpow (Λ j) (((κ j - 2 * α j) * (k j : ℝ))) :=
+    by
+      intro j
+      simpa [mul_comm, mul_left_comm, mul_assoc]
+        using (Real.rpow_def_of_pos (hΛ j)
+          (((κ j - 2 * α j) * (k j : ℝ)))).symm
+  simp [effective_lambda_multiscale, hdef]
 
 end Frourio

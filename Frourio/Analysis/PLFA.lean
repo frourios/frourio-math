@@ -70,6 +70,14 @@ theorem ede_evi_equiv_from_flags (F : X → ℝ) (lamEff : ℝ)
   ∀ ρ : ℝ → X, EDE F ρ ↔ IsEVISolution ({ E := F, lam := lamEff } : EVIProblem X) ρ :=
   H ⟨HC, SUB⟩
 
+/-- Materialize `EDE_EVI_pred` from core analytic flags via the
+`EDE_EVI_from_analytic_flags` builder. -/
+theorem ede_evi_pred_from_core_flags (F : X → ℝ) (lamEff : ℝ)
+  (A : AnalyticFlags F lamEff)
+  (H : EDE_EVI_from_analytic_flags F lamEff) : EDE_EVI_pred F lamEff :=
+by
+  intro ρ; exact (H ⟨A.HC, A.SUB⟩) ρ
+
 theorem build_EDEEVI_pack_from_flags (F : X → ℝ) (lamEff : ℝ)
   (HC : HalfConvex F lamEff) (SUB : StrongUpperBound F)
   (H : EDE_EVI_from_analytic_flags F lamEff) : EDEEVIAssumptions F lamEff :=
@@ -118,6 +126,17 @@ theorem build_package_from_analytic_flags (F : X → ℝ) (lamEff : ℝ)
   build_package_from_global F lamEff
     (global_sufficient_pack_from_analytic_flags F lamEff H1 H2 H3 A)
 
+/-- Materialize the full equivalence `PLFA = EDE = EVI = JKO` from core
+analytic flags and the three builder routes, without additional bridges. -/
+theorem plfaEdeEviJko_equiv_from_core_flags (F : X → ℝ) (lamEff : ℝ)
+  (A : AnalyticFlags F lamEff)
+  (H1 : PLFA_EDE_from_analytic_flags F lamEff)
+  (H2 : EDE_EVI_from_analytic_flags F lamEff)
+  (H3 : JKO_PLFA_from_analytic_flags F) :
+  plfaEdeEviJko_equiv F lamEff :=
+by
+  exact build_package_from_analytic_flags F lamEff H1 H2 H3 A
+
 structure AnalyticBridges (F : X → ℝ) (lamEff : ℝ) : Prop where
   (plfaEde : PLFA_EDE_from_analytic_flags F lamEff)
   (edeEvi : EDE_EVI_from_analytic_flags F lamEff)
@@ -135,6 +154,30 @@ theorem plfaEdeEviJko_equiv_from_flags (F : X → ℝ) (lamEff : ℝ)
   (A : AnalyticFlags F lamEff) : plfaEdeEviJko_equiv F lamEff :=
   build_package_from_analytic_flags F lamEff
     H1 H2 H3 A
+
+/-- Assemble a `GlobalSufficientPack` directly from core flags and an
+`EDEEVIAssumptions` pack (EDE ⇔ EVI), alongside the non-metric builders. -/
+theorem global_sufficient_pack_from_flags_and_ede_evi_pack (F : X → ℝ) (lamEff : ℝ)
+  (A : AnalyticFlags F lamEff)
+  (HplfaEde : PLFA_EDE_from_analytic_flags F lamEff)
+  (HedeEviPack : EDEEVIAssumptions F lamEff)
+  (HjkoPlfa : JKO_PLFA_from_analytic_flags F) : GlobalSufficientPack F lamEff :=
+by
+  -- Build each component predicate from the supplied pieces
+  have h1 : PLFA_EDE_pred F := HplfaEde ⟨A.proper, A.lsc, A.coercive, A.HC, A.SUB⟩
+  have h2 : EDE_EVI_pred F lamEff := ede_evi_from_pack F lamEff HedeEviPack
+  have h3 : JKO_to_PLFA_pred F := HjkoPlfa ⟨A.proper, A.lsc, A.coercive, A.jkoStable⟩
+  exact ⟨A.HC, A.SUB, And.intro h1 (And.intro h2 h3)⟩
+
+/-- Build the full equivalence from flags, EDE⇔EVI pack, and non-metric builders. -/
+theorem build_package_from_flags_and_ede_evi_pack (F : X → ℝ) (lamEff : ℝ)
+  (A : AnalyticFlags F lamEff)
+  (HplfaEde : PLFA_EDE_from_analytic_flags F lamEff)
+  (HedeEviPack : EDEEVIAssumptions F lamEff)
+  (HjkoPlfa : JKO_PLFA_from_analytic_flags F) : plfaEdeEviJko_equiv F lamEff :=
+by
+  exact build_package_from_global F lamEff
+    (global_sufficient_pack_from_flags_and_ede_evi_pack F lamEff A HplfaEde HedeEviPack HjkoPlfa)
 
 -- JKO ⇒ EDE/EVI from flags
 
@@ -191,6 +234,33 @@ by
   refine ⟨hR.η, ?_⟩
   have Hsq : ContractionPropertySqWithError P u v hR.η := Himp (Hgr_all hR.η)
   exact bridge_with_error P u v hR.η (Hbridge hR.η) Hsq
+
+/-- Two‑EVI with force: distance synchronization using the concrete with‑error
+bridge from `EVI.lean` (no external bridge hypothesis needed). -/
+theorem twoEVIWithForce_to_distance_concrete (P : EVIProblem X) (u v : ℝ → X)
+  (H : TwoEVIWithForce P u v) :
+  ∃ η : ℝ,
+    (gronwall_exponential_contraction_with_error_half_pred P.lam η
+      (fun t => d2 (u t) (v t))) →
+    ContractionPropertyWithError P u v η :=
+by
+  rcases H with ⟨hu, hv, geodesicBetween, hR, Hsum, _Himp⟩
+  refine ⟨hR.η, ?_⟩
+  intro Hgr
+  -- Use the end‑to‑end concrete synchronization theorem from EVI.
+  exact evi_synchronization_with_error_thm_concrete P u v hu hv geodesicBetween hR Hsum Hgr
+
+/-- Closed form: if a Grönwall predicate holds for all `η`, then the
+two‑EVI with force yields a distance synchronization bound via the concrete bridge. -/
+theorem twoEVIWithForce_to_distance_concrete_closed (P : EVIProblem X) (u v : ℝ → X)
+  (H : TwoEVIWithForce P u v)
+  (Hgr_all : ∀ η : ℝ,
+    gronwall_exponential_contraction_with_error_half_pred P.lam η
+      (fun t => d2 (u t) (v t))) :
+  ∃ η : ℝ, ContractionPropertyWithError P u v η :=
+by
+  rcases twoEVIWithForce_to_distance_concrete P u v H with ⟨η, Himp⟩
+  exact ⟨η, Himp (Hgr_all η)⟩
 
 -- Convenience equivalences
 theorem ede_iff_evi (F : X → ℝ) (lamEff : ℝ)
