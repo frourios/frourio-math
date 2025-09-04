@@ -4,6 +4,7 @@ import Frourio.Geometry.FGCore
 import Frourio.Analysis.EVI
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.PLFA
+import Frourio.Analysis.DoobTransform
 
 /-!
 # Gradient-Flow Framework: statements and data glue
@@ -59,6 +60,21 @@ theorem lambda_eff_lower_bound_of (S : GradientFlowSystem X)
   lambda_eff_lower_bound S :=
 by
   exact ⟨lamEff, h⟩
+
+/-- Effective lambda lower bound derived from Doob assumptions and m-point
+zero-order bounds. Uses the constructive inequality from the analysis layer. -/
+theorem lambda_eff_lower_bound_from_doob
+  (S : GradientFlowSystem X)
+  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
+  (hM : MPointZeroOrderBound S.Ssup S.XiNorm)
+  (hB : BudgetNonneg S.budget)
+  (hγ : 0 ≤ S.func.gamma) :
+  lambda_eff_lower_bound S :=
+by
+  -- Instantiate the constructive analysis-layer theorem and package the witness.
+  rcases lambdaEffLowerBound_construct_from_doobAssumptions_mpoint S.func S.budget h D H
+      S.base.lam S.eps S.Ssup S.XiNorm hM hB hγ with ⟨lamEff, hLE⟩
+  exact ⟨lamEff, hLE⟩
 
 /-- Two-EVI with external forcing: packaged via the analysis-layer predicate. -/
 def two_evi_with_force (S : GradientFlowSystem X) : Prop :=

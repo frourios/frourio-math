@@ -75,12 +75,32 @@ assumptions. -/
 def doob_scale_commute (_D : Diffusion X) (_S : ScaleAction X) : Prop :=
   ∀ (_h : X → ℝ) (_k : ℤ), True
 
+/-- Sufficient condition placeholder for Doob×Scale commutation.
+Intended to encode `h ∘ S_Λ = c · h` (eigenfunction condition) per step `k`. -/
+def doob_scale_commute_sufficient (_D : Diffusion X) (_S : ScaleAction X) : Prop :=
+  ∀ (_h : X → ℝ) (_k : ℤ), True
+
+/-- If the sufficient condition holds (e.g. `h ∘ S_Λ = c · h`), then the
+Doob transform commutes with the scale action (statement-level). -/
+theorem doob_scale_commute_of_sufficient (D : Diffusion X) (S : ScaleAction X)
+  (H : doob_scale_commute_sufficient D S) : doob_scale_commute D S :=
+by
+  intro h k; exact H h k
+
 end X
 
 /- G2-T3: Mosco inheritance bridge (re-export to analysis layer) -/
 def mosco_inheritance {ι : Type*} (S : MoscoSystem ι)
   (_H : MoscoAssumptions S) : Prop :=
   EVILimitHolds S
+
+/-- Mosco inheritance theoremized via the analysis-layer `eviInheritance`. -/
+theorem mosco_inheritance_thm {ι : Type*} (S : MoscoSystem ι)
+  (H : MoscoAssumptions S) : mosco_inheritance S H :=
+by
+  -- `mosco_inheritance S H` is by definition `EVILimitHolds S`.
+  -- Conclude using the analysis-layer inheritance theorem.
+  exact eviInheritance S H
 
 section X2
 variable {X : Type*} [PseudoMetricSpace X]
@@ -136,6 +156,33 @@ by
   intro t
   simpa [zero_mul, add_comm, add_left_comm, add_assoc] using h t
 
+/-- Two-EVI synchronization: distance bound with an error term.
+Combines the inhomogeneous Grönwall inequality and the bridge to distances. -/
+theorem evi_two_sync_with_error_dist
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (geodesicBetween : Prop) (η : ℝ)
+  (Hgr : gronwall_exponential_contraction_with_error_half_pred P.lam η
+    (fun t => d2 (u t) (v t)))
+  (Hbridge : HbridgeWithError P u v η) :
+  (eviSumWithError P u v hu hv geodesicBetween
+    ({ η := η, bound := fun _t => True } : MixedErrorBound X u v)) →
+  ∀ t : ℝ,
+    dist (u t) (v t) ≤
+      Real.exp (-(P.lam) * t) * dist (u 0) (v 0) + Real.sqrt (max 0 ((2 * η) * t)) :=
+by
+  intro Hsum
+  -- First obtain the squared-distance synchronization with error
+  have Hsq : ContractionPropertySqWithError P u v η := by
+    -- Reuse the squared-distance helper
+    have hs := evi_two_sync_sq_with_error P u v hu hv geodesicBetween η Hgr Hsum
+    -- Package as a Prop-valued predicate
+    exact hs
+  -- Bridge to distances using the provided error-bridge
+  intro t
+  have hdist := bridge_with_error P u v η Hbridge Hsq
+  simpa using hdist t
+
 end X2
 
 /-- Integrated suite corollary: from weak hypothesis flags and an
@@ -177,6 +224,19 @@ by
     build_package_from_flags_and_bridges (FrourioFunctional.F S.func)
       (lambdaBE S.base.lam S.eps) A B
   exact gradient_flow_suite S G (lambdaBE S.base.lam S.eps) hLam Htwo
+
+/-- Tensorization (min rule) theoremized: if both factors satisfy the
+coercivity surrogate `K1prime` and have nonnegative couplings, then the
+combined system satisfies the statement-level tensorization predicate. -/
+theorem tensorization_min_rule_thm {X Y : Type*}
+  [PseudoMetricSpace X] [MeasurableSpace X]
+  [PseudoMetricSpace Y] [MeasurableSpace Y]
+  (S₁ : GradientFlowSystem X) (S₂ : GradientFlowSystem Y)
+  (hK1₁ : K1prime S₁.func) (hK1₂ : K1prime S₂.func)
+  (hγ₁ : 0 ≤ S₁.func.gamma) (hγ₂ : 0 ≤ S₂.func.gamma) :
+  tensorization_min_rule S₁ S₂ :=
+by
+  exact And.intro hK1₁ (And.intro hK1₂ (And.intro hγ₁ hγ₂))
 
 /-- Step 1 (FG-level wrapper): from λ-semi-convexity and a strong upper bound
 for `F := Ent + γ·Dσm` with `λ_eff := lambdaBE λ ε`, together with an analytic

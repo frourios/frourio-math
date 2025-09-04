@@ -425,6 +425,32 @@ theorem eviContraction_thm
 by
   exact eviContraction_general P u v hu hv Hineq2 Hgr Hbridge
 
+/--
+Concrete EVI contraction wrapper (closed via G1 + B1).
+
+Given the squared-distance differential inequality for `W t = d2(u t, v t)`
+and the Grönwall predicate `gronwall_exponential_contraction_pred`, this
+derives the linear-distance contraction using the concrete bridge
+`bridge_contraction_concrete`.
+
+This closes the contraction pipeline without requiring an external
+`Hbridge` argument. -/
+theorem evi_contraction_thm_concrete
+  {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (Hineq2 : ∀ t : ℝ,
+    DiniUpper (fun τ : ℝ => d2 (u τ) (v τ)) t
+      + (2 * P.lam) * d2 (u t) (v t) ≤ 0)
+  (Hgr : gronwall_exponential_contraction_pred P.lam (fun t => d2 (u t) (v t))) :
+  ContractionProperty P u v :=
+by
+  -- First get the squared-distance contraction via Grönwall (G1)
+  have hSq : ContractionPropertySq P u v :=
+    evi_contraction_sq_from_gronwall P u v hu hv Hineq2 Hgr
+  -- Then bridge to linear distance via the concrete bridge (B1)
+  exact bridge_contraction_concrete P u v hSq
+
 /- Mixed-error bound skeleton for a pair (u, v). The `bound` field can
 encode any intended inequality along a selected geodesic; we keep it
 abstract at this stage. -/
@@ -479,6 +505,32 @@ by
         + P.lam * d2 (u s) (v s) ≤ hR.η := by
     intro s; simpa using Hsum s
   simpa using Hgr this t
+
+/-- Distance-version synchronization with error. From the squared-distance
+bound and algebraic `sqrt` identities, derive
+
+  dist(u t, v t) ≤ exp (-(P.lam) t) · dist(u 0, v 0) + √(max 0 ((2 η) t)).
+
+We use `max 0` to keep the radicand nonnegative when `η t < 0`. -/
+def ContractionPropertyWithError {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X) (η : ℝ) : Prop :=
+  ∀ t : ℝ,
+    dist (u t) (v t) ≤
+      Real.exp (-(P.lam) * t) * dist (u 0) (v 0)
+        + Real.sqrt (max 0 ((2 * η) * t))
+
+/-- Error-bridge predicate from squared to linear distance with an error term. -/
+def HbridgeWithError {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X) (η : ℝ) : Prop :=
+  ContractionPropertySqWithError P u v η → ContractionPropertyWithError P u v η
+
+/-- Wrapper: apply a provided error-bridge to convert squared to linear distance. -/
+theorem bridge_with_error {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X) (η : ℝ)
+  (H : HbridgeWithError P u v η)
+  (Hsq : ContractionPropertySqWithError P u v η) :
+  ContractionPropertyWithError P u v η :=
+H Hsq
 
 
 /- Optional: time-domain wrapper aligning (ℝ≥0 → X) with (ℝ → X) without

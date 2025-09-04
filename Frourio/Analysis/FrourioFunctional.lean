@@ -1,5 +1,6 @@
 import Mathlib.Data.Real.Basic
 import Mathlib.Topology.MetricSpace.Basic
+import Frourio.Analysis.KTransform
 import Frourio.Analysis.DoobTransform
 
 namespace Frourio
@@ -29,6 +30,13 @@ noncomputable def FrourioFunctional.F {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) : X → ℝ :=
   fun x => A.Ent x + A.gamma * A.Dsigmam x
 
+/-- Build a `FrourioFunctional` from an entropy `Ent`, a K-transform `K`,
+and a parameter `gamma`, using the `DsigmamFromK` interface with a supplied
+sup-norm proxy `Ssup`. -/
+noncomputable def FrourioFunctional.ofK {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) : FrourioFunctional X :=
+{ Ent := Ent, Dsigmam := DsigmamFromK K Ssup, gamma := gamma }
+
 /-- Narrow-continuity surrogate (K1′, minimalist nontrivial form):
 we require a uniform lower bound for `Dsigmam` (coercivity proxy).
 This avoids a vacuous `True` while staying assumption-light. -/
@@ -41,6 +49,12 @@ we assume nonnegativity of the coupling parameter `gamma`.
 This encodes that the extra term does not invert convexity trends. -/
 def K4m {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) : Prop := 0 ≤ A.gamma
+
+/- Promote K-side predicates to a statement-level slope bound builder.
+   (moved below after slope-based predicates are introduced).
+   Given (K1′), (K4^m), and nonnegativity of the proxies, we produce the
+   `StrongSlopeUpperBound_pred` for the functional built from `K`. The analytic
+   content is deferred; this wraps the dependency shape used downstream. -/
 
 /-- Doob-corrected parameter: `λ_BE = λ - 2 ε`. -/
 def lambdaBE (lam eps : ℝ) : ℝ := lam - 2 * eps
@@ -170,5 +184,26 @@ theorem slope_strong_upper_bound {X : Type*} [PseudoMetricSpace X]
     slope (FrourioFunctional.F A) x
       ≤ slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
   H
+
+/-- Promote K-side predicates to a statement-level slope bound builder.
+Given (K1′), (K4^m), and nonnegativity of the proxies, we produce the
+`StrongSlopeUpperBound_pred` for the functional built from `K`. The analytic
+content is deferred; this wraps the dependency shape used downstream. -/
+def StrongSlopeFromK_flags {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm : ℝ) : Prop :=
+  (K1primeK K ∧ K4mK K ∧ 0 ≤ Ssup ∧ 0 ≤ XiNorm ∧ 0 ≤ gamma) →
+    StrongSlopeUpperBound_pred (FrourioFunctional.ofK Ent K gamma Ssup) budget Ssup XiNorm
+
+/-- Wrapper theorem: apply a provided `StrongSlopeFromK_flags` builder to
+obtain the strong slope upper bound predicate. -/
+theorem slope_strong_upper_bound_from_K {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm : ℝ)
+  (H : StrongSlopeFromK_flags Ent K gamma budget Ssup XiNorm)
+  (hK1 : K1primeK K) (hK4 : K4mK K) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma) :
+  StrongSlopeUpperBound_pred (FrourioFunctional.ofK Ent K gamma Ssup) budget Ssup XiNorm :=
+by
+  exact H ⟨hK1, hK4, hS, hX, hγ⟩
 
 end Frourio
