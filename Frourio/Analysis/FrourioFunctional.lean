@@ -256,11 +256,23 @@ by
   refine ⟨lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm), ?_⟩
   exact le_of_eq rfl
 
-/-/ Abstract (placeholder) slope of a functional at a point. In later phases this
-will be replaced by a metric slope/descending slope. Kept numeric to state
-strong upper bounds algebraically. -/
+/-
+Abstract slope interface, designed to be replaceable by the descending slope
+in later phases (AGS). We keep a zero‑slope default to preserve current proofs,
+and provide an explicit slope predicate parametrized by a slope specification.
+-/
+
+/-- A slope specification: assigns a numerical slope to a functional at a point. -/
+structure SlopeSpec (X : Type*) [PseudoMetricSpace X] where
+  (slope : (X → ℝ) → X → ℝ)
+
+/-- Default (dummy) slope specification used at this phase: always 0. -/
+noncomputable def zeroSlopeSpec (X : Type*) [PseudoMetricSpace X] : SlopeSpec X :=
+  ⟨fun _ _ => 0⟩
+
+/-- Legacy slope alias (kept for existing code); uses the zero slope. -/
 noncomputable def slope {X : Type*} [PseudoMetricSpace X]
-  (_G : X → ℝ) (_x : X) : ℝ := 0
+  (G : X → ℝ) (x : X) : ℝ := (zeroSlopeSpec X).slope G x
 
 /-- Predicate for a strong upper bound on the slope of `F = Ent + γ·Dσm`:
   |∂F|(x) ≤ |∂Ent|(x) + γ · (cStar · Ssup^2 + cD · XiNorm)
@@ -272,6 +284,28 @@ def StrongSlopeUpperBound_pred {X : Type*} [PseudoMetricSpace X]
     slope (FrourioFunctional.F A) x
       ≤ slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)
 
+/-- Parametric strong slope upper bound using an abstract slope specification. -/
+def StrongSlopeUpperBound_with {X : Type*} [PseudoMetricSpace X]
+  (S : SlopeSpec X) (A : FrourioFunctional X) (budget : ConstantBudget)
+  (Ssup XiNorm : ℝ) : Prop :=
+  ∀ x : X,
+    S.slope (FrourioFunctional.F A) x
+      ≤ S.slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)
+
+/-- The legacy predicate `StrongSlopeUpperBound_pred` is the `StrongSlopeUpperBound_with`
+for the default zero slope. -/
+theorem strongSlope_with_zero_equiv {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (budget : ConstantBudget)
+  (Ssup XiNorm : ℝ) :
+  StrongSlopeUpperBound_pred A budget Ssup XiNorm
+    ↔ StrongSlopeUpperBound_with (zeroSlopeSpec X) A budget Ssup XiNorm :=
+by
+  constructor <;> intro H x
+  · simpa [StrongSlopeUpperBound_with, slope, zeroSlopeSpec]
+      using (H x)
+  · simpa [StrongSlopeUpperBound_pred, slope, zeroSlopeSpec]
+      using (H x)
+
 /-- Theoremized strong slope upper bound (wrapper from the predicate). -/
 theorem slope_strong_upper_bound {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) (budget : ConstantBudget)
@@ -280,6 +314,16 @@ theorem slope_strong_upper_bound {X : Type*} [PseudoMetricSpace X]
   ∀ x : X,
     slope (FrourioFunctional.F A) x
       ≤ slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
+  H
+
+/-- Parametric version: theoremized strong slope upper bound using a slope spec. -/
+theorem slope_strong_upper_bound_with {X : Type*} [PseudoMetricSpace X]
+  (S : SlopeSpec X) (A : FrourioFunctional X) (budget : ConstantBudget)
+  (Ssup XiNorm : ℝ)
+  (H : StrongSlopeUpperBound_with S A budget Ssup XiNorm) :
+  ∀ x : X,
+    S.slope (FrourioFunctional.F A) x
+      ≤ S.slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
   H
 
 /-- Promote K-side predicates to a statement-level slope bound builder.
@@ -292,6 +336,13 @@ def StrongSlopeFromK_flags {X : Type*} [PseudoMetricSpace X]
   (K1primeK K ∧ K4mK K ∧ 0 ≤ Ssup ∧ 0 ≤ XiNorm ∧ 0 ≤ gamma) →
     StrongSlopeUpperBound_pred (FrourioFunctional.ofK Ent K gamma Ssup) budget Ssup XiNorm
 
+/-- Parametric builder from K-side flags to the slope-bound predicate with a slope spec. -/
+def StrongSlopeFromK_flags_with {X : Type*} [PseudoMetricSpace X]
+  (S : SlopeSpec X) (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm : ℝ) : Prop :=
+  (K1primeK K ∧ K4mK K ∧ 0 ≤ Ssup ∧ 0 ≤ XiNorm ∧ 0 ≤ gamma) →
+    StrongSlopeUpperBound_with S (FrourioFunctional.ofK Ent K gamma Ssup) budget Ssup XiNorm
+
 /-- Wrapper theorem: apply a provided `StrongSlopeFromK_flags` builder to
 obtain the strong slope upper bound predicate. -/
 theorem slope_strong_upper_bound_from_K {X : Type*} [PseudoMetricSpace X]
@@ -303,6 +354,17 @@ theorem slope_strong_upper_bound_from_K {X : Type*} [PseudoMetricSpace X]
 by
   exact H ⟨_hK1, _hK4, hS, hX, hγ⟩
 
+/-- Parametric wrapper: apply a provided `StrongSlopeFromK_flags_with` builder to
+obtain the parametric strong slope upper bound predicate. -/
+theorem slope_strong_upper_bound_from_K_with {X : Type*} [PseudoMetricSpace X]
+  (S : SlopeSpec X) (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm : ℝ)
+  (H : StrongSlopeFromK_flags_with S Ent K gamma budget Ssup XiNorm)
+  (_hK1 : K1primeK K) (_hK4 : K4mK K) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) (hγ : 0 ≤ gamma) :
+  StrongSlopeUpperBound_with S (FrourioFunctional.ofK Ent K gamma Ssup) budget Ssup XiNorm :=
+by
+  exact H ⟨_hK1, _hK4, hS, hX, hγ⟩
+
 /-- A trivial slope upper bound using the dummy slope = 0 and nonnegativity. -/
 theorem slope_upper_bound_trivial {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ)
@@ -311,7 +373,7 @@ theorem slope_upper_bound_trivial {X : Type*} [PseudoMetricSpace X]
 by
   intro x
   -- Left-hand side is 0 by the `slope` definition.
-  simp [slope]
+  simp [slope, zeroSlopeSpec]
   -- We need to show `0 ≤ slope Ent x + γ * (...)`, which follows from nonnegativity.
   have hS2 : 0 ≤ Ssup ^ (2 : ℕ) := by simpa using pow_nonneg hS (2 : ℕ)
   have hterm1 : 0 ≤ budget.cStar * Ssup ^ (2 : ℕ) :=
@@ -322,7 +384,7 @@ by
   have hγsum : 0 ≤ A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
     mul_nonneg hγ hsum
   -- `slope A.Ent x = 0` by definition, so the target is exactly `0 ≤ γ * (...)`.
-  simpa [slope] using hγsum
+  simpa [slope, zeroSlopeSpec] using hγsum
 
 /-- Concrete builder: from K-side flags and nonnegativity, produce a strong
 upper bound on the slope of `F := Ent + γ·Dσm` using the trivial inequality. -/
@@ -447,5 +509,52 @@ theorem analytic_flags_for_F_from_basic1D
 by
   refine analytic_flags_for_F_from_K Ent (KTransform.basic1D) gamma budget Ssup XiNorm lamEff
     (K1prime_basic1D) (K4mK_basic1D) hS hX hγ hB
+
+/-
+Minimal wrappers: expose only the pieces needed to assemble the PLFA=EDE=EVI=JKO
+equivalence for `F := Ent + γ·Dσm` under K‑side flags, assuming the three
+builder routes are available. This keeps proofs lightweight while wiring the
+pipeline end‑to‑end for the variational principle.
+-/
+
+/-- Equivalence package for `F := Ent + γ·Dσm` from K‑side flags and the three
+builder routes via analytic flags. -/
+theorem plfaEdeEviJko_equiv_for_F_from_K
+  {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm lamEff : ℝ)
+  (hK1 : K1primeK K) (hK4 : K4mK K) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm)
+  (hγ : 0 ≤ gamma) (hB : BudgetNonneg budget)
+  (HplfaEde : PLFA_EDE_from_analytic_flags
+      (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff)
+  (HedeEvi : EDE_EVI_from_analytic_flags
+      (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff)
+  (HjkoPlfa : JKO_PLFA_from_analytic_flags
+      (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))) :
+  plfaEdeEviJko_equiv (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
+by
+  -- Build analytic flags from K‑side inputs
+  have A := analytic_flags_for_F_from_K Ent K gamma budget Ssup XiNorm lamEff hK1 hK4 hS hX hγ hB
+  -- Assemble the equivalence via the generic core‑flags route
+  exact Frourio.plfaEdeEviJko_equiv_from_core_flags
+    (F := FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))
+    (lamEff := lamEff) A HplfaEde HedeEvi HjkoPlfa
+
+/-- Minimal EDE⇔EVI predicate for `F := Ent + γ·Dσm` from K‑side flags and the
+`EDE_EVI_from_analytic_flags` builder. -/
+theorem ede_evi_pred_for_F_from_K
+  {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma : ℝ)
+  (budget : ConstantBudget) (Ssup XiNorm lamEff : ℝ)
+  (hK1 : K1primeK K) (hK4 : K4mK K) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm)
+  (hγ : 0 ≤ gamma) (hB : BudgetNonneg budget)
+  (HedeEvi : EDE_EVI_from_analytic_flags
+      (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff) :
+  EDE_EVI_pred (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
+by
+  have A := analytic_flags_for_F_from_K Ent K gamma budget Ssup XiNorm lamEff hK1 hK4 hS hX hγ hB
+  exact Frourio.ede_evi_pred_from_core_flags_via_builder
+    (F := FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))
+    (lamEff := lamEff) A HedeEvi
 
 end Frourio

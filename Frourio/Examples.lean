@@ -3,6 +3,10 @@ import Frourio.Algebra.StructureSequence
 import Frourio.Algebra.CrossedProduct
 import Mathlib.Data.Real.Sqrt
 import Mathlib.Tactic
+import Mathlib.Data.Real.Basic
+import Mathlib.Topology.MetricSpace.Basic
+import Frourio.Analysis.PLFACore
+import Frourio.Analysis.EVI
 
 namespace Frourio
 
@@ -106,10 +110,6 @@ noncomputable def ThreePointExample (δ : ℝ) (hδ : 0 < δ) : FrourioOperator 
       exact pow_pos hδ (i.1 + 1)
   }
 
-end Frourio
-
-namespace Frourio
-
 /-- 交叉積の自明作用における簡単な計算例（m=2, Λ=φ）。 -/
 example :
     CrossedProduct.mul (trivialZmAction ℝ 2)
@@ -122,3 +122,62 @@ example :
   simp [CrossedProduct.mul, trivialZmAction, φ, hzero]
 
 end Frourio
+
+/-!
+Basic 1D example: from an initial value to JKO, then to EDE and EVI.
+
+We take `X := ℝ`, the energy `F := fun _ => 0`, and `λ_eff := 0`.
+For a constant curve `ρ t = ρ0`, JKO and EDE are immediate, and EVI holds
+trivially since the squared distance to any fixed `v` is constant in time.
+-/
+
+namespace FrourioExamples
+
+open Frourio
+
+section Basic1D
+variable (ρ0 : ℝ)
+
+noncomputable def F : ℝ → ℝ := fun _ => 0
+noncomputable def lamEff : ℝ := 0
+
+noncomputable def rho : ℝ → ℝ := fun _t => ρ0
+
+/-- JKO witness: the constant curve at `ρ0`. -/
+theorem basic1D_JKO : JKO F ρ0 := by
+  refine ⟨rho ρ0, rfl, ?_⟩
+  intro t; simp [F]
+
+/-- EDE holds for the constant curve and constant energy. -/
+theorem basic1D_EDE : EDE F (rho ρ0) := by
+  intro t
+  have h : DiniUpperE (fun _ => (0 : ℝ)) t = (0 : EReal) := by
+    -- forward difference quotient is identically 0
+    simp [Frourio.DiniUpperE]
+  -- conclude `0 ≤ 0`
+  simp [F, h]
+
+/-- EVI holds for the constant curve when `λ_eff = 0`. -/
+theorem basic1D_EVI :
+  IsEVISolution ({ E := F, lam := lamEff } : EVIProblem ℝ) (rho ρ0) := by
+  intro t v
+  -- The squared distance to `v` is constant along a constant curve.
+  have hDu : DiniUpper (fun τ => d2 ((rho ρ0) τ) v) t = 0 := by
+    simp [Frourio.DiniUpper, rho, d2]
+  have hconst : DiniUpper (fun _ => d2 ρ0 v) t = 0 := by
+    simp [Frourio.DiniUpper, d2]
+  -- Plug into the EVI inequality with zero energy and zero λ.
+  simp [F, lamEff, rho, hconst]
+
+/-- Integrated existence: from `ρ0`, there exists a curve realizing JKO, EDE, EVI. -/
+theorem basic1D_chain :
+  ∃ ρ : ℝ → ℝ, ρ 0 = ρ0 ∧ JKO F ρ0 ∧ EDE F ρ ∧
+    IsEVISolution ({ E := F, lam := lamEff } : EVIProblem ℝ) ρ := by
+  refine ⟨rho ρ0, rfl, ?_, ?_, ?_⟩
+  · exact basic1D_JKO ρ0
+  · exact basic1D_EDE ρ0
+  · exact basic1D_EVI ρ0
+
+end Basic1D
+
+end FrourioExamples

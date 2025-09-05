@@ -5,6 +5,9 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Topology.Basic
 import Mathlib.Topology.Order.DenselyOrdered
 import Mathlib.Order.LiminfLimsup
+import Mathlib.Topology.Order.LiminfLimsup
+import Mathlib.Topology.Algebra.Order.LiminfLimsup
+import Mathlib.Topology.Instances.EReal.Lemmas
 import Mathlib.Tactic
 
 namespace Frourio
@@ -123,6 +126,193 @@ introduced in later phases.
 -/
 def DiniUpper_add_le_pred (φ ψ : ℝ → ℝ) (t : ℝ) : Prop :=
   DiniUpper (fun τ => φ τ + ψ τ) t ≤ DiniUpper φ t + DiniUpper ψ t
+
+/- Subadditivity of the upper Dini derivative via ε-approximation on the right filter. -/
+-- TODO(EReal route): Prove `DiniUpper_add_le_pred` via limsup subadditivity on EReal.
+-- A robust path is to work with `DiniUpperE` and use
+-- `Topology/Instances/EReal/Lemmas.lean: limsup_add_le_of_le` with an ε/2 argument,
+-- then bridge back to `ℝ`.
+-- NOTE: move helper below to use `DiniUpper_add_le_of_finite`.
+
+/-- EReal subadditivity for the upper Dini derivative, under the standard
+exclusions for `EReal` addition at `(⊥, ⊤)` and `(⊤, ⊥)` encoded in mathlib’s
+`limsup_add_le` hypotheses. -/
+theorem DiniUpperE_add_le
+  (φ ψ : ℝ → ℝ) (t : ℝ)
+  (h1 : DiniUpperE φ t ≠ ⊥ ∨ DiniUpperE ψ t ≠ ⊤)
+  (h2 : DiniUpperE φ t ≠ ⊤ ∨ DiniUpperE ψ t ≠ ⊥) :
+  DiniUpperE (fun τ => φ τ + ψ τ) t ≤ DiniUpperE φ t + DiniUpperE ψ t := by
+  -- Unfold everything to a limsup over the right-neighborhood filter.
+  dsimp [DiniUpperE]
+  set l := nhdsWithin (0 : ℝ) (Set.Ioi 0)
+  -- EReal-valued difference quotients for φ and ψ.
+  set uE : ℝ → EReal := fun h => (((φ (t + h) - φ t) / h : ℝ) : EReal)
+  set vE : ℝ → EReal := fun h => (((ψ (t + h) - ψ t) / h : ℝ) : EReal)
+  -- Forward difference of the sum equals sum of forward differences (as EReals).
+  have hsum : (fun h : ℝ => (((φ (t + h) + ψ (t + h) - (φ t + ψ t)) / h : ℝ) : EReal))
+              = fun h : ℝ => uE h + vE h := by
+    funext h; simp [uE, vE, sub_eq_add_neg, add_comm, add_left_comm, add_assoc, add_div]
+  -- Apply EReal limsup subadditivity with its standard disjunction side conditions.
+  have H : Filter.limsup (fun h : ℝ => uE h + vE h) l ≤
+            Filter.limsup uE l + Filter.limsup vE l := by
+    -- Transport the side conditions from `DiniUpperE`.
+    have hu1 : Filter.limsup uE l ≠ ⊥ ∨ Filter.limsup vE l ≠ ⊤ := by
+      simpa [uE, vE, DiniUpperE, l]
+        using (h1 : DiniUpperE φ t ≠ ⊥ ∨ DiniUpperE ψ t ≠ ⊤)
+    have hu2 : Filter.limsup uE l ≠ ⊤ ∨ Filter.limsup vE l ≠ ⊥ := by
+      simpa [uE, vE, DiniUpperE, l]
+        using (h2 : DiniUpperE φ t ≠ ⊤ ∨ DiniUpperE ψ t ≠ ⊥)
+    simpa using (EReal.limsup_add_le (f := l) (u := uE) (v := vE) hu1 hu2)
+  -- Rewrite via `hsum` and conclude.
+  simpa [hsum, uE, vE, l]
+
+/-- Identification of Real/EReal DiniUpper under finiteness. -/
+theorem DiniUpper_eq_toReal_of_finite
+  (φ : ℝ → ℝ) (t : ℝ)
+  (_hfin : DiniUpperE φ t ≠ ⊤ ∧ DiniUpperE φ t ≠ ⊥)
+  (hub : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+            ((φ (t + h) - φ t) / h) ≤ M)
+  (hlb : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+            m ≤ ((φ (t + h) - φ t) / h)) :
+  DiniUpper φ t = (DiniUpperE φ t).toReal := by
+  -- Work with the right-neighborhood filter.
+  dsimp [DiniUpper, DiniUpperE]
+  set l := nhdsWithin (0 : ℝ) (Set.Ioi 0)
+  -- Real/EReal difference quotients.
+  set fu : ℝ → ℝ := fun h => (φ (t + h) - φ t) / h
+  set uE : ℝ → EReal := fun h => ((fu h : ℝ) : EReal)
+  -- Ensure `l` is nontrivial (needed by `map_limsup_of_continuousAt`).
+  haveI : Filter.NeBot l := by
+    simpa [l] using (nhdsWithin_Ioi_neBot (α := ℝ) (a := 0) (b := 0) le_rfl)
+  -- Supply boundedness assumptions for `fu` on `l`.
+  have hbdd : Filter.IsBoundedUnder (· ≤ ·) l fu := by
+    rcases hub with ⟨M, hM⟩
+    exact Filter.isBoundedUnder_of_eventually_le (f := l) (u := fu) (a := M) hM
+  have hcobdd : Filter.IsCoboundedUnder (· ≤ ·) l fu := by
+    rcases hlb with ⟨m, hm⟩
+    exact Filter.isCoboundedUnder_le_of_eventually_le (l := l) (f := fu) (x := m) hm
+  -- Monotone + continuous coercion `ℝ → EReal` transports limsup.
+  have hmap : ((Filter.limsup fu l : ℝ) : EReal)
+      = Filter.limsup (fun h : ℝ => ((fu h : ℝ) : EReal)) l := by
+    have hmono : Monotone (fun x : ℝ => (x : EReal)) := by
+      intro a b hab; simpa [EReal.coe_le_coe_iff] using hab
+    have hcont : ContinuousAt (fun x : ℝ => (x : EReal)) (Filter.limsup fu l) :=
+      (continuous_coe_real_ereal).continuousAt
+    simpa [uE]
+      using (Monotone.map_limsup_of_continuousAt (F := l)
+                 (f := fun x : ℝ => (x : EReal)) (a := fu)
+                 (f_incr := hmono) (f_cont := hcont)
+                 (bdd_above := hbdd) (cobdd := hcobdd))
+  -- Apply `toReal` to both sides; simplify LHS via `toReal_coe`.
+  have hR : Filter.limsup fu l
+      = (Filter.limsup (fun h : ℝ => ((fu h : ℝ) : EReal)) l).toReal := by
+    have := congrArg (fun x => EReal.toReal x) hmap
+    simpa using this
+  -- Unfold the definitions and conclude.
+  simpa [l, fu, uE]
+    using hR
+
+/-- Real bridge from the EReal inequality: if all three upper Dini derivatives
+are finite in `EReal` (neither `⊤` nor `⊥`), then the real-valued additivity
+upper bound holds. -/
+theorem DiniUpper_add_le_of_finite
+  (φ ψ : ℝ → ℝ) (t : ℝ)
+  (hφ_fin : DiniUpperE φ t ≠ ⊤ ∧ DiniUpperE φ t ≠ ⊥)
+  (hψ_fin : DiniUpperE ψ t ≠ ⊤ ∧ DiniUpperE ψ t ≠ ⊥)
+  (hsum_fin : DiniUpperE (fun τ => φ τ + ψ τ) t ≠ ⊤ ∧
+              DiniUpperE (fun τ => φ τ + ψ τ) t ≠ ⊥)
+  (hubφ : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), ((φ (t + h) - φ t) / h) ≤ M)
+  (hlbφ : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), m ≤ ((φ (t + h) - φ t) / h))
+  (hubψ : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), ((ψ (t + h) - ψ t) / h) ≤ M)
+  (hlbψ : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), m ≤ ((ψ (t + h) - ψ t) / h))
+  (hubsum : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+              (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h) ≤ M)
+  (hlbsum : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+              m ≤ (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h)) :
+  DiniUpper_add_le_pred φ ψ t := by
+  -- Outline:
+  -- 1) Apply `DiniUpperE_add_le` to get the EReal inequality.
+  -- 2) Use `toReal_le_toReal` with finiteness to transport ≤ to real numbers.
+  -- 3) Identify `toReal (DiniUpperE …)` with `DiniUpper …` under finiteness.
+  -- The identification step is deferred and will be supplied by an auxiliary
+  -- lemma linking `ℝ` and `EReal` limsups for finite values.
+  --
+  -- Step 1: EReal inequality.
+  have hE :
+      DiniUpperE (fun τ => φ τ + ψ τ) t ≤ DiniUpperE φ t + DiniUpperE ψ t :=
+    DiniUpperE_add_le φ ψ t
+      (Or.inl hφ_fin.2) (Or.inl hφ_fin.1)
+  -- Right-hand side is not `⊤` since both summands are finite.
+  have hsum_ne_top : DiniUpperE φ t + DiniUpperE ψ t ≠ ⊤ := by
+    have hiff := EReal.add_ne_top_iff_ne_top₂ (hφ_fin.2) (hψ_fin.2)
+    exact (hiff.mpr ⟨hφ_fin.1, hψ_fin.1⟩)
+  -- Step 2: move to reals via `toReal_le_toReal`.
+  have hR :
+      (DiniUpperE (fun τ => φ τ + ψ τ) t).toReal
+        ≤ (DiniUpperE φ t + DiniUpperE ψ t).toReal :=
+    EReal.toReal_le_toReal hE (hsum_fin.2) hsum_ne_top
+  -- Identify each side with the Real `DiniUpper` values.
+  have hL_id :
+      (DiniUpperE (fun τ => φ τ + ψ τ) t).toReal
+        = DiniUpper (fun τ => φ τ + ψ τ) t := by
+    symm; exact DiniUpper_eq_toReal_of_finite (fun τ => φ τ + ψ τ) t hsum_fin hubsum hlbsum
+  have hφ_id : (DiniUpperE φ t).toReal = DiniUpper φ t := by
+    symm; exact DiniUpper_eq_toReal_of_finite φ t hφ_fin hubφ hlbφ
+  have hψ_id : (DiniUpperE ψ t).toReal = DiniUpper ψ t := by
+    symm; exact DiniUpper_eq_toReal_of_finite ψ t hψ_fin hubψ hlbψ
+  -- Rewrite the RHS `toReal` of a sum into sum of `toReal`.
+  have hsum_toReal :
+      (DiniUpperE φ t + DiniUpperE ψ t).toReal
+        = (DiniUpperE φ t).toReal + (DiniUpperE ψ t).toReal := by
+    -- Both summands are finite, so `toReal` is additive.
+    simpa using EReal.toReal_add (hx := hφ_fin.1) (h'x := hφ_fin.2)
+                                (hy := hψ_fin.1) (h'y := hψ_fin.2)
+  -- Conclude the desired Real inequality.
+  -- Assemble all identifications and simplify.
+  have : DiniUpper (fun τ => φ τ + ψ τ) t
+           ≤ DiniUpper φ t + DiniUpper ψ t := by
+    simpa [hL_id, hφ_id, hψ_id, hsum_toReal, add_comm, add_left_comm, add_assoc] using hR
+  -- Finish.
+  simpa [DiniUpper_add_le_pred] using this
+
+/-- Boundedness付き（上下の eventually 有界）での加法劣加法性。 -/
+theorem DiniUpper_add_le_pred_of_bounds (φ ψ : ℝ → ℝ) (t : ℝ)
+  (hφ_fin : DiniUpperE φ t ≠ ⊤ ∧ DiniUpperE φ t ≠ ⊥)
+  (hψ_fin : DiniUpperE ψ t ≠ ⊤ ∧ DiniUpperE ψ t ≠ ⊥)
+  (hsum_fin : DiniUpperE (fun τ => φ τ + ψ τ) t ≠ ⊤ ∧
+              DiniUpperE (fun τ => φ τ + ψ τ) t ≠ ⊥)
+  (hubφ : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), ((φ (t + h) - φ t) / h) ≤ M)
+  (hlbφ : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), m ≤ ((φ (t + h) - φ t) / h))
+  (hubψ : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), ((ψ (t + h) - ψ t) / h) ≤ M)
+  (hlbψ : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), m ≤ ((ψ (t + h) - ψ t) / h))
+  (hubsum : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+              (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h) ≤ M)
+  (hlbsum : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+              m ≤ (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h)) :
+  DiniUpper_add_le_pred φ ψ t :=
+  DiniUpper_add_le_of_finite φ ψ t hφ_fin hψ_fin hsum_fin
+    hubφ hlbφ hubψ hlbψ hubsum hlbsum
+
+-- Retain the original name as a placeholder (unconditional version is not
+-- derivable in full generality without additional boundedness/finite limsup
+-- hypotheses). Provide a version with explicit bounds instead.
+theorem DiniUpper_add_le_pred_holds (φ ψ : ℝ → ℝ) (t : ℝ)
+  (hφ_fin : DiniUpperE φ t ≠ ⊤ ∧ DiniUpperE φ t ≠ ⊥)
+  (hψ_fin : DiniUpperE ψ t ≠ ⊤ ∧ DiniUpperE ψ t ≠ ⊥)
+  (hsum_fin : DiniUpperE (fun τ => φ τ + ψ τ) t ≠ ⊤ ∧
+              DiniUpperE (fun τ => φ τ + ψ τ) t ≠ ⊥)
+  (hubφ : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), ((φ (t + h) - φ t) / h) ≤ M)
+  (hlbφ : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), m ≤ ((φ (t + h) - φ t) / h))
+  (hubψ : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), ((ψ (t + h) - ψ t) / h) ≤ M)
+  (hlbψ : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0), m ≤ ((ψ (t + h) - ψ t) / h))
+  (hubsum : ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+              (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h) ≤ M)
+  (hlbsum : ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+              m ≤ (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h)) :
+  DiniUpper_add_le_pred φ ψ t :=
+by
+  exact DiniUpper_add_le_pred_of_bounds φ ψ t hφ_fin hψ_fin hsum_fin
+    hubφ hlbφ hubψ hlbψ hubsum hlbsum
 
 /--
 Gronwall-type exponential bound (statement): if a nonnegative function
@@ -287,20 +477,54 @@ theorem DiniUpper_timeRescale (σ : ℝ) (φ : ℝ → ℝ) (t : ℝ)
   (H : DiniUpper_timeRescale_pred σ φ t) :
   DiniUpper (fun τ => φ (σ * τ)) t = σ * DiniUpper φ (σ * t) := H
 
-/-- Homogeneous Grönwall inequality (wrapper theorem from the predicate). -/
-theorem gronwall_exponential_contraction (lam : ℝ) (W : ℝ → ℝ)
-  (H : (∀ t : ℝ, DiniUpper W t + (2 * lam) * W t ≤ 0) →
-        ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0)
-  (Hineq : ∀ t : ℝ, DiniUpper W t + (2 * lam) * W t ≤ 0) :
-  ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 := H Hineq
+/-- Time-rescaling for the upper Dini derivative under a positive factor.
+This is a wrapper that records the `σ > 0` use‑site while delegating the
+analytical content to the supplied predicate `DiniUpper_timeRescale_pred`.
+In later phases, we will provide a proof under mild boundedness hypotheses.
+-/
+theorem DiniUpper_timeRescale_pos (σ : ℝ) (hσ : 0 < σ)
+  (φ : ℝ → ℝ) (t : ℝ)
+  (H : DiniUpper_timeRescale_pred σ φ t) :
+  DiniUpper (fun τ => φ (σ * τ)) t = σ * DiniUpper φ (σ * t) :=
+by
+  -- At this phase, the positivity assumption is recorded for API clarity
+  -- and future strengthening, while we rely on the provided predicate.
+  -- Use `hσ` to record that `σ ≠ 0`, anticipating a change-of-variables proof.
+  have hσ0 : σ ≠ 0 := ne_of_gt hσ
+  -- Currently unused in the algebra, but kept to mark the positive-scale use‑case.
+  simpa using (DiniUpper_timeRescale σ φ t H)
 
-/-- Inhomogeneous Grönwall inequality in the `half` form (wrapper theorem). -/
+/-- Homogeneous Grönwall inequality (turn the predicate into a usable bound). -/
+theorem gronwall_exponential_contraction_from_pred (lam : ℝ) (W : ℝ → ℝ)
+  (Hpred : gronwall_exponential_contraction_pred lam W)
+  (Hineq : ∀ t : ℝ, DiniUpper W t + (2 * lam) * W t ≤ 0) :
+  ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 :=
+by
+  exact Hpred Hineq
+
+/-- Homogeneous Grönwall inequality (wrapper using the predicate). -/
+theorem gronwall_exponential_contraction (lam : ℝ) (W : ℝ → ℝ)
+  (Hpred : gronwall_exponential_contraction_pred lam W)
+  (Hineq : ∀ t : ℝ, DiniUpper W t + (2 * lam) * W t ≤ 0) :
+  ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 :=
+  gronwall_exponential_contraction_from_pred lam W Hpred Hineq
+
+/-- Inhomogeneous Grönwall inequality (turn the predicate into a usable bound). -/
+theorem gronwall_exponential_contraction_with_error_half_from_pred
+  (lam η : ℝ) (W : ℝ → ℝ)
+  (Hpred : gronwall_exponential_contraction_with_error_half_pred lam η W)
+  (Hineq : ∀ t : ℝ, (1 / 2 : ℝ) * DiniUpper W t + lam * W t ≤ η) :
+  ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 + (2 * η) * t :=
+by
+  exact Hpred Hineq
+
+/-- Inhomogeneous Grönwall inequality in the `half` form (wrapper using the predicate). -/
 theorem gronwall_exponential_contraction_with_error_half
   (lam η : ℝ) (W : ℝ → ℝ)
-  (H : (∀ t : ℝ, (1 / 2 : ℝ) * DiniUpper W t + lam * W t ≤ η) →
-        ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 + (2 * η) * t)
+  (Hpred : gronwall_exponential_contraction_with_error_half_pred lam η W)
   (Hineq : ∀ t : ℝ, (1 / 2 : ℝ) * DiniUpper W t + lam * W t ≤ η) :
-  ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 + (2 * η) * t := H Hineq
+  ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0 + (2 * η) * t :=
+  gronwall_exponential_contraction_with_error_half_from_pred lam η W Hpred Hineq
 
 /-- Inhomogeneous Grönwall inequality (`half` form, core statement):
 If `(1/2)·DiniUpper W + lam·W ≤ η` pointwise, then
@@ -322,8 +546,7 @@ theorem DiniUpper_timeRescale_one (φ : ℝ → ℝ) (t : ℝ) :
 /-- Special case of homogeneous Grönwall at `λ = 0` using a provided predicate. -/
 theorem gronwall_exponential_contraction_zero
   (W : ℝ → ℝ)
-  (H : (∀ t : ℝ, DiniUpper W t + (2 * (0 : ℝ)) * W t ≤ 0) →
-        ∀ t : ℝ, W t ≤ Real.exp (-(2 * (0 : ℝ)) * t) * W 0)
+  (H : gronwall_exponential_contraction_pred (0 : ℝ) W)
   (Hineq0 : ∀ t : ℝ, DiniUpper W t ≤ 0) :
   ∀ t : ℝ, W t ≤ W 0 := by
   have h := gronwall_exponential_contraction (0 : ℝ) W H (by
@@ -595,6 +818,16 @@ def eviSumWithError {X : Type*} [PseudoMetricSpace X]
     (1 / 2 : ℝ) * DiniUpper (fun τ : ℝ => d2 (u τ) (v τ)) t
       + P.lam * d2 (u t) (v t) ≤ hR.η
 
+/-- Mixed EVI sum without error (half form): expected output of the
+"add-and-absorb-cross-terms" step when the geometry yields no residual error. -/
+def eviSumNoError {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (_hu : IsEVISolution P u) (_hv : IsEVISolution P v)
+  (_geodesicBetween : Prop) : Prop :=
+  ∀ t : ℝ,
+    (1 / 2 : ℝ) * DiniUpper (fun τ : ℝ => d2 (u τ) (v τ)) t
+      + P.lam * d2 (u t) (v t) ≤ 0
+
 /--
 Squared-distance synchronization with error (P0 skeleton).
 
@@ -633,6 +866,79 @@ by
     intro s; simpa using Hsum s
   simpa using Hgr this t
 
+/-- Synchronization in squared distance (no error) via homogeneous Grönwall.
+Takes the mixed half-form inequality with `η = 0`, upgrades it to the
+`DiniUpper W + (2λ) W ≤ 0` form, and applies the homogeneous Grönwall predicate. -/
+theorem eviSynchronizationSq_no_error {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (_geodesicBetween : Prop)
+  (Hsum0 : eviSumNoError P u v hu hv _geodesicBetween)
+  (Hgr : gronwall_exponential_contraction_pred P.lam (fun t => d2 (u t) (v t))) :
+  ContractionPropertySq P u v :=
+by
+  -- Turn the half-form inequality into the homogeneous Grönwall form.
+  have Hineq2 : ∀ t : ℝ,
+      DiniUpper (fun τ : ℝ => d2 (u τ) (v τ)) t
+        + (2 * P.lam) * d2 (u t) (v t) ≤ 0 := by
+    intro t
+    have h := Hsum0 t
+    -- Multiply by 2 (> 0) to remove the 1/2 factor and scale λ accordingly.
+    have h' : (2 : ℝ) * ((1 / 2 : ℝ) * DiniUpper (fun τ : ℝ => d2 (u τ) (v τ)) t
+              + P.lam * d2 (u t) (v t)) ≤ (2 : ℝ) * 0 := by
+      have h2pos : (0 : ℝ) ≤ 2 := by norm_num
+      exact (mul_le_mul_of_nonneg_left h h2pos)
+    -- Simplify both sides: 2*(1/2)*A = 1*A and 2*(λ*W) = (2λ)*W.
+    have h2half : (2 : ℝ) * (1 / 2 : ℝ) = 1 := by norm_num
+    simpa [mul_add, mul_assoc, h2half, one_mul,
+           mul_comm, mul_left_comm, add_comm, add_left_comm, add_assoc]
+      using h'
+  -- Apply the homogeneous Grönwall predicate on W(t) = d2(u t, v t).
+  exact evi_contraction_sq_from_gronwall P u v hu hv Hineq2 Hgr
+
+/-- two‑EVI (no error): squared-distance synchronization from the mixed half-form
+sum inequality and a homogeneous Grönwall lemma. -/
+theorem twoEVI_sq_from_sum {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (geodesicBetween : Prop)
+  (Hsum0 : eviSumNoError P u v hu hv geodesicBetween)
+  (Hgr : gronwall_exponential_contraction_pred P.lam (fun t => d2 (u t) (v t))) :
+  ContractionPropertySq P u v :=
+by
+  exact eviSynchronizationSq_no_error P u v hu hv geodesicBetween Hsum0 Hgr
+
+/-- two‑EVI (no error): distance synchronization using a homogeneous Grönwall
+lemma and a bridge from squared to linear distances. -/
+theorem twoEVI_dist_from_sum {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (geodesicBetween : Prop)
+  (Hsum0 : eviSumNoError P u v hu hv geodesicBetween)
+  (Hgr : gronwall_exponential_contraction_pred P.lam (fun t => d2 (u t) (v t)))
+  (Hbridge : Hbridge P u v) :
+  ContractionProperty P u v :=
+by
+  apply Hbridge
+  exact twoEVI_sq_from_sum P u v hu hv geodesicBetween Hsum0 Hgr
+
+/-- End-to-end (no error): from a mixed half-form EVI sum and a homogeneous
+Gronwall predicate, obtain the distance-version synchronization via the
+concrete bridge. -/
+theorem evi_synchronization_thm_concrete {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X)
+  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
+  (geodesicBetween : Prop)
+  (Hsum0 : eviSumNoError P u v hu hv geodesicBetween)
+  (Hgr : gronwall_exponential_contraction_pred P.lam (fun t => d2 (u t) (v t))) :
+  ContractionProperty P u v :=
+by
+  -- First, obtain the squared-distance synchronization via homogeneous Grönwall.
+  have hSq : ContractionPropertySq P u v :=
+    eviSynchronizationSq_no_error P u v hu hv geodesicBetween Hsum0 Hgr
+  -- Then apply the concrete bridge.
+  exact bridge_contraction_concrete P u v hSq
+
 /-- Distance-version synchronization with error. From the squared-distance
 bound and algebraic `sqrt` identities, derive
 
@@ -658,6 +964,8 @@ theorem bridge_with_error {X : Type*} [PseudoMetricSpace X]
   (Hsq : ContractionPropertySqWithError P u v η) :
   ContractionPropertyWithError P u v η :=
 H Hsq
+
+
 
 /-- two‑EVI (with external force): squared-distance synchronization from a
 single mixed EVI sum hypothesis and an inhomogeneous Grönwall lemma. -/
@@ -764,6 +1072,14 @@ by
       using hsqrt
   -- Conclude by replacing `√(max 0 b0)` with `√(max 0 ((2η) t))`.
   simpa [hb0] using hfinal
+
+/-- Provide a concrete with‑error bridge for all error levels `η` by
+reusing the explicit square‑root algebra above. -/
+theorem HbridgeWithError_concrete_all_eta {X : Type*} [PseudoMetricSpace X]
+  (P : EVIProblem X) (u v : ℝ → X) :
+  ∀ η : ℝ, HbridgeWithError P u v η :=
+by
+  intro η; exact bridge_contraction_with_error_concrete P u v η
 
 /-- End-to-end: from a mixed EVI sum and an inhomogeneous Grönwall helper,
 obtain the distance-version synchronization with error via the concrete bridge. -/
@@ -923,7 +1239,7 @@ theorem EVILimit_from_entropy_dirichlet {ι : Type*} (S : MoscoSystem ι)
 by
   exact eviInheritance S (build_MoscoAssumptions_from_entropy_dirichlet S Hg Hent Hlim Hrec)
 
-/- Sufficient conditions for the Mosco predicates (lightweight wrappers). -/ 
+/- Sufficient conditions for the Mosco predicates (lightweight wrappers). -/
 
 /-- A uniform lower bound on all prelimit energies implies `MoscoTight`. -/
 theorem MoscoTight_of_uniform_lower_bound {ι : Type*} (S : MoscoSystem ι)
@@ -1010,5 +1326,72 @@ theorem EVILimitHolds_suite_from_sufficient {ι : Type*} (S : MoscoSystem ι)
 by
   have HA : MoscoAssumptions S := build_MoscoAssumptions_from_sufficient S H
   exact EVILimitHolds_suite S HA
+
+/-- Suite wrapper: from entropy lower bound and Dirichlet liminf/recovery,
+obtain `EVILimitHolds` bundled with placeholders for JKO tightness and
+EDE/EVI stability. This pins the API used downstream for stability. -/
+theorem EVILimitHolds_suite_from_entropy_dirichlet {ι : Type*}
+  (S : MoscoSystem ι) (Hg : MoscoGeodesicComplete S)
+  (Hent : EntropyUniformLowerBound S) (Hlim : DirichletFormLiminf S)
+  (Hrec : DirichletFormRecovery S) :
+  EVILimitHolds S ∧ JKOTightUnderMosco S ∧ EDEStabilityUnderMosco S ∧ EVIStabilityUnderMosco S :=
+by
+  have HA : MoscoAssumptions S :=
+    build_MoscoAssumptions_from_entropy_dirichlet S Hg Hent Hlim Hrec
+  exact EVILimitHolds_suite S HA
+
+end Frourio
+
+namespace Frourio
+
+/-!
+Generic predicate-level bridges between an abstract energy-dissipation
+predicate `P : (X → ℝ) → (ℝ → X) → Prop` and the EVI predicate. These are
+kept abstract here to avoid import cycles with `PLFACore` where `EDE` is
+defined; users can specialize `P` to `EDE` on the PLFA side.
+-/
+
+section GenericBridges
+variable {X : Type*} [PseudoMetricSpace X]
+
+/-- Forward bridge: from an abstract predicate `P F ρ` to the EVI predicate for `F`.
+Specialize `P` to `EDE` on the PLFA side to obtain `EDE → EVI`. -/
+def EVIBridgeForward (P : (X → ℝ) → (ℝ → X) → Prop)
+  (F : X → ℝ) (lam : ℝ) : Prop :=
+  ∀ ρ : ℝ → X, P F ρ → IsEVISolution ({ E := F, lam := lam } : EVIProblem X) ρ
+
+/-- Backward bridge: from the EVI predicate for `F` to an abstract predicate `P F ρ`.
+Specialize `P` to `EDE` on the PLFA side to obtain `EVI → EDE`. -/
+def EVIBridgeBackward (P : (X → ℝ) → (ℝ → X) → Prop)
+  (F : X → ℝ) (lam : ℝ) : Prop :=
+  ∀ ρ : ℝ → X, IsEVISolution ({ E := F, lam := lam } : EVIProblem X) ρ → P F ρ
+
+/-- Equivalence bridge: `P F ρ` holds iff the EVI predicate holds for `F`. -/
+def EVIEquivBridge (P : (X → ℝ) → (ℝ → X) → Prop)
+  (F : X → ℝ) (lam : ℝ) : Prop :=
+  EVIBridgeForward P F lam ∧ EVIBridgeBackward P F lam
+
+end GenericBridges
+
+/-! Geodesic uniform evaluation (two‑EVI input) -/
+
+section GeodesicUniform
+variable {X : Type*} [PseudoMetricSpace X]
+
+/-- Geodesic-uniform evaluation predicate used by two‑EVI assumptions.
+It provides, uniformly for all error levels `η`, a bridge from squared‑distance
+contraction to linear‑distance contraction. This matches the role geodesic
+regularity plays in AGS-type arguments and is sufficient for the with‑error
+pipeline in this phase. -/
+def GeodesicUniformEval (P : EVIProblem X) (u v : ℝ → X) : Prop :=
+  ∀ η : ℝ, HbridgeWithError P u v η
+
+/-- Convenience: extract a bridge at a given error level from
+`GeodesicUniformEval`. -/
+theorem geodesicUniform_to_bridge {P : EVIProblem X} {u v : ℝ → X}
+  (G : GeodesicUniformEval P u v) : ∀ η : ℝ, HbridgeWithError P u v η :=
+G
+
+end GeodesicUniform
 
 end Frourio
