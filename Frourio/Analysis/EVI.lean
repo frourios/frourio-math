@@ -97,6 +97,42 @@ theorem DiniUpper_add_const (ψ : ℝ → ℝ) (c t : ℝ) :
   -- `(ψ (t+h) + c) - (ψ t + c) = ψ (t+h) - ψ t`
   simp
 
+/-! Convenience lemmas for Phase P1: constants, add-constant, and time rescale. -/
+
+/-- Upper Dini derivative into EReal for a constant map is 0. -/
+theorem DiniUpperE_const (c t : ℝ) :
+  DiniUpperE (fun _ => c) t = (0 : EReal) := by
+  -- Forward difference quotient is identically 0 on `Ioi 0`.
+  dsimp [DiniUpperE];
+  simp
+
+/-- Upper Dini derivative (real) for a constant map is 0. -/
+theorem DiniUpper_const (c t : ℝ) :
+  DiniUpper (fun _ => c) t = 0 := by
+  dsimp [DiniUpper]
+  simp
+
+/-- Forward difference quotients of a constant map are eventually bounded above by `0`. -/
+theorem DiniUpperE_bounds_const_upper (c t : ℝ) :
+  ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+      (((fun _ => c) (t + h) - (fun _ => c) t) / h) ≤ M := by
+  refine ⟨0, ?_⟩
+  -- The quotient is identically 0 on the right-neighborhood of 0.
+  exact Filter.Eventually.of_forall (fun _h => by simp)
+
+/-- Forward difference quotients of a constant map are eventually bounded below by `0`. -/
+theorem DiniUpperE_bounds_const_lower (c t : ℝ) :
+  ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+      m ≤ (((fun _ => c) (t + h) - (fun _ => c) t) / h) := by
+  refine ⟨0, ?_⟩
+  exact Filter.Eventually.of_forall (fun _h => by simp)
+
+/-- Time-rescale identity holds trivially for constants. -/
+theorem DiniUpper_timeRescale_const (σ c t : ℝ) :
+  DiniUpper (fun τ => (fun _ => c) (σ * τ)) t = σ * DiniUpper (fun _ => c) (σ * t) := by
+  -- Both sides are 0 since the map is constant.
+  simp [DiniUpper_const]
+
 /- EVI problem datum: an energy and a parameter λ -/
 structure EVIProblem (X : Type*) [PseudoMetricSpace X] where
   (E : X → ℝ)
@@ -126,6 +162,27 @@ introduced in later phases.
 -/
 def DiniUpper_add_le_pred (φ ψ : ℝ → ℝ) (t : ℝ) : Prop :=
   DiniUpper (fun τ => φ τ + ψ τ) t ≤ DiniUpper φ t + DiniUpper ψ t
+
+/- Add-constant special cases of the additivity upper bound. -/
+/-- Left constant: `DiniUpper (c + ψ) ≤ DiniUpper c + DiniUpper ψ` holds with equality. -/
+theorem DiniUpper_add_le_pred_const_left (c : ℝ) (ψ : ℝ → ℝ) (t : ℝ) :
+  DiniUpper_add_le_pred (fun _ => c) ψ t := by
+  -- Rewrite the LHS and RHS using constant rules.
+  have hL : DiniUpper (fun τ => (fun _ => c) τ + ψ τ) t = DiniUpper ψ t := by
+    -- `(fun _ => c) τ + ψ τ = c + ψ τ`
+    simpa [add_comm] using (DiniUpper_add_const ψ c t)
+  have hC : DiniUpper (fun _ => c) t = 0 := DiniUpper_const c t
+  -- Reduce to `DiniUpper ψ t ≤ DiniUpper ψ t`.
+  simp [DiniUpper_add_le_pred, hL, hC]
+
+/-- Right constant: `DiniUpper (φ + c) ≤ DiniUpper φ + DiniUpper c` holds with equality. -/
+theorem DiniUpper_add_le_pred_const_right (φ : ℝ → ℝ) (c : ℝ) (t : ℝ) :
+  DiniUpper_add_le_pred φ (fun _ => c) t := by
+  have hL : DiniUpper (fun τ => φ τ + (fun _ => c) τ) t = DiniUpper φ t := by
+    -- `φ τ + (fun _ => c) τ = φ τ + c`
+    simpa using (DiniUpper_add_const φ c t)
+  have hC : DiniUpper (fun _ => c) t = 0 := DiniUpper_const c t
+  simp [DiniUpper_add_le_pred, hL, hC]
 
 /- Subadditivity of the upper Dini derivative via ε-approximation on the right filter. -/
 -- TODO(EReal route): Prove `DiniUpper_add_le_pred` via limsup subadditivity on EReal.

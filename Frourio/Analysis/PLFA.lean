@@ -716,10 +716,51 @@ by
 
 end X
 
+/- Non-metric route helpers -/
+
+section NoMetric
+variable {X : Type*}
+
+/-- Trivial JKO→PLFA: from any initial point and a JKO initializer,
+produce a PLFA curve by taking the constant curve. This provides a
+minimizing-movement route without using the JKO witness. -/
+theorem jko_to_plfa_trivial (F : X → ℝ) : JKO_to_PLFA_pred F := by
+  intro ρ0 _hJKO
+  refine ⟨(fun _ => ρ0), rfl, ?_⟩
+  intro s t _hst; simp
+
+end NoMetric
+
 /-! MM-limit route (real-analytic flags) -/
 
 section MMRealRoute
 variable {X : Type*} [PseudoMetricSpace X]
+
+/-- EDE → PLFA under real analytic flags (convenience bridge).
+Uses the `PLFACore` real-flags builder and extracts the backward direction. -/
+theorem ede_to_plfa_from_real_flags (F : X → ℝ) (lamEff : ℝ)
+  (flags : AnalyticFlagsReal X F lamEff) :
+  ∀ ρ : ℝ → X, EDE F ρ → PLFA F ρ :=
+by
+  -- Get the PLFA↔EDE predicate from the PLFACore builder
+  have H : PLFA_EDE_pred F := Frourio.plfa_ede_from_real_flags_impl (X := X) F lamEff flags
+  intro ρ hEDE; exact (H ρ).mpr hEDE
+
+/-- PLFA → EDE under real analytic flags (convenience bridge).
+Uses the `PLFACore` real-flags builder and extracts the forward direction. -/
+theorem plfa_to_ede_from_real_flags (F : X → ℝ) (lamEff : ℝ)
+  (flags : AnalyticFlagsReal X F lamEff) :
+  ∀ ρ : ℝ → X, PLFA F ρ → EDE F ρ :=
+by
+  have H : PLFA_EDE_pred F := Frourio.plfa_ede_from_real_flags_impl (X := X) F lamEff flags
+  intro ρ hPLFA; exact (H ρ).mp hPLFA
+
+/-- JKO initializer → PLFA under real analytic flags (convenience). -/
+theorem jko_to_plfa_from_real_flags (F : X → ℝ) (lamEff : ℝ)
+  (flags : AnalyticFlagsReal X F lamEff) :
+  JKO_to_PLFA_pred F :=
+by
+  exact Frourio.jko_plfa_from_real_flags_impl (X := X) F lamEff flags
 
 /-- From a minimizing-movement construction with real analytic flags,
 derive the PLFA bound (energy nonincreasing) for curves obtained in the
@@ -734,6 +775,22 @@ by
   intro flags
   -- Use the real‑flags bridge from `PLFACore`.
   exact jko_plfa_from_real_flags_impl (X := X) F lamEff flags
+
+/-- Auto directional bridges from analytic flags builder: forward (EDE → EVI).
+Supply core flags `HalfConvex` and `StrongUpperBound` and an
+`EDE_EVI_from_analytic_flags` builder to obtain the forward directional bridge. -/
+theorem ede_to_evi_from_flags_auto (F : X → ℝ) (lamEff : ℝ)
+  (HC : HalfConvex F lamEff) (SUB : StrongUpperBound F)
+  (H : EDE_EVI_from_analytic_flags (X := X) F lamEff) :
+  EDE_to_EVI_from_flags (X := X) F lamEff :=
+  ede_to_evi_from_flags_builder (X := X) F lamEff H HC SUB
+
+/-- Auto directional bridges from analytic flags builder: backward (EVI → EDE). -/
+theorem evi_to_ede_from_flags_auto (F : X → ℝ) (lamEff : ℝ)
+  (HC : HalfConvex F lamEff) (SUB : StrongUpperBound F)
+  (H : EDE_EVI_from_analytic_flags (X := X) F lamEff) :
+  EVI_to_EDE_from_flags (X := X) F lamEff :=
+  evi_to_ede_from_flags_builder (X := X) F lamEff H HC SUB
 
 /-- From real analytic flags, and an `EDE⇔EVI` builder on placeholder flags,
 obtain the `EDE⇔EVI` predicate along the MM (real) route. -/

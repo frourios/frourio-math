@@ -1,6 +1,7 @@
 import Mathlib.Topology.MetricSpace.Basic
 import Frourio.Geometry.FGCore
 import Frourio.Analysis.EVI
+import Frourio.Analysis.PLFACore
 import Frourio.Analysis.DoobTransform
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Geometry.GradientFlowFramework
@@ -170,6 +171,31 @@ theorem ede_evi_pred_for_FG
   EDE_EVI_pred (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
 by
   exact ede_evi_equiv_from_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) HC SUB H
+
+/-- Convenience: FG-level directional bridge (EDE → EVI) from analytic flags.
+Wraps `ede_to_evi_from_flags_auto` at the `GradientFlowSystem` level. -/
+theorem ede_to_evi_for_FG
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (HC : HalfConvex (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (SUB : StrongUpperBound (FrourioFunctional.F S.func))
+  (H : EDE_EVI_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
+  EDE_to_EVI_from_flags (X := X) (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
+by
+  exact ede_to_evi_from_flags_auto (X := X)
+    (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps) HC SUB H
+
+/-- Convenience: FG-level directional bridge (EVI → EDE) from analytic flags. -/
+theorem evi_to_ede_for_FG
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (HC : HalfConvex (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (SUB : StrongUpperBound (FrourioFunctional.F S.func))
+  (H : EDE_EVI_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
+  EVI_to_EDE_from_flags (X := X) (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
+by
+  exact evi_to_ede_from_flags_auto (X := X)
+    (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps) HC SUB H
 
 /-- Step 1 (FG-level pack): the same as `ede_evi_pred_for_FG`, but packaged as
 `EDEEVIAssumptions` for downstream assembly into the equivalence. -/
@@ -389,6 +415,72 @@ by
       flags HplfaEde HedeEvi_builder HjkoPlfa
   exact gradient_flow_suite S G (lambdaBE S.base.lam S.eps) hLam Htwo
 
+/-- Convenience: same as `flow_suite_from_real_flags` but automatically supplies
+the real-route bridges using `PLFACore` builders. Only the EDE⇔EVI builder must be
+provided. -/
+theorem flow_suite_from_real_flags_auto
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HedeEvi_builder : EDE_EVI_from_analytic_flags
+                (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps
+            (lambdaBE S.base.lam S.eps) S.Ssup S.XiNorm)
+  (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
+  gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S :=
+by
+  -- Obtain the real-route bridges directly from PLFACore.
+  have HplfaEde := plfa_ede_from_real_flags_builder
+    (X := X) (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps)
+  have HjkoPlfa := jko_plfa_from_real_flags_builder
+    (X := X) (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps)
+  -- Delegate to the base real-flags suite.
+  exact flow_suite_from_real_flags S flags HplfaEde HedeEvi_builder HjkoPlfa hLam Htwo
+
+/-- Build the core equivalence `PLFA = EDE = EVI = JKO` for
+`F := Ent + γ·Dσm` with `λ_eff := lambdaBE λ ε` from real analytic flags,
+supplying the PLFA↔EDE and JKO→PLFA real-route bridges automatically. -/
+theorem equivalence_from_real_flags_auto
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HedeEvi_builder : EDE_EVI_from_analytic_flags
+                (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
+  plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
+by
+  have HplfaEde := plfa_ede_from_real_flags_builder
+    (X := X) (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps)
+  have HjkoPlfa := jko_plfa_from_real_flags_builder
+    (X := X) (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps)
+  exact plfaEdeEviJko_equiv_real (X := X)
+    (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps)
+    flags HplfaEde HedeEvi_builder HjkoPlfa
+
+/-- Build the core equivalence from placeholder analytic flags and explicit
+component builders (PLFA↔EDE, EDE⇔EVI builder, JKO→PLFA). -/
+theorem equivalence_from_flags_and_bridges
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (A : AnalyticFlags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HplfaEde : PLFA_EDE_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HedeEvi : EDE_EVI_from_analytic_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HjkoPlfa : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func)) :
+  plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
+by
+  exact build_package_from_analytic_flags
+    (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps)
+    HplfaEde HedeEvi HjkoPlfa A
+
+/-- Build the core equivalence from an `EquivBuildAssumptions` pack directly. -/
+theorem equivalence_from_equiv_pack
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (H : EquivBuildAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
+  plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
+by
+  exact build_plfaEdeEvi_package
+    (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps) H
+
 /-- Re-export: gradient-flow equivalence (PLFA = EDE = EVI = JKO). -/
 def flow_equivalence {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X) : Prop :=
@@ -399,6 +491,20 @@ def lambda_eff_lower {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X) : Prop :=
   lambda_eff_lower_bound S
 
+/-- Convenience: construct `lambda_eff_lower` from Doob assumptions and m‑point
+zero‑order bounds using the analysis‑layer constructive inequality. -/
+theorem lambda_eff_lower_from_doob
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
+  (hM : MPointZeroOrderBound S.Ssup S.XiNorm)
+  (hB : BudgetNonneg S.budget)
+  (hg : 0 ≤ S.func.gamma) :
+  lambda_eff_lower S :=
+by
+  -- Delegate to the framework‑level builder.
+  exact lambda_eff_lower_bound_from_doob (X := X) S h D H hM hB hg
+
 /-- Re-export: two-EVI with external force (squared-distance synchronization). -/
 def two_evi_with_force_alias {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X) : Prop :=
@@ -408,5 +514,39 @@ def two_evi_with_force_alias {X : Type*} [PseudoMetricSpace X] [MeasurableSpace 
 def evi_multiscale_rule {m : ℕ}
   (Λ α κ : Fin m → ℝ) (k : Fin m → ℤ) : Prop :=
   multiscale_lambda_rule Λ α κ k
+
+/-- Distance synchronization with error (concrete route):
+From `two_evi_with_force S` and a Grönwall predicate for `W(t) = d2(u t, v t)`,
+obtain a distance synchronization statement with an explicit error `η`.
+This wraps `twoEVIWithForce_to_distance_concrete`. -/
+theorem two_evi_with_force_to_distance_concrete
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (Htwo : two_evi_with_force S)
+  (u v : ℝ → X) :
+  ∃ η : ℝ,
+    (gronwall_exponential_contraction_with_error_half_pred S.base.lam η
+      (fun t => d2 (u t) (v t))) →
+    ContractionPropertyWithError ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v η :=
+by
+  have H : TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v := Htwo u v
+  exact twoEVIWithForce_to_distance_concrete ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v H
+
+/-- Closed distance synchronization (concrete route): if the Grönwall predicate
+holds for all `η`, then `two_evi_with_force S` yields a distance synchronization
+bound without additional inputs. Wraps `twoEVIWithForce_to_distance_concrete_closed`. -/
+theorem two_evi_with_force_to_distance_concrete_closed
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (Htwo : two_evi_with_force S)
+  (u v : ℝ → X)
+  (Hgr_all : ∀ η : ℝ,
+    gronwall_exponential_contraction_with_error_half_pred S.base.lam η
+      (fun t => d2 (u t) (v t))) :
+  ∃ η : ℝ, ContractionPropertyWithError ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v η :=
+by
+  have H : TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v := Htwo u v
+  exact twoEVIWithForce_to_distance_concrete_closed
+    ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v H Hgr_all
 
 end Frourio

@@ -9,6 +9,10 @@ import Frourio.Analysis.PLFACore
 import Frourio.Analysis.PLFA
 import Frourio.Analysis.MinimizingMovement
 import Frourio.Analysis.EVI
+import Frourio.Analysis.FrourioFunctional
+import Frourio.Analysis.DoobTransform
+import Frourio.Geometry.GradientFlowFramework
+import Frourio.Geometry.FGTheorems
 
 namespace Frourio
 
@@ -290,3 +294,71 @@ by
 end Quadratic
 
 end FrourioExamplesQuadratic
+
+/-!
+FG8-style examples: demonstrate how to apply the integrated suite,
+effective-λ lower bound, and two‑EVI with force wrappers added in
+FGTheorems. These are statement-level demos parameterized by the
+corresponding assumptions.
+-/
+
+namespace FrourioExamplesFG8
+
+open Frourio
+
+section FG8Demos
+variable {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+
+variable (S : GradientFlowSystem X)
+
+/-- Demo: Run the integrated gradient-flow suite via the real-route auto wrapper.
+Supply real analytic flags for `F := Ent + γ·Dσm`, an EDE⇔EVI builder on
+analytic flags, an effective-λ lower-bound witness, and a two‑EVI with
+force hypothesis. -/
+theorem demo_flow_suite_real_auto
+  (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HedeEvi_builder : EDE_EVI_from_analytic_flags
+                (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps
+            (lambdaBE S.base.lam S.eps) S.Ssup S.XiNorm)
+  (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
+  gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S :=
+by
+  exact Frourio.flow_suite_from_real_flags_auto S flags HedeEvi_builder hLam Htwo
+
+/-- Demo: Construct `λ_eff` lower bound from Doob+m‑point hypotheses using
+the FG-level convenience wrapper. -/
+theorem demo_lambda_eff_from_doob
+  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
+  (hM : MPointZeroOrderBound S.Ssup S.XiNorm)
+  (hB : BudgetNonneg S.budget)
+  (hg : 0 ≤ S.func.gamma) :
+  lambda_eff_lower S :=
+by
+  exact Frourio.lambda_eff_lower_from_doob S h D H hM hB hg
+
+/-- Demo: From `two_evi_with_force S`, obtain a distance synchronization with error
+for any pair of curves `u, v` via the concrete Grönwall route. -/
+theorem demo_twoEVI_concrete
+  (Htwo : two_evi_with_force S) (u v : ℝ → X) :
+  ∃ η : ℝ,
+    (gronwall_exponential_contraction_with_error_half_pred S.base.lam η
+      (fun t => d2 (u t) (v t))) →
+    ContractionPropertyWithError ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v η :=
+by
+  exact Frourio.two_evi_with_force_to_distance_concrete S Htwo u v
+
+/-- Demo (closed form): if the Grönwall predicate holds for all `η`, then obtain
+an error parameter with a distance synchronization bound. -/
+theorem demo_twoEVI_concrete_closed
+  (Htwo : two_evi_with_force S) (u v : ℝ → X)
+  (Hgr_all : ∀ η : ℝ,
+    gronwall_exponential_contraction_with_error_half_pred S.base.lam η
+      (fun t => d2 (u t) (v t))) :
+  ∃ η : ℝ, ContractionPropertyWithError ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v η :=
+by
+  exact Frourio.two_evi_with_force_to_distance_concrete_closed S Htwo u v Hgr_all
+
+end FG8Demos
+
+end FrourioExamplesFG8

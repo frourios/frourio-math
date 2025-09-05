@@ -324,4 +324,26 @@ theorem both_routes_valid (F : X → ℝ) (lamEff : ℝ) :
 
 end Integration
 
+/-! Real-route bridge builders (exported): provide the `PLFA_EDE_from_real_flags`
+and `JKO_PLFA_from_real_flags` predicates directly from the corresponding
+implementation lemmas above. These are convenient when a caller expects
+the predicate-valued builders rather than the explicit lemmas. -/
+
+section ExportBuilders
+variable {X : Type*} [PseudoMetricSpace X]
+
+/-- Exported builder: real flags ⇒ PLFA↔EDE predicate. -/
+theorem plfa_ede_from_real_flags_builder (F : X → ℝ) (lamEff : ℝ) :
+  PLFA_EDE_from_real_flags (X := X) F lamEff :=
+by
+  intro flags; exact plfa_ede_from_real_flags_impl (X := X) F lamEff flags
+
+/-- Exported builder: real flags ⇒ JKO→PLFA predicate. -/
+theorem jko_plfa_from_real_flags_builder (F : X → ℝ) (lamEff : ℝ) :
+  JKO_PLFA_from_real_flags (X := X) F lamEff :=
+by
+  intro flags; exact jko_plfa_from_real_flags_impl (X := X) F lamEff flags
+
+end ExportBuilders
+
 end Frourio
