@@ -716,4 +716,64 @@ by
 
 end X
 
+/-! MM-limit route (real-analytic flags) -/
+
+section MMRealRoute
+variable {X : Type*} [PseudoMetricSpace X]
+
+/-- From a minimizing-movement construction with real analytic flags,
+derive the PLFA bound (energy nonincreasing) for curves obtained in the
+continuous-time limit. This is a wrapper delegating to the real-flags JKO→PLFA route. -/
+def plfa_from_mm_limit (F : X → ℝ) (lamEff : ℝ) : Prop :=
+  AnalyticFlagsReal X F lamEff → JKO_to_PLFA_pred F
+
+/-- Implementation of `plfa_from_mm_limit` via the real-flags bridge. -/
+theorem plfa_from_mm_limit_impl (F : X → ℝ) (lamEff : ℝ) :
+  plfa_from_mm_limit (X := X) F lamEff :=
+by
+  intro flags
+  -- Use the real‑flags bridge from `PLFACore`.
+  exact jko_plfa_from_real_flags_impl (X := X) F lamEff flags
+
+/-- From real analytic flags, and an `EDE⇔EVI` builder on placeholder flags,
+obtain the `EDE⇔EVI` predicate along the MM (real) route. -/
+def ede_evi_from_mm (F : X → ℝ) (lamEff : ℝ) : Prop :=
+  AnalyticFlagsReal X F lamEff → EDE_EVI_pred F lamEff
+
+/-- Implementation: convert real flags to placeholder flags and apply the
+`EDE⇔EVI` builder on analytic flags. -/
+theorem ede_evi_from_mm_impl (F : X → ℝ) (lamEff : ℝ)
+  (H : EDE_EVI_from_analytic_flags (X := X) F lamEff) : ede_evi_from_mm (X := X) F lamEff :=
+by
+  intro _flagsReal
+  -- Supply trivial core flags for the placeholder builder (sufficient for this phase).
+  exact H ⟨
+    (⟨0, le_rfl, by intro x; simp⟩ : HalfConvex F lamEff),
+    (⟨0, le_rfl, by intro x; simp⟩ : StrongUpperBound F)
+  ⟩
+
+/-- Real‑route full equivalence: using real analytic flags along with
+the PLFA/EDE and JKO→PLFA real‑bridges, and an `EDE⇔EVI` builder on
+placeholder flags. -/
+theorem plfaEdeEviJko_equiv_real (F : X → ℝ) (lamEff : ℝ)
+  (flags : AnalyticFlagsReal X F lamEff)
+  (HplfaEde : PLFA_EDE_from_real_flags (X := X) F lamEff)
+  (HedeEvi_builder : EDE_EVI_from_analytic_flags (X := X) F lamEff)
+  (HjkoPlfa : JKO_PLFA_from_real_flags (X := X) F lamEff) :
+  plfaEdeEviJko_equiv F lamEff :=
+by
+  -- Build each component predicate from the supplied real flags
+  have h1 : PLFA_EDE_pred F := HplfaEde flags
+  have h2 : EDE_EVI_pred F lamEff :=
+    HedeEvi_builder ⟨
+      (⟨0, le_rfl, by intro x; simp⟩ : HalfConvex F lamEff),
+      (⟨0, le_rfl, by intro x; simp⟩ : StrongUpperBound F)
+    ⟩
+  have h3 : JKO_to_PLFA_pred F := HjkoPlfa flags
+  -- Package them into the global equivalence
+  refine build_plfaEdeEvi_package (X := X) F lamEff ?Hpack
+  exact { plfa_iff_ede := h1, ede_iff_evi := h2, jko_to_plfa := h3 }
+
+end MMRealRoute
+
 end Frourio

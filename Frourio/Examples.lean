@@ -6,6 +6,8 @@ import Mathlib.Tactic
 import Mathlib.Data.Real.Basic
 import Mathlib.Topology.MetricSpace.Basic
 import Frourio.Analysis.PLFACore
+import Frourio.Analysis.PLFA
+import Frourio.Analysis.MinimizingMovement
 import Frourio.Analysis.EVI
 
 namespace Frourio
@@ -181,3 +183,110 @@ theorem basic1D_chain :
 end Basic1D
 
 end FrourioExamples
+
+/-!
+Quadratic energy example on ℝ: closed‑form MM step and a chain to EVI via a
+package equivalence. This showcases the MM functional with `F(x) = (1/2) x^2`.
+-/
+
+namespace FrourioExamplesQuadratic
+
+open Frourio
+
+section Quadratic
+variable (τ xPrev : ℝ)
+
+/-- Quadratic energy `F(x) = (1/2) x^2`. -/
+noncomputable def Fq : ℝ → ℝ := fun x => (1 / 2) * x ^ (2 : ℕ)
+
+/-- Closed‑form MM minimizer for the quadratic energy on ℝ:
+`x* = xPrev / (1 + τ)` minimizes `F(x) + (1/(2τ))‖x − xPrev‖^2` when `τ > 0`. -/
+theorem quadratic_mm_step_closed_form (hτ : 0 < τ) :
+  MmStep τ (Fq) xPrev (xPrev / (1 + τ)) := by
+  -- Unfold definitions and complete the square.
+  unfold MmStep IsMinimizer MmFunctional
+  intro y
+  have hτ0 : τ ≠ 0 := ne_of_gt hτ
+  have h1τ : 1 + τ ≠ 0 := by
+    have : 0 < 1 + τ := by linarith
+    exact ne_of_gt this
+  -- Rewrite the distance square on ℝ.
+  have hdist : distSquared y xPrev
+      = (y - xPrev) ^ (2 : ℕ) := by
+    dsimp [distSquared]
+    -- `dist y xPrev = |y - xPrev|` on ℝ and `|·|^2 = (·)^2`.
+    have habsSq : (|y - xPrev| : ℝ) ^ (2 : ℕ) = (y - xPrev) ^ (2 : ℕ) := by
+      -- `|a|^2 = a^2` as `|a|*|a| = a*a` via `abs_mul_self`.
+      simp [pow_two]
+    simp [Real.dist_eq, habsSq]
+  -- Define the candidate minimizer.
+  set xStar : ℝ := xPrev / (1 + τ)
+  -- Similar rewrite for `distSquared xStar xPrev`.
+  have hdistStar : distSquared xStar xPrev = (xStar - xPrev) ^ (2 : ℕ) := by
+    dsimp [distSquared]
+    have habsSq : (|xStar - xPrev| : ℝ) ^ (2 : ℕ) = (xStar - xPrev) ^ (2 : ℕ) := by
+      simp [pow_two]
+    simp [Real.dist_eq, habsSq]
+  -- Show the completing‑the‑square identity: f(y) = f(x*) + c · (y − x*)^2.
+  have hcs :
+      (Fq y) + (1 / (2 * τ)) * distSquared y xPrev
+        = (Fq xStar) + (1 / (2 * τ)) * distSquared xStar xPrev
+          + ((τ + 1) / (2 * τ)) * (y - xStar) ^ (2 : ℕ) := by
+    -- Expand both sides as polynomials in y and compare.
+    dsimp [Fq]
+    -- Replace `distSquared` by a pure square.
+    simp [hdist, hdistStar, pow_two, xStar]
+    -- Clear denominators and normalize.
+    -- `field_simp` uses the nonzero facts for τ and (1+τ).
+    field_simp [hτ0, h1τ]; ring
+  -- From the identity, deduce the minimizer property since the square term ≥ 0.
+  have hnonneg : 0 ≤ ((τ + 1) / (2 * τ)) * (y - xStar) ^ (2 : ℕ) := by
+    have hc : 0 ≤ ((τ + 1) / (2 * τ)) := by
+      have : 0 < (τ + 1) / (2 * τ) := by
+        have hpos : 0 < 2 * τ := by nlinarith
+        have : 0 < (τ + 1) := by linarith
+        exact div_pos this hpos
+      exact le_of_lt this
+    have hsq : 0 ≤ (y - xStar) ^ (2 : ℕ) := by
+      have : 0 ≤ (y - xStar) ^ 2 := by exact pow_two_nonneg (y - xStar)
+      simpa using this
+    exact mul_nonneg hc hsq
+  -- Conclude `f(x*) ≤ f(y)`.
+  -- Turn the identity into the desired inequality `f(x*) ≤ f(y)`.
+  -- Rearranged form of `hcs` to match the goal shape.
+  have hcs' :
+      (Fq xStar)
+        + (((τ + 1) / (2 * τ)) * (y - xStar) ^ (2 : ℕ)
+            + (1 / (2 * τ)) * distSquared xStar xPrev)
+      = (Fq y) + (1 / (2 * τ)) * distSquared y xPrev := by
+    simpa [add_comm, add_left_comm, add_assoc] using hcs.symm
+  calc
+    (Fq xStar) + (1 / (2 * τ)) * distSquared xStar xPrev
+        ≤ (Fq xStar) + (1 / (2 * τ)) * distSquared xStar xPrev
+            + ((τ + 1) / (2 * τ)) * (y - xStar) ^ (2 : ℕ) :=
+      le_add_of_nonneg_right hnonneg
+    _ = (Fq xStar)
+          + (((τ + 1) / (2 * τ)) * (y - xStar) ^ (2 : ℕ)
+              + (1 / (2 * τ)) * distSquared xStar xPrev) := by
+      ring
+    _ = (Fq y) + (1 / (2 * τ)) * distSquared y xPrev := hcs'
+
+/-- Trivial JKO witness for the quadratic energy: the constant curve. -/
+theorem quadratic_JKO (x0 : ℝ) : JKO (Fq) x0 := by
+  refine ⟨fun _ => x0, rfl, ?_⟩
+  intro t; simp [Fq]
+
+/-- With a packaged `PLFA = EDE = EVI = JKO` equivalence for `Fq`, a JKO initializer
+produces an EVI solution (example chain). -/
+theorem chain_quadratic_to_EVI (lamEff : ℝ)
+  (G : Frourio.plfaEdeEviJko_equiv (Fq) lamEff)
+  (x0 : ℝ) :
+  ∃ ρ : ℝ → ℝ, ρ 0 = x0 ∧ IsEVISolution ({ E := Fq, lam := lamEff } : EVIProblem ℝ) ρ :=
+by
+  -- Use the generic `jko_to_evi` from the analysis layer with the trivial JKO witness.
+  -- Use implicit `τ, xPrev` from the section for `quadratic_JKO`.
+  exact Frourio.jko_to_evi (F := Fq) lamEff G x0 (quadratic_JKO x0)
+
+end Quadratic
+
+end FrourioExamplesQuadratic

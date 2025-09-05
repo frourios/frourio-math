@@ -3,6 +3,7 @@ import Mathlib.Topology.MetricSpace.Basic
 import Frourio.Analysis.KTransform
 import Frourio.Analysis.DoobTransform
 import Frourio.Analysis.PLFA
+import Frourio.Analysis.Slope
 
 namespace Frourio
 
@@ -203,6 +204,10 @@ structure SlopeSpec (X : Type*) [PseudoMetricSpace X] where
 noncomputable def zeroSlopeSpec (X : Type*) [PseudoMetricSpace X] : SlopeSpec X :=
   ⟨fun _ _ => 0⟩
 
+/-- Implemented slope specification using the descending slope. -/
+noncomputable def descendingSlopeSpec (X : Type*) [PseudoMetricSpace X] : SlopeSpec X :=
+  ⟨fun F x => Frourio.descendingSlope F x⟩
+
 /-- Legacy slope alias (kept for existing code); uses the zero slope. -/
 noncomputable def slope {X : Type*} [PseudoMetricSpace X]
   (G : X → ℝ) (x : X) : ℝ := (zeroSlopeSpec X).slope G x
@@ -224,6 +229,12 @@ def StrongSlopeUpperBound_with {X : Type*} [PseudoMetricSpace X]
   ∀ x : X,
     S.slope (FrourioFunctional.F A) x
       ≤ S.slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)
+
+/-- Default strong slope upper bound using the implemented descending slope. -/
+def StrongSlopeUpperBound {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (budget : ConstantBudget)
+  (Ssup XiNorm : ℝ) : Prop :=
+  StrongSlopeUpperBound_with (descendingSlopeSpec X) A budget Ssup XiNorm
 
 /-- The legacy predicate `StrongSlopeUpperBound_pred` is the `StrongSlopeUpperBound_with`
 for the default zero slope. -/
@@ -257,6 +268,17 @@ theorem slope_strong_upper_bound_with {X : Type*} [PseudoMetricSpace X]
   ∀ x : X,
     S.slope (FrourioFunctional.F A) x
       ≤ S.slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
+  H
+
+/-- Wrapper: theoremized strong slope upper bound in the default (descending slope) route. -/
+theorem slope_strong_upper_bound_default {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (budget : ConstantBudget)
+  (Ssup XiNorm : ℝ)
+  (H : StrongSlopeUpperBound A budget Ssup XiNorm) :
+  ∀ x : X,
+    (descendingSlopeSpec X).slope (FrourioFunctional.F A) x
+      ≤ (descendingSlopeSpec X).slope A.Ent x
+        + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
   H
 
 /-- A trivial slope upper bound using the dummy slope = 0 and nonnegativity. -/

@@ -362,6 +362,33 @@ by
   have suite := gradient_flow_suite S G lamEff hLam Htwo
   simpa using suite
 
+/-- Integrated suite via real analytic flags and the MM (real) route.
+Given real analytic flags for `F := Ent + γ·Dσm` with `λ_eff := lambdaBE λ ε`,
+and the three real-route bridges (PLFA⇔EDE, EDE⇔EVI via placeholder builder, and
+JKO⇒PLFA), conclude the gradient-flow equivalence, effective-λ lower bound,
+and two‑EVI with force. -/
+theorem flow_suite_from_real_flags
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HplfaEde : PLFA_EDE_from_real_flags (X := X)
+                (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HedeEvi_builder : EDE_EVI_from_analytic_flags
+                (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (HjkoPlfa : JKO_PLFA_from_real_flags (X := X)
+                (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps
+            (lambdaBE S.base.lam S.eps) S.Ssup S.XiNorm)
+  (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
+  gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S :=
+by
+  -- Assemble the real‑route equivalence package and apply the gradient‑flow suite.
+  have G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
+    plfaEdeEviJko_equiv_real (X := X)
+      (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
+      flags HplfaEde HedeEvi_builder HjkoPlfa
+  exact gradient_flow_suite S G (lambdaBE S.base.lam S.eps) hLam Htwo
+
 /-- Re-export: gradient-flow equivalence (PLFA = EDE = EVI = JKO). -/
 def flow_equivalence {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X) : Prop :=

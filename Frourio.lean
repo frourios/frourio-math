@@ -8,6 +8,8 @@ import Frourio.Algebra.NambuBracket
 import Frourio.Analysis.MellinTransform
 import Frourio.Analysis.MellinSobolev
 import Frourio.Analysis.EVI
+import Frourio.Analysis.Slope
+import Frourio.Analysis.MinimizingMovement
 import Frourio.Analysis.DoobTransform
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.PLFA
