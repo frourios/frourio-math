@@ -522,13 +522,6 @@ abbrev CriticalPair (ι : Type*) := ι × ι
 /-- Placeholder carrier for a list of critical pairs to be checked. -/
 def DiamondCriticalPairs (ι : Type*) := List (CriticalPair ι)
 
-/-- Skeleton predicate expressing that all listed critical pairs are confluent.
-Concrete rewriting and confluence checks are deferred to later phases. -/
-def DiamondCondition {A : Type*} [CommRing A] {ι : Type*}
-    (_sys : SigmaPBW A ι) (_pairs : DiamondCriticalPairs ι) : Prop :=
-  -- Later: expand to S-polynomial reductions and overlaps
-  True
-
 /-- Ore 交換式を右辺へ移項した正規化形：`Δ a = σ(a) Δ + δ(a)`。 -/
 lemma ore_rewrite_one {A : Type*} [CommRing A]
     (sys : OreSystem A) (a : A) :

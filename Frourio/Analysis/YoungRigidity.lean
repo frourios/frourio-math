@@ -1,60 +1,58 @@
-import Frourio.Analysis.YoungConvolution
+import Mathlib.Data.Complex.Basic
+import Mathlib.Data.Int.Basic
+import Mathlib.Data.Real.Basic
+import Mathlib.Topology.Algebra.InfiniteSum.Basic
+import Mathlib.MeasureTheory.Measure.MeasureSpaceDef
+import Mathlib.MeasureTheory.Constructions.BorelSpace.Basic
+import Mathlib.Topology.Instances.Complex
 
 namespace Frourio
 
-/-!
-Young rigidity (statement wrappers)
-
-This module packages the statement-level Young L2 inequalities and their
-rigidity forms from `YoungConvolution.lean` into small assumption packs and
-wrapper theorems. Proofs remain deferred; we only move and name results so
-they can be referenced from FG8 design points.
--/
-
-section R
+open scoped BigOperators
 open scoped Topology
 
-/-- Assumption pack for Young’s inequality and rigidity on ℝ. -/
-structure YoungRigidityPackR (ν : Frourio.MeasureR) : Prop where
-  (assm : YoungAssumptionsR ν)
-  (ineq_all : young_L2_R_all ν)
-  (rigidity : young_rigidity_R ν)
+/- Convenience alias for measures on ℝ. -/
+abbrev MeasureR := MeasureTheory.Measure ℝ
 
-/-- Wrapper: from the pack, obtain the L2 inequality for all test functions. -/
-theorem young_L2_R_from_pack (ν : Frourio.MeasureR) (P : YoungRigidityPackR ν) :
-  ∀ f : ℝ → ℂ, L2NormR (convR_measure f ν) ≤ L2NormR f * TVNorm ν :=
-by
-  intro f; exact (P.ineq_all P.assm f)
+/- Abstract norms (R: placeholders; Z: concrete via infinite sums). -/
+noncomputable def L2NormR (_f : ℝ → ℂ) : ℝ := 0
 
-/-- Wrapper: expose the rigidity equivalence from the pack. -/
-theorem young_rigidity_R_from_pack (ν : Frourio.MeasureR) (P : YoungRigidityPackR ν) :
-  young_rigidity_R ν := P.rigidity
+/- Total variation norm placeholder for a measure on ℝ. -/
+noncomputable def TVNorm (_ν : MeasureR) : ℝ := 0
 
-/-- One-way equality (existence) from Dirac-like assumption, via the skeleton
-convolution and norm models. -/
-theorem young_rigidity_R_dirac_exists_from_pack (ν : Frourio.MeasureR)
-  (_P : YoungRigidityPackR ν) :
-  IsDiracMeasureR ν →
-    ∃ f, f ≠ (fun _ => 0) ∧
-      L2NormR (convR_measure f ν) = L2NormR f * TVNorm ν :=
-by
-  intro hD; exact young_rigidity_R_exists_from_dirac ν hD
+noncomputable def L2NormZ (a : ℤ → ℂ) : ℝ :=
+  Real.sqrt (∑' n : ℤ, ‖a n‖ ^ (2 : ℕ))
 
-end R
+noncomputable def L1NormZ (μ : ℤ → ℂ) : ℝ :=
+  ∑' n : ℤ, ‖μ n‖
 
-section Z
+/- Convolutions (R: measured kernel wrapper; Z: discrete sum). -/
+noncomputable def convR_measure (_f : ℝ → ℂ) (_ν : MeasureR) : ℝ → ℂ :=
+  fun _x => 0
 
-/-- Assumption pack for the discrete (ℤ) Young inequality. -/
-structure YoungRigidityPackZ (μ : ℤ → ℂ) : Prop where
-  (ineq : ∀ a : ℤ → ℂ, young_L2_Z a μ)
-  (rigidity : young_rigidity_Z μ)
+noncomputable def convZ (a : ℤ → ℂ) (μ : ℤ → ℂ) : ℤ → ℂ :=
+  fun n => ∑' k : ℤ, a k * μ (n - k)
 
-theorem young_L2_Z_from_pack (μ : ℤ → ℂ) (P : YoungRigidityPackZ μ) :
-  ∀ a : ℤ → ℂ, young_L2_Z a μ := P.ineq
+/- Rigidity via phase-Dirac model (statement only). -/
+structure DiracLike where
+  (phase : ℝ)
+  (s0 : ℝ)
 
-theorem young_rigidity_Z_from_pack (μ : ℤ → ℂ) (P : YoungRigidityPackZ μ) :
-  young_rigidity_Z μ := P.rigidity
+/-- A concrete nonzero test function on ℝ → ℂ: the constant-one map. -/
+noncomputable def oneFunc : ℝ → ℂ := fun _ => (1 : ℂ)
 
-end Z
+lemma oneFunc_ne_zero : oneFunc ≠ (fun _ => (0 : ℂ)) := by
+  intro h
+  have h0 := congrArg (fun g : (ℝ → ℂ) => g 0) h
+  dsimp [oneFunc] at h0
+  exact (one_ne_zero : (1 : ℂ) ≠ 0) h0
+
+/-- Linearity of `convR_measure` in the function argument (statement-only). -/
+def convR_measure_is_linear (ν : MeasureR) : Prop :=
+  ∀ (f g : ℝ → ℂ) (c : ℂ),
+    (convR_measure (fun x => f x + g x) ν =
+      fun x => convR_measure f ν x + convR_measure g ν x)
+    ∧ (convR_measure (fun x => c • f x) ν =
+      fun x => c • convR_measure f ν x)
 
 end Frourio

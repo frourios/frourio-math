@@ -28,13 +28,6 @@ will be proved in later phases once the analytic infrastructure is in place.
 -- no `open` to keep this file command-lean across toolchain versions
 open scoped BigOperators
 
-/-- Domain control for Mellin transform (placeholder for analytic hypotheses).
-`MellinDomain f` is a Prop that, in later phases, will encode the integrability
-and regularity assumptions ensuring that the Mellin transform exists and the
-basic rules (scaling, division by x) hold. -/
-class MellinDomain (f : ℝ → ℂ) : Prop where
-  admissible : True
-
 /-- Mellin kernel placeholder. Intended: `(x : ℂ)^(s-1)` on `x>0`.
 Kept minimal in P2 to avoid adding heavy dependencies. -/
 noncomputable def mellinKernel (_x : ℝ) (_s : ℂ) : ℂ := 0
@@ -67,28 +60,6 @@ def mellinZeros (Λ : ℝ) : Set ℂ :=
 
 /-- Spacing of the zero lattice on the imaginary axis (design quantity). -/
 noncomputable def zeroLatticeSpacing (Λ : ℝ) : ℝ := Real.pi / Real.log Λ
-
-/-
-Design lemmas (to be proved in later phases, not declared as axioms here):
-
--- Scaling:
---   (hα : 0 < α) (hf : MellinDomain f) →
---   mellinTransform (fun x => f (α * x)) s = (α : ℝ) ^ (-s) * mellinTransform f s
-
--- Division by x (shift):
---   (hf : MellinDomain g) →
---   mellinTransform (fun x => g x / x) s = mellinTransform g (s + 1)
-
--- Φ-difference symbolization:
---   (hΛ : 0 < Λ) (hΛ1 : Λ ≠ 1) (hf : MellinDomain f) →
---   mellinTransform (phiDiff Λ f) s = phiSymbol Λ s * mellinTransform f (s + 1)
-
--- Zero lattice equivalence (Λ > 1):
---   phiSymbol Λ s = 0 ↔ s ∈ mellinZeros Λ
-
--- Operator norm bound on vertical line H_σ (Λ > 1):
---   ∥T_{Φ,Λ}∥ ≤ 2 * Real.cosh (σ * Real.log Λ) / (Λ - Λ⁻¹)
--/
 
 /-- If `1 < Λ` then `Real.log Λ ≠ 0`. -/
 lemma log_ne_zero_of_one_lt {Λ : ℝ} (h : 1 < Λ) : Real.log Λ ≠ 0 := by
@@ -283,32 +254,8 @@ theorem Tphi_norm_identity (Λ σ : ℝ) (u : Hσ σ) :
 noncomputable def phiSymbolBound (Λ σ : ℝ) : ℝ :=
   2 * Real.cosh (σ * Real.log Λ) / (Λ - Λ⁻¹)
 
-/-!
-D1: Statements-only additions for Mellin (P2 finish + m-point intro)
-
-We record the key laws and bounds as `Prop`-valued signatures, postponing
-proofs and heavy analysis to later phases. This keeps API stable while
-maintaining a lightweight dependency footprint (no `sorry`/`axiom`).
--/
-
-/-- Scaling statement for the Mellin transform (signature only).
-Design intent (analytic form): for `α > 0` and `hf : MellinDomain f`,
-`M[f(α·)](s) = α^{-s} · M[f](s)`. We write `α^{-s}` as
-`Complex.exp (-s * Real.log α)` to avoid non-integer powers on `ℝ`.
-This is a `Prop` describing the intended equality; no proof is provided here. -/
-def mellin_scaling (α : ℝ) (f : ℝ → ℂ) (s : ℂ) : Prop :=
-  0 < α → MellinDomain f →
-    mellinTransform (fun x => f (α * x)) s
-      = Complex.exp (-s * (Real.log α : ℂ)) * mellinTransform f s
-
 /-- Helper: division by `x` for `ℝ → ℂ` functions. -/
 noncomputable def divByX (g : ℝ → ℂ) : ℝ → ℂ := fun x => g x / (x : ℂ)
-
-/-- Division-by-`x` (shift) statement for the Mellin transform (signature only).
-Design intent (analytic form): `M[g/x](s) = M[g](s+1)` under `MellinDomain`.
-This is a `Prop` describing the intended equality; no proof is provided here. -/
-def mellin_div_x (g : ℝ → ℂ) (s : ℂ) : Prop :=
-  MellinDomain g → mellinTransform (divByX g) s = mellinTransform g (s + 1)
 
 /-- Placeholder for the operator norm of `Tphi Λ` acting `H_σ → H_{σ-1}`.
 We keep it as a design quantity referencing the operator one would get
@@ -323,12 +270,6 @@ def op_norm_bound (Λ σ : ℝ) : Prop :=
 
 /-- Φ-difference operator on the physical side (placeholder). -/
 noncomputable def mellinPhiDiff (_Λ : ℝ) (f : ℝ → ℂ) : ℝ → ℂ := fun x => f x
-
-/-- Φ-difference symbolization statement (signature only). -/
-def phi_diff_symbolization (Λ : ℝ) (f : ℝ → ℂ) (s : ℂ) : Prop :=
-  0 < Λ → Λ ≠ 1 → MellinDomain f →
-    mellinTransform (mellinPhiDiff Λ f) s =
-      phiSymbol Λ s * mellinTransform f (s + 1)
 
 /--
 Concrete m-point Mellin-difference symbol `phi_m` as a finite linear

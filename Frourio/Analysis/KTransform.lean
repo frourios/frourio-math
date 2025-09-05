@@ -25,9 +25,6 @@ structure KTransform (X : Type*) [PseudoMetricSpace X] where
 /-- (K1′) surrogate: narrow continuity predicate. -/
 def K1primeK (K : KTransform X) : Prop := K.narrowContinuous
 
-/-- (K4^m) surrogate: geodesic affinity predicate (placeholder). -/
-def K4mK (_K : KTransform X) : Prop := True
-
 /-- Auxiliary predicate: a uniform lower bound for the kernel at `s = 0`.
 This lightweight surrogate is used to produce coercivity-style bounds for
 `Dσm` when building the functional layer. -/
@@ -38,28 +35,6 @@ def UniformLowerBoundAtZero (K : KTransform X) (C0 : ℝ) : Prop :=
 We keep it algebraic via a simple evaluation `map x 0`, scaled by `Ssup`. -/
 noncomputable def DsigmamFromK (K : KTransform X) (Ssup : ℝ) : X → ℝ :=
   fun x => Ssup * K.map x 0
-
-/-! 1D basic model (log isometry surrogate):
-We provide a trivial kernel and record that (K1′) and (K4^m) hold by
-construction at this phase. -/
-
-noncomputable def KTransform.basic1D : KTransform ℝ :=
-  { map := fun _x s => s,
-    narrowContinuous := True }
-
-theorem K1prime_basic1D : K1primeK (KTransform.basic1D) := by
-  change True
-  exact trivial
-
-theorem K4mK_basic1D : K4mK (KTransform.basic1D) := by
-  change True
-  exact trivial
-
-/-- In the 1D basic model, the kernel at `s = 0` is exactly `0`, hence admits
-the uniform lower bound with `C0 = 0`. -/
-theorem UniformLowerBoundAtZero_basic1D :
-  UniformLowerBoundAtZero (KTransform.basic1D) 0 := by
-  intro x; dsimp [UniformLowerBoundAtZero, KTransform.basic1D]; simp
 
 end X
 
@@ -99,17 +74,6 @@ def PointwiseContinuousInX (map : X → ℝ → ℝ) : Prop :=
 structure K1primeTemplate (X : Type*) [PseudoMetricSpace X] where
   (map : X → ℝ → ℝ)
   (pointwise_cont : PointwiseContinuousInX map)
-
-/-- Build a `KTransform` from a template. The `narrowContinuous` flag is
-set to the (placeholder) Prop `True`, and the pointwise continuity is
-kept available from the template for downstream use. -/
-noncomputable def KTransform.ofTemplate (T : K1primeTemplate X) : KTransform X :=
-  { map := T.map, narrowContinuous := True }
-
-/-- From a template-built transform, we can supply `(K1′)` in the current
-phase as a placeholder truth. -/
-theorem K1primeK_ofTemplate (T : K1primeTemplate X) :
-  K1primeK (KTransform.ofTemplate T) := by change True; exact trivial
 
 /-- Pull back a template along a continuous map `g : Y → X` to obtain a
 template on `Y`. This preserves pointwise continuity-in-`x`. -/
@@ -153,8 +117,6 @@ def DisplacementAffinity (K : KTransform X) (D : Displacement X) : Prop :=
 
 end DisplacementAPI
 
-/-! Linear displacement model on `ℝ` and the basic1D proof -/
-
 section LinearOnReal
 
 /- Linear interpolation on `ℝ`. -/
@@ -162,19 +124,6 @@ noncomputable def linearDisplacement : Displacement ℝ :=
 { interp := fun x y θ => (1 - θ) * x + θ * y,
   endpoint0 := by intro x y; simp,
   endpoint1 := by intro x y; simp }
-
-/- In the basic 1D model, the kernel ignores `x`, hence displacement
-affinity holds trivially for the linear displacement on `ℝ`. -/
-theorem K4m_linear_basic1D :
-  DisplacementAffinity (KTransform.basic1D) linearDisplacement := by
-  intro x y θ hθ s
-  -- Reduce RHS to `s` via `(1-θ)*s + θ*s = s`.
-  have hsum : (1 - θ : ℝ) * s + θ * s = s := by
-    have h := (add_mul (1 - θ) θ s).symm
-    -- `((1-θ)+θ) = 1`
-    simpa [sub_eq_add_neg, add_comm] using h
-  -- Both sides simplify to `s`.
-  simp [KTransform.basic1D, linearDisplacement, hsum]
 
 end LinearOnReal
 

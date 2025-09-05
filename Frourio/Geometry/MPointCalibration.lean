@@ -29,17 +29,4 @@ structure MPointCalibration (m : ℕ) where
 /- Abstract Mellin-compatible symbol on two real parameters (σ, τ) for m points. -/
 noncomputable def phi_m (_m : ℕ) (_σ _τ : ℝ) : ℂ := 0
 
-/- Basic abstract properties of the symbol (placeholders for future work). -/
-def phi_m_zeroSet (_m : ℕ) : Prop := True
-
-def phi_m_bohrAlmostPeriodic (_m : ℕ) : Prop := True
-
-/- m-point analytical anchor D_{Φ,Λ}^{(m)} and its compatibility predicate.
-We keep only a signature-level placeholder here. -/
-def Dphi_m_compat (_m : ℕ) : Prop := True
-
-/- Two-point compatibility bridge: in the special case m = 2, the
-calibration agrees with the algebra-side D_{Φ,Λ} symbol (statement-only). -/
-def calib2_agrees_with_phi (_C : MPointCalibration 2) : Prop := True
-
 end Frourio

@@ -34,7 +34,6 @@ theorem build_plfaEdeEvi_package (F : X → ℝ) (lamEff : ℝ)
     (And.intro (fun ρ => H.ede_iff_evi ρ) (fun ρ0 h => H.jko_to_plfa ρ0 h))
 
 theorem build_plfaEdeEvi_package_weak (F : X → ℝ) (lamEff : ℝ)
-  (_HC : HalfConvex F lamEff) (_SUB : StrongUpperBound F)
   (H : EquivBuildAssumptions F lamEff) : plfaEdeEviJko_equiv F lamEff :=
   build_plfaEdeEvi_package F lamEff H
 
@@ -564,25 +563,6 @@ theorem build_package_from_flags_and_ede_evi_pack (F : X → ℝ) (lamEff : ℝ)
 by
   exact build_package_from_global F lamEff
     (global_sufficient_pack_from_flags_and_ede_evi_pack F lamEff A HplfaEde HedeEviPack HjkoPlfa)
-
--- JKO ⇒ EDE/EVI from flags
-
-theorem jko_to_evi_from_flags (F : X → ℝ) (lamEff : ℝ)
-  (Hjko : JKO_PLFA_from_analytic_flags F)
-  (HplfaEde : PLFA_EDE_from_analytic_flags F lamEff)
-  (HedeEvi : EDE_EVI_from_analytic_flags F lamEff)
-  (hP : Proper F) (hL : LowerSemicontinuous F) (hC : Coercive F) (hJ : JKOStable F)
-  (HC : HalfConvex F lamEff) (SUB : StrongUpperBound F) :
-  ∀ ρ0 : X, JKO F ρ0 → ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧
-    IsEVISolution ({ E := F, lam := lamEff } : EVIProblem X) ρ :=
-by
-  intro ρ0 hJKO
-  -- First produce an EDE evolution via the core non-metric route.
-  rcases jko_to_ede_from_flags F lamEff Hjko HplfaEde hP hL hC hJ HC SUB ρ0 hJKO with ⟨ρ, h0, hEDE⟩
-  -- Turn EDE into EVI using the EDE⇔EVI builder under core flags.
-  have hEDE_EVI : ∀ r : ℝ → X,
-      EDE F r ↔ IsEVISolution ({ E := F, lam := lamEff } : EVIProblem X) r := HedeEvi ⟨HC, SUB⟩
-  exact ⟨ρ, h0, (hEDE_EVI ρ).mp hEDE⟩
 
 -- Two-EVI with forcing and consequences
 def TwoEVIWithForce (P : EVIProblem X) (u v : ℝ → X) : Prop :=

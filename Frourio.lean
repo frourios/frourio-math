@@ -11,9 +11,7 @@ import Frourio.Analysis.EVI
 import Frourio.Analysis.DoobTransform
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.PLFA
-import Frourio.Analysis.YoungConvolution
 import Frourio.Analysis.YoungRigidity
-import Frourio.Analysis.PhiOperator
 import Frourio.Geometry.DiracIndex
 import Frourio.Geometry.FGCore
 import Frourio.Geometry.FGInterop

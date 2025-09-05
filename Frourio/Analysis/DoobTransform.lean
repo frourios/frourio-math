@@ -16,11 +16,13 @@ structure Diffusion (X : Type*) where
   (Gamma : (X → ℝ) → (X → ℝ))
   (Gamma2 : (X → ℝ) → (X → ℝ))
 
-/-- Curvature-dimension parameter predicate (placeholder).
-`HasCD D λ` is intended to encode that the diffusion `D` satisfies a
-CD-type lower bound with parameter `λ`. This is kept abstract at this
-phase and will be refined later. -/
-def HasCD {X : Type*} (_D : Diffusion X) (_lam : ℝ) : Prop := True
+/-- Curvature-dimension predicate (pointwise Γ₂ bound).
+`HasCD D λ` encodes a Bakry–Émery type lower bound in the CD(λ, ∞)
+form: for all test functions `f` and points `x`, one has
+`Γ₂(f)(x) ≥ λ · Γ(f)(x)`. This concrete predicate keeps the API light
+while allowing downstream theorems to reference an actual inequality. -/
+def HasCD {X : Type*} (D : Diffusion X) (lam : ℝ) : Prop :=
+  ∀ f : X → ℝ, ∀ x : X, D.Gamma2 f x ≥ lam * D.Gamma f x
 
 /-- Symmetric bilinear form associated to `Gamma` by polarization.
 This provides a concrete `Γ(f,g)` using the unary `Γ` available in `Diffusion`.
@@ -79,27 +81,11 @@ structure DoobAssumptions {X : Type*} (h : X → ℝ) (D : Diffusion X) : Prop w
   Later phases will refine this to an explicit formula using `∇² log h`. -/
   (cd_shift : ∀ lam : ℝ, HasCD D lam → ∃ lam' : ℝ, HasCD (Doob h D) lam' ∧ lam' ≤ lam)
 
-/-- Placeholder for the Hessian bound on `log h` used in the explicit
-Doob curvature update: `∇² log h ≤ ε · g`. In the current lightweight
-phase this is a `Prop` alias of `True` so that the API can be wired
-without heavy differential-geometry dependencies. -/
-def HessianLogBound {X : Type*} (_h : X → ℝ) (_D : Diffusion X) (_eps : ℝ) : Prop := True
-
 /-- Minimal Bochner-style correction statement needed to realize the explicit
 CD parameter shift under a Doob transform. Parameterized by `eps` from the
 Hessian bound on `log h`. -/
 def BochnerMinimal {X : Type*} (h : X → ℝ) (D : Diffusion X) (eps : ℝ) : Prop :=
   ∀ lam : ℝ, HasCD D lam → HasCD (Doob h D) (lam - 2 * eps)
-
-/-- From the (placeholder) Hessian bound and structural Doob assumptions,
-obtain the minimal Bochner-style correction needed for the explicit CD shift.
-In later phases, this will be proven from a genuine Bochner identity. -/
-theorem bochner_from_hessian {X : Type*} (h : X → ℝ) (D : Diffusion X)
-  (_H : DoobAssumptions h D) (eps : ℝ) (_Hhess : HessianLogBound h D eps) :
-  BochnerMinimal h D eps :=
-by
-  -- With `HasCD = True` at this phase, provide the required map.
-  intro lam _hCD; change True; exact trivial
 
 /-- Γ identity under Doob transform (theoremized via assumptions). -/
 theorem doob_gamma_eq {X : Type*} (h : X → ℝ)
@@ -151,23 +137,5 @@ theorem cd_parameter_shift {X : Type*} (h : X → ℝ) (D : Diffusion X)
   (H : DoobAssumptions h D) {lam : ℝ} (hCD : HasCD D lam) :
   ∃ lam' : ℝ, HasCD (Doob h D) lam' ∧ lam' ≤ lam :=
   H.cd_shift lam hCD
-
-/-- Explicit CD-parameter shift under a Hessian bound on `log h`.
-If `D` satisfies `CD(λ,∞)` and `∇² log h ≤ ε g`, then the Doob transform
-`Doob h D` satisfies `CD(λ − 2ε,∞)`. This is the explicit (three-line)
-Ricci-with-potential correction quoted in the design notes; here it is
-provided as a lightweight theorem with assumptions tracked at the type level.
-
-Note: `HasCD` is a placeholder (`True`) in this phase, so the proof is
-trivial; the purpose is to stabilize the API and dependencies. -/
-theorem cd_parameter_shift_explicit {X : Type*}
-  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
-  (eps : ℝ) (Hhess : HessianLogBound h D eps)
-  {lam : ℝ} (hCD : HasCD D lam) :
-  HasCD (Doob h D) (lam - 2 * eps) :=
-by
-  -- Derive the minimal Bochner correction from the Hessian bound, then apply it.
-  have HB : BochnerMinimal h D eps := bochner_from_hessian h D H eps Hhess
-  exact HB lam hCD
 
 end Frourio

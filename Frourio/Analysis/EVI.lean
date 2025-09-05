@@ -1135,9 +1135,6 @@ structure MoscoSystem (ι : Type*) where
 
 attribute [instance] MoscoSystem.hx MoscoSystem.x
 
-/- Externalized Mosco predicates (minimal, nontrivial P0 forms).
-They remain `Prop`-valued and lightweight, but relate the system fields
-to avoid `True` stubs. -/
 /- Geodesic completeness surrogate: nonemptiness of the limit space. -/
 def MoscoGeodesicComplete {ι : Type*} (S : MoscoSystem ι) : Prop :=
   Nonempty S.X
@@ -1156,10 +1153,18 @@ def MoscoM2 {ι : Type*} (S : MoscoSystem ι) : Prop :=
   ∀ x : S.X, ∃ (h : ι) (xh : S.Xh h), S.Th h xh = x ∧ S.Eh h xh ≤ S.E x
 
 /-- Assumption pack using the minimal nontrivial Mosco predicates. -/
+/- Sequential lower semicontinuity on a metric space: along any sequence
+converging to `x`, the liminf of energies dominates the value at `x`. -/
+def LowerSemicontinuousSeq {X : Type*} [PseudoMetricSpace X] (E : X → ℝ) : Prop :=
+  ∀ x : X, ∀ s : ℕ → X, Filter.Tendsto s Filter.atTop (nhds x) →
+    E x ≤ Filter.liminf (fun n => E (s n)) Filter.atTop
+
+/-- Assumption pack using the minimal nontrivial Mosco predicates,
+with a concrete sequential lower semicontinuity requirement for the limit energy. -/
 structure MoscoAssumptions {ι : Type*} (S : MoscoSystem ι) : Prop where
   (geodesic_complete : MoscoGeodesicComplete S)
   (tightness : MoscoTight S)
-  (lsc_Ent : True)
+  (lsc_Ent : LowerSemicontinuousSeq S.E)
   (M1 : MoscoM1 S)
   (M2 : MoscoM2 S)
 
@@ -1222,12 +1227,12 @@ theorem build_MoscoAssumptions_from_entropy_dirichlet {ι : Type*}
   (Hg : MoscoGeodesicComplete S)
   (Hent : EntropyUniformLowerBound S)
   (Hlim : DirichletFormLiminf S)
-  (Hrec : DirichletFormRecovery S) : MoscoAssumptions S :=
+  (Hrec : DirichletFormRecovery S)
+  (Hlsc : LowerSemicontinuousSeq S.E) : MoscoAssumptions S :=
 by
-  refine ⟨Hg, MoscoTight_from_entropy S Hent, ?lsc, MoscoM1_from_dirichlet_liminf S Hlim,
-    MoscoM2_from_dirichlet_recovery S Hrec⟩
-  · -- Placeholder: entropy l.s.c. is recorded as available in this phase.
-    trivial
+  refine ⟨Hg, MoscoTight_from_entropy S Hent, Hlsc,
+          MoscoM1_from_dirichlet_liminf S Hlim,
+          MoscoM2_from_dirichlet_recovery S Hrec⟩
 
 /-- From the entropy/Dirichlet sufficient conditions, obtain the minimal
 `EVILimitHolds` predicate used in this file. -/
@@ -1235,9 +1240,10 @@ theorem EVILimit_from_entropy_dirichlet {ι : Type*} (S : MoscoSystem ι)
   (Hg : MoscoGeodesicComplete S)
   (Hent : EntropyUniformLowerBound S)
   (Hlim : DirichletFormLiminf S)
-  (Hrec : DirichletFormRecovery S) : EVILimitHolds S :=
+  (Hrec : DirichletFormRecovery S)
+  (Hlsc : LowerSemicontinuousSeq S.E) : EVILimitHolds S :=
 by
-  exact eviInheritance S (build_MoscoAssumptions_from_entropy_dirichlet S Hg Hent Hlim Hrec)
+  exact eviInheritance S (build_MoscoAssumptions_from_entropy_dirichlet S Hg Hent Hlim Hrec Hlsc)
 
 /- Sufficient conditions for the Mosco predicates (lightweight wrappers). -/
 
@@ -1266,19 +1272,20 @@ structure MoscoSufficientConditions {ι : Type*} (S : MoscoSystem ι) : Prop whe
   (liminf_along_Th : ∀ (h : ι) (x : S.Xh h), S.E (S.Th h x) ≤ S.Eh h x)
   (recovery_no_inflation : ∀ x : S.X, ∃ (h : ι) (xh : S.Xh h), S.Th h xh = x ∧ S.Eh h xh ≤ S.E x)
   (geodesic_complete : Nonempty S.X)
+  (lsc_Ent : LowerSemicontinuousSeq S.E)
 
 /-- Build `MoscoAssumptions` from sufficient conditions. -/
 theorem build_MoscoAssumptions_from_sufficient {ι : Type*} (S : MoscoSystem ι)
   (H : MoscoSufficientConditions S) : MoscoAssumptions S :=
 by
-  rcases H with ⟨⟨C, hUB⟩, hM1, hM2, hGC⟩
+  rcases H with ⟨⟨C, hUB⟩, hM1, hM2, hGC, hLSC⟩
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · -- geodesic completeness surrogate
     exact hGC
   · -- tightness from the uniform lower bound
     exact ⟨C, hUB⟩
-  · -- placeholder: Entropy l.s.c. will be plugged later
-    trivial
+  · -- sequential lower semicontinuity of the limit energy
+    exact hLSC
   · -- M1
     exact hM1
   · -- M2
@@ -1290,55 +1297,6 @@ theorem EVILimit_from_sufficient {ι : Type*} (S : MoscoSystem ι)
 by
   have HA : MoscoAssumptions S := build_MoscoAssumptions_from_sufficient S H
   exact eviInheritance S HA
-
-/-!
-Upgrade: record additional (statement‑level) conclusions typically used in
-EVIs under Mosco convergence: tightness of JKO schemes and stability of EDE/EVI.
-We keep them as lightweight `Prop` predicates for this phase and provide
-theoremized wrappers that extract them from `MoscoAssumptions` alongside
-`EVILimitHolds`.
--/
-
-/-- Placeholder: tightness of JKO minimizing movement schemes under Mosco. -/
-def JKOTightUnderMosco {ι : Type*} (_S : MoscoSystem ι) : Prop := True
-
-/-- Placeholder: stability of EDE solutions under Mosco (limit is EDE for `E`). -/
-def EDEStabilityUnderMosco {ι : Type*} (_S : MoscoSystem ι) : Prop := True
-
-/-- Placeholder: stability of EVI solutions under Mosco (limit is EVI for `E`). -/
-def EVIStabilityUnderMosco {ι : Type*} (_S : MoscoSystem ι) : Prop := True
-
-/-- Suite: from `MoscoAssumptions`, obtain `EVILimitHolds` together with the
-statement‑level conclusions (JKO tightness and EDE/EVI stability). -/
-theorem EVILimitHolds_suite {ι : Type*} (S : MoscoSystem ι)
-  (_H : MoscoAssumptions S) :
-  EVILimitHolds S ∧ JKOTightUnderMosco S ∧ EDEStabilityUnderMosco S ∧ EVIStabilityUnderMosco S :=
-by
-  refine And.intro (eviInheritance S ‹_›) ?rest
-  -- Provide the placeholder conclusions.
-  exact And.intro (by exact trivial) (And.intro (by exact trivial) (by exact trivial))
-
-/-- Suite from sufficient conditions: package `EVILimitHolds` with the
-JKO tightness and EDE/EVI stability placeholders. -/
-theorem EVILimitHolds_suite_from_sufficient {ι : Type*} (S : MoscoSystem ι)
-  (H : MoscoSufficientConditions S) :
-  EVILimitHolds S ∧ JKOTightUnderMosco S ∧ EDEStabilityUnderMosco S ∧ EVIStabilityUnderMosco S :=
-by
-  have HA : MoscoAssumptions S := build_MoscoAssumptions_from_sufficient S H
-  exact EVILimitHolds_suite S HA
-
-/-- Suite wrapper: from entropy lower bound and Dirichlet liminf/recovery,
-obtain `EVILimitHolds` bundled with placeholders for JKO tightness and
-EDE/EVI stability. This pins the API used downstream for stability. -/
-theorem EVILimitHolds_suite_from_entropy_dirichlet {ι : Type*}
-  (S : MoscoSystem ι) (Hg : MoscoGeodesicComplete S)
-  (Hent : EntropyUniformLowerBound S) (Hlim : DirichletFormLiminf S)
-  (Hrec : DirichletFormRecovery S) :
-  EVILimitHolds S ∧ JKOTightUnderMosco S ∧ EDEStabilityUnderMosco S ∧ EVIStabilityUnderMosco S :=
-by
-  have HA : MoscoAssumptions S :=
-    build_MoscoAssumptions_from_entropy_dirichlet S Hg Hent Hlim Hrec
-  exact EVILimitHolds_suite S HA
 
 end Frourio
 

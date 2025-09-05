@@ -23,10 +23,6 @@ namespace Frourio
 section X
 variable {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
 
-/-- Placeholder predicate standing for “uniform over all geodesics between u and v”.
-Refine this in later phases to a genuine geodesic-uniformity hypothesis. -/
-def GeodesicUniform (_u _v : ℝ → X) : Prop := True
-
 /- G2-T1: EVI scale rule (statement-level)
 We package the isometry/similarity toggle and generator homogeneity and
 expose the effective parameter via `effectiveLambda`. -/
@@ -74,33 +70,12 @@ theorem evi_scale_rule_similarity (FG : FGData X) (S : ScaleAction X)
 
 end X
 
-/- G2-T2: Doob×Scale commute (sufficient-condition shell)
-We keep this abstract: for any weight `h` and scale step `k`, the Doob
-transform should commute with the scale action under suitable (omitted)
-assumptions. -/
-def doob_scale_commute {X : Type*} (_D : Diffusion X) (_S : ScaleAction X) : Prop :=
-  ∀ (_h : X → ℝ) (_k : ℤ), True
-
-/-- Sufficient condition placeholder for Doob×Scale commutation.
-Intended to encode `h ∘ S_Λ = c · h` (eigenfunction condition) per step `k`. -/
-def doob_scale_commute_sufficient {X : Type*} (_D : Diffusion X) (_S : ScaleAction X) : Prop :=
-  ∀ (_h : X → ℝ) (_k : ℤ), True
-
-/-- If the sufficient condition holds (e.g. `h ∘ S_Λ = c · h`), then the
-Doob transform commutes with the scale action (statement-level). -/
-theorem doob_scale_commute_of_sufficient {X : Type*} (D : Diffusion X) (S : ScaleAction X)
-  (H : doob_scale_commute_sufficient D S) : doob_scale_commute D S :=
-by
-  intro h k; exact H h k
-
-/- G2-T3: Mosco inheritance bridge (re-export to analysis layer) -/
-def mosco_inheritance {ι : Type*} (S : MoscoSystem ι)
-  (_H : MoscoAssumptions S) : Prop :=
-  EVILimitHolds S
+/- Mosco inheritance bridge (re-export to analysis layer) -/
+def mosco_inheritance {ι : Type*} (S : MoscoSystem ι) : Prop := EVILimitHolds S
 
 /-- Mosco inheritance theoremized via the analysis-layer `eviInheritance`. -/
 theorem mosco_inheritance_thm {ι : Type*} (S : MoscoSystem ι)
-  (H : MoscoAssumptions S) : mosco_inheritance S H :=
+  (H : MoscoAssumptions S) : mosco_inheritance S :=
 by
   -- `mosco_inheritance S H` is by definition `EVILimitHolds S`.
   -- Conclude using the analysis-layer inheritance theorem.
@@ -108,132 +83,6 @@ by
 
 section X2
 variable {X : Type*} [PseudoMetricSpace X]
-
-/- G2-T4: two-EVI synchronization with an abstract error bound.
-We existentially package the required ingredients and call the analysis
-layer's `eviSumWithError`. -/
-def evi_sum_with_error (P : EVIProblem X) (u v : ℝ → X) : Prop :=
-  ∃ (hu : IsEVISolution P u) (hv : IsEVISolution P v)
-    (geodesicBetween : Prop) (η : ℝ),
-      eviSumWithError P u v hu hv geodesicBetween
-        ({ η := η, bound := fun _t => True } : MixedErrorBound X u v)
-
-/-- Uniform-geodesic variant: use a shared `GeodesicUniform` predicate as the
-geodesic hypothesis passed to `eviSumWithError`. -/
-def evi_sum_with_error_uniform (P : EVIProblem X) (u v : ℝ → X)
-  (_GU : GeodesicUniform (X := X) u v) (η : ℝ) : Prop :=
-  ∃ (hu : IsEVISolution P u) (hv : IsEVISolution P v),
-    eviSumWithError P u v hu hv True
-      ({ η := η, bound := fun _t => True } : MixedErrorBound X u v)
-
-/-- Two-EVI synchronization: squared-distance bound with an error term.
-Given the statement-level `eviSumWithError` and an inhomogeneous Grönwall
-lemma in the `half` form, we obtain a linear-in-time upper bound for the
-squared distance. -/
-theorem evi_two_sync_sq_with_error
-  (P : EVIProblem X) (u v : ℝ → X)
-  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
-  (geodesicBetween : Prop) (η : ℝ)
-  (Hgr : gronwall_exponential_contraction_with_error_half_pred P.lam η
-    (fun t => d2 (u t) (v t))) :
-  (eviSumWithError P u v hu hv geodesicBetween
-    ({ η := η, bound := fun _t => True } : MixedErrorBound X u v)) →
-  ∀ t : ℝ,
-    d2 (u t) (v t) ≤
-      Real.exp (-(2 * P.lam) * t) * d2 (u 0) (v 0) + (2 * η) * t :=
-by
-  intro Hsum
-  -- Direct application of the inhomogeneous Grönwall placeholder.
-  have h := Hgr (by
-    intro t
-    -- This is exactly the inequality packaged by `eviSumWithError`.
-    simpa using (Hsum t))
-  intro t; simpa using h t
-
-/-- Uniform-geodesic variant of squared-distance synchronization with error. -/
-theorem evi_two_sync_sq_with_error_uniform
-  (P : EVIProblem X) (u v : ℝ → X)
-  (_hu : IsEVISolution P u) (_hv : IsEVISolution P v)
-  (GU : GeodesicUniform (X := X) u v) (η : ℝ)
-  (Hgr : gronwall_exponential_contraction_with_error_half_pred P.lam η
-    (fun t => d2 (u t) (v t))) :
-  (evi_sum_with_error_uniform P u v GU η) →
-  ∀ t : ℝ,
-    d2 (u t) (v t) ≤
-      Real.exp (-(2 * P.lam) * t) * d2 (u 0) (v 0) + (2 * η) * t :=
-by
-  intro HsumU; rcases HsumU with ⟨hu', hv', Hsum⟩
-  have := evi_two_sync_sq_with_error P u v hu' hv' True η Hgr Hsum
-  intro t; simpa using this t
-
-/-- Error-free synchronization corollary: with zero error term and a
-`half`-form Grönwall lemma, we recover squared-distance contraction. -/
-theorem evi_two_sync_sq_zero_error
-  (P : EVIProblem X) (u v : ℝ → X)
-  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
-  (geodesicBetween : Prop)
-  (Hgr0 : gronwall_exponential_contraction_with_error_half_pred P.lam (0 : ℝ)
-    (fun t => d2 (u t) (v t))) :
-  (eviSumWithError P u v hu hv geodesicBetween
-    ({ η := 0, bound := fun _t => True } : MixedErrorBound X u v)) →
-  ContractionPropertySq P u v :=
-by
-  intro Hsum
-  -- Instantiate the general bound with η = 0, then simplify.
-  have h := evi_two_sync_sq_with_error P u v hu hv geodesicBetween (0 : ℝ) Hgr0 Hsum
-  intro t
-  simpa [zero_mul, add_comm, add_left_comm, add_assoc] using h t
-
-/-- Two-EVI synchronization: distance bound with an error term.
-Combines the inhomogeneous Grönwall inequality and the bridge to distances. -/
-theorem evi_two_sync_with_error_dist
-  (P : EVIProblem X) (u v : ℝ → X)
-  (hu : IsEVISolution P u) (hv : IsEVISolution P v)
-  (geodesicBetween : Prop) (η : ℝ)
-  (Hgr : gronwall_exponential_contraction_with_error_half_pred P.lam η
-    (fun t => d2 (u t) (v t)))
-  (Hbridge : HbridgeWithError P u v η) :
-  (eviSumWithError P u v hu hv geodesicBetween
-    ({ η := η, bound := fun _t => True } : MixedErrorBound X u v)) →
-  ∀ t : ℝ,
-    dist (u t) (v t) ≤
-      Real.exp (-(P.lam) * t) * dist (u 0) (v 0) + Real.sqrt (max 0 ((2 * η) * t)) :=
-by
-  intro Hsum
-  -- First obtain the squared-distance synchronization with error
-  have Hsq : ContractionPropertySqWithError P u v η := by
-    -- Reuse the squared-distance helper
-    have hs := evi_two_sync_sq_with_error P u v hu hv geodesicBetween η Hgr Hsum
-    -- Package as a Prop-valued predicate
-    exact hs
-  -- Bridge to distances using the provided error-bridge
-  intro t
-  have hdist := bridge_with_error P u v η Hbridge Hsq
-  simpa using hdist t
-
-/-- Uniform-geodesic variant of distance synchronization with error. -/
-theorem evi_two_sync_with_error_dist_uniform
-  (P : EVIProblem X) (u v : ℝ → X)
-  (_hu : IsEVISolution P u) (_hv : IsEVISolution P v)
-  (GU : GeodesicUniform (X := X) u v) (η : ℝ)
-  (Hgr : gronwall_exponential_contraction_with_error_half_pred P.lam η
-    (fun t => d2 (u t) (v t)))
-  (Hbridge : HbridgeWithError P u v η) :
-  (evi_sum_with_error_uniform P u v GU η) →
-  ∀ t : ℝ,
-    dist (u t) (v t) ≤
-      Real.exp (-(P.lam) * t) * dist (u 0) (v 0) + Real.sqrt (max 0 ((2 * η) * t)) :=
-by
-  intro HsumU
-  rcases HsumU with ⟨hu', hv', Hsum⟩
-  -- First obtain the squared-distance synchronization with error
-  have Hsq : ContractionPropertySqWithError P u v η := by
-    have hs := evi_two_sync_sq_with_error P u v hu' hv' True η Hgr Hsum
-    exact hs
-  -- Bridge to distances using the provided error-bridge
-  intro t
-  have hdist := bridge_with_error P u v η Hbridge Hsq
-  simpa using hdist t
 
 end X2
 
@@ -244,8 +93,6 @@ two‑EVI hypothesis, we obtain the three gradient-flow conclusions. -/
 theorem flow_suite_from_packs
   {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X)
-  (HC : HalfConvex (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
-  (SUB : StrongUpperBound (FrourioFunctional.F S.func))
   (Hpack : EquivBuildAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
   (hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps
             (lambdaBE S.base.lam S.eps) S.Ssup S.XiNorm)
@@ -255,7 +102,7 @@ by
   -- Build the equivalence package from weak hypotheses and the assumption pack
   have G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
     build_plfaEdeEvi_package_weak (FrourioFunctional.F S.func)
-      (lambdaBE S.base.lam S.eps) HC SUB Hpack
+      (lambdaBE S.base.lam S.eps) Hpack
   -- Apply the integrated suite on the gradient-flow system
   exact gradient_flow_suite S G (lambdaBE S.base.lam S.eps) hLam Htwo
 
@@ -364,64 +211,6 @@ by
   refine build_PLFAEDE_pack_from_flags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
     A.proper A.lsc A.coercive A.HC A.SUB H
 
-/-- Step 2 (FG-level wrapper): from analytic flags and a JKO⇒PLFA bridge,
-obtain the component predicate `JKO_to_PLFA_pred` for `F := Ent + γ·Dσm`. -/
-theorem jko_plfa_pred_for_FG
-  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
-  (S : GradientFlowSystem X)
-  (A : AnalyticFlags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
-  (H : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func)) :
-  JKO_to_PLFA_pred (FrourioFunctional.F S.func) :=
-by
-  exact jko_to_plfa_from_flags (FrourioFunctional.F S.func) H A.proper A.lsc A.coercive A.jkoStable
-
-/-- Step 2 (FG-level pack): the same as `jko_plfa_pred_for_FG`, but packaged as
-`JKOPLFAAssumptions` for downstream assembly. -/
-theorem jko_plfa_pack_for_FG
-  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
-  (S : GradientFlowSystem X)
-  (A : AnalyticFlags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
-  (H : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func)) :
-  JKOPLFAAssumptions (FrourioFunctional.F S.func) :=
-by
-  refine build_JKOPLFA_pack_from_flags
-    (FrourioFunctional.F S.func) H A.proper A.lsc A.coercive A.jkoStable
-
-/-- Step 2 (FG-level theorem): from analytic flags and bridges (JKO⇒PLFA and
-PLFA⇔EDE), conclude `JKO ⇒ EDE` for `F := Ent + γ·Dσm`. -/
-theorem jko_ede_for_FG
-  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
-  (S : GradientFlowSystem X)
-  (A : AnalyticFlags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
-  (Hjko : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func))
-  (HplfaEde : PLFA_EDE_from_analytic_flags (FrourioFunctional.F S.func)
-      (lambdaBE S.base.lam S.eps)) :
-  ∀ ρ0 : X, JKO (FrourioFunctional.F S.func) ρ0 →
-    ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ EDE (FrourioFunctional.F S.func) ρ :=
-by
-  exact jko_to_ede_from_flags
-    (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
-    Hjko HplfaEde A.proper A.lsc A.coercive A.jkoStable A.HC A.SUB
-
-/-- Step 2 (FG-level theorem): from analytic flags and bridges (JKO⇒PLFA,
-PLFA⇔EDE, EDE⇔EVI), conclude `JKO ⇒ EVI(λ_eff)` for `F := Ent + γ·Dσm`. -/
-theorem jko_evi_for_FG
-  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
-  (S : GradientFlowSystem X)
-  (A : AnalyticFlags (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
-  (Hjko : JKO_PLFA_from_analytic_flags (FrourioFunctional.F S.func))
-  (HplfaEde : PLFA_EDE_from_analytic_flags (FrourioFunctional.F S.func)
-      (lambdaBE S.base.lam S.eps))
-  (HedeEvi : EDE_EVI_from_analytic_flags (FrourioFunctional.F S.func)
-      (lambdaBE S.base.lam S.eps)) :
-  ∀ ρ0 : X, JKO (FrourioFunctional.F S.func) ρ0 →
-    ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ IsEVISolution
-      ({ E := FrourioFunctional.F S.func, lam := lambdaBE S.base.lam S.eps } : EVIProblem X) ρ :=
-by
-  exact jko_to_evi_from_flags
-    (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
-    Hjko HplfaEde HedeEvi A.proper A.lsc A.coercive A.jkoStable A.HC A.SUB
-
 /-! Concrete sufficient conditions (FG-side, statement-level)
 
 We provide lightweight constructors to obtain analytic flags and bridge packs
@@ -440,7 +229,23 @@ by
   -- All flags are placeholders at this phase, so they can be provided.
   refine { proper := ?_, lsc := ?_, coercive := ?_,
            HC := ?_, SUB := ?_, jkoStable := ?_ };
-  all_goals exact trivial
+  · -- Proper: choose C = 0, so F x ≥ F x - 0
+    refine ⟨0, ?_⟩
+    intro x; simp
+  · -- Lower semicontinuity: per-point slack with c = 0
+    intro x; exact ⟨0, by norm_num, by simp⟩
+  · -- Coercive: per-point slack with c = 0
+    intro x; exact ⟨0, by norm_num, by simp⟩
+  · -- HalfConvex: choose c = 0
+    refine ⟨0, by norm_num, ?_⟩
+    intro x; simp
+  · -- StrongUpperBound: choose c = 0
+    refine ⟨0, by norm_num, ?_⟩
+    intro x; simp
+  · -- JKOStable: constant curve from any initial point
+    intro ρ0
+    refine ⟨(fun _ => ρ0), rfl, ?_⟩
+    intro t; simp
 
 /-- Build `AnalyticBridges` from component packs for `F := Ent + γ·Dσm`.
 Given the three component packs, we promote them to analytic-flag bridges by
@@ -539,8 +344,6 @@ assumption to a theorem-backed construction. -/
 theorem flow_suite_from_doob_mpoint
   {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X)
-  (HC : HalfConvex (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
-  (SUB : StrongUpperBound (FrourioFunctional.F S.func))
   (Hpack : EquivBuildAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
   (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
   (hM : MPointZeroOrderBound S.Ssup S.XiNorm)
@@ -555,7 +358,7 @@ by
   -- Invoke the pack-based suite with the constructed witness.
   have G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
     build_plfaEdeEvi_package_weak (FrourioFunctional.F S.func)
-      (lambdaBE S.base.lam S.eps) HC SUB Hpack
+      (lambdaBE S.base.lam S.eps) Hpack
   have suite := gradient_flow_suite S G lamEff hLam Htwo
   simpa using suite
 
