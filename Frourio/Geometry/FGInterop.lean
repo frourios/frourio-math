@@ -1,6 +1,6 @@
 import Mathlib.Topology.MetricSpace.Basic
 import Frourio.Geometry.FGCore
-import Frourio.Analysis.EVI
+import Frourio.Analysis.EVI.EVI
 
 /-!
 # FG Interop (Phase G4): Bridges to analysis APIs

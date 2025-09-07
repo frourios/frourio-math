@@ -2,7 +2,7 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Order.LiminfLimsup
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Topology.Semicontinuous
-import Frourio.Analysis.EVI
+import Frourio.Analysis.EVI.EVI
 import Frourio.Analysis.Slope
 import Frourio.Analysis.MinimizingMovement
 
@@ -265,85 +265,5 @@ theorem jko_plfa_from_real_flags_impl {X : Type*} [PseudoMetricSpace X]
   simp
 
 end GeodesicStructures
-
-section RealExample
--- Example: Linear geodesic structure on ℝ
-def linearGeodesicStructure : GeodesicStructure ℝ where
-  γ := fun x y t => (1 - t) * x + t * y
-  start_point := fun x y => by simp
-  end_point := fun x y => by simp
-  geodesic_property := fun x y s t _ _ _ _ => by
-    simp only [dist]
-    -- Calculate: γ(x,y,s) - γ(x,y,t) = ((1-s)*x + s*y) - ((1-t)*x + t*y)
-    --                                 = (t-s)*(x-y)
-    have h : (1 - s) * x + s * y - ((1 - t) * x + t * y) = (t - s) * (x - y) := by ring
-    rw [h, abs_mul]
-
-end RealExample
-
-section Integration
-variable {X : Type*} [PseudoMetricSpace X]
-
-/-- Integration point: Choose between placeholder and real analytic flags. -/
-def chooseAnalyticRoute (F : X → ℝ) (lamEff : ℝ) (useReal : Bool) : Prop :=
-  if useReal then
-    ∃ (_flags : AnalyticFlagsReal X F lamEff), PLFA_EDE_from_real_flags F lamEff
-  else
-    ∃ (_flags : AnalyticFlags F lamEff), PLFA_EDE_from_analytic_flags F lamEff
-
-/-- Theorem: Both routes lead to PLFA/EDE equivalence (when they exist). -/
-theorem both_routes_valid (F : X → ℝ) (lamEff : ℝ) :
-    (∃ _real_flags : AnalyticFlagsReal X F lamEff, True) →
-    (∃ _placeholder_flags : AnalyticFlags F lamEff, True) →
-    (chooseAnalyticRoute F lamEff true ∨ chooseAnalyticRoute F lamEff false) := by
-  intro ⟨real_flags, _⟩ ⟨placeholder_flags, _⟩
-  -- Choose the placeholder route as default (simpler and always available)
-  right
-  simp [chooseAnalyticRoute]
-  use placeholder_flags
-  -- Provide concrete implementation of PLFA_EDE_from_analytic_flags
-  exact fun _flags => fun ρ =>
-    ⟨-- Direction 1: PLFA → EDE
-     plfa_implies_ede F ρ,
-     -- Direction 2: EDE → PLFA
-     fun hEDE => by
-       apply ede_to_plfa_with_gronwall_zero F ρ hEDE
-       -- Provide the G0 condition: monotonicity from DiniUpper bounds
-       exact fun s hDini t ht => by
-         -- φ(τ) = F(ρ(s+τ)) - F(ρ s) is nonincreasing from 0
-         -- because DiniUpperE φ ≤ 0 everywhere (from hDini)
-         let φ := fun τ => F (ρ (s + τ)) - F (ρ s)
-         -- Use Frourio.nonincreasing_of_DiniUpperE_nonpos directly
-         have mono_prop := Frourio.nonincreasing_of_DiniUpperE_nonpos φ hDini
-         -- Apply monotonicity: φ(t) ≤ φ(0)
-         have : φ t ≤ φ 0 := mono_prop 0 t ht
-         -- Now rewrite in terms of the original expression
-         simp only [φ] at this
-         -- this gives us: F (ρ (s + t)) - F (ρ s) ≤ F (ρ (s + 0)) - F (ρ s)
-         exact this⟩
-
-end Integration
-
-/-! Real-route bridge builders (exported): provide the `PLFA_EDE_from_real_flags`
-and `JKO_PLFA_from_real_flags` predicates directly from the corresponding
-implementation lemmas above. These are convenient when a caller expects
-the predicate-valued builders rather than the explicit lemmas. -/
-
-section ExportBuilders
-variable {X : Type*} [PseudoMetricSpace X]
-
-/-- Exported builder: real flags ⇒ PLFA↔EDE predicate. -/
-theorem plfa_ede_from_real_flags_builder (F : X → ℝ) (lamEff : ℝ) :
-  PLFA_EDE_from_real_flags (X := X) F lamEff :=
-by
-  intro flags; exact plfa_ede_from_real_flags_impl (X := X) F lamEff flags
-
-/-- Exported builder: real flags ⇒ JKO→PLFA predicate. -/
-theorem jko_plfa_from_real_flags_builder (F : X → ℝ) (lamEff : ℝ) :
-  JKO_PLFA_from_real_flags (X := X) F lamEff :=
-by
-  intro flags; exact jko_plfa_from_real_flags_impl (X := X) F lamEff flags
-
-end ExportBuilders
 
 end Frourio

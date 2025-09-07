@@ -2,7 +2,7 @@ import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.MeasureTheory.Measure.MeasureSpaceDef
 import Mathlib.Analysis.SpecialFunctions.Exp
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
-import Frourio.Analysis.EVI
+import Frourio.Analysis.EVI.EVI
 
 /-!
 # FG Core (Phase G1): Frourio Geometry core API

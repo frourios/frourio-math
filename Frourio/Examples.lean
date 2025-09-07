@@ -5,14 +5,12 @@ import Mathlib.Data.Real.Sqrt
 import Mathlib.Tactic
 import Mathlib.Data.Real.Basic
 import Mathlib.Topology.MetricSpace.Basic
-import Frourio.Analysis.PLFACore
-import Frourio.Analysis.PLFA
+import Frourio.Analysis.PLFA.PLFA
 import Frourio.Analysis.MinimizingMovement
-import Frourio.Analysis.EVI
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.DoobTransform
 import Frourio.Geometry.GradientFlowFramework
-import Frourio.Geometry.FGTheorems
+import Frourio.Geometry.FGTheorems.FGTheorems
 
 namespace Frourio
 

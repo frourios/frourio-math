@@ -1,9 +1,8 @@
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Algebra.BigOperators.Group.Finset.Defs
 import Frourio.Geometry.FGCore
-import Frourio.Analysis.EVI
 import Frourio.Analysis.FrourioFunctional
-import Frourio.Analysis.PLFA
+import Frourio.Analysis.PLFA.PLFA
 import Frourio.Analysis.DoobTransform
 
 /-!

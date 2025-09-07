@@ -2,7 +2,7 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Topology.MetricSpace.Basic
 import Frourio.Analysis.KTransform
 import Frourio.Analysis.DoobTransform
-import Frourio.Analysis.PLFA
+import Frourio.Analysis.PLFA.PLFA
 import Frourio.Analysis.Slope
 
 namespace Frourio

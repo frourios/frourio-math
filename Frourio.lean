@@ -1,4 +1,5 @@
 import Frourio.Basic
+import Frourio.Lebesgue
 import Frourio.Algebra.Operators
 import Frourio.Algebra.CrossedProduct
 import Frourio.Algebra.PBWDistributivity
@@ -7,18 +8,17 @@ import Frourio.Algebra.StructureSequence
 import Frourio.Algebra.NambuBracket
 import Frourio.Analysis.MellinTransform
 import Frourio.Analysis.MellinSobolev
-import Frourio.Analysis.EVI
 import Frourio.Analysis.Slope
 import Frourio.Analysis.MinimizingMovement
 import Frourio.Analysis.DoobTransform
 import Frourio.Analysis.FrourioFunctional
-import Frourio.Analysis.PLFA
+import Frourio.Analysis.PLFA.PLFA
 import Frourio.Analysis.YoungRigidity
 import Frourio.Geometry.DiracIndex
 import Frourio.Geometry.FGCore
 import Frourio.Geometry.FGInterop
 import Frourio.Geometry.MPointCalibration
-import Frourio.Geometry.FGTheorems
+import Frourio.Geometry.FGTheorems.FGTheorems
 import Frourio.Geometry.GradientFlowFramework
 import Frourio.Theorems.NoGoTheorem
 import Frourio.Theorems.GoldenExtremality
