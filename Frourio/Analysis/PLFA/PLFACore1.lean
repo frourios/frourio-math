@@ -33,8 +33,11 @@ def chooseAnalyticRoute (F : X → ℝ) (lamEff : ℝ) (useReal : Bool) : Prop :
   else
     ∃ (_flags : AnalyticFlags F lamEff), PLFA_EDE_from_analytic_flags F lamEff
 
-/-- Theorem: Both routes lead to PLFA/EDE equivalence (when they exist). -/
-theorem both_routes_valid (F : X → ℝ) (lamEff : ℝ) :
+/-- Theorem: Both routes lead to PLFA/EDE equivalence (when they exist with USC). -/
+theorem both_routes_valid (F : X → ℝ) (lamEff : ℝ)
+    (h_usc : ∀ ρ : ℝ → X, ∀ s : ℝ, ∀ s' t', s' < t' → ∀ w ∈ Set.Icc 0 (t' - s'),
+      ∀ y₀ ∈ Set.Icc 0 (t' - s'), |y₀ - w| < (t' - s') / 4 →
+      upper_semicontinuous_at_zero (fun τ => F (ρ (s + τ)) - F (ρ s)) s' y₀) :
     (∃ _real_flags : AnalyticFlagsReal X F lamEff, True) →
     (∃ _placeholder_flags : AnalyticFlags F lamEff, True) →
     (chooseAnalyticRoute F lamEff true ∨ chooseAnalyticRoute F lamEff false) := by
@@ -50,19 +53,8 @@ theorem both_routes_valid (F : X → ℝ) (lamEff : ℝ) :
      -- Direction 2: EDE → PLFA
      fun hEDE => by
        apply ede_to_plfa_with_gronwall_zero F ρ hEDE
-       -- Provide the G0 condition: monotonicity from DiniUpper bounds
-       exact fun s hDini t ht => by
-         -- φ(τ) = F(ρ(s+τ)) - F(ρ s) is nonincreasing from 0
-         -- because DiniUpperE φ ≤ 0 everywhere (from hDini)
-         let φ := fun τ => F (ρ (s + τ)) - F (ρ s)
-         -- Use Frourio.nonincreasing_of_DiniUpperE_nonpos directly
-         have mono_prop := Frourio.nonincreasing_of_DiniUpperE_nonpos φ hDini
-         -- Apply monotonicity: φ(t) ≤ φ(0)
-         have : φ t ≤ φ 0 := mono_prop 0 t ht
-         -- Now rewrite in terms of the original expression
-         simp only [φ] at this
-         -- this gives us: F (ρ (s + t)) - F (ρ s) ≤ F (ρ (s + 0)) - F (ρ s)
-         exact this⟩
+       -- Use the provided USC hypothesis
+       exact G0_from_DiniUpper_nonpos F ρ (h_usc ρ)⟩
 
 end Integration
 
@@ -148,8 +140,7 @@ by
   · intro hEDE; exact Hfwd hFlags ρ hEDE
   · intro hEVI; exact Hrev hFlags ρ hEVI
 
--- Phase 2 (forward) note: axioms are forbidden. Use builder routes
--- like `ede_to_evi_from_flags_builder`/`_auto` to obtain the forward
+-- Use builder routes like `ede_to_evi_from_flags_builder`/`_auto` to obtain the forward
 -- direction from a supplied `EDE_EVI_from_analytic_flags` proof.
 
 /-- From `AnalyticFlags`, obtain the predicate-level equivalence `EDE_EVI_pred`

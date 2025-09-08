@@ -1,5 +1,6 @@
 import Frourio.Analysis.EVI.EVICore5
-import Frourio.Lebesgue
+import Frourio.Analysis.EVI.EVICore6
+import Frourio.Analysis.EVI.Lebesgue.Lebesgue
 import Mathlib.Analysis.SpecialFunctions.Exp
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Data.Real.Sqrt
@@ -15,6 +16,9 @@ import Mathlib.Topology.UniformSpace.Compact
 import Mathlib.Tactic
 
 namespace Frourio
+
+open scoped BigOperators
+open Finset
 
 /-! Monotonicity lemmas from Dini derivatives -/
 
@@ -80,22 +84,160 @@ lemma local_control_from_DiniUpperE
   have : h ∈ {x : ℝ | u x ≤ ε} := by simpa [hUV] using hinUV
   simpa [u] using this
 
--- L3: Finite chain composition on [0,r]
-/-- Core axiom for this phase: finite chain composition on a compact interval.
-Accepts the classical result that local ε-control of forward differences
-on every point of `[0,r]` yields the global bound `φ(s+r) ≤ φ(s) + ε r`.
-This axiom will be replaced by a constructive proof in a later phase. -/
-axiom finite_chain_composition_core (φ : ℝ → ℝ) (s r ε : ℝ)
-    (hr_pos : 0 < r) (hε_pos : 0 < ε)
-    (h_dini_all : ∀ u ∈ Set.Icc 0 r, DiniUpperE φ (s + u) ≤ 0) :
-    φ (s + r) ≤ φ s + ε * r
+/-- Pure telescoping identity on ℝ: `∑_{i=0}^{n-1} (t (i+1) - t i) = t n - t 0`. -/
+lemma telescoping_sum_real (t : ℕ → ℝ) :
+  ∀ n : ℕ, ∑ i ∈ range n, (t (i+1) - t i) = t n - t 0 := by
+  classical
+  intro n
+  induction' n with n ih
+  · simp
+  · rw [range_succ, sum_insert (Finset.notMem_range_self), ih]
+    ring
 
-/-- If DiniUpperE φ (s+u) ≤ 0 for all u ∈ [0,r] and r > 0, then
-    for any ε > 0, we have φ(s+r) ≤ φ(s) + ε*r -/
-lemma finite_chain_composition (φ : ℝ → ℝ) (s r ε : ℝ) (hr_pos : 0 < r)
-  (hε_pos : 0 < ε) (h_dini_all : ∀ u ∈ Set.Icc 0 r, DiniUpperE φ (s + u) ≤ 0) :
+/-- If each short subinterval `(t i, t (i+1))` satisfies the incremental bound, then
+summing gives the bound on the whole union. -/
+lemma sum_bound_from_stepwise
+  (φ : ℝ → ℝ) (s ε : ℝ) {N : ℕ} (t : ℕ → ℝ)
+  (hstep :
+    ∀ i < N, φ (s + t (i + 1)) - φ (s + t i) ≤ ε * (t (i + 1) - t i)) :
+  (∑ i ∈ Finset.range N, (φ (s + t (i+1)) - φ (s + t i)))
+    ≤ ε * (∑ i ∈ Finset.range N, (t (i+1) - t i)) := by
+  classical
+  have h_ineq : ∀ i ∈ Finset.range N,
+    φ (s + t (i+1)) - φ (s + t i) ≤ ε * (t (i+1) - t i) := by
+    intros i hi
+    exact hstep i (Finset.mem_range.mp hi)
+  calc ∑ i ∈ Finset.range N, (φ (s + t (i+1)) - φ (s + t i))
+      ≤ ∑ i ∈ Finset.range N, ε * (t (i+1) - t i) := by
+        exact Finset.sum_le_sum h_ineq
+    _ = ε * (∑ i ∈ Finset.range N, (t (i+1) - t i)) := by
+        rw [← Finset.mul_sum]
+
+/-- Global composition from a *uniform* small-interval control. -/
+lemma global_from_uniform_small_interval_control
+  (φ : ℝ → ℝ) (s r ε : ℝ) (hr_pos : 0 < r)
+  (hL : ∃ L > 0, ∀ ⦃y z⦄, y ∈ Set.Icc 0 r → z ∈ Set.Icc 0 r → y ≤ z → z - y < L →
+      φ (s + z) - φ (s + y) ≤ ε * (z - y)) :
+  φ (s + r) ≤ φ s + ε * r := by
+  classical
+  rcases hL with ⟨L, hLpos, hloc⟩
+  -- choose N so that r/N < L
+  obtain ⟨N, hNgt⟩ := exists_nat_gt (r / L)
+  have hNpos : 0 < N := by
+    have : (0 : ℝ) < (N : ℝ) := lt_trans (div_pos hr_pos hLpos) hNgt
+    exact Nat.cast_pos.mp this
+  -- partition step
+  set h := r / (N : ℝ) with hh
+  have h_nonneg : 0 ≤ h := by
+    exact div_nonneg (le_of_lt hr_pos) (by exact_mod_cast (le_of_lt hNpos))
+  have hlt : h < L := by
+    have hNposR : 0 < (N : ℝ) := by exact_mod_cast hNpos
+    -- We need to show h = r/N < L
+    -- From hNgt: r/L < N, we get r < N*L by multiplying by L
+    -- Then dividing by N gives r/N < L
+    rw [hh]
+    have step1 : r < (N : ℝ) * L := by
+      calc r = (r / L) * L := by field_simp [ne_of_gt hLpos]
+           _ < (N : ℝ) * L := mul_lt_mul_of_pos_right hNgt hLpos
+    -- Now we show r / N < L using field_simp
+    have hN_ne : (N : ℝ) ≠ 0 := ne_of_gt hNposR
+    have : r / (N : ℝ) < L := by
+      have h_ineq : r < L * (N : ℝ) := by linarith [step1]
+      calc r / (N : ℝ) = r * (1 / (N : ℝ)) := by rw [div_eq_mul_one_div]
+           _ < L * (N : ℝ) * (1 / (N : ℝ)) := by
+               exact mul_lt_mul_of_pos_right h_ineq (by simp [hNposR])
+           _ = L := by field_simp [hN_ne]
+    exact this
+  -- grid
+  let t : ℕ → ℝ := fun i => (i : ℝ) * h
+  have t0 : t 0 = 0 := by simp [t]
+  have tN : t N = r := by
+    have hN0 : (N : ℝ) ≠ 0 := by exact_mod_cast (ne_of_gt hNpos)
+    simp [t, hh, mul_comm, mul_assoc, div_eq_mul_inv, hN0]
+  -- stepwise bound via `hloc`
+  have step_bound :
+    ∀ i < N, φ (s + t (i+1)) - φ (s + t i) ≤ ε * (t (i+1) - t i) := by
+    intro i hi
+    -- membership
+    have hy_in : t i ∈ Set.Icc (0:ℝ) r := by
+      refine ⟨?_, ?_⟩
+      · exact mul_nonneg (by exact_mod_cast (Nat.cast_nonneg i)) h_nonneg
+      · have : (i : ℝ) ≤ (N : ℝ) := by exact_mod_cast (le_of_lt hi)
+        have : (i : ℝ) * h ≤ (N : ℝ) * h := mul_le_mul_of_nonneg_right this h_nonneg
+        simpa [t, tN] using this
+    have hz_in : t (i+1) ∈ Set.Icc (0:ℝ) r := by
+      refine ⟨?_, ?_⟩
+      · exact mul_nonneg (by exact_mod_cast (Nat.cast_nonneg (i+1))) h_nonneg
+      · have : ((i+1 : ℝ) : ℝ) ≤ (N : ℝ) := by exact_mod_cast (Nat.succ_le_of_lt hi)
+        have : ((i+1 : ℝ)) * h ≤ (N : ℝ) * h := mul_le_mul_of_nonneg_right this h_nonneg
+        simpa [t, tN] using this
+    have hyz : t i ≤ t (i+1) := by
+      exact mul_le_mul_of_nonneg_right (by exact_mod_cast (Nat.le_succ i)) h_nonneg
+    have hlen : (t (i+1) - t i) < L := by
+      have : (t (i+1) - t i) = h := by simp [t]; ring
+      simpa [this] using hlt
+    -- apply local uniform bound
+    have := hloc (y := t i) (z := t (i+1)) hy_in hz_in hyz hlen
+    simpa [t] using this
+  -- sum and telescope
+  have sum_left :
+    ∑ i ∈ range N, (φ (s + t (i+1)) - φ (s + t i))
+      ≤ ε * (∑ i ∈ range N, (t (i+1) - t i)) :=
+    sum_bound_from_stepwise φ s ε t step_bound
+  have tele_left :
+    ∑ i ∈ range N, (φ (s + t (i+1)) - φ (s + t i)) = φ (s + r) - φ s := by
+    trans (φ (s + t N) - φ (s + t 0))
+    · exact telescoping_sum_real (fun i => φ (s + t i)) N
+    · simp [tN, t0]
+  have tele_right :
+    ∑ i ∈ range N, (t (i+1) - t i) = r := by
+    simpa [t0, tN] using telescoping_sum_real t N
+  have main_ineq : φ (s + r) - φ s ≤ ε * r := by
+    calc φ (s + r) - φ s = ∑ i ∈ range N, (φ (s + t (i+1)) - φ (s + t i)) := by rw [← tele_left]
+         _ ≤ ε * (∑ i ∈ range N, (t (i+1) - t i)) := sum_left
+         _ = ε * r := by rw [tele_right]
+  linarith
+
+/-- Core finite-chain composition, assuming *ball-local* two-point control.
+(`lebesgue_property_from_two_point_local`). -/
+theorem finite_chain_composition_core
+  (φ : ℝ → ℝ) (s r ε : ℝ) (hr_pos : 0 < r) (hε_pos : 0 < ε)
+  (two_point_ball_local :
+    ∀ w ∈ Set.Icc 0 r, ∃ ρw > 0, ∃ δw > 0,
+      ∀ u ∈ Set.Icc 0 r, ∀ v ∈ Set.Icc 0 r,
+        dist u w < ρw → dist v w < ρw →
+        φ (s + v) - φ (s + u) ≤ ε * (v - u)) :
+  φ (s + r) ≤ φ s + ε * r := by
+  classical
+  -- get uniform small-interval control via Lebesgue
+  obtain ⟨L, hLpos, hunif⟩ :=
+    Frourio.lebesgue_property_from_two_point_local
+      (φ := φ) (s := s) (r := r) (ε := ε) hr_pos hε_pos two_point_ball_local
+  -- specialize to oriented segments y ≤ z
+  have hL :
+    ∃ L > 0, ∀ ⦃y z⦄, y ∈ Set.Icc 0 r → z ∈ Set.Icc 0 r → y ≤ z → z - y < L →
+      φ (s + z) - φ (s + y) ≤ ε * (z - y) := by
+    refine ⟨L, hLpos, ?_⟩
+    intro y z hy hz hyz hlen
+    have hdist : dist y z < L := by
+      -- since y ≤ z and z - y < L, use dist y z = |z - y| = z - y
+      have : 0 ≤ z - y := sub_nonneg.mpr hyz
+      rw [dist_comm, Real.dist_eq, abs_of_nonneg this]
+      exact hlen
+    rcases hunif y hy z hz hdist with ⟨w, hw, δw, hδpos, hyw, hzw, hineq⟩
+    -- discard witnesses; we only need the inequality
+    exact hineq
+  -- globalize
+  exact global_from_uniform_small_interval_control φ s r ε hr_pos hL
+
+/-- Correct version with upper semicontinuity hypothesis -/
+lemma finite_chain_composition_with_usc (φ : ℝ → ℝ) (s r ε : ℝ) (hr_pos : 0 < r)
+  (hε_pos : 0 < ε) (h_dini_all : ∀ u ∈ Set.Icc 0 r, DiniUpperE φ (s + u) ≤ 0)
+  (h_usc : ∀ w ∈ Set.Icc 0 r, ∀ y₀ ∈ Set.Icc 0 r,
+    |y₀ - w| < r / 4 → upper_semicontinuous_at_zero φ s y₀) :
     φ (s + r) ≤ φ s + ε * r := by
-  exact finite_chain_composition_core φ s r ε hr_pos hε_pos h_dini_all
+  -- Direct application of the theorem from EVICore6
+  exact global_evaluation_from_partition_with_usc h_dini_all h_usc hε_pos hr_pos
 
 -- L4: ε→0 limit taking
 /-- If for all ε > 0 we have f ≤ g + ε*c where c ≥ 0, then f ≤ g -/
@@ -120,65 +262,112 @@ lemma limit_epsilon_to_zero (f g c : ℝ) (hc : 0 ≤ c) (h : ∀ ε > 0, f ≤ 
     field_simp at this
     linarith
 
--- L5: Apply to shifted function ψ_s
-/-- For the shifted function ψ_s(τ) = φ(s+τ) - φ(s), if DiniUpperE ψ_s u ≤ 0 for all u,
-    then ψ_s is non-increasing, i.e., φ(s+t) ≤ φ(s) for all t ≥ 0 -/
-lemma shifted_function_nonincreasing
-  (φ : ℝ → ℝ) (s : ℝ) (h_dini_shifted : ∀ u ≥ 0, DiniUpperE (fun τ => φ (s + τ) - φ s) u ≤ 0) :
+lemma shifted_function_nonincreasing_with_usc
+  (φ : ℝ → ℝ) (s : ℝ) (h_dini_shifted : ∀ u ≥ 0, DiniUpperE (fun τ => φ (s + τ) - φ s) u ≤ 0)
+  (h_usc : ∀ t > 0, ∀ w ∈ Set.Icc 0 t, ∀ y₀ ∈ Set.Icc 0 t,
+    |y₀ - w| < t / 4 → upper_semicontinuous_at_zero φ s y₀) :
     ∀ t ≥ 0, φ (s + t) ≤ φ s := by
   intro t ht
   let ψ := fun τ => φ (s + τ) - φ s
   -- Note: ψ(0) = 0, so we need to show ψ(t) ≤ 0
   rcases eq_or_lt_of_le ht with rfl | ht_pos
   · simp
-  · -- Apply L3 and L4 to ψ on [0, t]
-    have h_dini_interval : ∀ u ∈ Set.Icc 0 t, DiniUpperE ψ u ≤ 0 := by
+  · -- Apply the USC version
+    have h_dini_interval : ∀ u ∈ Set.Icc 0 t, DiniUpperE ψ (0 + u) ≤ 0 := by
       intro u hu
-      have : ψ u = φ (s + u) - φ s := rfl
-      -- Use the shift and add_const properties
+      simp only [zero_add]
       have : DiniUpperE ψ u = DiniUpperE (fun τ => φ (s + τ) - φ s) u := rfl
       exact h_dini_shifted u hu.1
-    -- Use finite_chain_composition for ψ on [0, t] to get ψ t ≤ ψ 0 + ε t = ε t
+    -- Need to transform h_usc for ψ
+    have h_usc_ψ : ∀ w ∈ Set.Icc 0 t, ∀ y₀ ∈ Set.Icc 0 t,
+      |y₀ - w| < t / 4 → upper_semicontinuous_at_zero ψ 0 y₀ := by
+      -- Transport USC from φ to ψ using equality of quotient functions.
+      -- For ψ(τ) = φ(s+τ) - φ(s), the quotient_function coincides:
+      --   ((ψ (y+h) - ψ y) / h) = ((φ (s+y+h) - φ (s+y)) / h).
+      -- Hence, any USC witness for φ at (s, y₀) is also a USC witness for ψ at (0, y₀).
+      intros w hw y₀ hy₀ hdist
+      -- Unfold the target predicate and reuse the witness from h_usc.
+      intro ε hε
+      -- Get USC parameters for φ at (s, y₀).
+      rcases h_usc t ht_pos w hw y₀ hy₀ hdist ε hε with ⟨α, hαpos, β, hβpos, hφ⟩
+      refine ⟨α, hαpos, β, hβpos, ?_⟩
+      intro y h hy_near hpos hlt
+      -- Apply the USC bound for φ and rewrite it to ψ via the quotient identity.
+      have hineq : (φ (s + (y + h)) - φ (s + y)) / h < ε :=
+        hφ y h hy_near hpos hlt
+      have hrewrite :
+          quotient_function ψ 0 y h
+            = (φ (s + (y + h)) - φ (s + y)) / h := by
+        unfold quotient_function ψ
+        simp only [zero_add]
+        ring_nf
+      have : quotient_function ψ 0 y h < ε := by simpa [hrewrite] using hineq
+      exact this
+    -- Use finite_chain_composition_with_usc
     have h_eps : ∀ ε > 0, ψ t ≤ ε * t := by
       intro ε hε
-      have := finite_chain_composition (ψ) (0 : ℝ) t ε ht_pos hε (by
-        intro u hu; simpa using (h_dini_interval u hu))
-      -- simplify ψ (0 + t) and ψ 0
-      simpa [ψ, add_comm] using this
-    -- Let ε → 0 using limit_epsilon_to_zero with c = t ≥ 0 to conclude ψ t ≤ 0
+      have := finite_chain_composition_with_usc ψ 0 t ε ht_pos hε h_dini_interval h_usc_ψ
+      simpa [ψ] using this
+    -- Let ε → 0
     have ht0 : 0 ≤ t := le_of_lt ht_pos
     have : ψ t ≤ 0 :=
       limit_epsilon_to_zero (ψ t) 0 t ht0 (by
         intro ε hε; simpa using (h_eps ε hε))
-    -- Rewrite ψ t = φ (s + t) - φ s and conclude
+    -- Conclude
     have : φ (s + t) - φ s ≤ 0 := by simpa [ψ] using this
     simpa using sub_nonpos.mp this
 
-/-- Main monotonicity theorem: if DiniUpperE is non-positive everywhere,
-then the function is non-increasing -/
-theorem nonincreasing_of_DiniUpperE_nonpos (φ : ℝ → ℝ) (hD : ∀ u, DiniUpperE φ u ≤ 0) :
+/-- Main monotonicity theorem with upper semicontinuity: if DiniUpperE is non-positive
+    everywhere and the function satisfies upper semicontinuity conditions,
+    then the function is non-increasing -/
+theorem nonincreasing_of_DiniUpperE_nonpos_with_usc (φ : ℝ → ℝ)
+    (hD : ∀ u, DiniUpperE φ u ≤ 0)
+    (h_usc : ∀ s t, s < t → ∀ w ∈ Set.Icc 0 (t - s), ∀ y₀ ∈ Set.Icc 0 (t - s),
+      |y₀ - w| < (t - s) / 4 → upper_semicontinuous_at_zero φ s y₀) :
     ∀ s t, s ≤ t → φ t ≤ φ s := by
   intro s t hst
-  -- Apply L5: shifted function approach
-  let r := t - s
-  have hr_nonneg : 0 ≤ r := by simp [r]; exact hst
-
-  -- Convert to shifted function ψ(τ) = φ(s + τ) - φ(s)
-  -- We have DiniUpperE ψ u ≤ 0 for all u ≥ 0
-  have h_dini_shifted : ∀ u ≥ 0, DiniUpperE (fun τ => φ (s + τ) - φ s) u ≤ 0 := by
-    intro u hu
-    -- Use DiniUpperE_shift and DiniUpperE_add_const properties
-    calc DiniUpperE (fun τ => φ (s + τ) - φ s) u
-        = DiniUpperE (fun τ => φ (s + τ)) u := by apply DiniUpperE_add_const
-      _ = DiniUpperE φ (s + u) := by apply DiniUpperE_shift
-      _ ≤ 0 := hD (s + u)
-
-  -- Apply L5 to get φ(s + r) ≤ φ(s)
-  have : φ (s + r) ≤ φ s := shifted_function_nonincreasing φ s h_dini_shifted r hr_nonneg
-
-  -- Since r = t - s, we have s + r = t
-  simp [r] at this
-  exact this
+  rcases eq_or_lt_of_le hst with rfl | hst_lt
+  · rfl
+  · -- Use shifted_function_nonincreasing_with_usc
+    have h_shifted : ∀ u ≥ 0, DiniUpperE (fun τ => φ (s + τ) - φ s) u ≤ 0 := by
+      intro u hu
+      -- The Dini upper derivative of the shifted function
+      simp only [DiniUpperE]
+      -- We need to show the limsup is ≤ 0
+      -- First, simplify the expression arithmetically
+      have simp_expr : ∀ h,
+        (φ (s + (u + h)) - φ s - (φ (s + u) - φ s)) = φ (s + u + h) - φ (s + u) := by
+        intro h
+        ring_nf
+      -- The goal is about limsup of a coerced expression
+      -- We simplify using the fact that the expressions are equal
+      suffices h_suff : Filter.limsup (fun h => ((φ (s + u + h) - φ (s + u)) / h : EReal))
+                          (nhdsWithin 0 (Set.Ioi 0)) ≤ 0 by
+        convert h_suff using 2
+        ext h
+        rw [simp_expr h]
+        simp only [EReal.coe_div, EReal.coe_sub]
+      -- Now this is DiniUpperE φ (s + u)
+      have eq_dini : Filter.limsup (fun h => ((φ (s + u + h) - φ (s + u)) / h : EReal))
+                       (nhdsWithin 0 (Set.Ioi 0)) = DiniUpperE φ (s + u) := by
+        rfl
+      rw [eq_dini]
+      exact hD (s + u)
+    -- Apply the theorem for the specific interval [s, t]
+    have h_usc_interval : ∀ r > 0, ∀ w ∈ Set.Icc 0 r, ∀ y₀ ∈ Set.Icc 0 r,
+      |y₀ - w| < r / 4 → upper_semicontinuous_at_zero φ s y₀ := by
+      intro r hr w hw y₀ hy₀ hdist
+      -- Need to adjust the domains
+      have hw' : w ∈ Set.Icc 0 (s + r - s) := by simp; exact hw
+      have hy₀' : y₀ ∈ Set.Icc 0 (s + r - s) := by simp; exact hy₀
+      have hdist' : |y₀ - w| < (s + r - s) / 4 := by simp; exact hdist
+      exact h_usc s (s + r) (by linarith) w hw' y₀ hy₀' hdist'
+    -- Apply to get φ(s + (t - s)) ≤ φ(s)
+    have result := shifted_function_nonincreasing_with_usc φ s h_shifted h_usc_interval
+      (t - s) (by linarith)
+    -- Simplify s + (t - s) = t
+    convert result using 2
+    ring
 
 end DiniMonotonicity
 

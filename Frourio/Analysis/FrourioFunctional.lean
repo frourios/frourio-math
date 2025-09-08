@@ -8,20 +8,18 @@ import Frourio.Analysis.Slope
 namespace Frourio
 
 /-!
-FG8 A1: Functional layer (PLFA/EDE/EVI/JKO bridge skeleton)
+Functional layer (PLFA/EDE/EVI/JKO bridge skeleton)
 
 This module introduces a lightweight functional container and constants
 to connect the FG8 framework with the existing analysis layer. The goal
-is to keep the API proof-light (no sorry/axiom) while exposing the key
+is to keep the API proof-light while exposing the key
 quantities and inequalities used later: the base entropy `Ent`, the
 Mellin-side term `Dsigmam`, a coupling parameter `gamma`, and the Doob
 corrected parameter `lambdaBE = λ - 2 ε`. We also provide a parameterized
 lower-bound predicate for the effective contraction rate.
-
-References: design/13.md (FG8 §0–1)
 -/
 
-/-- Core functional container for FG8. -/
+/-- Core functional container. -/
 structure FrourioFunctional (X : Type*) [PseudoMetricSpace X] where
   (Ent : X → ℝ)
   (Dsigmam : X → ℝ)

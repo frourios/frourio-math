@@ -132,6 +132,7 @@ theorem flow_suite_from_real_flags
   {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X)
   (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (h_usc : ∀ ρ : ℝ → X, ShiftedUSCHypothesis (FrourioFunctional.F S.func) ρ)
   (HplfaEde : PLFA_EDE_from_real_flags (X := X)
                 (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
   (HedeEvi_builder : EDE_EVI_from_analytic_flags
@@ -147,7 +148,7 @@ by
   have G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
     plfaEdeEviJko_equiv_real (X := X)
       (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)
-      flags HplfaEde HedeEvi_builder HjkoPlfa
+      flags h_usc HplfaEde HedeEvi_builder HjkoPlfa
   exact gradient_flow_suite S G (lambdaBE S.base.lam S.eps) hLam Htwo
 
 /-- Convenience: same as `flow_suite_from_real_flags` but automatically supplies
@@ -157,6 +158,7 @@ theorem flow_suite_from_real_flags_auto
   {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X)
   (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (h_usc : ∀ ρ : ℝ → X, ShiftedUSCHypothesis (FrourioFunctional.F S.func) ρ)
   (HedeEvi_builder : EDE_EVI_from_analytic_flags
                 (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
   (hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps
@@ -170,7 +172,7 @@ by
   have HjkoPlfa := jko_plfa_from_real_flags_builder
     (X := X) (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps)
   -- Delegate to the base real-flags suite.
-  exact flow_suite_from_real_flags S flags HplfaEde HedeEvi_builder HjkoPlfa hLam Htwo
+  exact flow_suite_from_real_flags S flags h_usc HplfaEde HedeEvi_builder HjkoPlfa hLam Htwo
 
 /-- Build the core equivalence `PLFA = EDE = EVI = JKO` for
 `F := Ent + γ·Dσm` with `λ_eff := lambdaBE λ ε` from real analytic flags,
@@ -179,6 +181,7 @@ theorem equivalence_from_real_flags_auto
   {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X)
   (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (h_usc : ∀ ρ : ℝ → X, ShiftedUSCHypothesis (FrourioFunctional.F S.func) ρ)
   (HedeEvi_builder : EDE_EVI_from_analytic_flags
                 (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
   plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
@@ -189,7 +192,7 @@ by
     (X := X) (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps)
   exact plfaEdeEviJko_equiv_real (X := X)
     (F := FrourioFunctional.F S.func) (lamEff := lambdaBE S.base.lam S.eps)
-    flags HplfaEde HedeEvi_builder HjkoPlfa
+    flags h_usc HplfaEde HedeEvi_builder HjkoPlfa
 
 /-- Build the core equivalence from placeholder analytic flags and explicit
 component builders (PLFA↔EDE, EDE⇔EVI builder, JKO→PLFA). -/

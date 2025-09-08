@@ -34,19 +34,23 @@ noncomputable def DiniUpperE (φ : ℝ → ℝ) (t : ℝ) : EReal :=
 
 
 /-- Time shift: `t ↦ s + t` just shifts the evaluation point (EReal form). -/
-theorem DiniUpperE_shift (φ : ℝ → ℝ) (s t : ℝ) :
-  DiniUpperE (fun τ => φ (s + τ)) t = DiniUpperE φ (s + t) := by
-  -- Unfold and normalize using associativity of addition.
-  dsimp [DiniUpperE]
-  -- `(s + (t + h)) = (s + t) + h`
-  simp [add_assoc]
+lemma DiniUpperE_shift (φ : ℝ → ℝ) (s u : ℝ) :
+  DiniUpperE (fun τ => φ (s + τ)) u = DiniUpperE φ (s + u) := by
+  unfold DiniUpperE
+  have : (fun h : ℝ =>
+            (((φ (s + (u + h)) - φ (s + u)) / h : ℝ) : EReal)) =
+         (fun h : ℝ =>
+            (((φ ((s + u) + h) - φ (s + u)) / h : ℝ) : EReal)) := by
+    funext h; congr 1; ring_nf
+  simp [this, add_comm, add_left_comm]
 
 /-- Adding a constant does not change the upper Dini derivative (EReal form). -/
-theorem DiniUpperE_add_const (ψ : ℝ → ℝ) (c t : ℝ) :
-  DiniUpperE (fun τ => ψ τ + c) t = DiniUpperE ψ t := by
-  -- The constant cancels in the forward difference quotient.
-  dsimp [DiniUpperE]
-  -- `(ψ (t+h) + c) - (ψ t + c) = ψ (t+h) - ψ t`
+lemma DiniUpperE_add_const (φ : ℝ → ℝ) (c : ℝ) (t : ℝ) :
+  DiniUpperE (fun x => φ x + c) t = DiniUpperE φ t := by
+  unfold DiniUpperE
+  have : (fun h : ℝ => (((φ (t + h) + c) - (φ t + c)) / h : ℝ)) =
+         (fun h : ℝ => ((φ (t + h) - φ t) / h : ℝ)) := by
+    funext h; ring
   simp
 
 /- If `φ` is nonincreasing, then the upper Dini derivative is ≤ 0 (EReal form). -/
@@ -192,7 +196,7 @@ theorem DiniUpper_add_le_pred_const_right (φ : ℝ → ℝ) (c : ℝ) (t : ℝ)
 -- NOTE: move helper below to use `DiniUpper_add_le_of_finite`.
 
 /-- EReal subadditivity for the upper Dini derivative, under the standard
-exclusions for `EReal` addition at `(⊥, ⊤)` and `(⊤, ⊥)` encoded in mathlib’s
+exclusions for `EReal` addition at `(⊥, ⊤)` and `(⊤, ⊥)` encoded in mathlib's
 `limsup_add_le` hypotheses. -/
 theorem DiniUpperE_add_le
   (φ ψ : ℝ → ℝ) (t : ℝ)

@@ -315,6 +315,7 @@ analytic flags, an effective-λ lower-bound witness, and a two‑EVI with
 force hypothesis. -/
 theorem demo_flow_suite_real_auto
   (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (h_usc : ∀ ρ : ℝ → X, ShiftedUSCHypothesis (FrourioFunctional.F S.func) ρ)
   (HedeEvi_builder : EDE_EVI_from_analytic_flags
                 (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
   (hLam : lambdaEffLowerBound S.func S.budget S.base.lam S.eps
@@ -322,7 +323,7 @@ theorem demo_flow_suite_real_auto
   (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
   gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S :=
 by
-  exact Frourio.flow_suite_from_real_flags_auto S flags HedeEvi_builder hLam Htwo
+  exact Frourio.flow_suite_from_real_flags_auto S flags h_usc HedeEvi_builder hLam Htwo
 
 /-- Demo: Construct `λ_eff` lower bound from Doob+m‑point hypotheses using
 the FG-level convenience wrapper. -/

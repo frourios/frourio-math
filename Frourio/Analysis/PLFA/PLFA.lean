@@ -60,23 +60,25 @@ by
 end QuadraticReal
 
 
-/-- EDE → PLFA under real analytic flags (convenience bridge).
+/-- EDE → PLFA under real analytic flags with USC hypothesis (convenience bridge).
 Uses the `PLFACore` real-flags builder and extracts the backward direction. -/
 theorem ede_to_plfa_from_real_flags (F : X → ℝ) (lamEff : ℝ)
-  (flags : AnalyticFlagsReal X F lamEff) :
+  (flags : AnalyticFlagsReal X F lamEff)
+  (h_usc : ∀ ρ : ℝ → X, ShiftedUSCHypothesis F ρ) :
   ∀ ρ : ℝ → X, EDE F ρ → PLFA F ρ :=
 by
   -- Get the PLFA↔EDE predicate from the PLFACore builder
-  have H : PLFA_EDE_pred F := Frourio.plfa_ede_from_real_flags_impl (X := X) F lamEff flags
+  have H : PLFA_EDE_pred F := Frourio.plfa_ede_from_real_flags_impl (X := X) F lamEff flags h_usc
   intro ρ hEDE; exact (H ρ).mpr hEDE
 
-/-- PLFA → EDE under real analytic flags (convenience bridge).
+/-- PLFA → EDE under real analytic flags with USC hypothesis (convenience bridge).
 Uses the `PLFACore` real-flags builder and extracts the forward direction. -/
 theorem plfa_to_ede_from_real_flags (F : X → ℝ) (lamEff : ℝ)
-  (flags : AnalyticFlagsReal X F lamEff) :
+  (flags : AnalyticFlagsReal X F lamEff)
+  (h_usc : ∀ ρ : ℝ → X, ShiftedUSCHypothesis F ρ) :
   ∀ ρ : ℝ → X, PLFA F ρ → EDE F ρ :=
 by
-  have H : PLFA_EDE_pred F := Frourio.plfa_ede_from_real_flags_impl (X := X) F lamEff flags
+  have H : PLFA_EDE_pred F := Frourio.plfa_ede_from_real_flags_impl (X := X) F lamEff flags h_usc
   intro ρ hPLFA; exact (H ρ).mp hPLFA
 
 /-- JKO initializer → PLFA under real analytic flags (convenience). -/
@@ -138,13 +140,14 @@ the PLFA/EDE and JKO→PLFA real‑bridges, and an `EDE⇔EVI` builder on
 placeholder flags. -/
 theorem plfaEdeEviJko_equiv_real (F : X → ℝ) (lamEff : ℝ)
   (flags : AnalyticFlagsReal X F lamEff)
+  (h_usc : ∀ ρ : ℝ → X, ShiftedUSCHypothesis F ρ)
   (HplfaEde : PLFA_EDE_from_real_flags (X := X) F lamEff)
   (HedeEvi_builder : EDE_EVI_from_analytic_flags (X := X) F lamEff)
   (HjkoPlfa : JKO_PLFA_from_real_flags (X := X) F lamEff) :
   plfaEdeEviJko_equiv F lamEff :=
 by
-  -- Build each component predicate from the supplied real flags
-  have h1 : PLFA_EDE_pred F := HplfaEde flags
+  -- Build each component predicate from the supplied real flags with USC hypothesis
+  have h1 : PLFA_EDE_pred F := HplfaEde flags h_usc
   have h2 : EDE_EVI_pred F lamEff :=
     HedeEvi_builder ⟨
       (⟨0, le_rfl, by intro x; simp⟩ : HalfConvex F lamEff),

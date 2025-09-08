@@ -94,6 +94,52 @@ theorem DiniUpper_add_le_pred_of_bounds (φ ψ : ℝ → ℝ) (t : ℝ)
   DiniUpper_add_le_of_finite φ ψ t hφ_fin hψ_fin hsum_fin
     hubφ hlbφ hubψ hlbψ hubsum hlbsum
 
+/-- Supply an eventual upper bound for the forward difference quotient of a sum
+from eventual upper bounds of the summands. -/
+theorem forwardDiff_upper_bound_sum
+  (φ ψ : ℝ → ℝ) (t : ℝ)
+  (hubφ : ∃ Mφ : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+            ((φ (t + h) - φ t) / h) ≤ Mφ)
+  (hubψ : ∃ Mψ : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+            ((ψ (t + h) - ψ t) / h) ≤ Mψ) :
+  ∃ M : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+      (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h) ≤ M :=
+by
+  rcases hubφ with ⟨Mφ, hφ⟩; rcases hubψ with ⟨Mψ, hψ⟩
+  refine ⟨Mφ + Mψ, ?_⟩
+  -- On the intersection event, use additivity of the difference quotient
+  refine (hφ.and hψ).mono ?_
+  intro h hh
+  rcases hh with ⟨h1, h2⟩
+  have hadd : (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h)
+            = ((φ (t + h) - φ t) / h) + ((ψ (t + h) - ψ t) / h) := by
+    ring
+  have hsum : ((φ (t + h) - φ t) / h) + ((ψ (t + h) - ψ t) / h) ≤ Mφ + Mψ :=
+    add_le_add h1 h2
+  simpa [hadd] using hsum
+
+/-- Supply an eventual lower bound for the forward difference quotient of a sum -/
+theorem forwardDiff_lower_bound_sum
+  (φ ψ : ℝ → ℝ) (t : ℝ)
+  (hlbφ : ∃ mφ : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+            mφ ≤ ((φ (t + h) - φ t) / h))
+  (hlbψ : ∃ mψ : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+            mψ ≤ ((ψ (t + h) - ψ t) / h)) :
+  ∃ m : ℝ, ∀ᶠ h in nhdsWithin (0 : ℝ) (Set.Ioi 0),
+      m ≤ (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h) :=
+by
+  rcases hlbφ with ⟨mφ, hφ⟩; rcases hlbψ with ⟨mψ, hψ⟩
+  refine ⟨mφ + mψ, ?_⟩
+  refine (hφ.and hψ).mono ?_
+  intro h hh
+  rcases hh with ⟨h1, h2⟩
+  have hadd : (((φ (t + h) + ψ (t + h)) - (φ t + ψ t)) / h)
+            = ((φ (t + h) - φ t) / h) + ((ψ (t + h) - ψ t) / h) := by
+    ring
+  have hsum : mφ + mψ ≤ ((φ (t + h) - φ t) / h) + ((ψ (t + h) - ψ t) / h) :=
+    add_le_add h1 h2
+  simpa [hadd] using hsum
+
 -- Retain the original name as a placeholder (unconditional version is not
 -- derivable in full generality without additional boundedness/finite limsup
 -- hypotheses). Provide a version with explicit bounds instead.

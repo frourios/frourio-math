@@ -141,15 +141,23 @@ theorem ede_to_plfa_with_gronwall_zero (F : X → ℝ) (ρ : ℝ → X)
   have hzero : s + (0 : ℝ) = s := by simp
   have hG' := hG; simp [hsum, hzero] at hG'; exact hG'
 
-/-- Helper: Provides the G0 condition for Gronwall (nonnegative times). -/
-theorem G0_from_DiniUpper_nonpos (F : X → ℝ) (ρ : ℝ → X) :
+/-- Helper: Provides the G0 condition for Gronwall (nonnegative times).
+    Now requires upper semicontinuity hypothesis for the shifted function. -/
+theorem G0_from_DiniUpper_nonpos (F : X → ℝ) (ρ : ℝ → X)
+    (h_usc_F : ∀ s : ℝ, ∀ s' t', s' < t' → ∀ w ∈ Set.Icc 0 (t' - s'),
+      ∀ y₀ ∈ Set.Icc 0 (t' - s'), |y₀ - w| < (t' - s') / 4 →
+      upper_semicontinuous_at_zero (fun τ => F (ρ (s + τ)) - F (ρ s)) s' y₀) :
     ∀ s : ℝ,
     (∀ t : ℝ, DiniUpperE (fun τ => F (ρ (s + τ)) - F (ρ s)) t ≤ (0 : EReal)) →
     ∀ t : ℝ, 0 ≤ t → F (ρ (s + t)) - F (ρ s) ≤ F (ρ (s + 0)) - F (ρ s) := by
   intro s hDini t ht
   -- Define φ(τ) = F(ρ(s+τ)) - F(ρ s)
   let φ : ℝ → ℝ := fun τ => F (ρ (s + τ)) - F (ρ s)
-  have hmono := Frourio.nonincreasing_of_DiniUpperE_nonpos φ (by intro u; simpa using (hDini u))
+  -- Use the provided upper semicontinuity hypothesis
+  have h_usc : ∀ s' t', s' < t' → ∀ w ∈ Set.Icc 0 (t' - s'), ∀ y₀ ∈ Set.Icc 0 (t' - s'),
+    |y₀ - w| < (t' - s') / 4 → upper_semicontinuous_at_zero φ s' y₀ := h_usc_F s
+  have hmono := Frourio.nonincreasing_of_DiniUpperE_nonpos_with_usc φ
+    (by intro u; simpa using (hDini u)) h_usc
   -- Using nonincreasing behavior at 0 ≤ t
   have : φ t ≤ φ 0 := hmono 0 t ht
   simpa [φ, add_zero, sub_self] using this
@@ -218,9 +226,18 @@ structure AnalyticFlagsReal (X : Type*) [PseudoMetricSpace X] (F : X → ℝ) (l
   -- Slope is bounded: descendingSlope F x ≤ M for all x
   slope_bound : ∃ M : ℝ, 0 ≤ M ∧ (∀ x : X, descendingSlope F x ≤ M)
 
-/-- Predicate for converting real analytic flags to PLFA/EDE equivalence. -/
+/-- Helper: USC hypothesis for shifted functions needed in the pipeline -/
+def ShiftedUSCHypothesis {X : Type*} [PseudoMetricSpace X] (F : X → ℝ) (ρ : ℝ → X) : Prop :=
+  ∀ s : ℝ, ∀ s' t', s' < t' → ∀ w ∈ Set.Icc 0 (t' - s'),
+    ∀ y₀ ∈ Set.Icc 0 (t' - s'), |y₀ - w| < (t' - s') / 4 →
+    upper_semicontinuous_at_zero (fun τ => F (ρ (s + τ)) - F (ρ s)) s' y₀
+
+/-- Predicate for converting real analytic flags to PLFA/EDE equivalence.
+    Note: This now requires an additional USC hypothesis -/
 def PLFA_EDE_from_real_flags {X : Type*} [PseudoMetricSpace X] (F : X → ℝ) (lamEff : ℝ) : Prop :=
-  AnalyticFlagsReal X F lamEff → PLFA_EDE_pred F
+  AnalyticFlagsReal X F lamEff →
+  (∀ ρ : ℝ → X, ShiftedUSCHypothesis F ρ) →
+  PLFA_EDE_pred F
 
 /-- Predicate for converting real analytic flags to JKO→PLFA implication. -/
 def JKO_PLFA_from_real_flags {X : Type*} [PseudoMetricSpace X] (F : X → ℝ) (lamEff : ℝ) : Prop :=
@@ -237,9 +254,10 @@ def real_to_placeholder_flags {X : Type*} [PseudoMetricSpace X] (F : X → ℝ) 
   jkoStable := fun ρ0 => ⟨fun _ => ρ0, rfl, fun t => le_refl (F ρ0)⟩  -- Constant curve
 }
 
-/-- Bridge theorem: Real flags imply PLFA/EDE equivalence (placeholder). -/
+/-- Bridge theorem: Real flags with USC hypothesis imply PLFA/EDE equivalence -/
 theorem plfa_ede_from_real_flags_impl {X : Type*} [PseudoMetricSpace X] (F : X → ℝ)
-    (lamEff : ℝ) (_real_flags : AnalyticFlagsReal X F lamEff) :
+    (lamEff : ℝ) (_real_flags : AnalyticFlagsReal X F lamEff)
+    (h_usc : ∀ ρ : ℝ → X, ShiftedUSCHypothesis F ρ) :
     PLFA_EDE_pred F := by
   -- For placeholder implementation, we only provide PLFA ⇒ EDE
   -- Full equivalence requires deeper analysis theorems
@@ -249,7 +267,8 @@ theorem plfa_ede_from_real_flags_impl {X : Type*} [PseudoMetricSpace X] (F : X �
   · -- EDE ⇒ PLFA: use Gronwall with G0 condition
     intro hEDE
     apply ede_to_plfa_with_gronwall_zero F ρ hEDE
-    exact G0_from_DiniUpper_nonpos F ρ
+    -- Use the provided USC hypothesis
+    exact G0_from_DiniUpper_nonpos F ρ (h_usc ρ)
 
 /-- Bridge theorem: Real flags imply JKO→PLFA using minimizing movement. -/
 theorem jko_plfa_from_real_flags_impl {X : Type*} [PseudoMetricSpace X]
