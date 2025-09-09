@@ -127,4 +127,29 @@ noncomputable def linearDisplacement : Displacement ℝ :=
 
 end LinearOnReal
 
+section DisplacementPullback
+
+/-- Pull back a displacement along `g : Y → X` using a (one‑sided) section `f : X → Y`
+with `g ∘ f = id` (or along an equivalence). -/
+noncomputable def Displacement.pullback
+  {X Y : Type*} [PseudoMetricSpace X] [PseudoMetricSpace Y]
+  (D : Displacement X) (f : X → Y) (g : Y → X)
+  (hfg : ∀ y, f (g y) = y) : Displacement Y :=
+{ interp := fun y1 y2 θ => f (D.interp (g y1) (g y2) θ),
+  endpoint0 := by intro y1 y2; simp [D.endpoint0, hfg],
+  endpoint1 := by intro y1 y2; simp [D.endpoint1, hfg] }
+
+/-- The pullback displacement is compatible with the original via the maps. -/
+theorem Displacement.pullback_compat
+  {X Y : Type*} [PseudoMetricSpace X] [PseudoMetricSpace Y]
+  (D : Displacement X) (f : X → Y) (g : Y → X)
+  (hfg : ∀ y, f (g y) = y) (hgf : ∀ x, g (f x) = x) :
+  ∀ y1 y2 θ, θ ∈ Set.Icc (0:ℝ) 1 →
+    g ((D.pullback f g hfg).interp y1 y2 θ) = D.interp (g y1) (g y2) θ := by
+  intro y1 y2 θ _
+  dsimp [Displacement.pullback]
+  exact hgf _
+
+end DisplacementPullback
+
 end Frourio

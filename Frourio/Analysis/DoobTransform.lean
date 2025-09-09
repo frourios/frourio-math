@@ -157,6 +157,33 @@ lemma hasCD_doob_of_bochnerMinimal {X : Type*}
   unfold lambdaBE
   simpa [two_mul] using (HB lam hCD)
 
+/-- API: Extract the effective curvature parameter λ_BE from DoobAssumptions 
+when we know the Hessian bound parameter ε. -/
+theorem lambdaBE_from_doobAssumptions {X : Type*}
+  (h : X → ℝ) (D : Diffusion X) (_H : DoobAssumptions h D)
+  (lam eps : ℝ) (hCD : HasCD D lam) (hBochner : BochnerMinimal h D eps) :
+  HasCD (Doob h D) (lambdaBE lam eps) :=
+  hasCD_doob_of_bochnerMinimal h D hBochner hCD
+
+/-- API: The Doob-shifted parameter λ_BE satisfies the expected inequality
+λ_BE = λ - 2ε ≤ λ when ε ≥ 0. -/
+theorem lambdaBE_bound_from_doobAssumptions {X : Type*}
+  (h : X → ℝ) (D : Diffusion X) (_H : DoobAssumptions h D)
+  (lam eps : ℝ) (heps : 0 ≤ eps) :
+  lambdaBE lam eps ≤ lam :=
+  lambdaBE_le_base heps
+
+/-- Combined API: Given DoobAssumptions and BochnerMinimal, we get both
+the CD property with λ_BE and the bound λ_BE ≤ λ. -/
+theorem doob_cd_with_lambdaBE {X : Type*}
+  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
+  (lam eps : ℝ) (heps : 0 ≤ eps)
+  (hCD : HasCD D lam) (hBochner : BochnerMinimal h D eps) :
+  HasCD (Doob h D) (lambdaBE lam eps) ∧ lambdaBE lam eps ≤ lam := by
+  constructor
+  · exact lambdaBE_from_doobAssumptions h D H lam eps hCD hBochner
+  · exact lambdaBE_bound_from_doobAssumptions h D H lam eps heps
+
 /-- Quantitative Doob transform pack: stores an `ε ≥ 0` for which the
 minimal Bochner correction holds. This yields an explicit CD parameter
 shift `λ' = λ − 2ε` together with `λ' ≤ λ`. -/
