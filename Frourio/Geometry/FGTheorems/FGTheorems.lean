@@ -174,6 +174,17 @@ by
   -- Delegate to the base real-flags suite.
   exact flow_suite_from_real_flags S flags h_usc HplfaEde HedeEvi_builder HjkoPlfa hLam Htwo
 
+/-- Supply the explicit numeric lower bound from real flags as a pair `(L, lamEff ≥ L)`.
+This is a light-weight accessor independent of the budgeted inequality. -/
+theorem lamLower_from_real_flags
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X)
+  (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
+  ∃ L : ℝ, (lambdaBE S.base.lam S.eps) ≥ L :=
+by
+  refine ⟨lamLowerFromRealFlags flags, ?_⟩
+  simpa using lamEff_ge_fromRealFlags flags
+
 /-- Build the core equivalence `PLFA = EDE = EVI = JKO` for
 `F := Ent + γ·Dσm` with `λ_eff := lambdaBE λ ε` from real analytic flags,
 supplying the PLFA↔EDE and JKO→PLFA real-route bridges automatically. -/

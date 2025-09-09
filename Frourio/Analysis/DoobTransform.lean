@@ -138,4 +138,72 @@ theorem cd_parameter_shift {X : Type*} (h : X → ℝ) (D : Diffusion X)
   ∃ lam' : ℝ, HasCD (Doob h D) lam' ∧ lam' ≤ lam :=
   H.cd_shift lam hCD
 
+/- Auxiliary API: explicit Bakry–Émery parameter under Doob, λ_BE = λ − 2ε. -/
+def lambdaBE (lam eps : ℝ) : ℝ := lam - 2 * eps
+
+/- Monotonicity: for ε ≥ 0, λ_BE ≤ λ. -/
+lemma lambdaBE_le_base {lam eps : ℝ} (hε : 0 ≤ eps) : lambdaBE lam eps ≤ lam := by
+  unfold lambdaBE
+  have hnonneg : 0 ≤ 2 * eps := mul_nonneg (by norm_num) hε
+  -- a - b ≤ a for b ≥ 0
+  exact sub_le_self _ hnonneg
+
+/- If a minimal Bochner correction holds with parameter ε, then the Doob transform
+   satisfies CD(lambdaBE lam eps) whenever the base diffusion satisfies CD(lam). -/
+lemma hasCD_doob_of_bochnerMinimal {X : Type*}
+  (h : X → ℝ) (D : Diffusion X) {eps lam : ℝ}
+  (HB : BochnerMinimal h D eps) (hCD : HasCD D lam) :
+  HasCD (Doob h D) (lambdaBE lam eps) := by
+  unfold lambdaBE
+  simpa [two_mul] using (HB lam hCD)
+
+/-- Quantitative Doob transform pack: stores an `ε ≥ 0` for which the
+minimal Bochner correction holds. This yields an explicit CD parameter
+shift `λ' = λ − 2ε` together with `λ' ≤ λ`. -/
+structure DoobQuantitative {X : Type*} (h : X → ℝ) (D : Diffusion X) where
+  (eps : ℝ)
+  (eps_nonneg : 0 ≤ eps)
+  (bochner : BochnerMinimal h D eps)
+
+/-- Explicit CD-parameter shift under the quantitative Doob pack. -/
+theorem cd_parameter_shift_explicit {X : Type*} (h : X → ℝ) (D : Diffusion X)
+  (HQ : DoobQuantitative h D) {lam : ℝ} (hCD : HasCD D lam) :
+  ∃ lam' : ℝ, lam' = lambdaBE lam HQ.eps ∧ HasCD (Doob h D) lam' ∧ lam' ≤ lam := by
+  refine ⟨lambdaBE lam HQ.eps, rfl, ?_, ?_⟩
+  · exact hasCD_doob_of_bochnerMinimal h D (eps := HQ.eps) HQ.bochner hCD
+  · exact lambdaBE_le_base (lam := lam) (eps := HQ.eps) HQ.eps_nonneg
+
+/-- Pointwise form: from `DoobQuantitative`, directly obtain the transformed CD
+bound at the explicit value `λ_BE = λ − 2ε` along with the monotonicity `≤`. -/
+theorem cd_parameter_shift_explicit_value {X : Type*} (h : X → ℝ) (D : Diffusion X)
+  (HQ : DoobQuantitative h D) {lam : ℝ} (hCD : HasCD D lam) :
+  HasCD (Doob h D) (lambdaBE lam HQ.eps) ∧ lambdaBE lam HQ.eps ≤ lam := by
+  refine And.intro ?h ?hle
+  · exact hasCD_doob_of_bochnerMinimal h D (eps := HQ.eps) HQ.bochner hCD
+  · exact lambdaBE_le_base (lam := lam) (eps := HQ.eps) HQ.eps_nonneg
+
+/- Packaged lower‑bound interface for an effective λ under Doob. -/
+structure DoobLamBound where
+  (lamBase : ℝ)
+  (eps : ℝ)
+  (lamEff : ℝ)
+  (h_lamEff : lamEff = lambdaBE lamBase eps)
+
+/- Constructor with automatic computation of lamEff -/
+def DoobLamBound.mk' (lamBase eps : ℝ) : DoobLamBound :=
+  { lamBase := lamBase
+    eps := eps
+    lamEff := lambdaBE lamBase eps
+    h_lamEff := rfl }
+
+/- Helper: compare the effective parameter to the base given ε ≥ 0. -/
+lemma DoobLamBound.le_base {B : DoobLamBound} (hε : 0 ≤ B.eps) :
+  B.lamEff ≤ B.lamBase := by
+  -- Use the constraint that lamEff = lambdaBE lamBase eps
+  rw [B.h_lamEff]
+  unfold lambdaBE
+  have hnonneg : 0 ≤ 2 * B.eps := mul_nonneg (by norm_num) hε
+  -- a - b ≤ a for b ≥ 0
+  exact sub_le_self B.lamBase hnonneg
+
 end Frourio

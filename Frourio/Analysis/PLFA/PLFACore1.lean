@@ -117,6 +117,29 @@ theorem ede_evi_from_pack (F : X → ℝ) (lamEff : ℝ)
 def EDE_EVI_from_analytic_flags (F : X → ℝ) (lamEff : ℝ) : Prop :=
   (HalfConvex F lamEff ∧ StrongUpperBound F) → EDE_EVI_pred F lamEff
 
+/-- Convenience: instantiate `EDE_EVI_from_analytic_flags` using trivial core flags.
+This is a statement-level helper to wire builders without supplying concrete
+half‑convexity and strong upper bound proofs (both are satisfiable with `c = 0`). -/
+theorem ede_evi_from_analytic_flags_with_trivial_core (F : X → ℝ) (lamEff : ℝ)
+  (H : EDE_EVI_from_analytic_flags F lamEff) : EDE_EVI_pred F lamEff :=
+by
+  -- Build trivial core flags (always satisfiable with `c = 0`).
+  have HC0 : HalfConvex F lamEff := ⟨0, le_rfl, by intro x; simp⟩
+  have SUB0 : StrongUpperBound F := ⟨0, le_rfl, by intro x; simp⟩
+  exact H ⟨HC0, SUB0⟩
+
+/-- Real flags also carry an explicit numeric lower bound for `lamEff`.
+Pair the builder result with `lamEff ≥ lamLowerBound` extracted from the flags. -/
+theorem ede_evi_from_real_flags_and_builder_with_bound
+  {X : Type*} [PseudoMetricSpace X]
+  (F : X → ℝ) (lamEff : ℝ)
+  (flags : AnalyticFlagsReal X F lamEff)
+  (H : EDE_EVI_from_analytic_flags F lamEff) :
+  EDE_EVI_pred F lamEff ∧ lamEff ≥ lamLowerFromRealFlags flags :=
+by
+  refine And.intro (ede_evi_from_analytic_flags_with_trivial_core F lamEff H) ?_
+  simpa using lamEff_ge_fromRealFlags flags
+
 /-- Directional bridge (flags → EDE ⇒ EVI). If this holds together with the
 reverse direction, it yields `EDE_EVI_from_analytic_flags`. -/
 def EDE_to_EVI_from_flags (F : X → ℝ) (lamEff : ℝ) : Prop :=

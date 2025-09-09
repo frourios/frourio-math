@@ -225,6 +225,21 @@ structure AnalyticFlagsReal (X : Type*) [PseudoMetricSpace X] (F : X → ℝ) (l
   compact_sublevels : ∀ c : ℝ, IsCompact {x : X | F x ≤ c}
   -- Slope is bounded: descendingSlope F x ≤ M for all x
   slope_bound : ∃ M : ℝ, 0 ≤ M ∧ (∀ x : X, descendingSlope F x ≤ M)
+  -- An explicit lower bound for the effective parameter and its validity
+  lamLowerBound : ℝ
+  lamEff_ge : lamEff ≥ lamLowerBound
+
+/-- Extract the explicit lower bound on `lamEff` encoded in real flags. -/
+def lamLowerFromRealFlags {X : Type*} [PseudoMetricSpace X]
+  {F : X → ℝ} {lamEff : ℝ} (flags : AnalyticFlagsReal X F lamEff) : ℝ :=
+  flags.lamLowerBound
+
+/-- The inequality `lamEff ≥ lamLowerBound` carried by real flags. -/
+theorem lamEff_ge_fromRealFlags {X : Type*} [PseudoMetricSpace X]
+  {F : X → ℝ} {lamEff : ℝ} (flags : AnalyticFlagsReal X F lamEff) :
+  lamEff ≥ lamLowerFromRealFlags flags :=
+by
+  simpa [lamLowerFromRealFlags] using flags.lamEff_ge
 
 /-- Helper: USC hypothesis for shifted functions needed in the pipeline -/
 def ShiftedUSCHypothesis {X : Type*} [PseudoMetricSpace X] (F : X → ℝ) (ρ : ℝ → X) : Prop :=

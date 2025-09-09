@@ -1,6 +1,8 @@
 import Mathlib.Data.Real.Basic
 import Mathlib.Order.LiminfLimsup
 import Frourio.Analysis.PLFA.PLFACore3
+import Frourio.Analysis.PLFA.EDEtoEVI
+import Frourio.Analysis.PLFA.EVItoEDE
 
 namespace Frourio
 

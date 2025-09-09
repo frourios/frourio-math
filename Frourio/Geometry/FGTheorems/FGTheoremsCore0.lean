@@ -86,6 +86,88 @@ variable {X : Type*} [PseudoMetricSpace X]
 
 end X2
 
+/-- Placeholder coefficient `c_* (σ)` controlling the `‖S_m‖_∞^2` contribution. -/
+noncomputable def cStarCoeff (_σ : ℝ) : ℝ := 0
+
+/-- Placeholder coefficient `c_D (σ)` controlling the `‖Ξ_m‖` contribution. -/
+noncomputable def cDCoeff (_σ : ℝ) : ℝ := 0
+
+/-- Build the analysis‑layer budget from the m‑point coefficients at scale `σ`. -/
+noncomputable def budgetFromSigma (σ : ℝ) : ConstantBudget :=
+  ⟨cStarCoeff σ, cDCoeff σ⟩
+
+/-- Optional FG‑side predicate indicating a commutative design regime.
+In such regimes, one typically expects `c_* (σ) = 0`. This is a statement‑level
+flag only; quantitative realization is deferred to later phases. -/
+def CommutativeDesign : Prop := True
+
+/-- Boolean toggle for commutative-design simplification at scale `σ`.
+When `comm = true`, the `c_*` contribution is set to `0` in the assembled budget. -/
+noncomputable def budgetFromSigmaWithFlag (σ : ℝ) (comm : Bool) : ConstantBudget :=
+  ⟨if comm then 0 else cStarCoeff σ, cDCoeff σ⟩
+
+lemma budgetFromSigmaWithFlag_comm_true (σ : ℝ) :
+  (budgetFromSigmaWithFlag σ true).cStar = 0 ∧ (budgetFromSigmaWithFlag σ true).cD = cDCoeff σ := by
+  simp [budgetFromSigmaWithFlag]
+
+lemma budgetFromSigmaWithFlag_comm_false (σ : ℝ) :
+  (budgetFromSigmaWithFlag σ false).cStar = (budgetFromSigma σ).cStar ∧
+  (budgetFromSigmaWithFlag σ false).cD = (budgetFromSigma σ).cD := by
+  simp [budgetFromSigmaWithFlag, budgetFromSigma]
+
+/-- Statement-level link: under a commutative-design regime, one may set
+`c_* (σ) = 0` in the budget assembly. This is kept as a Prop-level lemma for
+downstream use; quantitative proofs are deferred. -/
+lemma budget_commutative_simplify (σ : ℝ) :
+  ∃ B : ConstantBudget, B.cStar = 0 ∧ B.cD = cDCoeff σ := by
+  -- Choose the boolean-flagged budget with `comm = true`.
+  refine ⟨budgetFromSigmaWithFlag σ true, ?_, ?_⟩
+  · simpa using (budgetFromSigmaWithFlag_comm_true σ).1
+  · simpa using (budgetFromSigmaWithFlag_comm_true σ).2
+
+/-- A simple nontrivial model for the m‑point coefficients.
+Tunable gains `k*`, `kD` produce nonnegative coefficients depending on `σ`. -/
+noncomputable def cStarCoeff_model (kStar : ℝ) (σ : ℝ) : ℝ := kStar * σ ^ (2 : ℕ)
+noncomputable def cDCoeff_model (kD : ℝ) (σ : ℝ) : ℝ := kD * |σ|
+
+lemma cStarCoeff_model_nonneg {kStar σ : ℝ} (hk : 0 ≤ kStar) :
+  0 ≤ cStarCoeff_model kStar σ := by
+  unfold cStarCoeff_model
+  have hσ2 : 0 ≤ σ ^ (2 : ℕ) := by
+    -- σ^2 ≥ 0 on ℝ
+    simpa [pow_two] using mul_self_nonneg σ
+  exact mul_nonneg hk hσ2
+
+lemma cDCoeff_model_nonneg {kD σ : ℝ} (hk : 0 ≤ kD) :
+  0 ≤ cDCoeff_model kD σ := by
+  unfold cDCoeff_model
+  have : 0 ≤ |σ| := abs_nonneg σ
+  exact mul_nonneg hk this
+
+/-- Assemble a budget from the nontrivial model. -/
+noncomputable def budgetFromSigmaModel (kStar kD σ : ℝ) : ConstantBudget :=
+  ⟨cStarCoeff_model kStar σ, cDCoeff_model kD σ⟩
+
+lemma budgetFromSigmaModel_nonneg {kStar kD σ : ℝ}
+  (hks : 0 ≤ kStar) (hkd : 0 ≤ kD) :
+  0 ≤ (budgetFromSigmaModel kStar kD σ).cStar ∧ 0 ≤ (budgetFromSigmaModel kStar kD σ).cD := by
+  constructor
+  · simpa [budgetFromSigmaModel] using cStarCoeff_model_nonneg (kStar := kStar) (σ := σ) hks
+  · simpa [budgetFromSigmaModel] using cDCoeff_model_nonneg (kD := kD) (σ := σ) hkd
+
+/-- Supply an explicit `lambdaEffLowerBound` using the model budget.
+The witness is the canonical right-hand side value. -/
+theorem lambdaEffLowerBound_from_sigma_model {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (lam eps Ssup XiNorm σ kStar kD : ℝ) :
+  lambdaEffLowerBound A (budgetFromSigmaModel kStar kD σ) lam eps
+    (lambdaBE lam eps
+      - A.gamma * ((budgetFromSigmaModel kStar kD σ).cStar * Ssup ^ (2 : ℕ)
+                   + (budgetFromSigmaModel kStar kD σ).cD * XiNorm))
+    Ssup XiNorm := by
+  -- Directly use the theoremized wrapper with equality.
+  apply lambdaEffLowerBound_thm
+  rfl
+
 /-- Integrated suite corollary: from weak hypothesis flags and an
 equivalence assumption pack for `F := Ent + γ·Dσm` with
 `λ_BE := lambdaBE S.base.lam S.eps`, plus a packaged lower bound and a

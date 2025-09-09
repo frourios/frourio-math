@@ -118,9 +118,6 @@ by
    `StrongSlopeUpperBound_pred` for the functional built from `K`. The analytic
    content is deferred; this wraps the dependency shape used downstream. -/
 
-/-- Doob-corrected parameter: `λ_BE = λ - 2 ε`. -/
-def lambdaBE (lam eps : ℝ) : ℝ := lam - 2 * eps
-
 /-- Budget constants entering the effective-rate bound. -/
 structure ConstantBudget where
   (cStar : ℝ)
@@ -143,6 +140,19 @@ theorem lambdaEffLowerBound_thm {X : Type*} [PseudoMetricSpace X]
   (h : lamEff ≥ lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)) :
   lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm :=
   h
+
+/-- Monotonicity in `lamEff`: if a witness `lamEff` satisfies the inequality,
+then any `lamEff' ≥ lamEff` also satisfies it. -/
+theorem lambdaEffLowerBound_mono {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (budget : ConstantBudget)
+  {lam eps lamEff lamEff' Ssup XiNorm : ℝ}
+  (hle : lamEff ≤ lamEff')
+  (h : lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm) :
+  lambdaEffLowerBound A budget lam eps lamEff' Ssup XiNorm :=
+by
+  -- `h : lamEff ≥ RHS` and `hle : lamEff ≤ lamEff'` imply `lamEff' ≥ RHS`.
+  -- Rewrite both as `RHS ≤ lamEff` and chain.
+  exact le_trans h hle
 
 def MPointZeroOrderBound (Ssup XiNorm : ℝ) : Prop := 0 ≤ Ssup ∧ 0 ≤ XiNorm
 

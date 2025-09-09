@@ -60,6 +60,25 @@ theorem lambda_eff_lower_bound_of (S : GradientFlowSystem X)
 by
   exact ⟨lamEff, h⟩
 
+/-- Strengthen a provided `lambda_eff_lower_bound` using the explicit lower bound
+encoded in real analytic flags by choosing `lamEff' = max(lamEff, L_flags)`. -/
+theorem lambda_eff_lower_bound_strengthen_with_flags
+  (S : GradientFlowSystem X)
+  (flags : AnalyticFlagsReal X (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
+  (h : lambda_eff_lower_bound S) :
+  ∃ lamEff' : ℝ,
+    lambdaEffLowerBound S.func S.budget S.base.lam S.eps lamEff' S.Ssup S.XiNorm ∧
+    lamEff' ≥ lamLowerFromRealFlags flags :=
+by
+  rcases h with ⟨lamEff, hLE⟩
+  let Lf := lamLowerFromRealFlags flags
+  let lamEff' := max lamEff Lf
+  have hmono : lamEff' ≥ lamEff := le_max_left _ _
+  have hlift := lambdaEffLowerBound_mono S.func S.budget (lam := S.base.lam)
+    (eps := S.eps) (Ssup := S.Ssup) (XiNorm := S.XiNorm) hmono hLE
+  refine ⟨lamEff', hlift, ?_⟩
+  exact le_max_right _ _
+
 /-- Effective lambda lower bound derived from Doob assumptions and m-point
 zero-order bounds. Uses the constructive inequality from the analysis layer. -/
 theorem lambda_eff_lower_bound_from_doob
