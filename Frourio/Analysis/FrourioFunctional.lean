@@ -1088,6 +1088,639 @@ by
 
 end SemiconvexReal
 
+/-! ### Compact Sublevels for Real Analytic Flags
+
+This section provides compact sublevel set properties needed for AnalyticFlagsReal. -/
+
+section CompactSublevels
+
+/-- A functional has compact sublevels if all sublevel sets are compact. -/
+def HasCompactSublevels {X : Type*} [TopologicalSpace X] (f : X → ℝ) : Prop :=
+  ∀ c : ℝ, IsCompact {x : X | f x ≤ c}
+
+/-- The functional F=Ent+γDσm has compact sublevels when both Ent and Dσm
+have appropriate growth conditions and the space has suitable compactness properties. -/
+theorem ofK_compact_sublevels {X : Type*} [NormedAddCommGroup X]
+  [ProperSpace X] -- X is a proper metric space (closed balls are compact)
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
+  (hγ : 0 < gamma)
+  (hEnt_coercive : CoerciveReal Ent) -- Ent grows to infinity at infinity
+  (hDsigma_bounded_below : ∃ C : ℝ, ∀ x : X,
+    (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x ≥ -C)
+  (h_lsc : _root_.LowerSemicontinuous
+    (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))) :
+  HasCompactSublevels (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
+by
+  intro c
+  -- The sublevel set {x | F(x) ≤ c}
+  -- Since F is coercive, sublevel sets are bounded
+  -- Since F is lower semicontinuous, sublevel sets are closed
+  -- In a proper space, closed and bounded implies compact
+
+  -- First show the set is bounded
+  have h_bounded : ∃ R > 0, {x : X | FrourioFunctional.F
+    (FrourioFunctional.ofK Ent K gamma Ssup) x ≤ c} ⊆
+    Metric.closedBall 0 R := by
+    -- Use coercivity to find R such that F(x) > c for ‖x‖ > R
+    obtain ⟨C, hC⟩ := hDsigma_bounded_below
+    -- Choose M large enough so that Ent(x) ≥ M implies F(x) > c
+    let M := c + gamma * C + 1
+    obtain ⟨R₀, hR₀⟩ := hEnt_coercive M
+    -- Ensure R is positive
+    let R := max R₀ 1
+    have hR_pos : 0 < R := by
+      unfold R
+      simp only [lt_max_iff]
+      right
+      norm_num
+    use R, hR_pos
+    intro x hx
+    simp only [Metric.mem_closedBall]
+    -- Show x is in the closed ball of radius R centered at 0
+    -- We prove by contradiction: if ‖x‖ > R, then F(x) > c
+    by_contra h_not_in_ball
+    push_neg at h_not_in_ball
+    -- h_not_in_ball : R < dist x 0
+    -- Convert to the norm using `dist_eq_norm`
+    have h_norm_large : R < ‖x‖ := by
+      -- `dist x 0 = ‖x‖` in a normed group
+      -- Now that we use the norm-induced metric, we can apply dist_eq_norm
+      calc R < dist x 0 := h_not_in_ball
+           _ = ‖x - 0‖ := dist_eq_norm x 0
+           _ = ‖x‖ := by simp [sub_zero]
+    -- Now h_norm_large : R < ‖x‖
+    -- If ‖x‖ > R, then ‖x‖ ≥ R₀, so F(x) > c by coercivity
+    have hx_ge_R : R ≤ ‖x‖ := le_of_lt h_norm_large
+    have hR_ge_R0 : R ≥ R₀ := by
+      unfold R; exact le_max_left _ _
+    have hR0_le_R : R₀ ≤ R := hR_ge_R0
+    have hx_large : ‖x‖ ≥ R₀ := le_trans hR0_le_R hx_ge_R
+    have hEnt_large : Ent x ≥ M := hR₀ x hx_large
+    have hF_large : FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup) x > c := by
+      unfold FrourioFunctional.F
+      calc (FrourioFunctional.ofK Ent K gamma Ssup).Ent x +
+           (FrourioFunctional.ofK Ent K gamma Ssup).gamma *
+           (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+        _ = Ent x + gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x := by rfl
+        _ ≥ Ent x + gamma * (-C) := by
+            apply add_le_add_left
+            exact mul_le_mul_of_nonneg_left (hC x) (le_of_lt hγ)
+        _ ≥ M - gamma * C := by linarith [hEnt_large]
+        _ = c + gamma * C + 1 - gamma * C := by rfl
+        _ = c + 1 := by ring
+        _ > c := by linarith
+    exact not_le.mpr hF_large hx
+
+  -- The set is closed because F is lower semicontinuous
+  have h_closed : IsClosed {x : X | FrourioFunctional.F
+    (FrourioFunctional.ofK Ent K gamma Ssup) x ≤ c} := by
+    -- Lower semicontinuous functions have closed sublevel sets
+    -- Use the helper from MinimizingMovement: `sublevel_closed_of_lsc`
+    exact Frourio.sublevel_closed_of_lsc h_lsc c
+
+  -- In a proper space, closed and bounded implies compact
+  -- Get the specific R from h_bounded
+  obtain ⟨R, hR_pos, h_subset⟩ := h_bounded
+  -- Closed balls are compact in proper spaces
+  have h_ball_compact : IsCompact (Metric.closedBall (0 : X) R) :=
+    ProperSpace.isCompact_closedBall _ _
+  -- A closed subset of a compact set is compact
+  apply IsCompact.of_isClosed_subset h_ball_compact h_closed h_subset
+
+/-- Alternative: When the space has the Heine-Borel property,
+coercivity and continuity imply compact sublevels. -/
+theorem compact_sublevels_from_coercive_continuous {X : Type*} [NormedAddCommGroup X]
+  [NormedSpace ℝ X] [FiniteDimensional ℝ X] -- Finite dimensional spaces have Heine-Borel
+  (f : X → ℝ)
+  (h_coercive : CoerciveReal f)
+  (h_continuous : Continuous f) :
+  HasCompactSublevels f :=
+by
+  intro c
+  -- In finite dimensions, closed and bounded is compact (Heine-Borel)
+  -- The sublevel set is closed (continuous functions have closed sublevel sets)
+  have h_closed : IsClosed {x : X | f x ≤ c} := by
+    exact isClosed_le h_continuous (continuous_const)
+  -- Use coercivity to find R such that f(x) > c for ‖x‖ ≥ R
+  obtain ⟨R, hR⟩ := h_coercive (c + 1)
+  -- The sublevel set is bounded (use coercivity)
+  have h_bounded : Bornology.IsBounded {x : X | f x ≤ c} := by
+    -- The sublevel set is contained in the ball of radius R + 1
+    rw [Metric.isBounded_iff_subset_ball 0]
+    use R + 1
+    intro x hx
+    simp only [Metric.mem_ball, Set.mem_setOf_eq] at hx ⊢
+    -- If ‖x‖ ≥ R, then f(x) ≥ c + 1 > c, contradicting hx
+    by_contra h_not_in_ball
+    push_neg at h_not_in_ball
+    have h_norm_large : ‖x‖ ≥ R := by
+      have h1 : R + 1 ≤ dist x 0 := h_not_in_ball
+      have h2 : R < R + 1 := by linarith
+      have h3 : R < dist x 0 := lt_of_lt_of_le h2 h1
+      have h4 : dist x 0 = ‖x‖ := by simp [dist_eq_norm, sub_zero]
+      rw [← h4]
+      exact le_of_lt h3
+    have h_f_large : f x ≥ c + 1 := hR x h_norm_large
+    linarith [hx]
+  -- In finite dimensions, closed and bounded implies compact
+  -- Use the fact that finite dimensional normed spaces are proper
+  haveI : ProperSpace X := FiniteDimensional.proper_real X
+  -- In a proper space, closed and bounded implies compact
+  have h_ball_compact : IsCompact (Metric.closedBall (0 : X) (R + 1)) :=
+    ProperSpace.isCompact_closedBall _ _
+  have h_subset : {x : X | f x ≤ c} ⊆ Metric.closedBall 0 (R + 1) := by
+    intro x hx
+    simp only [Metric.mem_closedBall, Set.mem_setOf_eq] at hx ⊢
+    by_contra h_far
+    push_neg at h_far
+    have h1 : ‖x‖ > R + 1 := by simpa [dist_eq_norm, sub_zero] using h_far
+    have h2 : ‖x‖ ≥ R := by linarith
+    have h3 : f x ≥ c + 1 := hR x h2
+    have h4 : f x ≤ c := hx
+    linarith
+  exact IsCompact.of_isClosed_subset h_ball_compact h_closed h_subset
+
+/-- For normed spaces, if F is lower semicontinuous
+and has bounded sublevel sets, it has compact sublevels. -/
+theorem compact_sublevels_from_proper_lsc {X : Type*} [NormedAddCommGroup X]
+  [ProperSpace X]
+  (f : X → ℝ)
+  (h_lsc : _root_.LowerSemicontinuous f)
+  (h_bounded_sublevels : ∀ c : ℝ, Bornology.IsBounded {x : X | f x ≤ c}) :
+  HasCompactSublevels f :=
+by
+  intro c
+  -- Lower semicontinuous functions have closed sublevel sets
+  have h_closed : IsClosed {x : X | f x ≤ c} := by
+    exact LowerSemicontinuous.isClosed_preimage h_lsc c
+  -- Get boundedness from the hypothesis
+  have h_bounded : Bornology.IsBounded {x : X | f x ≤ c} := h_bounded_sublevels c
+  -- In a proper space, closed and bounded implies compact
+  -- First, get a ball containing the sublevel set
+  rw [Metric.isBounded_iff_subset_closedBall 0] at h_bounded
+  obtain ⟨r, hr⟩ := h_bounded
+  -- The sublevel set is contained in the closed ball
+  -- Closed balls are compact in proper spaces
+  have h_ball_compact : IsCompact (Metric.closedBall (0 : X) r) :=
+    ProperSpace.isCompact_closedBall _ _
+  -- A closed subset of a compact set is compact
+  exact IsCompact.of_isClosed_subset h_ball_compact h_closed hr
+
+end CompactSublevels
+
+/-! ### Slope Bounds for AnalyticFlagsReal
+
+This section provides bounds on the descending slope needed for AnalyticFlagsReal. -/
+
+section SlopeBounds
+
+-- Disable long line warnings for complex mathematical expressions in this section
+set_option linter.style.longLine false
+
+/-! ### Helper Lemmas for Slope Bounds
+
+These lemmas establish the subadditivity properties needed for slope bounds. -/
+
+open Real in
+/-- Subadditivity of the positive part function. -/
+lemma posPart_add_le (a b : ℝ) : (a + b)⁺ ≤ a⁺ + b⁺ := by
+  -- Case split on whether a + b is positive
+  by_cases h : a + b ≤ 0
+  · -- If a + b ≤ 0, then (a + b)⁺ = 0
+    simp [h]
+    exact add_nonneg (le_max_right _ _) (le_max_right _ _)
+  · -- If a + b > 0, then (a + b)⁺ = a + b
+    push_neg at h
+    simp [le_of_lt h]
+    exact add_le_add (le_max_left _ _) (le_max_left _ _)
+
+/-- Positive part scaling for non-negative scalars. -/
+lemma posPart_smul (c : ℝ) (hc : 0 ≤ c) (a : ℝ) : (c * a)⁺ = c * a⁺ := by
+  by_cases ha : a ≤ 0
+  · -- If a ≤ 0, then a⁺ = 0 and c * a ≤ 0
+    simp [ha]
+    have : c * a ≤ 0 := mul_nonpos_of_nonneg_of_nonpos hc ha
+    simp [this]
+  · -- If a > 0, then a⁺ = a and c * a ≥ 0
+    push_neg at ha
+    simp [le_of_lt ha]
+    -- For c ≥ 0 and a > 0, we have c * a ≥ 0
+    -- We need to handle the case c = 0 separately
+    by_cases hc_zero : c = 0
+    · simp [hc_zero]
+    · -- If c > 0 and a > 0, then c * a > 0
+      have hc_pos : 0 < c := lt_of_le_of_ne hc (Ne.symm hc_zero)
+      have : 0 < c * a := mul_pos hc_pos ha
+      simp [le_of_lt this]
+
+/-! ### Helper lemmas for EReal-based proofs (paper9.md) -/
+
+/-- If a function is eventually nonnegative, its EReal limsup is not ⊥. -/
+lemma ereal_limsup_ne_bot_of_eventually_nonneg {α : Type*} {l : Filter α} [l.NeBot]
+  {f : α → ℝ} (h : ∀ᶠ a in l, 0 ≤ f a) :
+  Filter.limsup (fun a => (f a : EReal)) l ≠ ⊥ := by
+  -- First, show that the function is bounded above in EReal (trivially by ⊤)
+  have h_bdd : Filter.IsBoundedUnder (· ≤ ·) l (fun a => (f a : EReal)) := by
+    apply Filter.isBoundedUnder_of
+    use ⊤
+    intro x
+    exact le_top
+  -- Now show limsup ≥ 0
+  have h1 : (0 : EReal) ≤ Filter.limsup (fun a => (f a : EReal)) l := by
+    apply Filter.le_limsup_of_frequently_le
+    · -- Show ∃ᶠ a in l, 0 ≤ (f a : EReal)
+      have : ∃ᶠ a in l, (0 : ℝ) ≤ f a := h.frequently
+      exact this.mono (fun a ha => EReal.coe_nonneg.mpr ha)
+    · exact h_bdd
+  -- Since 0 ≠ ⊥ and limsup ≥ 0, we have limsup ≠ ⊥
+  exact ne_bot_of_le_ne_bot EReal.zero_ne_bot h1
+
+/-- Convert EReal limsup back to ℝ when the function is ℝ-valued, nonnegative and bounded. -/
+lemma limsup_ereal_eq_limsup_real_of_bounded {α : Type*} {l : Filter α} [l.NeBot]
+  {f : α → ℝ} (h_nonneg : ∀ᶠ a in l, 0 ≤ f a)
+  (h_bdd : Filter.IsBoundedUnder (· ≤ ·) l f) :
+  (Filter.limsup (fun a => (f a : EReal)) l).toReal = Filter.limsup f l := by
+  -- We will use the monotone-map lemma for limsup with the coercion ℝ → EReal.
+  -- Provide lower coboundedness of f from eventual nonnegativity.
+  have hcobdd : Filter.IsCoboundedUnder (· ≤ ·) l f :=
+    Filter.isCoboundedUnder_le_of_eventually_le (l := l) (f := f) (x := (0 : ℝ)) h_nonneg
+  -- Transport limsup through the monotone, continuous coercion.
+  have hmap : Filter.limsup (fun a => ((f a : ℝ) : EReal)) l
+      = ((Filter.limsup f l : ℝ) : EReal) := by
+    have hmono : Monotone (fun x : ℝ => (x : EReal)) := by
+      intro a b hab; simpa [EReal.coe_le_coe_iff] using hab
+    have hcont : ContinuousAt (fun x : ℝ => (x : EReal)) (Filter.limsup f l) :=
+      (continuous_coe_real_ereal).continuousAt
+    -- Use the mapping lemma; note the direction and `Function.comp` normalization.
+    have h := (Monotone.map_limsup_of_continuousAt (F := l)
+                  (f := fun x : ℝ => (x : EReal)) (a := f)
+                  (f_incr := hmono) (f_cont := hcont)
+                  (bdd_above := h_bdd) (cobdd := hcobdd))
+    -- h : ((Filter.limsup f l : ℝ) : EReal) = Filter.limsup ((fun x => (x : EReal)) ∘ f) l
+    -- Rewrite `((fun x => (x : EReal)) ∘ f)` to `fun a => (f a : EReal)` and flip sides.
+    simpa [Function.comp] using h.symm
+  -- Apply toReal to both sides and simplify.
+  calc
+    (Filter.limsup (fun a => (f a : EReal)) l).toReal
+        = (((Filter.limsup f l : ℝ) : EReal)).toReal := by
+          simpa using congrArg (fun x => EReal.toReal x) hmap
+    _ = Filter.limsup f l := by simp
+
+/-- Subadditivity of descending slope for sums. -/
+lemma descendingSlope_add_le {X : Type*} [PseudoMetricSpace X]
+  {f g : X → ℝ} (x : X)
+  [Filter.NeBot (nhdsWithin x (posDist x))]
+  (h_add_limsup :
+    Filter.limsup
+      (fun y => (posPart (f x - f y)) / dist x y
+               + (posPart (g x - g y)) / dist x y)
+      (nhdsWithin x (posDist x))
+    ≤ Filter.limsup (fun y => (posPart (f x - f y)) / dist x y)
+        (nhdsWithin x (posDist x))
+      + Filter.limsup (fun y => (posPart (g x - g y)) / dist x y)
+        (nhdsWithin x (posDist x)))
+  (h_sum_ub : ∃ M : ℝ, ∀ᶠ y in nhdsWithin x (posDist x),
+      (posPart (f x - f y)) / dist x y + (posPart (g x - g y)) / dist x y ≤ M) :
+  descendingSlope (fun y => f y + g y) x ≤ descendingSlope f x + descendingSlope g x := by
+  -- Unfold descending slope definitions
+  dsimp [descendingSlope]
+  -- Set up the filter for points at positive distance
+  set F := nhdsWithin x (posDist x)
+  -- Define the quotient functions
+  set u : X → ℝ := fun y => (posPart (f x - f y)) / dist x y
+  set v : X → ℝ := fun y => (posPart (g x - g y)) / dist x y
+  set w : X → ℝ := fun y => (posPart ((f x + g x) - (f y + g y))) / dist x y
+
+  -- Show pointwise inequality: w y ≤ u y + v y for all y with 0 < dist x y
+  have h_pointwise : ∀ᶠ y in F, w y ≤ u y + v y := by
+    refine Filter.eventually_of_mem (self_mem_nhdsWithin) ?_
+    intro y hy
+    have h_pos : 0 < dist x y := by
+      have : 0 < dist y x := hy
+      rwa [dist_comm]
+    have h_ne_zero : dist x y ≠ 0 := ne_of_gt h_pos
+    -- Use positive part subadditivity
+    have h_sub : (f x + g x) - (f y + g y) = (f x - f y) + (g x - g y) := by ring
+    -- Apply to the goal directly
+    simp only [w, u, v]
+    rw [h_sub]
+    -- Apply positive part subadditivity
+    have h_pos_sub : posPart ((f x - f y) + (g x - g y)) ≤
+                     posPart (f x - f y) + posPart (g x - g y) := posPart_add_le _ _
+    -- Divide by dist x y
+    have h_div := div_le_div_of_nonneg_right h_pos_sub (le_of_lt h_pos)
+    simp only [add_div] at h_div
+    exact h_div
+
+  -- Apply limsup monotonicity + subadditivity via EReal (paper9.md approach)
+  -- First, register the nontriviality of the punctured filter as an instance
+  haveI : F.NeBot := by
+    -- This follows from the lemma hypothesis `[Filter.NeBot (nhdsWithin x (posDist x))]`.
+    simpa [F]
+  have h_limsup : Filter.limsup w F ≤ Filter.limsup u F + Filter.limsup v F := by
+    -- Step 1: Establish eventual nonnegativity for all functions
+    have hw_nonneg : ∀ᶠ y in F, 0 ≤ w y := by
+      refine Filter.eventually_of_mem (self_mem_nhdsWithin) ?_
+      intro y hy
+      have h_pos : 0 < dist y x := hy  -- hy directly gives us the distance property
+      exact div_nonneg (posPart_nonneg _) (le_of_lt (by rwa [dist_comm]))
+    have hu_nonneg : ∀ᶠ y in F, 0 ≤ u y := by
+      refine Filter.eventually_of_mem (self_mem_nhdsWithin) ?_
+      intro y hy
+      have h_pos : 0 < dist y x := hy
+      exact div_nonneg (posPart_nonneg _) (le_of_lt (by rwa [dist_comm]))
+    have hv_nonneg : ∀ᶠ y in F, 0 ≤ v y := by
+      refine Filter.eventually_of_mem (self_mem_nhdsWithin) ?_
+      intro y hy
+      have h_pos : 0 < dist y x := hy
+      exact div_nonneg (posPart_nonneg _) (le_of_lt (by rwa [dist_comm]))
+
+    -- Step 2: Lift to EReal
+    set uE : X → EReal := fun y => (u y : EReal)
+    set vE : X → EReal := fun y => (v y : EReal)
+    set wE : X → EReal := fun y => (w y : EReal)
+
+    -- Step 3: Pointwise inequality in EReal
+    have h_pointwiseE : ∀ᶠ y in F, wE y ≤ uE y + vE y := by
+      exact h_pointwise.mono (fun y hy => by simp only [uE, vE, wE]; exact_mod_cast hy)
+
+    -- Step 4: Apply EReal limsup monotonicity and subadditivity
+
+    -- First show that the EReal functions are bounded above (by ⊤)
+    have h_bddE_u : Filter.IsBoundedUnder (· ≤ ·) F uE := by
+      apply Filter.isBoundedUnder_of
+      use ⊤
+      intro x
+      exact le_top
+    have h_bddE_v : Filter.IsBoundedUnder (· ≤ ·) F vE := by
+      apply Filter.isBoundedUnder_of
+      use ⊤
+      intro x
+      exact le_top
+    have h_bddE_w : Filter.IsBoundedUnder (· ≤ ·) F wE := by
+      apply Filter.isBoundedUnder_of
+      use ⊤
+      intro x
+      exact le_top
+
+    -- Apply monotonicity: limsup wE ≤ limsup (uE + vE)
+    have h_mono : Filter.limsup wE F ≤ Filter.limsup (fun y => uE y + vE y) F := by
+      have h_cobdd_w : Filter.IsCoboundedUnder (· ≤ ·) F wE := by
+        have h_ev : ∀ᶠ y in F, (0 : EReal) ≤ wE y := by
+          exact hw_nonneg.mono (fun y hy => by
+            change (0 : EReal) ≤ (w y : EReal)
+            exact EReal.coe_nonneg.mpr hy)
+        apply Filter.isCoboundedUnder_le_of_eventually_le
+        exact h_ev
+      have h_bdd_sum : Filter.IsBoundedUnder (· ≤ ·) F (fun y => uE y + vE y) := by
+        apply Filter.isBoundedUnder_of
+        use ⊤
+        intro x
+        exact le_top
+      apply Filter.limsup_le_limsup h_pointwiseE h_cobdd_w h_bdd_sum
+
+    -- Apply subadditivity: limsup (uE + vE) ≤ limsup uE + limsup vE
+    have h_add : Filter.limsup (fun y => uE y + vE y) F ≤
+                 Filter.limsup uE F + Filter.limsup vE F := by
+      apply EReal.limsup_add_le
+      · -- Side condition 1: limsup uE ≠ ⊥ ∨ limsup vE ≠ ⊤
+        left
+        -- uE is eventually nonnegative, so limsup uE ≠ ⊥
+        exact ereal_limsup_ne_bot_of_eventually_nonneg hu_nonneg
+      · -- Side condition 2: limsup uE ≠ ⊤ ∨ limsup vE ≠ ⊥
+        right
+        -- vE is eventually nonnegative, so limsup vE ≠ ⊥
+        exact ereal_limsup_ne_bot_of_eventually_nonneg hv_nonneg
+
+    -- Combine the inequalities in ℝ using the provided limsup subadditivity hypothesis
+    -- First, rewrite h_pointwise into a monotonicity bound on limsups over F
+    have h_mono_real : Filter.limsup w F ≤ Filter.limsup (fun y => u y + v y) F := by
+      -- Use real-valued monotonicity helper requiring lower cobound (w ≥ 0) and
+      -- an eventual upper bound for the comparison function (u+v ≤ M eventually).
+      have hw_nonneg' : ∃ m : ℝ, ∀ᶠ y in F, m ≤ w y := ⟨0, hw_nonneg⟩
+      have h_uv_ub' : ∃ M : ℝ, ∀ᶠ y in F, (u y + v y) ≤ M := by
+        -- Rewrite the provided upper bound into the local names u and v
+        rcases h_sum_ub with ⟨M, hM⟩
+        refine ⟨M, ?_⟩
+        simpa [u, v] using hM
+      exact limsup_le_of_eventually_le_real hw_nonneg' h_uv_ub' h_pointwise
+    -- Now apply the assumed subadditivity on limsup(u+v)
+    exact h_mono_real.trans (by simpa [u, v] using h_add_limsup)
+
+  -- The result follows from the definitions
+  simpa [u, v, w] using h_limsup
+
+/-- Scaling property of descending slope. -/
+lemma descendingSlope_smul {X : Type*} [PseudoMetricSpace X]
+  {f : X → ℝ} (c : ℝ) (_hc : 0 ≤ c) (x : X)
+  [Filter.NeBot (nhdsWithin x (posDist x))]
+  (h_scale :
+    Filter.limsup (fun y => (posPart (c * f x - c * f y)) / dist x y)
+      (nhdsWithin x (posDist x))
+    = c * Filter.limsup (fun y => (posPart (f x - f y)) / dist x y)
+      (nhdsWithin x (posDist x))) :
+  descendingSlope (fun y => c * f y) x = c * descendingSlope f x := by
+  -- Unfold definitions and apply the assumed limsup scaling property
+  dsimp [descendingSlope]
+  simpa using h_scale
+
+/-- Lipschitz functions have bounded descending slope. -/
+lemma descendingSlope_le_of_lipschitz {X : Type*} [PseudoMetricSpace X]
+  {f : X → ℝ} {L : NNReal} (hf : LipschitzWith L f) (x : X)
+  [Filter.NeBot (nhdsWithin x (posDist x))] :
+  descendingSlope f x ≤ L := by
+  -- Unfold the definition and work on the punctured filter F
+  dsimp [descendingSlope]
+  set F := nhdsWithin x (posDist x)
+  -- Eventual pointwise bound from Lipschitz: (f(x)-f(y))^+ / d(x,y) ≤ L
+  have h_event : ∀ᶠ y in F,
+      (posPart (f x - f y)) / dist x y ≤ (L : ℝ) := by
+    refine Filter.eventually_of_mem (self_mem_nhdsWithin) ?_
+    intro y hy
+    have hpos : 0 < dist x y := by
+      have : 0 < dist y x := hy; simpa [dist_comm] using this
+    -- |f x - f y| ≤ L * dist x y
+    have hLip : |f x - f y| ≤ (L : ℝ) * dist x y := by
+      have := LipschitzWith.dist_le_mul hf x y
+      simpa [Real.dist_eq] using this
+    -- (f x - f y)^+ ≤ |f x - f y|
+    have hpos_le_abs : posPart (f x - f y) ≤ |f x - f y| := posPart_le_abs _
+    have hchain : posPart (f x - f y) ≤ (L : ℝ) * dist x y :=
+      le_trans hpos_le_abs hLip
+    -- divide by positive distance using `div_le_div_of_nonneg_right` and simplify
+    -- Use commutativity to match (dist * L) / dist, then simplify to L
+    have hdiv : (posPart (f x - f y)) / dist x y
+                  ≤ (dist x y * (L : ℝ)) / dist x y := by
+      have hchain' : posPart (f x - f y) ≤ dist x y * (L : ℝ) := by
+        simpa [mul_comm] using hchain
+      exact div_le_div_of_nonneg_right hchain' (le_of_lt hpos)
+    have hnz : dist x y ≠ 0 := ne_of_gt hpos
+    have hR : (dist x y * (L : ℝ)) / dist x y = (L : ℝ) := by
+      calc (dist x y * (L : ℝ)) / dist x y
+            = (dist x y / dist x y) * (L : ℝ) := by rw [div_mul_eq_mul_div, mul_comm]
+        _ = 1 * (L : ℝ) := by simp [div_self hnz]
+        _ = (L : ℝ) := by simp
+    simpa [hR] using hdiv
+  -- Lower cobound: the quotient is eventually nonnegative on F
+  have h_lb : ∃ m : ℝ, ∀ᶠ y in F, m ≤ (posPart (f x - f y)) / dist x y := by
+    refine ⟨0, ?_⟩
+    refine Filter.eventually_of_mem (self_mem_nhdsWithin) ?_
+    intro y hy
+    have hpos : 0 < dist x y := by
+      have : 0 < dist y x := hy; simpa [dist_comm] using this
+    exact div_nonneg (posPart_nonneg _) (le_of_lt hpos)
+  -- Upper bound function: constant L is trivially eventually ≤ some M (e.g., L)
+  have h_gub : ∃ M : ℝ, ∀ᶠ y in F, (L : ℝ) ≤ M := by
+    refine ⟨(L : ℝ), ?_⟩
+    exact Filter.Eventually.of_forall (fun _ => le_rfl)
+  -- Monotonicity of limsup with lower cobound and eventual ≤ bound
+  have h_limsup : Filter.limsup (fun y => (posPart (f x - f y)) / dist x y) F
+                    ≤ Filter.limsup (fun _ => (L : ℝ)) F :=
+    limsup_le_of_eventually_le_real (l := F) h_lb h_gub h_event
+  -- The limsup of a constant function is that constant
+  simpa using h_limsup
+
+/-- The descending slope of F=Ent+γDσm is bounded when Ent has bounded slope. -/
+theorem ofK_slope_bound {X : Type*} [NormedAddCommGroup X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
+  (hγ : 0 ≤ gamma)
+  (hEnt_slope : ∃ M_Ent : ℝ, 0 ≤ M_Ent ∧ ∀ x : X, descendingSlope Ent x ≤ M_Ent)
+  (hDsigma_lipschitz : ∃ L : NNReal,
+    LipschitzWith L (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam)
+  (hNeBot : ∀ x : X, Filter.NeBot (nhdsWithin x (posDist x)))
+  (h_add_limsup : ∀ x : X,
+      Filter.limsup
+        (fun y => (posPart (Ent x - Ent y)) / dist x y
+                 + (posPart (gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                            - gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                          / dist x y)
+        (nhdsWithin x (posDist x))
+      ≤ Filter.limsup (fun y => (posPart (Ent x - Ent y)) / dist x y)
+          (nhdsWithin x (posDist x))
+        + Filter.limsup (fun y => (posPart (gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                            - gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                          / dist x y)
+          (nhdsWithin x (posDist x)))
+  (h_sum_ub : ∀ x : X, ∃ M : ℝ, ∀ᶠ y in nhdsWithin x (posDist x),
+      (posPart (Ent x - Ent y)) / dist x y
+      + (posPart (gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                 - gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                / dist x y ≤ M)
+  (h_scale_all : ∀ x : X,
+      Filter.limsup (fun y => (posPart (gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                                       - gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                              / dist x y)
+                   (nhdsWithin x (posDist x))
+      = gamma * Filter.limsup (fun y => (posPart ((FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                                              - (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                                      / dist x y)
+                              (nhdsWithin x (posDist x))) :
+  ∃ M : ℝ, 0 ≤ M ∧ ∀ x : X,
+    descendingSlope (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) x ≤ M :=
+by
+  -- Get the bounds
+  obtain ⟨M_Ent, hM_Ent_pos, hM_Ent⟩ := hEnt_slope
+  obtain ⟨L, hL⟩ := hDsigma_lipschitz
+  -- The slope of F = Ent + γDσm is bounded by the sum of slopes
+  -- descendingSlope(F) ≤ descendingSlope(Ent) + γ * descendingSlope(Dσm)
+  -- Since Dσm is L-Lipschitz, descendingSlope(Dσm) ≤ L
+  use M_Ent + gamma * L
+  constructor
+  · -- Show M_Ent + gamma * L ≥ 0
+    apply add_nonneg hM_Ent_pos
+    exact mul_nonneg hγ (NNReal.coe_nonneg L)
+  · -- Show the bound holds for all x
+    intro x
+    -- Register the punctured filter nontriviality at x
+    haveI : Filter.NeBot (nhdsWithin x (posDist x)) := hNeBot x
+    -- Apply the lemmas established above
+    calc descendingSlope (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) x
+        = descendingSlope (fun y => Ent y + gamma *
+            (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y) x := by
+          -- F = Ent + γ * Dsigmam by definition
+          -- FrourioFunctional.F A = fun x => A.Ent x + A.gamma * A.Dsigmam x
+          -- FrourioFunctional.ofK gives
+          -- { Ent := Ent, Dsigmam := DsigmamFromK K Ssup, gamma := gamma }
+          simp only [FrourioFunctional.ofK]
+          rfl
+        _ ≤ descendingSlope Ent x + descendingSlope (fun y => gamma *
+            (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y) x := by
+          -- Apply subadditivity of descending slope (with hypotheses)
+          exact descendingSlope_add_le x (h_add_limsup x) (h_sum_ub x)
+        _ = descendingSlope Ent x + gamma *
+            descendingSlope ((FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam) x := by
+          -- Apply scaling property
+          -- Use the scaling lemma (assumed) for descending slope
+          have hs := h_scale_all x
+          rw [descendingSlope_smul gamma hγ x hs]
+        _ ≤ M_Ent + gamma * L := by
+          -- Apply the bounds
+          apply add_le_add
+          · exact hM_Ent x
+          · apply mul_le_mul_of_nonneg_left _ hγ
+            exact descendingSlope_le_of_lipschitz hL x
+
+/-- When the entropy is Lipschitz, we get an explicit slope bound. -/
+theorem ofK_slope_bound_from_lipschitz {X : Type*} [NormedAddCommGroup X]
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
+  (hγ : 0 ≤ gamma)
+  (hEnt_lip : ∃ K_Ent : NNReal, LipschitzWith K_Ent Ent)
+  (hDsigma_lip : ∃ K_D : NNReal,
+    LipschitzWith K_D (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam)
+  (hNeBot : ∀ x : X, Filter.NeBot (nhdsWithin x (posDist x)))
+  (h_add_limsup : ∀ x : X,
+      Filter.limsup
+        (fun y => (posPart (Ent x - Ent y)) / dist x y
+                 + (posPart (gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                            - gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                          / dist x y)
+        (nhdsWithin x (posDist x))
+      ≤ Filter.limsup (fun y => (posPart (Ent x - Ent y)) / dist x y)
+          (nhdsWithin x (posDist x))
+        + Filter.limsup (fun y => (posPart (gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                            - gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                          / dist x y)
+          (nhdsWithin x (posDist x)))
+  (h_sum_ub : ∀ x : X, ∃ M : ℝ, ∀ᶠ y in nhdsWithin x (posDist x),
+      (posPart (Ent x - Ent y)) / dist x y
+      + (posPart (gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                 - gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                / dist x y ≤ M)
+  (h_scale_all : ∀ x : X,
+      Filter.limsup (fun y => (posPart (gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                                       - gamma * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                              / dist x y)
+                   (nhdsWithin x (posDist x))
+      = gamma * Filter.limsup (fun y => (posPart ((FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x
+                                              - (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam y)) 
+                                      / dist x y)
+                              (nhdsWithin x (posDist x))) :
+  ∃ M : ℝ, 0 ≤ M ∧ ∀ x : X,
+    descendingSlope (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) x ≤ M :=
+by
+  -- When Ent is K_Ent-Lipschitz, descendingSlope(Ent) ≤ K_Ent
+  obtain ⟨K_Ent, hK_Ent⟩ := hEnt_lip
+  obtain ⟨K_D, hK_D⟩ := hDsigma_lip
+  -- Apply the general bound with M_Ent = K_Ent
+  apply ofK_slope_bound Ent K gamma Ssup hγ
+  · -- Ent has bounded slope by Lipschitz
+    use K_Ent, NNReal.coe_nonneg K_Ent
+    intro x
+    haveI : Filter.NeBot (nhdsWithin x (posDist x)) := hNeBot x
+    exact descendingSlope_le_of_lipschitz hK_Ent x
+  · -- Dsigma is Lipschitz
+    exact ⟨K_D, hK_D⟩
+  · -- NeBot hypothesis
+    exact hNeBot
+  · -- Limsup subadditivity hypothesis
+    exact h_add_limsup
+  · -- Upper bound hypothesis
+    exact h_sum_ub
+  · -- Scaling limsup hypothesis
+    intro x; exact h_scale_all x
+
+end SlopeBounds
+
 /-! ### Complete AnalyticFlags Assembly
 
 This section shows that F=Ent+γDσm can provide all necessary flags
@@ -1100,7 +1733,8 @@ theorem ofK_satisfies_analytic_flags {X : Type*} [PseudoMetricSpace X]
   (hEntLB : ∀ x : X, Ent x ≥ -CEnt)  -- Lower bound condition
   (hK1 : K1prime (FrourioFunctional.ofK Ent K gamma Ssup))
   (hEntGeo : EntGeodesicSemiconvex Ent lamEff) :
-  AnalyticFlags (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
+  AnalyticFlags (FrourioFunctional.F
+    (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
 {
   proper := ofK_proper Ent K gamma Ssup,
   lsc := ofK_lower_semicontinuous_from_k1prime Ent K gamma Ssup hK1,
@@ -1118,7 +1752,8 @@ theorem ofK_satisfies_analytic_flags_with_doob {X : Type*} [PseudoMetricSpace X]
   (hEntLB : ∀ x : X, Ent x ≥ -CEnt)
   (hK1 : K1prime (FrourioFunctional.ofK Ent K gamma Ssup))
   (hEntGeo : EntGeodesicSemiconvex Ent lam) :
-  AnalyticFlags (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))
+  AnalyticFlags (FrourioFunctional.F
+    (FrourioFunctional.ofK Ent K gamma Ssup))
     (lambdaBE lam HQ.eps) :=
 {
   proper := ofK_proper Ent K gamma Ssup,

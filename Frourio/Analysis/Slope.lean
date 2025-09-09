@@ -106,6 +106,33 @@ theorem descendingSlope_const (x : X) (c : ℝ)
   rw [this]
   simp
 
+/-! ### Helper lemmas for limsup on real-valued functions -/
+
+/-- If a real-valued function is eventually bounded below on a filter and is
+eventually ≤ another function that is bounded above,
+then the limsup is monotone with respect to ≤. -/
+lemma limsup_le_of_eventually_le_real {α : Type*} {l : Filter α} [l.NeBot]
+  {f g : α → ℝ}
+  (hf_lb : ∃ m : ℝ, ∀ᶠ a in l, m ≤ f a)
+  (hg_ub : ∃ M : ℝ, ∀ᶠ a in l, g a ≤ M) -- Added: g needs an upper bound
+  (h : ∀ᶠ a in l, f a ≤ g a) :
+  Filter.limsup f l ≤ Filter.limsup g l := by
+  -- Provide the boundedness conditions explicitly
+  rcases hf_lb with ⟨m, hm⟩
+  rcases hg_ub with ⟨M, hM⟩
+  have hf_cobdd : Filter.IsCoboundedUnder (· ≤ ·) l f :=
+    Filter.isCoboundedUnder_le_of_eventually_le (l := l) (f := f) (x := m) hm
+  have hg_bdd : Filter.IsBoundedUnder (· ≤ ·) l g :=
+    Filter.isBoundedUnder_of_eventually_le hM
+  exact Filter.limsup_le_limsup h hf_cobdd hg_bdd
+
+/-- Convenience: eventual nonnegativity implies a lower cobound for use with
+`limsup_le_of_le` on real-valued functions. -/
+lemma isCoboundedUnder_le_of_eventually_nonneg {α : Type*} {l : Filter α} [l.NeBot]
+  {f : α → ℝ} (h : ∀ᶠ a in l, 0 ≤ f a) :
+  Filter.IsCoboundedUnder (· ≤ ·) l f :=
+  Filter.isCoboundedUnder_le_of_eventually_le (l := l) (f := f) (x := 0) h
+
 /-- Final Lipschitz bound (EReal): `descendingSlopeE F x ≤ K` when `F` is `K`‑Lipschitz. -/
 theorem descendingSlopeE_le_of_lipschitzWith
   (K : Real) (_hK : 0 ≤ K) (F : X → ℝ) (x : X) (hL : ∀ x y, dist (F x) (F y) ≤ K * dist x y) :
