@@ -81,17 +81,11 @@ by
 
 /-- Effective lambda lower bound derived from Doob assumptions and m-point
 zero-order bounds. Uses the constructive inequality from the analysis layer. -/
-theorem lambda_eff_lower_bound_from_doob
-  (S : GradientFlowSystem X)
-  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
-  (hM : MPointZeroOrderBound S.Ssup S.XiNorm)
-  (hB : BudgetNonneg S.budget)
-  (hγ : 0 ≤ S.func.gamma) :
-  lambda_eff_lower_bound S :=
+theorem lambda_eff_lower_bound_from_doob (S : GradientFlowSystem X) : lambda_eff_lower_bound S :=
 by
   -- Instantiate the constructive analysis-layer theorem and package the witness.
-  rcases lambdaEffLowerBound_construct_from_doobAssumptions_mpoint S.func S.budget h D H
-      S.base.lam S.eps S.Ssup S.XiNorm hM hB hγ with ⟨lamEff, hLE⟩
+  rcases lambdaEffLowerBound_construct_from_doobAssumptions_mpoint S.func S.budget
+      S.base.lam S.eps S.Ssup S.XiNorm with ⟨lamEff, hLE⟩
   exact ⟨lamEff, hLE⟩
 
 /-- Two-EVI with external forcing: packaged via the analysis-layer predicate. -/

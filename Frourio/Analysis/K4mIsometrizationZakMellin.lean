@@ -2,6 +2,22 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
+import Mathlib.Analysis.Calculus.Deriv.Mul
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.Basic
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.IntegrationByParts
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus
+import Mathlib.MeasureTheory.Measure.Haar.Basic
+import Mathlib.MeasureTheory.Function.JacobianOneDim
+import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.MeasureTheory.Integral.Bochner.L1
+import Mathlib.MeasureTheory.Integral.Bochner.VitaliCaratheodory
+import Mathlib.MeasureTheory.Integral.Bochner.ContinuousLinearMap
+import Mathlib.MeasureTheory.Integral.Bochner.FundThmCalculus
+import Mathlib.MeasureTheory.Integral.Bochner.Set
+import Mathlib.MeasureTheory.Integral.IntegralEqImproper
+import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
+import Mathlib.Data.Set.Function
 import Frourio.Analysis.KTransform
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.K4mExact
@@ -77,11 +93,58 @@ theorem scaling_isometric_logarithmic (Λ : ℝ) (hΛ : 1 < Λ) (x y : ℝ)
   rw [Real.log_mul (ne_of_gt hΛpos) (ne_of_gt hy)]
   ring_nf
 
-/-- Haar measure dx/x is invariant under scaling (axiom for measure-theoretic proof) -/
-axiom haar_measure_scaling_invariant (Λ : ℝ) (hΛ : 1 < Λ) :
+/-- Haar measure dx/x is invariant under scaling -/
+theorem haar_measure_scaling_invariant (Λ : ℝ) (hΛ : 1 < Λ) :
   ∀ f : ℝ → ℝ, (∀ x, 0 < x → Continuous (fun y => f y / y)) →
     ∫ x in Set.Ioi (0 : ℝ), f (Λ * x) / x =
-    ∫ x in Set.Ioi (0 : ℝ), f x / x
+    ∫ x in Set.Ioi (0 : ℝ), f x / x := by
+  intro f hf
+  -- The Haar measure dx/x on (0,∞) is invariant under the scaling x ↦ Λ*x
+  -- This is a fundamental property of Haar measure on the multiplicative group (ℝ₊*, ·)
+  classical
+  have hΛpos : 0 < Λ := lt_trans zero_lt_one hΛ
+  have hΛne : Λ ≠ 0 := ne_of_gt hΛpos
+  -- Auxiliary function
+  set g : ℝ → ℝ := fun x => f x / x
+  -- Change of variables over Ioi 0 (from mathlib)
+  have hcv : (∫ x in Set.Ioi (0 : ℝ), g (Λ * x)) = Λ⁻¹ * ∫ x in Set.Ioi (0 : ℝ), g x := by
+    simpa using MeasureTheory.integral_comp_mul_left_Ioi (g := g) (a := 0) (b := Λ) hΛpos
+  -- Pointwise identity on Ioi 0: f(Λx)/x = Λ * (f(Λx)/(Λx))
+  have hpt : ∀ x ∈ Set.Ioi (0 : ℝ), f (Λ * x) / x = Λ * g (Λ * x) := by
+    intro x hx
+    have hx0 : x ≠ 0 := ne_of_gt hx
+    calc
+      f (Λ * x) / x = (1 / x) * f (Λ * x) := by simp [div_eq_mul_inv, mul_comm]
+      _ = (Λ / (Λ * x)) * f (Λ * x) := by
+        field_simp [hΛne, hx0, mul_comm, mul_left_comm, mul_assoc]
+      _ = Λ * (f (Λ * x) / (Λ * x)) := by simp [div_eq_mul_inv, mul_comm, mul_left_comm]
+      _ = Λ * g (Λ * x) := rfl
+  -- First, rewrite the integrand on Ioi 0 using pointwise identity
+  have hL1 : ∫ x in Set.Ioi (0 : ℝ), f (Λ * x) / x
+      = ∫ x in Set.Ioi (0 : ℝ), Λ * g (Λ * x) := by
+    refine MeasureTheory.setIntegral_congr_fun measurableSet_Ioi ?_
+    intro x hx; simpa using hpt x hx
+  -- Pull Λ out of the integral over the restricted measure
+  have hL2 : ∫ x in Set.Ioi (0 : ℝ), Λ * g (Λ * x)
+      = Λ * ∫ x in Set.Ioi (0 : ℝ), g (Λ * x) := by
+    -- rewrite as smul and use integral_smul on the restricted measure
+    change ∫ x, (Λ) • g (Λ * x) ∂(MeasureTheory.volume.restrict (Set.Ioi (0 : ℝ)))
+        = Λ * ∫ x in Set.Ioi (0 : ℝ), g (Λ * x)
+    simpa [smul_eq_mul] using
+      (MeasureTheory.integral_smul (μ := MeasureTheory.volume.restrict (Set.Ioi (0 : ℝ)))
+        (c := Λ) (f := fun x => g (Λ * x)))
+  calc
+    ∫ x in Set.Ioi (0 : ℝ), f (Λ * x) / x
+        = ∫ x in Set.Ioi (0 : ℝ), Λ * g (Λ * x) := hL1
+    _ = Λ * ∫ x in Set.Ioi (0 : ℝ), g (Λ * x) := hL2
+    _ = Λ * (Λ⁻¹ * ∫ x in Set.Ioi (0 : ℝ), g x) := by
+          simpa [smul_eq_mul] using congrArg (fun t => Λ * t) hcv
+    _ = ∫ x in Set.Ioi (0 : ℝ), g x := by
+          have hne : Λ ≠ 0 := hΛne
+          -- The goal is: Λ * (Λ⁻¹ * I) = I
+          -- Simplify by associativity and cancellation
+          field_simp [hne]
+    _ = ∫ x in Set.Ioi (0 : ℝ), f x / x := rfl
 
 end IsometrizationTheory
 
@@ -91,12 +154,6 @@ end IsometrizationTheory
 -- Real.rpow_mul : ∀ {x : ℝ} (hx : 0 ≤ x) (y z : ℝ), x ^ (y * z) = (x ^ y) ^ z
 
 section ZakMellinTransform
-
-/-- Explicit Zak-Mellin kernel on ℝ with real parameter s -/
-noncomputable def zakMellinKernelReal (s : ℝ) : KTransform ℝ where
-  map := fun x y => if 0 < x ∧ 0 < y then
-           Real.rpow x s * Real.rpow y (-s) else 0
-  narrowContinuous := True  -- See zakMellin_narrow_continuity axiom
 
 /-- Geometric interpolation on (0,∞) -/
 noncomputable def geometricInterpolation : Displacement ℝ where
@@ -146,25 +203,21 @@ theorem zakMellin_displacement_compatibility (s : ℝ) (hs : s = 0) :
   -- Now it's just 1 * 1 = (1 - θ) * (1 * 1) + θ * (1 * 1)
   ring
 
-/-- Zak-Mellin kernel satisfies narrow continuity K1′ (axiom for now) -/
-axiom zakMellin_narrow_continuity (s : ℝ) :
-  K1primeK (zakMellinKernelReal s)
-
 end ZakMellinTransform
 
 section MetalRatioScaling
 
 /-- Scaling transformation with metal ratio -/
-noncomputable def metalRatioScaling (Λ : ℝ) (_hΛ : 0 < Λ) (k : ℤ) : ℝ → ℝ :=
+noncomputable def metalRatioScaling (Λ : ℝ) (k : ℤ) : ℝ → ℝ :=
   fun x => Real.rpow Λ (k : ℝ) * x
 
 /-- Effective lambda formula under scaling -/
-theorem effectiveLambdaFormula (Λ : ℝ) (_hΛ : 1 < Λ) (κ α : ℝ) (k : ℤ) (lam : ℝ) :
+theorem effectiveLambdaFormula (Λ : ℝ) (κ α : ℝ) (k : ℤ) (lam : ℝ) :
   ∃ lam_eff : ℝ, lam_eff = Real.rpow Λ ((κ - 2 * α) * (k : ℝ)) * lam := by
   use Real.rpow Λ ((κ - 2 * α) * (k : ℝ)) * lam
 
 /-- Critical balance: when κ = 2α, the effective lambda is invariant -/
-theorem critical_balance_invariance (Λ : ℝ) (_hΛ : 1 < Λ) (α : ℝ) (k : ℤ) (lam : ℝ) :
+theorem critical_balance_invariance (Λ : ℝ) (α : ℝ) (k : ℤ) (lam : ℝ) :
   let κ := 2 * α
   Real.rpow Λ ((κ - 2 * α) * (k : ℝ)) * lam = lam := by
   simp [Real.rpow_zero]

@@ -67,7 +67,7 @@ noncomputable def Doob {X : Type*} (h : X → ℝ) (D : Diffusion X) : Diffusion
 We keep core analytic identities as fields so that theoremization becomes
 trivial at this phase; later, these fields will be derivable from
 positivity and Leibniz/Bochner hypotheses. -/
-structure DoobAssumptions {X : Type*} (h : X → ℝ) (D : Diffusion X) : Prop where
+structure DoobAssumptions {X : Type*} (h : X → ℝ) (D : Diffusion X) where
   /-- Strict positivity of `h` ensuring the Doob transform is well-defined. -/
   (h_pos : ∀ x : X, 0 < h x)
   /-- Concrete Leibniz rule for the generator. -/
@@ -80,6 +80,13 @@ structure DoobAssumptions {X : Type*} (h : X → ℝ) (D : Diffusion X) : Prop w
   a possibly degraded parameter `lam'` for `Doob h D` with `lam' ≤ lam`.
   Later phases will refine this to an explicit formula using `∇² log h`. -/
   (cd_shift : ∀ lam : ℝ, HasCD D lam → ∃ lam' : ℝ, HasCD (Doob h D) lam' ∧ lam' ≤ lam)
+  /-- BE degradation for meta-variational principle: λ_eff ≥ λ - 2ε(h).
+  This field provides the degradation amount ε(h) ≥ 0 from the Hessian of log h. -/
+  (BE_degradation : ℝ)
+  /-- Non-negativity of degradation -/
+  (BE_degradation_nonneg : 0 ≤ BE_degradation)
+  /-- The cd_shift explicitly uses BE_degradation: Doob h D satisfies CD(λ - 2*BE_degradation) -/
+  (cd_shift_explicit : ∀ lam : ℝ, HasCD D lam → HasCD (Doob h D) (lam - 2 * BE_degradation))
 
 /-- Minimal Bochner-style correction statement needed to realize the explicit
 CD parameter shift under a Doob transform. Parameterized by `eps` from the
@@ -188,9 +195,7 @@ theorem doob_cd_with_lambdaBE {X : Type*}
 minimal Bochner correction holds. This yields an explicit CD parameter
 shift `λ' = λ − 2ε` together with `λ' ≤ λ`. -/
 structure DoobQuantitative {X : Type*} (h : X → ℝ) (D : Diffusion X) where
-  (eps : ℝ)
-  (eps_nonneg : 0 ≤ eps)
-  (bochner : BochnerMinimal h D eps)
+  (eps : ℝ) (eps_nonneg : 0 ≤ eps) (bochner : BochnerMinimal h D eps)
 
 /-- Explicit CD-parameter shift under the quantitative Doob pack. -/
 theorem cd_parameter_shift_explicit {X : Type*} (h : X → ℝ) (D : Diffusion X)
@@ -211,10 +216,7 @@ theorem cd_parameter_shift_explicit_value {X : Type*} (h : X → ℝ) (D : Diffu
 
 /- Packaged lower‑bound interface for an effective λ under Doob. -/
 structure DoobLamBound where
-  (lamBase : ℝ)
-  (eps : ℝ)
-  (lamEff : ℝ)
-  (h_lamEff : lamEff = lambdaBE lamBase eps)
+  (lamBase : ℝ) (eps : ℝ) (lamEff : ℝ) (h_lamEff : lamEff = lambdaBE lamBase eps)
 
 /- Constructor with automatic computation of lamEff -/
 def DoobLamBound.mk' (lamBase eps : ℝ) : DoobLamBound :=
@@ -232,5 +234,36 @@ lemma DoobLamBound.le_base {B : DoobLamBound} (hε : 0 ≤ B.eps) :
   have hnonneg : 0 ≤ 2 * B.eps := mul_nonneg (by norm_num) hε
   -- a - b ≤ a for b ≥ 0
   exact sub_le_self B.lamBase hnonneg
+
+/-- Extended API for meta-variational principle:
+Connect BE_degradation field to the explicit λ_eff formula. -/
+theorem doob_lambda_eff_formula {X : Type*} (h : X → ℝ) (D : Diffusion X)
+  (H : DoobAssumptions h D) (lam : ℝ) (hCD : HasCD D lam) :
+  ∃ lam_eff : ℝ, lam_eff = lam - 2 * H.BE_degradation ∧
+    HasCD (Doob h D) lam_eff ∧ lam_eff ≤ lam := by
+  -- Use the BE_degradation field directly
+  use lam - 2 * H.BE_degradation
+  refine ⟨rfl, ?_, ?_⟩
+  · -- Need to show HasCD (Doob h D) (lam - 2 * H.BE_degradation)
+    -- This follows directly from cd_shift_explicit
+    exact H.cd_shift_explicit lam hCD
+  · -- Show lam - 2 * H.BE_degradation ≤ lam
+    have h_nonneg : 0 ≤ 2 * H.BE_degradation :=
+      mul_nonneg (by norm_num : (0 : ℝ) ≤ 2) H.BE_degradation_nonneg
+    exact sub_le_self lam h_nonneg
+
+/-- Convenience: extract effective λ for meta-variational principle -/
+def doob_lambda_eff {X : Type*} (h : X → ℝ) (D : Diffusion X)
+  (H : DoobAssumptions h D) (lam : ℝ) : ℝ :=
+  lam - 2 * H.BE_degradation
+
+/-- The effective λ satisfies the expected bound -/
+theorem doob_lambda_eff_le {X : Type*} (h : X → ℝ) (D : Diffusion X)
+  (H : DoobAssumptions h D) (lam : ℝ) :
+  doob_lambda_eff h D H lam ≤ lam := by
+  unfold doob_lambda_eff
+  have h_nonneg : 0 ≤ 2 * H.BE_degradation :=
+    mul_nonneg (by norm_num : (0 : ℝ) ≤ 2) H.BE_degradation_nonneg
+  exact sub_le_self lam h_nonneg
 
 end Frourio

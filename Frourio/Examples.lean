@@ -327,14 +327,9 @@ by
 
 /-- Demo: Construct `λ_eff` lower bound from Doob+m‑point hypotheses using
 the FG-level convenience wrapper. -/
-theorem demo_lambda_eff_from_doob
-  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
-  (hM : MPointZeroOrderBound S.Ssup S.XiNorm)
-  (hB : BudgetNonneg S.budget)
-  (hg : 0 ≤ S.func.gamma) :
-  lambda_eff_lower S :=
+theorem demo_lambda_eff_from_doob : lambda_eff_lower S :=
 by
-  exact Frourio.lambda_eff_lower_from_doob S h D H hM hB hg
+  exact Frourio.lambda_eff_lower_from_doob S
 
 /-- Demo: From `two_evi_with_force S`, obtain a distance synchronization with error
 for any pair of curves `u, v` via the concrete Grönwall route. -/

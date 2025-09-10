@@ -106,16 +106,12 @@ theorem flow_suite_from_doob_mpoint
   {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X)
   (Hpack : EquivBuildAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps))
-  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
-  (hM : MPointZeroOrderBound S.Ssup S.XiNorm)
-  (hB : BudgetNonneg S.budget)
-  (hg : 0 ≤ S.func.gamma)
   (Htwo : ∀ u v : ℝ → X, TwoEVIWithForce ⟨FrourioFunctional.F S.func, S.base.lam⟩ u v) :
   gradient_flow_equiv S ∧ lambda_eff_lower_bound S ∧ two_evi_with_force S :=
 by
   -- Construct a λ_eff via the DoobAssumptions-based analysis helper.
-  rcases lambdaEffLowerBound_construct_from_doobAssumptions_mpoint S.func S.budget h D H
-      S.base.lam S.eps S.Ssup S.XiNorm hM hB hg with ⟨lamEff, hLam⟩
+  rcases lambdaEffLowerBound_construct_from_doobAssumptions_mpoint S.func S.budget
+      S.base.lam S.eps S.Ssup S.XiNorm with ⟨lamEff, hLam⟩
   -- Invoke the pack-based suite with the constructed witness.
   have G : plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
     build_plfaEdeEvi_package_weak (FrourioFunctional.F S.func)
@@ -222,8 +218,7 @@ by
 
 /-- Build the core equivalence from an `EquivBuildAssumptions` pack directly. -/
 theorem equivalence_from_equiv_pack
-  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
-  (S : GradientFlowSystem X)
+  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X] (S : GradientFlowSystem X)
   (H : EquivBuildAssumptions (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps)) :
   plfaEdeEviJko_equiv (FrourioFunctional.F S.func) (lambdaBE S.base.lam S.eps) :=
 by
@@ -242,17 +237,11 @@ def lambda_eff_lower {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
 
 /-- Convenience: construct `lambda_eff_lower` from Doob assumptions and m‑point
 zero‑order bounds using the analysis‑layer constructive inequality. -/
-theorem lambda_eff_lower_from_doob
-  {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
-  (S : GradientFlowSystem X)
-  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
-  (hM : MPointZeroOrderBound S.Ssup S.XiNorm)
-  (hB : BudgetNonneg S.budget)
-  (hg : 0 ≤ S.func.gamma) :
-  lambda_eff_lower S :=
+theorem lambda_eff_lower_from_doob {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
+  (S : GradientFlowSystem X) : lambda_eff_lower S :=
 by
   -- Delegate to the framework‑level builder.
-  exact lambda_eff_lower_bound_from_doob (X := X) S h D H hM hB hg
+  exact lambda_eff_lower_bound_from_doob (X := X) S
 
 /-- Re-export: two-EVI with external force (squared-distance synchronization). -/
 def two_evi_with_force_alias {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
@@ -260,8 +249,7 @@ def two_evi_with_force_alias {X : Type*} [PseudoMetricSpace X] [MeasurableSpace 
   two_evi_with_force S
 
 /-- Multiscale EVI parameter rule alias (m-dimensional scale composition). -/
-def evi_multiscale_rule {m : ℕ}
-  (Λ α κ : Fin m → ℝ) (k : Fin m → ℤ) : Prop :=
+def evi_multiscale_rule {m : ℕ} (Λ α κ : Fin m → ℝ) (k : Fin m → ℤ) : Prop :=
   multiscale_lambda_rule Λ α κ k
 
 /-- Distance synchronization with error (concrete route):
@@ -270,9 +258,7 @@ obtain a distance synchronization statement with an explicit error `η`.
 This wraps `twoEVIWithForce_to_distance_concrete`. -/
 theorem two_evi_with_force_to_distance_concrete
   {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
-  (S : GradientFlowSystem X)
-  (Htwo : two_evi_with_force S)
-  (u v : ℝ → X) :
+  (S : GradientFlowSystem X) (Htwo : two_evi_with_force S) (u v : ℝ → X) :
   ∃ η : ℝ,
     (gronwall_exponential_contraction_with_error_half_pred S.base.lam η
       (fun t => d2 (u t) (v t))) →
@@ -286,9 +272,7 @@ holds for all `η`, then `two_evi_with_force S` yields a distance synchronizatio
 bound without additional inputs. Wraps `twoEVIWithForce_to_distance_concrete_closed`. -/
 theorem two_evi_with_force_to_distance_concrete_closed
   {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
-  (S : GradientFlowSystem X)
-  (Htwo : two_evi_with_force S)
-  (u v : ℝ → X)
+  (S : GradientFlowSystem X) (Htwo : two_evi_with_force S) (u v : ℝ → X)
   (Hgr_all : ∀ η : ℝ,
     gronwall_exponential_contraction_with_error_half_pred S.base.lam η
       (fun t => d2 (u t) (v t))) :

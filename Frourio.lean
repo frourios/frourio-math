@@ -17,8 +17,11 @@ import Frourio.Geometry.DiracIndex
 import Frourio.Geometry.FGCore
 import Frourio.Geometry.FGInterop
 import Frourio.Geometry.MPointCalibration
+import Frourio.Geometry.MoscoStability
 import Frourio.Geometry.FGTheorems.FGTheorems
+import Frourio.Geometry.GInvariance
 import Frourio.Geometry.GradientFlowFramework
+import Frourio.Geometry.Rigidity
 import Frourio.Theorems.NoGoTheorem
 import Frourio.Theorems.GoldenExtremality
 import Frourio.Examples

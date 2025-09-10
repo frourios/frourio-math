@@ -92,11 +92,6 @@ noncomputable def cDCoeff (_σ : ℝ) : ℝ := 0
 noncomputable def budgetFromSigma (σ : ℝ) : ConstantBudget :=
   ⟨cStarCoeff σ, cDCoeff σ⟩
 
-/-- Optional FG‑side predicate indicating a commutative design regime.
-In such regimes, one typically expects `c_* (σ) = 0`. This is a statement‑level
-flag only; quantitative realization is deferred to later phases. -/
-def CommutativeDesign : Prop := True
-
 /-- Boolean toggle for commutative-design simplification at scale `σ`.
 When `comm = true`, the `c_*` contribution is set to `0` in the assembled budget. -/
 noncomputable def budgetFromSigmaWithFlag (σ : ℝ) (comm : Bool) : ConstantBudget :=

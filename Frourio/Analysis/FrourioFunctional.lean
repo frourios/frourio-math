@@ -26,9 +26,7 @@ lower-bound predicate for the effective contraction rate.
 
 /-- Core functional container. -/
 structure FrourioFunctional (X : Type*) [PseudoMetricSpace X] where
-  (Ent : X → ℝ)
-  (Dsigmam : X → ℝ)
-  (gamma : ℝ)
+  (Ent : X → ℝ) (Dsigmam : X → ℝ) (gamma : ℝ)
 
 /-- Combined functional `F(x) = Ent x + gamma * Dsigmam x`. -/
 noncomputable def FrourioFunctional.F {X : Type*} [PseudoMetricSpace X]
@@ -108,8 +106,7 @@ by
   exact this
 
 theorem ofK_coercive_from_bounds {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup CEnt : ℝ)
-  (_hEntLB : ∀ x : X, Ent x ≥ -CEnt) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) :
   Coercive (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
 by
   -- Provide the per-point slack with `c = 0`.
@@ -118,10 +115,7 @@ by
 /-- If `K1prime` holds for the functional built from `K`, and `Ent` has a uniform
 lower bound, then the combined functional `F` is Coercive. -/
 theorem ofK_coercive_from_k1prime {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup CEnt : ℝ)
-  (_hEntLB : ∀ x : X, Ent x ≥ -CEnt)
-  (_hK1 : K1prime (FrourioFunctional.ofK Ent K gamma Ssup))
-  (_hγ : 0 ≤ gamma) (_hCEnt : 0 ≤ CEnt) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) :
   Coercive (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
 by
   -- For the surrogate version, we can always choose c = 0
@@ -131,8 +125,7 @@ by
 /-- If the functional built from `K` satisfies `K1prime`, then it is LowerSemicontinuous
 (in the surrogate sense). -/
 theorem ofK_lower_semicontinuous_from_k1prime {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (_hK1 : K1prime (FrourioFunctional.ofK Ent K gamma Ssup)) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) :
   LowerSemicontinuous (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
 by
   -- For the surrogate version, we can always choose c = 0
@@ -166,8 +159,7 @@ by
 
 /-- If gamma ≥ 0, then K4^m holds for the functional built from K. -/
 theorem k4m_ofK_from_gamma_nonneg {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (hγ : 0 ≤ gamma) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (hγ : 0 ≤ gamma) :
   K4m (FrourioFunctional.ofK Ent K gamma Ssup) :=
 by
   exact hγ
@@ -192,8 +184,7 @@ by
 /-- JKO stability for general FrourioFunctional.
 This provides the JKO property for any FrourioFunctional, showing that
 from any initial point, there exists a (constant) curve along which F is non-increasing. -/
-theorem jko_stable_general {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) :
+theorem jko_stable_general {X : Type*} [PseudoMetricSpace X] (A : FrourioFunctional X) :
   JKOStable (FrourioFunctional.F A) :=
 by
   intro ρ0
@@ -207,16 +198,14 @@ by
 
 /-- JKO property with explicit curve construction.
 Given an initial point, construct a JKO curve (constant curve in the surrogate case). -/
-def constructJKOCurve {X : Type*} [PseudoMetricSpace X]
-  (_A : FrourioFunctional X) (ρ0 : X) : ℝ → X :=
+def constructJKOCurve {X : Type*} [PseudoMetricSpace X] (ρ0 : X) : ℝ → X :=
   fun _ => ρ0
 
 /-- The constructed JKO curve satisfies the JKO property. -/
 theorem constructJKOCurve_satisfies_jko {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (ρ0 : X) :
-  JKO (FrourioFunctional.F A) ρ0 :=
+  (A : FrourioFunctional X) (ρ0 : X) : JKO (FrourioFunctional.F A) ρ0 :=
 by
-  use constructJKOCurve A ρ0
+  use constructJKOCurve ρ0
   constructor
   · -- Initial condition
     rfl
@@ -228,8 +217,7 @@ by
 
 /-- K4^m is preserved under scaling of gamma by a nonnegative factor. -/
 theorem k4m_scale {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (c : ℝ)
-  (hc : 0 ≤ c) (hK4 : K4m A) :
+  (A : FrourioFunctional X) (c : ℝ) (hc : 0 ≤ c) (hK4 : K4m A) :
   K4m { A with gamma := c * A.gamma } :=
 by
   dsimp [K4m] at hK4 ⊢
@@ -237,8 +225,7 @@ by
 
 /-- If both K1′ and K4^m hold, the functional has controlled behavior. -/
 theorem controlled_functional_from_k1_k4 {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X)
-  (hK1 : K1prime A) (hK4 : K4m A) :
+  (A : FrourioFunctional X) (hK1 : K1prime A) (hK4 : K4m A) :
   (∃ C : ℝ, ∀ x : X, A.Dsigmam x ≥ -C) ∧ (0 ≤ A.gamma) :=
 ⟨hK1, hK4⟩
 
@@ -250,8 +237,7 @@ theorem controlled_functional_from_k1_k4 {X : Type*} [PseudoMetricSpace X]
 
 /-- Budget constants entering the effective-rate bound. -/
 structure ConstantBudget where
-  (cStar : ℝ)
-  (cD : ℝ)
+  (cStar : ℝ) (cD : ℝ)
 
 /-- Lower bound predicate for the effective contraction rate `λ_eff`.
 Parameters `Ssup` and `XiNorm` act as proxies for `‖S_m‖_∞` and `‖Ξ_m‖`.
@@ -259,8 +245,7 @@ Parameters `Ssup` and `XiNorm` act as proxies for `‖S_m‖_∞` and `‖Ξ_m�
   λ_eff ≥ (λ - 2 ε) - γ · (cStar · Ssup^2 + cD · XiNorm)
 -/
 def lambdaEffLowerBound {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (lam eps lamEff Ssup XiNorm : ℝ) : Prop :=
+  (A : FrourioFunctional X) (budget : ConstantBudget) (lam eps lamEff Ssup XiNorm : ℝ) : Prop :=
   lamEff ≥ lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)
 
 /-- Theoremized form: wrap a provided inequality as the `lambdaEffLowerBound` fact. -/
@@ -276,8 +261,7 @@ then any `lamEff' ≥ lamEff` also satisfies it. -/
 theorem lambdaEffLowerBound_mono {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) (budget : ConstantBudget)
   {lam eps lamEff lamEff' Ssup XiNorm : ℝ}
-  (hle : lamEff ≤ lamEff')
-  (h : lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm) :
+  (hle : lamEff ≤ lamEff') (h : lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm) :
   lambdaEffLowerBound A budget lam eps lamEff' Ssup XiNorm :=
 by
   -- `h : lamEff ≥ RHS` and `hle : lamEff ≤ lamEff'` imply `lamEff' ≥ RHS`.
@@ -295,8 +279,7 @@ contribution of Dσm, controlled by the budget constants. -/
 
 /-- Upper bound for Dσm based on kernel evaluation at s=0. -/
 theorem DsigmamFromK_upper_bound {X : Type*} [PseudoMetricSpace X]
-  (K : KTransform X) (Ssup C0 : ℝ)
-  (hS : 0 ≤ Ssup) (hUB : ∀ x : X, K.map x 0 ≤ C0) :
+  (K : KTransform X) (Ssup C0 : ℝ) (hS : 0 ≤ Ssup) (hUB : ∀ x : X, K.map x 0 ≤ C0) :
   ∀ x : X, DsigmamFromK K Ssup x ≤ Ssup * C0 :=
 by
   intro x
@@ -312,10 +295,8 @@ def ZeroOrderBound {X : Type*} [PseudoMetricSpace X]
 when Ent is bounded above and Dσm has zero-order bound. -/
 theorem ofK_strong_upper_bound_parametric {X : Type*} [PseudoMetricSpace X]
   (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (_budget : ConstantBudget) (CEnt C0 : ℝ)
-  (hγ : 0 ≤ gamma) (hS : 0 ≤ Ssup) (hC0 : 0 ≤ C0) (hCEnt : 0 ≤ CEnt)
-  (hEntUB : ∀ x : X, Ent x ≤ CEnt)
-  (hKUB : ∀ x : X, K.map x 0 ≤ C0) :
+  (CEnt C0 : ℝ) (hγ : 0 ≤ gamma) (hS : 0 ≤ Ssup) (hC0 : 0 ≤ C0) (hCEnt : 0 ≤ CEnt)
+  (hEntUB : ∀ x : X, Ent x ≤ CEnt) (hKUB : ∀ x : X, K.map x 0 ≤ C0) :
   ∃ c : ℝ, 0 ≤ c ∧ ∀ x : X,
     FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup) x ≤ c :=
 by
@@ -345,8 +326,8 @@ by
 
 /-- Budget-aware StrongUpperBound: Connect budget constants to the upper bound. -/
 theorem strongUpperBound_from_budget {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (_budget : ConstantBudget) (_Ssup _XiNorm : ℝ)
-  (hγ : 0 ≤ A.gamma) (hEnt : ∃ CEnt : ℝ, 0 ≤ CEnt ∧ ∀ x : X, A.Ent x ≤ CEnt)
+  (A : FrourioFunctional X) (hγ : 0 ≤ A.gamma)
+  (hEnt : ∃ CEnt : ℝ, 0 ≤ CEnt ∧ ∀ x : X, A.Ent x ≤ CEnt)
   (hDsigma : ∃ CDsigma : ℝ, 0 ≤ CDsigma ∧ ∀ x : X, A.Dsigmam x ≤ CDsigma) :
   StrongUpperBound (FrourioFunctional.F A) :=
 by
@@ -374,15 +355,12 @@ by
 
 /-- Integration: StrongUpperBound from kernel bound and budget parameters. -/
 theorem strongUpperBound_from_kernel_and_budget {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (budget : ConstantBudget) (CEnt C0 : ℝ)
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (CEnt C0 : ℝ)
   (hγ : 0 ≤ gamma) (hS : 0 ≤ Ssup) (hCEnt : 0 ≤ CEnt) (hC0 : 0 ≤ C0)
-  (_hBudget : BudgetNonneg budget)
-  (hEntUB : ∀ x : X, Ent x ≤ CEnt)
-  (hKUB : ∀ x : X, K.map x 0 ≤ C0) :
+  (hEntUB : ∀ x : X, Ent x ≤ CEnt) (hKUB : ∀ x : X, K.map x 0 ≤ C0) :
   StrongUpperBound (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
 by
-  apply strongUpperBound_from_budget (FrourioFunctional.ofK Ent K gamma Ssup) budget Ssup 0 hγ
+  apply strongUpperBound_from_budget (FrourioFunctional.ofK Ent K gamma Ssup) hγ
   · use CEnt, hCEnt, hEntUB
   · use Ssup * C0
     constructor
@@ -399,12 +377,7 @@ by
 provides λ_BE = λ - 2ε, and the m-point terms provide additional corrections. -/
 theorem lambdaEffLowerBound_from_doobAssumptions_mpoint {X : Type*}
   [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (h : X → ℝ) (D : Diffusion X) (_H : DoobAssumptions h D)
-  (lam eps lamEff Ssup XiNorm : ℝ)
-  (_hM : MPointZeroOrderBound Ssup XiNorm)
-  (_hB : BudgetNonneg budget)
-  (_hγ : 0 ≤ A.gamma)
+  (A : FrourioFunctional X) (budget : ConstantBudget) (lam eps lamEff Ssup XiNorm : ℝ)
   (hChoice : lamEff ≥
       lambdaBE lam eps
         - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)) :
@@ -414,36 +387,24 @@ theorem lambdaEffLowerBound_from_doobAssumptions_mpoint {X : Type*}
 /-- API: Direct connection from DoobAssumptions to the effective rate formula.
 Given DoobAssumptions with parameter ε, we get λ_eff ≥ (λ - 2ε) - γ·(m-point terms). -/
 theorem lambdaEff_formula_from_doob {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (h : X → ℝ) (D : Diffusion X) (H : DoobAssumptions h D)
-  (lam eps Ssup XiNorm : ℝ)
-  (_heps : 0 ≤ eps)
-  (_hM : MPointZeroOrderBound Ssup XiNorm)
-  (_hB : BudgetNonneg budget)
-  (_hγ : 0 ≤ A.gamma) :
+  (A : FrourioFunctional X) (budget : ConstantBudget) (lam eps Ssup XiNorm : ℝ) :
   ∃ lamEff : ℝ,
     lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm ∧
     lamEff = lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
 by
   use lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)
   constructor
-  · exact lambdaEffLowerBound_from_doobAssumptions_mpoint A budget h D H lam eps
+  · exact lambdaEffLowerBound_from_doobAssumptions_mpoint A budget lam eps
       (lambdaBE lam eps - A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm))
-      Ssup XiNorm _hM _hB _hγ (le_refl _)
+      Ssup XiNorm (le_refl _)
   · rfl
 
 /-- Constructive variant using `DoobAssumptions`: produce an explicit
 `lamEff` witnessing the lower bound, given m-point zero-order bounds and
 budget nonnegativity. The Doob CD-shift is tracked via `DoobAssumptions`
 but not quantitatively used at this phase. -/
-theorem lambdaEffLowerBound_construct_from_doobAssumptions_mpoint {X : Type*}
-  [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (h : X → ℝ) (D : Diffusion X) (_H : DoobAssumptions h D)
-  (lam eps Ssup XiNorm : ℝ)
-  (_hM : MPointZeroOrderBound Ssup XiNorm)
-  (_hB : BudgetNonneg budget)
-  (_hγ : 0 ≤ A.gamma) :
+theorem lambdaEffLowerBound_construct_from_doobAssumptions_mpoint {X : Type*} [PseudoMetricSpace X]
+  (A : FrourioFunctional X) (budget : ConstantBudget) (lam eps Ssup XiNorm : ℝ) :
   ∃ lamEff : ℝ, lambdaEffLowerBound A budget lam eps lamEff Ssup XiNorm :=
 by
   -- Choose the canonical RHS value as `lamEff`.
@@ -460,10 +421,8 @@ Given a Doob transform with parameter ε and m-point zero-order bounds,
 we obtain: λ_eff ≥ (λ - 2ε) - γ·(c_* · Ssup² + c_D · XiNorm). -/
 theorem lambdaEffLowerBound_from_doob_pack {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) (budget : ConstantBudget)
-  (h : X → ℝ) (D : Diffusion X)
-  (doobPack : DoobQuantitative h D) -- Doob pack with ε
-  (lam Ssup XiNorm : ℝ)
-  (hCD : HasCD D lam) : -- Base CD condition
+  (h : X → ℝ) (D : Diffusion X) (doobPack : DoobQuantitative h D) -- Doob pack with ε
+  (lam Ssup XiNorm : ℝ) (hCD : HasCD D lam) : -- Base CD condition
   ∃ lamEff : ℝ,
     lambdaEffLowerBound A budget lam doobPack.eps lamEff Ssup XiNorm ∧
     lamEff = lambdaBE lam doobPack.eps - A.gamma * (budget.cStar * Ssup ^ 2 + budget.cD * XiNorm) ∧
@@ -481,11 +440,8 @@ theorem lambdaEffLowerBound_from_doob_pack {X : Type*} [PseudoMetricSpace X]
 In commutative designs, the star term vanishes, giving:
 λ_eff ≥ (λ - 2ε) - γ·(c_D · XiNorm). -/
 theorem lambdaEffLowerBound_commutative {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (h : X → ℝ) (D : Diffusion X)
-  (doobPack : DoobQuantitative h D)
-  (lam Ssup XiNorm : ℝ)
-  (hCD : HasCD D lam)
+  (A : FrourioFunctional X) (budget : ConstantBudget) (h : X → ℝ) (D : Diffusion X)
+  (doobPack : DoobQuantitative h D) (lam Ssup XiNorm : ℝ) (hCD : HasCD D lam)
   (hCommutative : budget.cStar = 0) : -- Commutative design condition
   ∃ lamEff : ℝ,
     lambdaEffLowerBound A budget lam doobPack.eps lamEff Ssup XiNorm ∧
@@ -517,10 +473,8 @@ theorem lambdaEffLowerBound_commutative_remark {X : Type*} [PseudoMetricSpace X]
 /-- Constructor for effective lambda with explicit Doob pack and m-point budget.
 This provides a convenient API for downstream usage. -/
 def constructLambdaEff {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (h : X → ℝ) (D : Diffusion X)
-  (doobPack : DoobQuantitative h D)
-  (lam Ssup XiNorm : ℝ) : ℝ :=
+  (A : FrourioFunctional X) (budget : ConstantBudget) (h : X → ℝ) (D : Diffusion X)
+  (doobPack : DoobQuantitative h D) (lam Ssup XiNorm : ℝ) : ℝ :=
   lambdaBE lam doobPack.eps - A.gamma * (budget.cStar * Ssup ^ 2 + budget.cD * XiNorm)
 
 /-
@@ -549,31 +503,27 @@ noncomputable def slope {X : Type*} [PseudoMetricSpace X]
   |∂F|(x) ≤ |∂Ent|(x) + γ · (cStar · Ssup^2 + cD · XiNorm)
 Kept abstract via the `slope` helper. -/
 def StrongSlopeUpperBound_pred {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (Ssup XiNorm : ℝ) : Prop :=
+  (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ) : Prop :=
   ∀ x : X,
     slope (FrourioFunctional.F A) x
       ≤ slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)
 
 /-- Parametric strong slope upper bound using an abstract slope specification. -/
 def StrongSlopeUpperBound_with {X : Type*} [PseudoMetricSpace X]
-  (S : SlopeSpec X) (A : FrourioFunctional X) (budget : ConstantBudget)
-  (Ssup XiNorm : ℝ) : Prop :=
+  (S : SlopeSpec X) (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ) : Prop :=
   ∀ x : X,
     S.slope (FrourioFunctional.F A) x
       ≤ S.slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm)
 
 /-- Default strong slope upper bound using the implemented descending slope. -/
 def StrongSlopeUpperBound {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (Ssup XiNorm : ℝ) : Prop :=
+  (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ) : Prop :=
   StrongSlopeUpperBound_with (descendingSlopeSpec X) A budget Ssup XiNorm
 
 /-- The legacy predicate `StrongSlopeUpperBound_pred` is the `StrongSlopeUpperBound_with`
 for the default zero slope. -/
 theorem strongSlope_with_zero_equiv {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (Ssup XiNorm : ℝ) :
+  (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ) :
   StrongSlopeUpperBound_pred A budget Ssup XiNorm
     ↔ StrongSlopeUpperBound_with (zeroSlopeSpec X) A budget Ssup XiNorm :=
 by
@@ -585,8 +535,7 @@ by
 
 /-- Theoremized strong slope upper bound (wrapper from the predicate). -/
 theorem slope_strong_upper_bound {X : Type*} [PseudoMetricSpace X]
-  (A : FrourioFunctional X) (budget : ConstantBudget)
-  (Ssup XiNorm : ℝ)
+  (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ)
   (H : StrongSlopeUpperBound_pred A budget Ssup XiNorm) :
   ∀ x : X,
     slope (FrourioFunctional.F A) x
@@ -596,8 +545,7 @@ theorem slope_strong_upper_bound {X : Type*} [PseudoMetricSpace X]
 /-- Parametric version: theoremized strong slope upper bound using a slope spec. -/
 theorem slope_strong_upper_bound_with {X : Type*} [PseudoMetricSpace X]
   (S : SlopeSpec X) (A : FrourioFunctional X) (budget : ConstantBudget)
-  (Ssup XiNorm : ℝ)
-  (H : StrongSlopeUpperBound_with S A budget Ssup XiNorm) :
+  (Ssup XiNorm : ℝ) (H : StrongSlopeUpperBound_with S A budget Ssup XiNorm) :
   ∀ x : X,
     S.slope (FrourioFunctional.F A) x
       ≤ S.slope A.Ent x + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
@@ -606,8 +554,7 @@ theorem slope_strong_upper_bound_with {X : Type*} [PseudoMetricSpace X]
 /-- Wrapper: theoremized strong slope upper bound in the default (descending slope) route. -/
 theorem slope_strong_upper_bound_default {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) (budget : ConstantBudget)
-  (Ssup XiNorm : ℝ)
-  (H : StrongSlopeUpperBound A budget Ssup XiNorm) :
+  (Ssup XiNorm : ℝ) (H : StrongSlopeUpperBound A budget Ssup XiNorm) :
   ∀ x : X,
     (descendingSlopeSpec X).slope (FrourioFunctional.F A) x
       ≤ (descendingSlopeSpec X).slope A.Ent x
@@ -640,21 +587,18 @@ by
 This section provides the connection between Ent's λ_BE-geodesic semiconvexity
 and the HalfConvex flag required by the PLFA framework. -/
 
-/-- Predicate: Ent satisfies λ-geodesic semiconvexity.
-This is a placeholder definition - the actual condition involves
-geodesic interpolation and will be formalized in a later PR. -/
-def EntGeodesicSemiconvex {X : Type*} [PseudoMetricSpace X] (_Ent : X → ℝ) (_lambda : ℝ) : Prop :=
-  -- Placeholder: true means we assume it holds as a flag
-  -- The actual definition would be:
-  -- ∀ x y : X, ∀ t ∈ [0,1], Ent(γ_t) ≤ (1-t)·Ent(x) + t·Ent(y) + λ·t(1-t)·d²(x,y)/2
-  True
+/-- Predicate: Ent satisfies λ-geodesic semiconvexity with respect to some
+geodesic structure on X. This packages the existence of a geodesic
+interpolation `γ` for which the standard λ-semiconvex inequality holds. -/
+def EntGeodesicSemiconvex {X : Type*} [PseudoMetricSpace X]
+  (Ent : X → ℝ) (lambda : ℝ) : Prop :=
+  ∃ G : GeodesicStructure X, GeodesicSemiconvex G Ent lambda
 
 /-- If Ent satisfies λ_BE-geodesic semiconvexity, then F = Ent + γ·Dσm
 inherits HalfConvex property with parameter λ_BE. This is a placeholder
 flag - the actual derivation is deferred to a later PR. -/
 theorem halfConvex_from_ent_geodesic_semiconvex {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (lambdaBE : ℝ) (_hEnt : EntGeodesicSemiconvex Ent lambdaBE) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (lambdaBE : ℝ) :
   HalfConvex (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lambdaBE :=
 by
   -- Placeholder implementation: HalfConvex with c = 0
@@ -666,60 +610,42 @@ by
 satisfies λ-geodesic semiconvexity, then the transformed functional
 has HalfConvex property with λ_BE. -/
 theorem halfConvex_from_doob_lambdaBE {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (_h : X → ℝ) (_D : Diffusion X)
-  (lam eps : ℝ) (_heps : 0 ≤ eps)
-  (_H : DoobAssumptions _h _D)
-  (_hBochner : BochnerMinimal _h _D eps)
-  (_hEntGeo : EntGeodesicSemiconvex Ent lam) :
-  HalfConvex (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))
-    (lambdaBE lam eps) :=
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (lam eps : ℝ) :
+  HalfConvex (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) (lambdaBE lam eps) :=
 by
-  -- Use the λ_BE-geodesic semiconvexity that results from Doob transform
-  have : EntGeodesicSemiconvex Ent (lambdaBE lam eps) := by
-    -- This would be proved using the Doob transform's effect on curvature
-    -- For now, we use the placeholder definition
-    exact True.intro
-  exact halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup (lambdaBE lam eps) this
+  -- In the current surrogate development, we provide HalfConvex directly;
+  -- once the Doob-induced λ_BE semiconvexity is formalized, this lemma can
+  -- forward that hypothesis here.
+  exact halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup (lambdaBE lam eps)
 
 /-- Combined flag provider: Given all necessary conditions, provide the
 HalfConvex flag with λ_BE for use in AnalyticFlags. -/
 def provideHalfConvexFlag {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (lambdaBE : ℝ) (_hEnt : EntGeodesicSemiconvex Ent lambdaBE) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (lambdaBE : ℝ) :
   HalfConvex (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lambdaBE :=
-  halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup lambdaBE _hEnt
+  halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup lambdaBE
 
 /-- API: Extract HalfConvex flag from DoobQuantitative pack.
 This provides the flag needed for AnalyticFlagsReal. -/
 theorem halfConvexFlag_from_doobQuantitative {X : Type*} [PseudoMetricSpace X]
   (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (_h : X → ℝ) (_D : Diffusion X)
-  (HQ : DoobQuantitative _h _D) (lam : ℝ)
-  (_hEntGeo : EntGeodesicSemiconvex Ent lam) :
+  (h : X → ℝ) (D : Diffusion X) (HQ : DoobQuantitative h D) (lam : ℝ) :
   HalfConvex (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))
     (lambdaBE lam HQ.eps) :=
 by
-  -- Since EntGeodesicSemiconvex is defined as True (placeholder),
-  -- and the Doob transform shifts the parameter to λ_BE = λ - 2ε,
-  -- we can directly apply the base theorem
-  have hEntBE : EntGeodesicSemiconvex Ent (lambdaBE lam HQ.eps) := by
-    -- Placeholder: the actual proof would derive this from the Doob transform
-    -- For now, EntGeodesicSemiconvex is defined as True
-    exact True.intro
-  exact halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup (lambdaBE lam HQ.eps) hEntBE
+  -- Leverage the base construction; once Doob regularity is formalized, one
+  -- can thread the resulting λ_BE-semi‑convexity through this lemma.
+  exact halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup (lambdaBE lam HQ.eps)
 
 /-- Integration theorem: The HalfConvex flag from EntGeodesicSemiconvex
 and StrongUpperBound from budget satisfy the requirements for
 PLFA_EDE_from_analytic_flags, which ultimately feeds into AnalyticFlagsReal. -/
 theorem halfConvex_strongUpperBound_integration {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (lambdaBE : ℝ) (hEnt : EntGeodesicSemiconvex Ent lambdaBE)
-  (_budget : ConstantBudget) (_XiNorm : ℝ)
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (lambdaBE : ℝ)
   (hSUB : StrongUpperBound (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))) :
   HalfConvex (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lambdaBE ∧
   StrongUpperBound (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
-⟨halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup lambdaBE hEnt, hSUB⟩
+⟨halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup lambdaBE, hSUB⟩
 
 /-! ### Proper Property for AnalyticFlagsReal
 
@@ -731,9 +657,7 @@ there exists a sublevel set that is nonempty and F is bounded below. -/
 theorem ofK_proper_real {X : Type*} [PseudoMetricSpace X]
   (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
   (x₀ : X) -- Need at least one point in X
-  (CEnt CDsigma : ℝ)
-  (hγ : 0 ≤ gamma)
-  (hEntLB : ∀ x : X, Ent x ≥ -CEnt)
+  (CEnt CDsigma : ℝ) (hγ : 0 ≤ gamma) (hEntLB : ∀ x : X, Ent x ≥ -CEnt)
   (hDsigmaLB : ∀ x : X, (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x ≥ -CDsigma) :
   ∃ c : ℝ,
     (Set.Nonempty {x | FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup) x ≤ c}) ∧
@@ -768,10 +692,8 @@ by
 
 /-- Alternative: proper property using uniform bounds from K1'. -/
 theorem ofK_proper_real_from_k1prime {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (x₀ : X) (CEnt : ℝ)
-  (hγ : 0 ≤ gamma)
-  (hEntLB : ∀ x : X, Ent x ≥ -CEnt)
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (x₀ : X) (CEnt : ℝ)
+  (hγ : 0 ≤ gamma) (hEntLB : ∀ x : X, Ent x ≥ -CEnt)
   (hK1 : K1prime (FrourioFunctional.ofK Ent K gamma Ssup)) :
   ∃ c : ℝ,
     (Set.Nonempty {x | FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup) x ≤ c}) ∧
@@ -783,22 +705,16 @@ by
   exact hDsigmaLB
 
 /-- Comparison: The surrogate `Proper` is weaker than the real `proper`. -/
-theorem proper_surrogate_from_real {X : Type*} [PseudoMetricSpace X]
-  (F : X → ℝ)
-  (_h_real : ∃ c : ℝ, (Set.Nonempty {x | F x ≤ c}) ∧ BddBelow (Set.range F)) :
-  Proper F :=
+theorem proper_surrogate_from_real {X : Type*} [PseudoMetricSpace X] (F : X → ℝ) : Proper F :=
 by
   -- The surrogate version is trivially satisfied with C = 0
   exact ⟨0, fun x => by simp⟩
 
 /-- Helper: Convert real proper to surrogate proper for the functional. -/
 theorem ofK_proper_from_proper_real {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (h_real : ∃ c : ℝ,
-    (Set.Nonempty {x | FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup) x ≤ c}) ∧
-    BddBelow (Set.range (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)))) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) :
   Proper (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
-  proper_surrogate_from_real _ h_real
+  proper_surrogate_from_real _
 
 /-! ### Lower Semicontinuity for AnalyticFlagsReal
 
@@ -848,8 +764,7 @@ end LowerSemicontinuousLemmas
 /-- The functional F=Ent+γDσm is lower semicontinuous in Mathlib's sense
 when both Ent and Dσm are lower semicontinuous. -/
 theorem ofK_lowerSemicontinuous_real {X : Type*} [PseudoMetricSpace X] [TopologicalSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (hγ : 0 ≤ gamma)
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (hγ : 0 ≤ gamma)
   (hEnt_lsc : _root_.LowerSemicontinuous Ent)
   (hDsigma_lsc : _root_.LowerSemicontinuous ((FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam)) :
   _root_.LowerSemicontinuous (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
@@ -882,10 +797,8 @@ by
 and K has pointwise continuity in the state variable. -/
 theorem ofK_lowerSemicontinuous_from_continuous {X : Type*} [PseudoMetricSpace X]
   [TopologicalSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (hγ : 0 ≤ gamma) (hS : 0 ≤ Ssup)
-  (hEnt_cont : Continuous Ent)
-  (hK_cont : ∀ s : ℝ, Continuous (fun x => K.map x s)) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (hγ : 0 ≤ gamma) (hS : 0 ≤ Ssup)
+  (hEnt_cont : Continuous Ent) (hK_cont : ∀ s : ℝ, Continuous (fun x => K.map x s)) :
   _root_.LowerSemicontinuous (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
 by
   apply ofK_lowerSemicontinuous_real Ent K gamma Ssup hγ
@@ -896,9 +809,7 @@ by
     exact dsigmam_lowerSemicontinuous_from_k1 K Ssup hS hK_cont
 
 /-- Comparison: The surrogate LowerSemicontinuous is weaker than Mathlib's. -/
-theorem lsc_surrogate_from_real {X : Type*} [PseudoMetricSpace X]
-  (F : X → ℝ)
-  (_h_real : _root_.LowerSemicontinuous F) :
+theorem lsc_surrogate_from_real {X : Type*} [PseudoMetricSpace X] (F : X → ℝ) :
   LowerSemicontinuous F :=
 by
   -- The surrogate version is trivially satisfied with c = 0
@@ -908,11 +819,9 @@ by
 /-- Helper: Show that if F satisfies Mathlib's lower semicontinuity,
 then it also satisfies the surrogate version. -/
 theorem ofK_lsc_surrogate_from_real {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (h_real : _root_.LowerSemicontinuous
-    (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) :
   LowerSemicontinuous (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
-  lsc_surrogate_from_real _ h_real
+  lsc_surrogate_from_real _
 
 /-! ### Coercivity for AnalyticFlagsReal
 
@@ -971,7 +880,7 @@ by
 
 /-- Helper: The surrogate coercive property is weaker than the real one. -/
 theorem coercive_surrogate_from_real {X : Type*} [NormedAddCommGroup X] [PseudoMetricSpace X]
-  (F : X → ℝ) (_h_real : CoerciveReal F) : Coercive F :=
+  (F : X → ℝ) : Coercive F :=
 by
   -- The surrogate version is trivially satisfied
   intro x
@@ -980,10 +889,9 @@ by
 /-- Helper: Show that if F satisfies real coercivity,
 then it also satisfies the surrogate version. -/
 theorem ofK_coercive_surrogate_from_real {X : Type*} [NormedAddCommGroup X] [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (h_real : CoerciveReal (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup))) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) :
   Coercive (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) :=
-  coercive_surrogate_from_real _ h_real
+  coercive_surrogate_from_real _
 
 end CoercivityReal
 
@@ -1039,18 +947,17 @@ def StandardGeodesicStructure (X : Type*) [NormedAddCommGroup X] [NormedSpace �
       _ = |t - s| * ‖y - x‖ := by simp [norm_smul]
       _ = |t - s| * dist x y := by simp [dist_eq_norm, norm_sub_rev]
 
-theorem ofK_geodesic_structure {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X]
-  (_Ent : X → ℝ) (_K : KTransform X) (_gamma _Ssup : ℝ) :
-  ∃ (_G : GeodesicStructure X), True :=
-⟨StandardGeodesicStructure X, trivial⟩
+/-- Existence of a concrete geodesic structure on a normed space:
+we use the standard linear-interpolation geodesics, which have constant speed. -/
+theorem ofK_geodesic_structure {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X] :
+  Nonempty (GeodesicStructure X) :=
+⟨StandardGeodesicStructure X⟩
 
 /-- The functional F=Ent+γDσm is geodesically semiconvex when Ent is
 geodesically semiconvex and Dσm satisfies certain regularity conditions. -/
 theorem ofK_geodesic_semiconvex {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup lamEff : ℝ)
-  (hγ : 0 ≤ gamma)
-  (G : GeodesicStructure X)
-  (hEnt : GeodesicSemiconvex G Ent lamEff)
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup lamEff : ℝ) (hγ : 0 ≤ gamma)
+  (G : GeodesicStructure X) (hEnt : GeodesicSemiconvex G Ent lamEff)
   (hDsigma_convex : ∀ x y : X, ∀ t : ℝ, 0 ≤ t → t ≤ 1 →
     (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam (G.γ x y t) ≤
     (1 - t) * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x +
@@ -1082,8 +989,7 @@ by
 /-- Helper theorem: For standard geodesic structure (linear interpolation),
 if a function is convex in the usual sense, it's geodesically 0-semiconvex. -/
 theorem convex_implies_geodesic_semiconvex {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X]
-  (f : X → ℝ)
-  (hf : ∀ x y : X, ∀ t : ℝ, 0 ≤ t → t ≤ 1 →
+  (f : X → ℝ) (hf : ∀ x y : X, ∀ t : ℝ, 0 ≤ t → t ≤ 1 →
     f ((1 - t) • x + t • y) ≤ (1 - t) * f x + t * f y) :
   GeodesicSemiconvex (StandardGeodesicStructure X) f 0 :=
 by
@@ -1106,10 +1012,8 @@ section SemiconvexReal
 /-- The functional F=Ent+γDσm satisfies semiconvexity for AnalyticFlagsReal
 when provided with appropriate geodesic structure and regularity conditions. -/
 theorem ofK_semiconvex_real {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup lamEff : ℝ)
-  (hγ : 0 ≤ gamma)
-  (G : GeodesicStructure X)
-  (hEnt_semiconvex : GeodesicSemiconvex G Ent lamEff)
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup lamEff : ℝ) (hγ : 0 ≤ gamma)
+  (G : GeodesicStructure X) (hEnt_semiconvex : GeodesicSemiconvex G Ent lamEff)
   (hDsigma_convex : ∀ x y : X, ∀ t : ℝ, 0 ≤ t → t ≤ 1 →
     (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam (G.γ x y t) ≤
     (1 - t) * (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x +
@@ -1120,8 +1024,7 @@ ofK_geodesic_semiconvex Ent K gamma Ssup lamEff hγ G hEnt_semiconvex hDsigma_co
 /-- For the standard geodesic structure, F inherits semiconvexity from Ent
 when Dσm is convex along geodesics. -/
 theorem ofK_semiconvex_standard {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup lamEff : ℝ)
-  (hγ : 0 ≤ gamma)
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup lamEff : ℝ) (hγ : 0 ≤ gamma)
   (hEnt_semiconvex : GeodesicSemiconvex (StandardGeodesicStructure X) Ent lamEff)
   (hDsigma_convex : ∀ x y : X, ∀ t : ℝ, 0 ≤ t → t ≤ 1 →
     (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam ((1 - t) • x + t • y) ≤
@@ -1139,11 +1042,8 @@ by
 /-- When Ent is λ-semiconvex and Dσm is convex (0-semiconvex),
 F = Ent + γ·Dσm is λ-semiconvex. -/
 theorem semiconvex_combination {X : Type*} [NormedAddCommGroup X] [NormedSpace ℝ X]
-  (Ent Dsigma : X → ℝ) (gamma lamEff : ℝ)
-  (hγ : 0 ≤ gamma)
-  (G : GeodesicStructure X)
-  (hEnt : GeodesicSemiconvex G Ent lamEff)
-  (hDsigma : GeodesicSemiconvex G Dsigma 0) :
+  (Ent Dsigma : X → ℝ) (gamma lamEff : ℝ) (hγ : 0 ≤ gamma) (G : GeodesicStructure X)
+  (hEnt : GeodesicSemiconvex G Ent lamEff) (hDsigma : GeodesicSemiconvex G Dsigma 0) :
   GeodesicSemiconvex G (fun x => Ent x + gamma * Dsigma x) lamEff :=
 by
   intro x y t ht0 ht1
@@ -1175,8 +1075,7 @@ have appropriate growth conditions and the space has suitable compactness proper
 theorem ofK_compact_sublevels {X : Type*} [NormedAddCommGroup X]
   [ProperSpace X] -- X is a proper metric space (closed balls are compact)
   (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (hγ : 0 < gamma)
-  (hEnt_coercive : CoerciveReal Ent) -- Ent grows to infinity at infinity
+  (hγ : 0 < gamma) (hEnt_coercive : CoerciveReal Ent) -- Ent grows to infinity at infinity
   (hDsigma_bounded_below : ∃ C : ℝ, ∀ x : X,
     (FrourioFunctional.ofK Ent K gamma Ssup).Dsigmam x ≥ -C)
   (h_lsc : _root_.LowerSemicontinuous
@@ -1263,9 +1162,7 @@ by
 coercivity and continuity imply compact sublevels. -/
 theorem compact_sublevels_from_coercive_continuous {X : Type*} [NormedAddCommGroup X]
   [NormedSpace ℝ X] [FiniteDimensional ℝ X] -- Finite dimensional spaces have Heine-Borel
-  (f : X → ℝ)
-  (h_coercive : CoerciveReal f)
-  (h_continuous : Continuous f) :
+  (f : X → ℝ) (h_coercive : CoerciveReal f) (h_continuous : Continuous f) :
   HasCompactSublevels f :=
 by
   intro c
@@ -1314,10 +1211,8 @@ by
 
 /-- For normed spaces, if F is lower semicontinuous
 and has bounded sublevel sets, it has compact sublevels. -/
-theorem compact_sublevels_from_proper_lsc {X : Type*} [NormedAddCommGroup X]
-  [ProperSpace X]
-  (f : X → ℝ)
-  (h_lsc : _root_.LowerSemicontinuous f)
+theorem compact_sublevels_from_proper_lsc {X : Type*} [NormedAddCommGroup X] [ProperSpace X]
+  (f : X → ℝ) (h_lsc : _root_.LowerSemicontinuous f)
   (h_bounded_sublevels : ∀ c : ℝ, Bornology.IsBounded {x : X | f x ≤ c}) :
   HasCompactSublevels f :=
 by
@@ -1584,7 +1479,7 @@ lemma descendingSlope_add_le {X : Type*} [PseudoMetricSpace X]
 
 /-- Scaling property of descending slope. -/
 lemma descendingSlope_smul {X : Type*} [PseudoMetricSpace X]
-  {f : X → ℝ} (c : ℝ) (_hc : 0 ≤ c) (x : X)
+  {f : X → ℝ} (c : ℝ) (x : X)
   [Filter.NeBot (nhdsWithin x (posDist x))]
   (h_scale :
     Filter.limsup (fun y => (posPart (c * f x - c * f y)) / dist x y)
@@ -1724,7 +1619,7 @@ by
           -- Apply scaling property
           -- Use the scaling lemma (assumed) for descending slope
           have hs := h_scale_all x
-          rw [descendingSlope_smul gamma hγ x hs]
+          rw [descendingSlope_smul gamma x hs]
         _ ≤ M_Ent + gamma * L := by
           -- Apply the bounds
           apply add_le_add
@@ -1800,18 +1695,14 @@ for AnalyticFlags, completing the goal. -/
 
 /-- The functional F=Ent+γDσm satisfies all requirements for AnalyticFlags. -/
 theorem ofK_satisfies_analytic_flags {X : Type*} [PseudoMetricSpace X]
-  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (lamEff CEnt : ℝ) (_hγ : 0 ≤ gamma)
-  (hEntLB : ∀ x : X, Ent x ≥ -CEnt)  -- Lower bound condition
-  (hK1 : K1prime (FrourioFunctional.ofK Ent K gamma Ssup))
-  (hEntGeo : EntGeodesicSemiconvex Ent lamEff) :
+  (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) (lamEff : ℝ) :
   AnalyticFlags (FrourioFunctional.F
     (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
 {
   proper := ofK_proper Ent K gamma Ssup,
-  lsc := ofK_lower_semicontinuous_from_k1prime Ent K gamma Ssup hK1,
-  coercive := ofK_coercive_from_bounds Ent K gamma Ssup CEnt hEntLB,
-  HC := halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup lamEff hEntGeo,
+  lsc := ofK_lower_semicontinuous_from_k1prime Ent K gamma Ssup,
+  coercive := ofK_coercive_from_bounds Ent K gamma Ssup,
+  HC := halfConvex_from_ent_geodesic_semiconvex Ent K gamma Ssup lamEff,
   SUB := ofK_strong_upper_bound Ent K gamma Ssup,
   jkoStable := ofK_jko_stable Ent K gamma Ssup
 }
@@ -1819,19 +1710,15 @@ theorem ofK_satisfies_analytic_flags {X : Type*} [PseudoMetricSpace X]
 /-- Alternative constructor using DoobQuantitative for λ_BE. -/
 theorem ofK_satisfies_analytic_flags_with_doob {X : Type*} [PseudoMetricSpace X]
   (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ)
-  (h : X → ℝ) (D : Diffusion X) (HQ : DoobQuantitative h D) (lam CEnt : ℝ)
-  (_hγ : 0 ≤ gamma)
-  (hEntLB : ∀ x : X, Ent x ≥ -CEnt)
-  (hK1 : K1prime (FrourioFunctional.ofK Ent K gamma Ssup))
-  (hEntGeo : EntGeodesicSemiconvex Ent lam) :
+  (h : X → ℝ) (D : Diffusion X) (HQ : DoobQuantitative h D) (lam : ℝ) :
   AnalyticFlags (FrourioFunctional.F
     (FrourioFunctional.ofK Ent K gamma Ssup))
     (lambdaBE lam HQ.eps) :=
 {
   proper := ofK_proper Ent K gamma Ssup,
-  lsc := ofK_lower_semicontinuous_from_k1prime Ent K gamma Ssup hK1,
-  coercive := ofK_coercive_from_bounds Ent K gamma Ssup CEnt hEntLB,
-  HC := halfConvexFlag_from_doobQuantitative Ent K gamma Ssup h D HQ lam hEntGeo,
+  lsc := ofK_lower_semicontinuous_from_k1prime Ent K gamma Ssup,
+  coercive := ofK_coercive_from_bounds Ent K gamma Ssup,
+  HC := halfConvexFlag_from_doobQuantitative Ent K gamma Ssup h D HQ lam,
   SUB := ofK_strong_upper_bound Ent K gamma Ssup,
   jkoStable := ofK_jko_stable Ent K gamma Ssup
 }
@@ -1841,16 +1728,11 @@ theorem analytic_flags_achievable {X : Type*} [PseudoMetricSpace X] :
   ∃ (Ent : X → ℝ) (K : KTransform X) (gamma Ssup lamEff : ℝ),
     AnalyticFlags (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
 by
-  -- Construct a trivial example
-  use (fun _ => 0), ⟨fun _ _ => 0, True⟩, 0, 0, 0
-  exact {
-    proper := ⟨0, fun x => by simp⟩,
-    lsc := fun x => ⟨0, le_refl 0, by simp⟩,
-    coercive := fun x => ⟨0, le_refl 0, by simp⟩,
-    HC := ⟨0, le_refl 0, fun x => by simp⟩,
-    SUB := ⟨0, le_refl 0, fun x => by simp⟩,
-    jkoStable := fun ρ0 => ⟨fun _ => ρ0, rfl, fun t => by simp⟩
-  }
+  -- Pick a concrete (trivial) instance and invoke the assembled flag provider.
+  refine ⟨(fun _ : X => 0), ⟨(fun _ _ => 0), True⟩, 0, 0, 0, ?_⟩
+  -- Use the general constructor `ofK_satisfies_analytic_flags`.
+  exact ofK_satisfies_analytic_flags (Ent := fun _ => 0)
+    (K := ⟨fun _ _ => 0, True⟩) (gamma := 0) (Ssup := 0) (lamEff := 0)
 
 /-! ### Bridge Applications: PLFA/EDE and EDE/EVI
 
