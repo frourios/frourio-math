@@ -33,7 +33,7 @@ open MeasureTheory
 This is a standard fact in measure theory. -/
 lemma withDensity_one {X : Type*} [MeasurableSpace X] (ν : Measure X) :
     ν.withDensity (fun _ => (1 : ENNReal)) = ν := by
-  simpa [Pi.one_def] using (MeasureTheory.withDensity_one (μ := ν))
+  simp
 
 /-- Automorphism of X preserving the Dirichlet form ℰ -/
 structure DirichletAutomorphism {X : Type*} [MeasurableSpace X] where
@@ -80,8 +80,8 @@ structure TimeReparam where
   /-- Boundary conditions -/
   init : θ 0 = 0
   terminal : θ 1 = 1
-  /-- Continuity (placeholder for detailed condition) -/
-  continuous : Prop
+  /-- Continuity of the reparametrization function -/
+  continuous : Continuous θ
 
 /-- The symmetry group G for the meta-variational principle.
 G = Aut_ℰ(X) ⋉ (Doob × ℝ₊ × Reparam) -/
@@ -176,9 +176,8 @@ theorem spectralSymbol_scale_invariant {m : PNat}
         congr 1
         field_simp [hσ_ne]
 
-  -- Since spectralSymbolSupNorm is now just 1, it's trivially equal
-  unfold spectralSymbolSupNorm
-  rfl
+  -- The supremum sets are equal under scaling, hence the sSup are equal
+  simp [spectralSymbolSupNorm, h_set_eq]
 
 /-- Doob transform effect on curvature-dimension parameter.
 The BE degradation: λ ↦ λ - 2ε(h) where h > 0 is the Doob function.
@@ -210,7 +209,7 @@ theorem FGStar_G_invariant {X : Type*} [MeasurableSpace X] {m : PNat}
     unfold GAction.actOnConfig
     exact spectralSymbol_scale_invariant (cfg := cfg) (s := g.scale)
   -- Conclude by rewriting the spectral term with hscale
-  simp
+  simp [hscale]
 
 /-- Composition of G-actions forms a group structure -/
 def GAction.comp {X : Type*} [MeasurableSpace X] {m : PNat}
@@ -236,7 +235,8 @@ def GAction.comp {X : Type*} [MeasurableSpace X] {m : PNat}
         intro Γ f g
         -- Apply invariance for g₂, then for g₁
         -- Step 1: pull back along g₂.aut.toFun
-        have h2 := g₂.aut.preserves_dirichlet Γ (fun x => f (g₁.aut.toFun x)) (fun x => g (g₁.aut.toFun x))
+        have h2 := g₂.aut.preserves_dirichlet Γ
+          (fun x => f (g₁.aut.toFun x)) (fun x => g (g₁.aut.toFun x))
         -- h2: Γ.Γ (f ∘ g₁ ∘ g₂) (g ∘ g₁ ∘ g₂) = (Γ.Γ (f ∘ g₁) (g ∘ g₁)) ∘ g₂
         -- Step 2: identify Γ (f ∘ g₁) (g ∘ g₁) using g₁-invariance
         have h1 := g₁.aut.preserves_dirichlet Γ f g
@@ -263,12 +263,7 @@ def GAction.comp {X : Type*} [MeasurableSpace X] {m : PNat}
       mono := Monotone.comp g₁.reparam.mono g₂.reparam.mono
       init := by simp [g₁.reparam.init, g₂.reparam.init]
       terminal := by simp [g₁.reparam.terminal, g₂.reparam.terminal]
-      continuous :=
-        -- Composition of continuous functions is continuous
-        -- Since g₁.reparam.θ and g₂.reparam.θ are both continuous,
-        -- their composition g₁.reparam.θ ∘ g₂.reparam.θ is continuous
-        -- This is a basic theorem in topology
-        g₁.reparam.continuous ∧ g₂.reparam.continuous
+      continuous := g₁.reparam.continuous.comp g₂.reparam.continuous
     }
   }
 
@@ -291,12 +286,12 @@ def GAction.id {X : Type*} [MeasurableSpace X] (m : PNat) : GAction X m where
     hσ_pos := zero_lt_one
   }
   reparam := {
-      θ := fun t => t
-      mono := monotone_id
-      init := rfl
-      terminal := rfl
-      continuous := Continuous (fun t : ℝ => t)
-    }
+    θ := fun t => t
+    mono := monotone_id
+    init := rfl
+    terminal := rfl
+    continuous := by simpa using (continuous_id : Continuous (fun t : ℝ => t))
+  }
 
 /-- Identity action on measures: doing nothing leaves the measure unchanged. -/
 theorem GAction.id_actOnMeasure {X : Type*} [MeasurableSpace X] (m : PNat)
@@ -328,7 +323,12 @@ theorem entropy_aut_invariant {X : Type*} [MeasurableSpace X] {m : PNat}
     doob_h := fun _ => 1
     doob_h_pos := fun _ => zero_lt_one
     scale := { σ := 1, hσ_pos := zero_lt_one }
-    reparam := { θ := fun t => t, mono := monotone_id, init := rfl, terminal := rfl, continuous := Continuous (fun t : ℝ => t) }
+    reparam := {
+      θ := fun t => t
+      mono := monotone_id
+      init := rfl, terminal := rfl
+      continuous := by simpa using (continuous_id : Continuous (fun t : ℝ => t))
+    }
   }
   -- Apply G-invariance
   have h := h_inv g μ
@@ -393,7 +393,7 @@ theorem meta_principle_G_invariant {X : Type*} [MeasurableSpace X] [PseudoMetric
   -- Doob transform affects the base parameter
   use lam  -- Placeholder for transformed parameter
   use doob  -- Placeholder for composed Doob degradation
-  simp
+  simp [h_spectral]
 
 /-- Corollary: The effective rate λ_eff is G-invariant up to Doob composition -/
 theorem lam_eff_G_invariant {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]

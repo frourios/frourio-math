@@ -60,8 +60,6 @@ structure HeatSemigroup (X : Type*) where
       explicitly to avoid requiring `[MeasurableSpace X]` at the structure level. -/
   measurable_in_function : ∀ t : ℝ, ∀ φ : X → ℝ,
     (∀ [MeasurableSpace X], Measurable φ → Measurable (fun x => H t φ x))
-  /-- Strong continuity (placeholder - detailed conditions can be added) -/
-  stronglyContinuous : Prop
 
 /-- The m-point multi-scale difference operator Δ^{⟨m⟩}_{α,τ}.
 Definition: Δ^{⟨m⟩} φ := ∑ α_i H_{τ_i} φ - (∑ α_i)I φ.
@@ -120,7 +118,7 @@ lemma multiScaleDiff_measurable {X : Type*} [MeasurableSpace X] {m : PNat}
   -- Finite sum of measurable functions is measurable
   have hsum : Measurable (fun x => (Finset.univ : Finset (Fin m)).sum (fun i => f i x)) := by
     refine Finset.induction_on (Finset.univ : Finset (Fin m)) ?base ?step
-    · simpa using (measurable_const : Measurable fun _ : X => (0 : ℝ))
+    · simp
     · intro a s ha ih
       -- Order matters for `Measurable.add`; match the expected summand order
       simpa [Finset.sum_insert ha, f] using (hf_meas a).add ih
@@ -183,10 +181,8 @@ structure SpectralBound {X : Type*} {m : PNat} (H : HeatSemigroup X)
   bochner_inequality : Prop  -- Placeholder for the full inequality
 
 /-- The sup-norm of the spectral symbol. Defined abstractly. -/
-@[simp] noncomputable def spectralSymbolSupNorm {m : PNat} (cfg : MultiScaleConfig m) : ℝ :=
-  -- Abstract definition: the supremum of |ψ_m(λ)| over λ ≥ 0
-  -- We don't provide an explicit formula but assume it exists and is positive
-  1  -- Placeholder value
+noncomputable def spectralSymbolSupNorm {m : PNat} (cfg : MultiScaleConfig m) : ℝ :=
+  sSup { y : ℝ | ∃ lam : ℝ, 0 ≤ lam ∧ y = |spectralSymbol cfg lam| }
 
 /-- Auxiliary hypothesis: the spectral symbol is bounded.
     This would follow from detailed Fourier analysis. -/
@@ -196,11 +192,56 @@ def spectralBoundHypothesis {m : PNat} (cfg : MultiScaleConfig m) : Prop :=
 /-- Under the hypothesis that the spectral symbol is bounded,
     it is bounded by the sup-norm. -/
 lemma le_spectralSymbolSupNorm {m : PNat} (cfg : MultiScaleConfig m) (lam : ℝ)
-    (h : spectralBoundHypothesis cfg) :
-    |spectralSymbol cfg lam| ≤ |spectralSymbolSupNorm cfg| := by
-  unfold spectralBoundHypothesis at h
-  simp only [spectralSymbolSupNorm, abs_one]
-  exact h lam
+    (hlam : 0 ≤ lam) :
+    |spectralSymbol cfg lam| ≤ spectralSymbolSupNorm cfg := by
+  classical
+  -- Show the set is bounded above by ∑ |α_i|
+  let S : Set ℝ := { y : ℝ | ∃ t : ℝ, 0 ≤ t ∧ y = |spectralSymbol cfg t| }
+  have h_bdd : BddAbove S := by
+    refine ⟨∑ i : Fin m, |cfg.α i|, ?_⟩
+    intro y hy
+    rcases hy with ⟨t, ht, rfl⟩
+    -- Bound |ψ_m(t)| ≤ ∑ |α_i|
+    unfold spectralSymbol
+    -- Bound each term by |α_i|
+    have hterm_le : ∀ i : Fin m,
+        |cfg.α i * (Real.exp (-cfg.τ i * t) - 1)| ≤ |cfg.α i| := by
+      intro i
+      -- Since t ≥ 0 and τ_i > 0, exp(-τ_i t) ≤ 1
+      have hle1 : Real.exp (-cfg.τ i * t) ≤ 1 := by
+        have hτpos := cfg.hτ_pos i
+        have hneg : -cfg.τ i * t ≤ 0 := by
+          have : 0 ≤ cfg.τ i * t := mul_nonneg (le_of_lt hτpos) ht
+          linarith
+        exact Real.exp_le_one_iff.2 hneg
+      have hnonneg : 0 ≤ 1 - Real.exp (-cfg.τ i * t) := sub_nonneg.mpr hle1
+      have habs_eq : |Real.exp (-cfg.τ i * t) - 1| = 1 - Real.exp (-cfg.τ i * t) := by
+        rw [abs_sub_comm]
+        exact abs_of_nonneg hnonneg
+      have hle_one : |Real.exp (-cfg.τ i * t) - 1| ≤ 1 := by
+        rw [habs_eq]
+        have hexp_nonneg : 0 ≤ Real.exp (-cfg.τ i * t) := Real.exp_nonneg _
+        linarith
+      -- Now multiply by |α_i|
+      have : |cfg.α i| * |Real.exp (-cfg.τ i * t) - 1| ≤ |cfg.α i| * 1 := by
+        exact (mul_le_mul_of_nonneg_left hle_one (abs_nonneg _))
+      simpa [abs_mul, mul_one] using this
+    -- Use triangle inequality on the sum
+    have := Finset.abs_sum_le_sum_abs (s := (Finset.univ : Finset (Fin m))) (f :=
+      fun i => cfg.α i * (Real.exp (-cfg.τ i * t) - 1))
+    -- Rewrite the sums and apply the termwise bound
+    -- abs_sum_le_sum_abs gives: |∑ f i| ≤ ∑ |f i|
+    -- Then each |f i| ≤ |α i|, summing yields the claim
+    have hsum_le :
+        |∑ i : Fin m, cfg.α i * (Real.exp (-cfg.τ i * t) - 1)| ≤ ∑ i : Fin m, |cfg.α i| := by
+      refine le_trans this ?_
+      refine Finset.sum_le_sum ?_
+      intro i _
+      exact hterm_le i
+    simpa using hsum_le
+  -- y is in the set, so it's ≤ sSup S by le_csSup
+  have hy : |spectralSymbol cfg lam| ∈ S := ⟨lam, hlam, rfl⟩
+  exact le_csSup h_bdd hy
 
 /-- Alternative formulation: explicit sup-norm bound flag -/
 structure SpectralSupNormBound {m : PNat} (cfg : MultiScaleConfig m) where
@@ -219,7 +260,5 @@ structure SpectralPenalty {X : Type*} [MeasurableSpace X] {m : PNat}
   C_dirichlet : ℝ
   /-- Non-negativity of the constant -/
   C_nonneg : 0 ≤ C_dirichlet
-  /-- The spectral penalty inequality (placeholder) -/
-  penalty_bound : ∀ φ : X → ℝ, Prop  -- Placeholder: ∫|Δ^{⟨m⟩} φ|² ≤ C‖ψ_m‖_∞² ∫Γ(φ)
 
 end Frourio

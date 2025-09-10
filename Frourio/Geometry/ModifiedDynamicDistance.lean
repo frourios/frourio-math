@@ -88,7 +88,8 @@ noncomputable def Am {X : Type*} [MeasurableSpace X] {m : PNat}
     + κ * (∫ x, (multiScaleDiff H cfg (φ.φ t) x) ^ (2 : ℕ) ∂μ)
 
 /-- Non-negativity of the action functional Am.
-This follows from the non-negativity of both the carré du champ and the squared multi-scale difference. -/
+This follows from the non-negativity of both the carré du champ
+and the squared multi-scale difference. -/
 lemma Am_nonneg {X : Type*} [MeasurableSpace X] {m : PNat}
     (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (hκ : 0 ≤ κ) (μ : Measure X)
@@ -156,8 +157,7 @@ lemma Am_mono_in_kappa {X : Type*} [MeasurableSpace X] {m : PNat}
       (Set.Icc (0 : ℝ) 1) MeasureTheory.volume)
     (hΔ_int : MeasureTheory.IntegrableOn
       (fun t => ∫ x, (multiScaleDiff H cfg (φ.φ t) x) ^ (2 : ℕ) ∂μ)
-      (Set.Icc (0 : ℝ) 1) MeasureTheory.volume)
-    :
+      (Set.Icc (0 : ℝ) 1) MeasureTheory.volume) :
     Am H cfg Γ κ μ ρ φ ≤ Am H cfg Γ κ' μ ρ φ := by
   -- The difference is (κ' - κ) * ∫∫ |Δ^{⟨m⟩}φ|², which is non-negative
   simp only [Am]
@@ -270,7 +270,13 @@ Endpoint constraints are already embedded in `AdmissiblePair`. -/
 def AdmissibleSet {X : Type*} [MeasurableSpace X] {m : PNat}
     (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (ρ₀ ρ₁ : Measure X) : Set (AdmissiblePair X ρ₀ ρ₁) :=
-  { p : AdmissiblePair X ρ₀ ρ₁ | ContinuityEquation X p.curve p.potential }
+  { p : AdmissiblePair X ρ₀ ρ₁ |
+      -- Base regularity: continuity equation packages weak-continuity + time-regularity
+      ContinuityEquation X p.curve p.potential ∧
+      -- Multi-scale term: each time-slice mapped by Δ^{⟨m⟩} is measurable
+      (∀ t : ℝ, Measurable (multiScaleDiff H cfg (p.potential.φ t))) ∧
+      -- Energy term: Γ(φ_t, φ_t) is measurable for each t
+      (∀ t : ℝ, Measurable (Γ.Γ (p.potential.φ t) (p.potential.φ t))) }
 
 /-- The modified Benamou-Brenier distance squared.
 d_m²(ρ₀,ρ₁) = inf { 𝒜_m(ρ,φ) | (ρ,φ) connects ρ₀ to ρ₁ } -/
@@ -305,10 +311,6 @@ These are axiomatized at this stage, to be proved later via AGS theory. -/
 structure DynDistanceFlags {X : Type*} [MeasurableSpace X] {m : PNat}
     (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) where
-  /-- Lower semicontinuity of the squared distance -/
-  lsc : ∀ ρ₀ ρ₁ : Measure X, Prop  -- Placeholder for LSC condition
-  /-- Compactness of sublevel sets -/
-  compact_sublevels : ∀ c : ℝ, Prop  -- Placeholder for compactness
   /-- Nonnegativity: dm_squared ≥ 0 -/
   nonneg : ∀ ρ₀ ρ₁ : Measure X,
     0 ≤ dm_squared H cfg Γ κ μ ρ₀ ρ₁
@@ -325,12 +327,6 @@ structure DynDistanceFlags {X : Type*} [MeasurableSpace X] {m : PNat}
   /-- Triangle inequality at the distance level -/
   triangle_dist : ∀ ρ₀ ρ₁ ρ₂ : Measure X,
     dm H cfg Γ κ μ ρ₀ ρ₂ ≤ dm H cfg Γ κ μ ρ₀ ρ₁ + dm H cfg Γ κ μ ρ₁ ρ₂
-  /-- Reparametrization invariance -/
-  reparam_invariant : Prop  -- Placeholder
-  /-- Existence of geodesics -/
-  geodesic_existence : ∀ ρ₀ ρ₁ : Measure X, Prop  -- Placeholder for geodesic existence
-  /-- Semiconvexity along geodesics -/
-  semiconvex : Prop  -- Placeholder for semiconvexity property
 
 /-- The modified distance dominates the Wasserstein distance.
 This follows from the non-negativity of the second term in 𝒜_m. -/
@@ -399,7 +395,7 @@ noncomputable instance P2_PseudoMetricSpace {X : Type*} [MeasurableSpace X]
   -- Properties (using placeholder implementations)
   dist_self p := by
     -- sqrt(dm_squared(ρ,ρ)) = 0 by diag_zero
-    simpa [dm, flags.diag_zero (ρ := p.val)]
+    simp [dm, flags.diag_zero (ρ := p.val)]
   dist_comm p q := by
     -- symmetry via flags.symm, lifted through sqrt
     have hsq : dm_squared H cfg Γ κ μ p.val q.val =
@@ -412,7 +408,7 @@ noncomputable instance P2_PseudoMetricSpace {X : Type*} [MeasurableSpace X]
       using flags.triangle_dist (ρ₀ := p.val) (ρ₁ := q.val) (ρ₂ := r.val)
   edist_dist p q := by
     -- The goal is comparing two representations of the same non-negative real
-    simp only [edist, dist]
+    simp only
     -- Convert the NNReal coercion to ENNReal.ofReal
     have h : dm H cfg Γ κ μ p.val q.val ≥ 0 := Real.sqrt_nonneg _
     simp [ENNReal.ofReal, Real.toNNReal, max_eq_left h]

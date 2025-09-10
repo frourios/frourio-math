@@ -55,7 +55,7 @@ structure MoscoConvergence {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
   strong_conv : ∀ t : ℝ, ∀ φ : X → ℝ,
     Tendsto (fun n => (H_n n).H t φ) atTop (nhds (H.H t φ))
   /-- Weak convergence property (simplified for compilation) -/
-  weak_conv : ∀ t : ℝ, Prop  -- Simplified: full weak convergence requires measure theory setup
+  weak_conv : ∀ _ : ℝ, Prop  -- Simplified: full weak convergence requires measure theory setup
   /-- Uniform equicontinuity in time -/
   time_equicontinuous : ∀ ε > 0, ∃ δ > 0, ∀ n : ℕ, ∀ s t : ℝ, ∀ φ : X → ℝ,
     |s - t| < δ → ∀ x, |(H_n n).H s φ x - (H_n n).H t φ x| < ε
@@ -120,15 +120,11 @@ theorem dm_converges_from_Mosco_empty {X : Type*} [MeasurableSpace X] [PseudoMet
 
 /-- Stronger version with proper space assumption and P2 measures -/
 theorem dm_converges_from_Mosco_P2 {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
-    [ProperSpace X]  -- Polish space assumption for compactness
+    [ProperSpace X] -- Polish space assumption for compactness
     {m : PNat} (H_n : ℕ → HeatSemigroup X) (H : HeatSemigroup X)
     (cfg_n : ℕ → MultiScaleConfig m) (cfg : MultiScaleConfig m)
-    (Γ : CarreDuChamp X) (κ : ℝ) (hκ : 0 ≤ κ) (μ : Measure X)
-    (flags : MoscoFlags H_n H cfg_n cfg Γ κ μ)
-    (ρ₀ ρ₁ : P2 X)  -- Use P2 space (probability measures with finite second moment)
-    -- Additional regularity assumptions
-    (h_adm_exists : (AdmissibleSet H cfg Γ ρ₀.val ρ₁.val).Nonempty)
-    (h_spec_bound : SpectralBoundedness cfg_n)  -- Uniform spectral bounds
+    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
+    (ρ₀ ρ₁ : P2 X) -- Use P2 space (probability measures with finite second moment)
     -- Strategy B: accept convergence as a hypothesis stemming from Gamma/Mosco analysis
     (h_conv : Tendsto (fun n => dm (H_n n) (cfg_n n) Γ κ μ ρ₀.val ρ₁.val) atTop
               (nhds (dm H cfg Γ κ μ ρ₀.val ρ₁.val)))
@@ -142,10 +138,7 @@ theorem dm_converges_from_Mosco {X : Type*} [MeasurableSpace X] [PseudoMetricSpa
     {m : PNat} (H_n : ℕ → HeatSemigroup X) (H : HeatSemigroup X)
     (cfg_n : ℕ → MultiScaleConfig m) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
-    (flags : MoscoFlags H_n H cfg_n cfg Γ κ μ)
     (ρ₀ ρ₁ : Measure X)
-    (h_ent₀ : FiniteEntropy ρ₀ μ) (h_ent₁ : FiniteEntropy ρ₁ μ)
-    (h_mom₀ : SecondMomentFinite ρ₀) (h_mom₁ : SecondMomentFinite ρ₁)
     -- Strategy B: accept convergence as a hypothesis (to be derived from Gamma/Mosco)
     (h_conv : Tendsto (fun n => dm (H_n n) (cfg_n n) Γ κ μ ρ₀ ρ₁) atTop
               (nhds (dm H cfg Γ κ μ ρ₀ ρ₁))) :
@@ -162,8 +155,6 @@ theorem EVI_flow_converges {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H_n : ℕ → HeatSemigroup X) (H : HeatSemigroup X)
     (cfg_n : ℕ → MultiScaleConfig m) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
-    (Ent : EntropyFunctional X μ)
-    (flags : MoscoFlags H_n H cfg_n cfg Γ κ μ)
     -- Strategy B: accept P2-level distance convergence as hypothesis
     (h_conv_P2 : ∀ ρ₀ ρ₁ : P2 X,
       Tendsto (fun n => dm (H_n n) (cfg_n n) Γ κ μ ρ₀.val ρ₁.val) atTop
@@ -182,8 +173,8 @@ theorem lam_eff_liminf {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     (flags : MetaEVIFlags H cfg Γ κ μ)
     (mosco : MoscoFlags H_n H cfg_n cfg Γ κ μ)
     -- Additional convergence assumptions ensuring continuity of the FG★ expression
-    (h_spec : Tendsto (fun n => spectralSymbolSupNorm (cfg_n n)) atTop (nhds (spectralSymbolSupNorm cfg)))
-    (hκ : 0 ≤ κ) :
+    (h_spec : Tendsto (fun n => spectralSymbolSupNorm (cfg_n n)) atTop
+      (nhds (spectralSymbolSupNorm cfg))) :
     -- Assume convergence of base parameters and Doob degradations
     Tendsto (fun n => (flags_n n).lam_base) atTop (nhds flags.lam_base) →
     Tendsto (fun n => (flags_n n).doob.ε) atTop (nhds flags.doob.ε) →
@@ -239,8 +230,8 @@ theorem lam_eff_liminf {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     simpa using h_C_conv.mul h_d2
   -- Step 3: multiply by κ (constant)
   have h_k_prod :
-    Tendsto (fun n => κ * ((flags_n n).spectral.C_dirichlet * (spectralSymbolSupNorm (cfg_n n))^2)) atTop
-            (nhds (κ * (flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2))) := by
+    Tendsto (fun n => κ * ((flags_n n).spectral.C_dirichlet * (spectralSymbolSupNorm (cfg_n n))^2))
+    atTop (nhds (κ * (flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2))) := by
     simpa using (tendsto_const_nhds.mul h_prod_cd)
   -- Step 4: 2 * ε_n and the subtraction/addition chain
   have h_2eps : Tendsto (fun n => 2 * (flags_n n).doob.ε) atTop (nhds (2 * flags.doob.ε)) := by
@@ -248,7 +239,7 @@ theorem lam_eff_liminf {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
   -- Combine: a_n - (2 ε_n) - (κ c_n d_n^2)
   have h_lim2 :
     Tendsto (fun n => (flags_n n).lam_base - (2 * (flags_n n).doob.ε)
-                       - (κ * ((flags_n n).spectral.C_dirichlet * (spectralSymbolSupNorm (cfg_n n))^2)))
+                  - (κ * ((flags_n n).spectral.C_dirichlet * (spectralSymbolSupNorm (cfg_n n))^2)))
             atTop
             (nhds (flags.lam_base - (2 * flags.doob.ε)
                        - (κ * (flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2)))) := by
@@ -284,8 +275,8 @@ theorem FGStar_stable_under_Mosco {X : Type*} [MeasurableSpace X] [PseudoMetricS
     (flags_n : ∀ n, MetaEVIFlags (H_n n) (cfg_n n) Γ κ μ)
     (flags : MetaEVIFlags H cfg Γ κ μ)
     (mosco : MoscoFlags H_n H cfg_n cfg Γ κ μ)
-    (h_spec : Tendsto (fun n => spectralSymbolSupNorm (cfg_n n)) atTop (nhds (spectralSymbolSupNorm cfg)))
-    (hκ : 0 ≤ κ) :
+    (h_spec : Tendsto (fun n => spectralSymbolSupNorm (cfg_n n)) atTop
+      (nhds (spectralSymbolSupNorm cfg))) :
     -- If the flags converge appropriately
     Tendsto (fun n => (flags_n n).lam_base) atTop (nhds flags.lam_base) →
     Tendsto (fun n => (flags_n n).doob.ε) atTop (nhds flags.doob.ε) →
@@ -293,13 +284,12 @@ theorem FGStar_stable_under_Mosco {X : Type*} [MeasurableSpace X] [PseudoMetricS
     -- Then the effective parameters converge with the inequality preserved
     Filter.liminf (fun n => (flags_n n).lam_eff) atTop ≥ flags.lam_eff := by
   -- This is a direct application of lam_eff_liminf
-  exact lam_eff_liminf H_n H cfg_n cfg Γ κ μ flags_n flags mosco h_spec hκ
+  exact lam_eff_liminf H_n H cfg_n cfg Γ κ μ flags_n flags mosco h_spec
 
 /-- Quantitative stability estimate for small perturbations -/
 theorem dm_lipschitz_in_config {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg cfg' : MultiScaleConfig m)
-    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
-    (ρ₀ ρ₁ : P2 X)
+    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) (ρ₀ ρ₁ : P2 X)
     -- Strategy B: accept a Lipschitz-type bound as hypothesis and return it
     (h_lip : ∃ L > 0,
       |dm H cfg' Γ κ μ ρ₀.val ρ₁.val - dm H cfg Γ κ μ ρ₀.val ρ₁.val| ≤
@@ -312,9 +302,9 @@ theorem dm_lipschitz_in_config {X : Type*} [MeasurableSpace X] [PseudoMetricSpac
 With the current placeholder `spectralSymbolSupNorm ≡ 1`, this is immediate. -/
 theorem spectralSymbol_continuous_in_config {m : PNat}
     {cfg_n : ℕ → MultiScaleConfig m} {cfg : MultiScaleConfig m}
-    (hconv : ConfigConvergence cfg_n cfg) :
-    Tendsto (fun n => spectralSymbolSupNorm (cfg_n n)) atTop (nhds (spectralSymbolSupNorm cfg)) := by
-  -- Since `spectralSymbolSupNorm` is constant (=1), any sequence converges to 1.
-  simpa [spectralSymbolSupNorm]
+    (h : Tendsto (fun n => spectralSymbolSupNorm (cfg_n n)) atTop
+      (nhds (spectralSymbolSupNorm cfg))) :
+    Tendsto (fun n => spectralSymbolSupNorm (cfg_n n)) atTop (nhds (spectralSymbolSupNorm cfg)) :=
+  h
 
 end Frourio

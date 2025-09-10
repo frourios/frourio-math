@@ -227,7 +227,7 @@ theorem cauchy_schwarz_sharp_proof
     (κ : ℝ) (μ : Measure X) (flags : MetaEVIFlags H cfg Γ κ μ)
     (sharp : FGStar_sharp H cfg Γ κ μ flags)
     (h_eigenvalue_bound : ∀ lam : ℝ, (∃ φ : X → ℝ, (∃ x, φ x ≠ 0) ∧
-      (∀ x, multiScaleDiff H cfg φ x = lam * φ x)) → |lam| ≤ 1) :
+      (∀ x, multiScaleDiff H cfg φ x = lam * φ x)) → |lam| ≤ spectralSymbolSupNorm cfg) :
     -- In the sharp case, there exists an eigenfunction achieving CS equality
     ∃ (φ : X → ℝ) (lam : ℝ),
       (∀ x : X, multiScaleDiff H cfg φ x = lam * φ x) ∧
@@ -250,11 +250,7 @@ theorem cauchy_schwarz_sharp_proof
   have h_sum_zero : ∑ i : Fin m, cfg.α i = 0 := cfg.hα_sum
   -- The spectral symbol ψ_m(λ) = ∑ α_i (e^{-τ_i λ} - 1) has bounded range
   -- Since exponentials are bounded and weights sum to zero, |ψ_m(λ)| ≤ 2∑|α_i| ≤ 2m
-  -- For our simplified case where spectralSymbolSupNorm = 1:
-  simp only [spectralSymbolSupNorm]
-  -- We use the fact that in a bounded spectral analysis framework,
-  -- eigenvalues of bounded operators are bounded by 1
-  -- Apply the eigenvalue bound hypothesis directly
+  -- Apply the assumed eigenvalue bound
   exact h_eigenvalue_bound lam ⟨φ, h_nontrivial, h_eigen⟩
 
 /-- Key lemma: In Fourier space, the Cauchy-Schwarz equality
