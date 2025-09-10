@@ -6,16 +6,12 @@ import Frourio.Analysis.FrourioFunctional
 import Frourio.Geometry.GradientFlowFramework
 
 /-!
-# FG Theorems (Phase G2): Statement-only wrappers
+# FG Theorems: Statement-only wrappers
 
 This module provides statement-level definitions (Prop-valued) that tie
 the FG core data to the existing analysis layer (EVI/Doob/Mosco), as
 outlined in design phase G2. Proofs and quantitative details are left to
 later phases; here we fix API shapes and dependencies.
-
-References:
-- papers/m点幾何学1-7.md: Scale rules, Doob×Scale compatibility
-- design/10.md: Section 4 (G2-T1..T4)
 -/
 
 namespace Frourio

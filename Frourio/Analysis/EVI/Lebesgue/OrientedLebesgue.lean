@@ -10,7 +10,7 @@ import Mathlib.Tactic
 # Oriented (Directed) Lebesgue Number Lemmas
 
 This file implements the oriented versions of the Lebesgue number lemma for
-two-point local control, as described in paper3.md. These lemmas handle the
+two-point local control. These lemmas handle the
 case where we have directional constraints (y ≤ z) in addition to distance bounds.
 
 ## Main definitions

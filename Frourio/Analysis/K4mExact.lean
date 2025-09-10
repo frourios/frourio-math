@@ -123,8 +123,6 @@ theorem isometricHomeoPreservesK4m {Y : Type*} [PseudoMetricSpace Y]
   · -- Provide the displacement affinity for K with D
     exact hK
 
-/-- The basic model (isometry + Zak-Mellin) admits a displacement structure
-satisfying exact K4^m. This justifies our surrogate K4^m (γ ≥ 0). -/
 theorem basicModelExactK4m (_Ent : X → ℝ) (K : KTransform X) (_gamma _Ssup : ℝ)
   (hBasic : ∃ (f : X → ℝ), Isometry f ∧ K = KTransform.pullback (zakMellinKernel ℝ) f) :
   ∃ D : Displacement X, DisplacementAffinity K D := by

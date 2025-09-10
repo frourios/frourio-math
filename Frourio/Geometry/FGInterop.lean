@@ -3,16 +3,12 @@ import Frourio.Geometry.FGCore
 import Frourio.Analysis.EVI.EVI
 
 /-!
-# FG Interop (Phase G4): Bridges to analysis APIs
+# FG Interop: Bridges to analysis APIs
 
 Lightweight helpers connecting FG data to the analysis layer without
 renaming existing APIs. These are thin wrappers around `EVIProblem` and
 its predicates, aligning with the design goal of non-destructive
 integration.
-
-References:
-- design/10.md (G4)
-- Frourio/Analysis/EVI.lean
 -/
 
 namespace Frourio

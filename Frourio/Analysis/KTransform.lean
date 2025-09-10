@@ -96,9 +96,8 @@ end Templates
 section DisplacementAPI
 variable (X : Type*) [PseudoMetricSpace X]
 
-/- Displacement structure: an abstract interpolation `interp x y θ` of states
-with endpoint axioms. This keeps the affinity predicate independent of any
-specific geodesic machinery. -/
+/- Displacement structure: an abstract interpolation `interp x y θ` of states.
+This keeps the affinity predicate independent of any specific geodesic machinery. -/
 structure Displacement where
   (interp : X → X → ℝ → X)
   (endpoint0 : ∀ x y : X, interp x y 0 = x)

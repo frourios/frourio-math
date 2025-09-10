@@ -6,7 +6,7 @@ import Mathlib.Tactic
 /-!
 # Partition Telescoping and Uniform Small-Interval Bounds
 
-This file implements the lemmas from paper8.md for removing the sorries in
+This file implements the lemmas for removing the sorries in
 `global_evaluation_from_partition` in EVICore6.lean.
 
 ## Main results

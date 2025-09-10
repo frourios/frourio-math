@@ -11,7 +11,7 @@ import Mathlib.Tactic
 # Right-Hand Dini Upper Derivative: ε–δ Extraction and Filter Lemmas
 
 This file implements the minimal analytic lemmas needed for robust proofs of
-local control from right-hand Dini upper derivatives, as described in paper5.md.
+local control from right-hand Dini upper derivatives.
 
 ## Main results
 

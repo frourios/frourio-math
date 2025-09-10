@@ -501,7 +501,7 @@ abbrev MonomialOrder (ι : Type*) := ι → ι → Prop
 /--
 Multi-generator σ-PBW extension skeleton.
 `ι` indexes the generators `Δ i`, each equipped with its own ring endomorphism `σ i`
-and σ-derivation `δ i`. We only record the Ore relations and derivation axioms.
+and σ-derivation `δ i`.
 -/
 structure SigmaPBW (A : Type*) [CommRing A] (ι : Type*) where
   (E : Type*)

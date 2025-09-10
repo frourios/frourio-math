@@ -7,7 +7,7 @@ P5: Doob transform skeleton (API only)
 
 We provide a lightweight `Diffusion` structure and a Doob transform shell.
 Heavy analysis (Leibniz, Hessian calculus) is deferred. Key identities are
-stated as `Prop` so CI remains light without `sorry`.
+stated as `Prop` so CI remains light.
 -/
 
 structure Diffusion (X : Type*) where
@@ -157,7 +157,7 @@ lemma hasCD_doob_of_bochnerMinimal {X : Type*}
   unfold lambdaBE
   simpa [two_mul] using (HB lam hCD)
 
-/-- API: Extract the effective curvature parameter λ_BE from DoobAssumptions 
+/-- API: Extract the effective curvature parameter λ_BE from DoobAssumptions
 when we know the Hessian bound parameter ε. -/
 theorem lambdaBE_from_doobAssumptions {X : Type*}
   (h : X → ℝ) (D : Diffusion X) (_H : DoobAssumptions h D)

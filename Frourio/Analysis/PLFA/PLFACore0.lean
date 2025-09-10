@@ -46,7 +46,6 @@ def LowerSemicontinuous (F : X → ℝ) : Prop :=
 -- but keeps an inequality tied to `F` in the non-metric core.
 def Coercive (F : X → ℝ) : Prop :=
   ∀ x : X, ∃ c : ℝ, 0 ≤ c ∧ F x ≥ F x - c
--- JKOStable: every initial point admits a trivial JKO curve (constant curve).
 -- This is always satisfied and matches the shape of `JKO` without requiring
 -- extra structure in the non-metric core.
 def JKOStable (F : X → ℝ) : Prop := ∀ ρ0 : X, JKO F ρ0

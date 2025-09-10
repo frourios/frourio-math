@@ -171,10 +171,7 @@ def gronwall_exponential_contraction_pred (lam : ℝ) (W : ℝ → ℝ) : Prop :
   (∀ t : ℝ, DiniUpper W t + (2 * lam) * W t ≤ 0) →
     ∀ t : ℝ, W t ≤ Real.exp (-(2 * lam) * t) * W 0
 
-/-- Inhomogeneous Grönwall-type bound (statement): if
-`(1/2)·DiniUpper W + lam·W ≤ η`, then `W` admits a linear-in-time upper bound
-of the form `exp (-(2 lam) t) · W 0 + (2 η) t`. This is a placeholder
-capturing the shape needed for two-EVI synchronization with an error term. -/
+/-- Inhomogeneous Grönwall-type bound (statement) -/
 def gronwall_exponential_contraction_with_error_half_pred (lam η : ℝ)
   (W : ℝ → ℝ) : Prop :=
   (∀ t : ℝ, (1 / 2 : ℝ) * DiniUpper W t + lam * W t ≤ η) →

@@ -4,15 +4,12 @@ import Mathlib.Data.Int.Basic
 import Mathlib.Data.Real.Basic
 
 /-!
-# M-Point Calibration (Phase G3)
+# M-Point Calibration
 
 Minimal API for the m-point calibration layer that bridges FG geometry
 and algebraic multi-point symbols. This file intentionally provides
 Prop-valued statements and lightweight placeholders without proofs.
 
-References:
-- design/10.md (G3): structures and abstract predicates
-- papers/m点幾何学1-7.md: multi-point symbols and Mellin compatibility
 -/
 
 namespace Frourio

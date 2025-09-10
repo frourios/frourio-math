@@ -5,15 +5,11 @@ import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Frourio.Analysis.EVI.EVI
 
 /-!
-# FG Core (Phase G1): Frourio Geometry core API
+# FG Core: Frourio Geometry core API
 
 This module introduces the minimal core types for Frourio Geometry (FG)
 as per design phase G1, generalizing to the m-point calibration setting
 while staying proof-light and non-destructive to existing analysis code.
-
-References (design → papers):
-- papers/m点幾何学1-7.md: FG data (X,d,μ; 𝓔, Λ), scale action S_{Λ^k}
-- papers/代数学.md: Analytical backbone (EVI, Doob, Mosco, etc.)
 
 Provided here:
 - `FGData`: geometric/analytic data on a metric-measure space.

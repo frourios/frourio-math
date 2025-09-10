@@ -59,8 +59,7 @@ lemma metric_bridge (y w ρ : ℝ) : |y - w| < ρ ↔ dist y w < ρ :=
 lemma dist_eq_diff_for_ordered {y z : ℝ} (h : y ≤ z) : dist y z = z - y :=
   dist_eq_sub_of_le' h
 
-/-- **Step 4 - Lemma L1**: Lebesgue-uniform small-interval control
-    If each w ∈ I admits local control, then there exists L > 0 for global control. -/
+/-- **Step 4 - Lemma L1**: Lebesgue-uniform small-interval control -/
 theorem lebesgue_uniform_small_interval
     (hr : 0 < r)
     (h_local : ∀ w ∈ Set.Icc 0 r, ∃ ρ_w > 0, ∃ δ_w > 0, ∀ y z,
