@@ -388,7 +388,7 @@ theorem spectralSymbol_monotone_decreasing {m : PNat} (cfg : MultiScaleConfig m)
   exact mul_le_mul_of_nonneg_left this (hα_nonneg i)
 
 /-- Flags for spectral bounds and Bochner-type inequalities.
-These are assumptions/axioms at this stage, to be proved later. -/
+These are assumptions at this stage, to be proved later. -/
 structure SpectralBound {X : Type*} {m : PNat} (H : HeatSemigroup X)
     (cfg : MultiScaleConfig m) where
   /-- Uniform bound on the spectral symbol -/

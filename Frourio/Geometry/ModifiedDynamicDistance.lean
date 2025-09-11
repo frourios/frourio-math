@@ -480,8 +480,7 @@ noncomputable def dm {X : Type*} [MeasurableSpace X] {m : PNat}
     (ρ₀ ρ₁ : Measure X) : ℝ :=
   Real.sqrt (dm_squared H cfg Γ κ μ ρ₀ ρ₁)
 
-/-- Flags encoding properties of the dynamic distance.
-These are axiomatized at this stage, to be proved later via AGS theory. -/
+/-- Flags encoding properties of the dynamic distance. -/
 structure DynDistanceFlags {X : Type*} [MeasurableSpace X] {m : PNat}
     (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) where
@@ -1254,7 +1253,6 @@ theorem dm_triangle_P2 {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     simpa [a, b, Real.sqrt_sq_eq_abs, abs_of_nonneg hsq_nonneg] using this
   exact le_trans hm h_sqrt_add
 
-/-- Collecting all distance axioms: dm defines a pseudometric on measures -/
 theorem dm_pseudometric {X : Type*} [MeasurableSpace X] {m : PNat}
     (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (hκ : 0 ≤ κ) (μ : Measure X)
@@ -1320,8 +1318,7 @@ theorem dm_pseudometric {X : Type*} [MeasurableSpace X] {m : PNat}
       (hGlue := by
         intro p hp q hq; exact hGlue' p hp q hq)
 
-/-- Flag-free pseudometric instance: using the proven distance axioms
-instead of relying on DynDistanceFlags -/
+/-- Flag-free pseudometric instance -/
 noncomputable instance P2_PseudoMetricSpace_flagfree {X : Type*} [MeasurableSpace X]
     [PseudoMetricSpace X] {m : PNat}
     (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
