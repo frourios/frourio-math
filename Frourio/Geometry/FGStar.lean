@@ -1,5 +1,6 @@
 import Mathlib.Data.Real.Basic
 import Mathlib.MeasureTheory.Measure.MeasureSpace
+import Mathlib.MeasureTheory.Integral.Lebesgue.Basic
 import Frourio.Geometry.MultiScaleDiff
 import Frourio.Geometry.ModifiedDynamicDistance
 import Frourio.Geometry.MetaEquivalence
@@ -29,13 +30,37 @@ regularization penalty.
 
 open MeasureTheory
 
+/-- Domain of the Carré du Champ operator (placeholder) -/
+def domain_of_carre_du_champ {X : Type*} [MeasurableSpace X]
+    (Γ : CarreDuChamp X) (μ : Measure X) : Set (X → ℝ) :=
+  {φ : X → ℝ | MeasureTheory.Integrable (fun x => Γ.Γ φ φ x) μ}
+
+/-- Structure to track the constant C(ℰ) in the FG★ inequality -/
+structure FGStarConstant {X : Type*} [MeasurableSpace X] {m : PNat}
+    (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
+    (Γ : CarreDuChamp X) (μ : Measure X) where
+  /-- The constant C(ℰ) from the energy functional -/
+  C_energy : ℝ
+  /-- Non-negativity of the constant -/
+  C_energy_nonneg : 0 ≤ C_energy
+  /-- The constant satisfies the spectral bound -/
+  spectral_bound : ∀ φ : X → ℝ, MeasureTheory.MemLp φ 2 μ →
+    φ ∈ domain_of_carre_du_champ Γ μ →
+    ∫ x, (multiScaleDiff H cfg φ x)^2 ∂μ ≤
+      C_energy * (spectralSymbolSupNorm cfg)^2 * ∫ x, Γ.Γ φ φ x ∂μ
+
+/-- The spectral penalty term in the effective parameter formula -/
+noncomputable def spectral_penalty_term {m : PNat} (cfg : MultiScaleConfig m)
+    (C : ℝ) (κ : ℝ) : ℝ :=
+  κ * C * (spectralSymbolSupNorm cfg)^2
+
 /-- Cauchy-Schwarz equality condition for the spectral estimate.
     The inequality ∫|Δ^{⟨m⟩} φ|² dμ ≤ C‖ψ_m‖_∞² ∫Γ(φ,φ) dμ becomes an equality
     when φ is an eigenfunction of a specific form. -/
 structure CauchySchwarzSharp {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
-    (spectral : SpectralPenalty H cfg) where
+    (fgstar_const : FGStarConstant H cfg Γ μ) where
   /-- The eigenfunction that achieves equality -/
   eigenfunction : X → ℝ
   /-- The eigenvalue corresponding to the eigenfunction -/
@@ -60,17 +85,17 @@ structure MetaEVIFlags {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
   lam_base : ℝ
   /-- Doob transform component -/
   doob : DoobDegradation
-  /-- Spectral penalty component -/
-  spectral : SpectralPenalty H cfg
+  /-- FG★ constant tracking the energy functional -/
+  fgstar_const : FGStarConstant H cfg Γ μ
   /-- Dynamic distance flags -/
   dyn_flags : DynDistanceFlags H cfg Γ κ μ
   /-- Positivity of regularization parameter -/
   κ_pos : 0 < κ
   /-- The effective parameter -/
   lam_eff : ℝ
-  /-- The effective parameter satisfies the formula -/
-  lam_eff_eq : lam_eff = lam_base - 2 * doob.ε - κ * spectral.C_dirichlet *
-    (spectralSymbolSupNorm cfg)^2
+  /-- The effective parameter satisfies the FG★ formula -/
+  lam_eff_eq : lam_eff = lam_base - 2 * doob.ε -
+    spectral_penalty_term cfg fgstar_const.C_energy κ
 
 /-- Extract the effective contraction rate from meta-variational flags.
 This gives the rate λ_eff = λ - 2ε(h) - κC(ℰ)‖ψ_m‖_∞² -/
@@ -86,7 +111,7 @@ theorem FGStar_main_inequality {X : Type*} [MeasurableSpace X] [PseudoMetricSpac
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m) (Γ : CarreDuChamp X) (κ : ℝ)
     (μ : Measure X) (flags : MetaEVIFlags H cfg Γ κ μ) :
     flags.lam_eff = flags.lam_base - 2 * flags.doob.ε -
-                  κ * flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2 :=
+                  spectral_penalty_term cfg flags.fgstar_const.C_energy κ :=
   -- This is true by the lam_eff_eq field in MetaEVIFlags
   flags.lam_eff_eq
 
@@ -96,16 +121,17 @@ theorem FGStar_degradation {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) (flags : MetaEVIFlags H cfg Γ κ μ) :
     flags.lam_eff ≤ flags.lam_base := by
   rw [FGStar_main_inequality]
+  simp only [spectral_penalty_term]
   -- Both degradation terms are non-negative
   have h1 : 0 ≤ 2 * flags.doob.ε := by
     apply mul_nonneg
     · norm_num
     · exact flags.doob.ε_nonneg
-  have h2 : 0 ≤ κ * flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2 := by
+  have h2 : 0 ≤ κ * flags.fgstar_const.C_energy * (spectralSymbolSupNorm cfg)^2 := by
     apply mul_nonneg
     apply mul_nonneg
     · exact le_of_lt flags.κ_pos
-    · exact flags.spectral.C_nonneg
+    · exact flags.fgstar_const.C_energy_nonneg
     · apply sq_nonneg
   linarith
 
@@ -126,6 +152,104 @@ structure FGStar_EVI_connection {X : Type*} [MeasurableSpace X] [PseudoMetricSpa
   /-- The gradient flow satisfies the EVI inequality with rate lam_eff -/
   evi_holds : Prop  -- Placeholder: actual EVI inequality statement
 
+/-- The main FG★ inequality for the L² norm of the multi-scale operator.
+    This is the core estimate connecting the multi-scale diffusion to the energy functional. -/
+theorem FGStar_L2_inequality {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
+    {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
+    (Γ : CarreDuChamp X) (μ : Measure X) [IsFiniteMeasure μ]
+    (C : FGStarConstant H cfg Γ μ)
+    (φ : X → ℝ) (hφ_L2 : MeasureTheory.MemLp φ 2 μ)
+    (hφ_dom : φ ∈ domain_of_carre_du_champ Γ μ) :
+    ∫ x, (multiScaleDiff H cfg φ x)^2 ∂μ ≤
+      C.C_energy * (spectralSymbolSupNorm cfg)^2 * ∫ x, Γ.Γ φ φ x ∂μ := by
+  exact C.spectral_bound φ hφ_L2 hφ_dom
+
+/-- The FG★ inequality with explicit constant tracking for ENNReal values -/
+theorem FGStar_ENNReal_inequality {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
+    {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
+    (Γ : CarreDuChamp X) (μ : Measure X) [IsFiniteMeasure μ]
+    (C : FGStarConstant H cfg Γ μ)
+    (φ : X → ℝ) (hφ_L2 : MeasureTheory.MemLp φ 2 μ)
+    (hφ_dom : φ ∈ domain_of_carre_du_champ Γ μ)
+    -- Move to ENNReal internally via lintegral_ofReal_eq_ofReal_integral
+    (hΔ_integrable : MeasureTheory.Integrable (fun x => (multiScaleDiff H cfg φ x) ^ 2) μ)
+    (hΓ_nonneg_pt : ∀ x, 0 ≤ Γ.Γ φ φ x) :
+    (∫⁻ x, ENNReal.ofReal ((multiScaleDiff H cfg φ x)^2) ∂μ) ≤
+      ENNReal.ofReal (C.C_energy * (spectralSymbolSupNorm cfg)^2) *
+      (∫⁻ x, ENNReal.ofReal (Γ.Γ φ φ x) ∂μ) := by
+  -- Convert the real inequality to ENNReal
+  have h_real := FGStar_L2_inequality H cfg Γ μ C φ hφ_L2 hφ_dom
+  -- Move to ENNReal using monotonicity of ofReal and product compatibility
+  have h_real_ofReal :
+      ENNReal.ofReal (∫ x, (multiScaleDiff H cfg φ x)^2 ∂μ)
+        ≤ ENNReal.ofReal (C.C_energy * (spectralSymbolSupNorm cfg)^2 * ∫ x, Γ.Γ φ φ x ∂μ) := by
+    exact ENNReal.ofReal_le_ofReal h_real
+  -- Split the constant/product on the right using nonnegativity
+  have hconst_nonneg : 0 ≤ C.C_energy * (spectralSymbolSupNorm cfg)^2 := by
+    exact mul_nonneg C.C_energy_nonneg (sq_nonneg _)
+  -- Use provided a.e. nonnegativity of Γ to get integral ≥ 0
+  have hΓ_nonneg : 0 ≤ ∫ x, Γ.Γ φ φ x ∂μ := by
+    -- Use pointwise nonnegativity to conclude integral ≥ 0
+    apply integral_nonneg
+    intro x; exact hΓ_nonneg_pt x
+  set A : ℝ := C.C_energy * (spectralSymbolSupNorm cfg)^2 with hA
+  set B : ℝ := ∫ x, Γ.Γ φ φ x ∂μ with hB
+  have h_split_aux : ENNReal.ofReal (A * B) = ENNReal.ofReal A * ENNReal.ofReal B := by
+    have hA_nonneg : 0 ≤ A := by simpa [hA] using hconst_nonneg
+    simpa using (@ENNReal.ofReal_mul A B hA_nonneg)
+  have h_split :
+      ENNReal.ofReal (C.C_energy * (spectralSymbolSupNorm cfg)^2 * ∫ x, Γ.Γ φ φ x ∂μ)
+        = ENNReal.ofReal (C.C_energy * (spectralSymbolSupNorm cfg)^2)
+          * ENNReal.ofReal (∫ x, Γ.Γ φ φ x ∂μ) := by
+    simpa [hA, hB, mul_comm, mul_left_comm, mul_assoc]
+      using h_split_aux
+  -- Convert both sides to ENNReal via lintegral_ofReal_eq_ofReal_integral
+  have hΔ_nonneg_ae : 0 ≤ᵐ[μ] fun x => (multiScaleDiff H cfg φ x)^2 := by
+    exact Filter.Eventually.of_forall (by intro x; exact sq_nonneg _)
+  have hΔ_eq : ∫⁻ x, ENNReal.ofReal ((multiScaleDiff H cfg φ x)^2) ∂μ
+                = ENNReal.ofReal (∫ x, (multiScaleDiff H cfg φ x)^2 ∂μ) := by
+    -- Convert lintegral of ofReal to ofReal of integral for nonneg integrable function
+    exact (MeasureTheory.ofReal_integral_eq_lintegral_ofReal hΔ_integrable hΔ_nonneg_ae).symm
+  -- For Γ-term: integrable follows from domain_of_carre_du_champ, nonneg from hypothesis
+  have hΓ_integrable : MeasureTheory.Integrable (fun x => Γ.Γ φ φ x) μ := by
+    -- By definition of `domain_of_carre_du_champ`
+    simpa using hφ_dom
+  have hΓ_eq : ∫⁻ x, ENNReal.ofReal (Γ.Γ φ φ x) ∂μ
+                = ENNReal.ofReal (∫ x, Γ.Γ φ φ x ∂μ) := by
+    -- Convert lintegral of ofReal to ofReal of integral for nonneg integrable function
+    exact (MeasureTheory.ofReal_integral_eq_lintegral_ofReal
+            hΓ_integrable (Filter.Eventually.of_forall hΓ_nonneg_pt)).symm
+  -- Conclude by rewriting both sides with the provided equalities
+  calc
+    (∫⁻ x, ENNReal.ofReal ((multiScaleDiff H cfg φ x)^2) ∂μ)
+        = ENNReal.ofReal (∫ x, (multiScaleDiff H cfg φ x)^2 ∂μ) := hΔ_eq
+    _ ≤ ENNReal.ofReal (C.C_energy * (spectralSymbolSupNorm cfg)^2 * ∫ x, Γ.Γ φ φ x ∂μ) :=
+      h_real_ofReal
+    _ = ENNReal.ofReal (C.C_energy * (spectralSymbolSupNorm cfg)^2)
+          * ENNReal.ofReal (∫ x, Γ.Γ φ φ x ∂μ) := h_split
+    _ = ENNReal.ofReal (C.C_energy * (spectralSymbolSupNorm cfg)^2)
+          * (∫⁻ x, ENNReal.ofReal (Γ.Γ φ φ x) ∂μ) := by
+      simp [hΓ_eq.symm]
+
+/-- Main theorem: The effective parameter degradation due to FG★ inequality -/
+theorem FGStar_parameter_degradation {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
+    {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
+    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) [IsFiniteMeasure μ]
+    (C : FGStarConstant H cfg Γ μ) (lam_base : ℝ) (doob_ε : ℝ)
+    (hκ_pos : 0 < κ) (hdoob_nonneg : 0 ≤ doob_ε) :
+    -- The effective parameter after FG★ degradation
+    let lam_eff := lam_base - 2 * doob_ε - spectral_penalty_term cfg C.C_energy κ
+    lam_eff ≤ lam_base := by
+  simp only [spectral_penalty_term]
+  have h1 : 0 ≤ 2 * doob_ε := mul_nonneg (by norm_num) hdoob_nonneg
+  have h2 : 0 ≤ κ * C.C_energy * (spectralSymbolSupNorm cfg)^2 := by
+    apply mul_nonneg
+    apply mul_nonneg
+    · exact le_of_lt hκ_pos
+    · exact C.C_energy_nonneg
+    · exact sq_nonneg _
+  linarith
+
 /-- Main theorem: FG★ inequality with EVI contraction.
 Under the meta-variational principle, the entropy functional satisfies
 EVI contraction with the degraded rate λ_eff. -/
@@ -135,7 +259,7 @@ theorem FGStar_with_EVI {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     (_connection : FGStar_EVI_connection H cfg Γ κ μ Ent flags) :
     -- The main inequality holds and EVI contracts at the degraded rate
     flags.lam_eff = flags.lam_base - 2 * flags.doob.ε -
-                  κ * flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2 :=
+                  spectral_penalty_term cfg flags.fgstar_const.C_energy κ :=
   FGStar_main_inequality H cfg Γ κ μ flags
 
 /-- Optimality: The FG★ inequality is sharp (becomes an equality).
@@ -146,7 +270,7 @@ structure FGStar_sharp {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     (flags : MetaEVIFlags H cfg Γ κ μ) where
   /-- The FG★ inequality is an equality -/
   equality : flags.lam_eff = flags.lam_base - 2 * flags.doob.ε -
-                           κ * flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2
+                           spectral_penalty_term cfg flags.fgstar_const.C_energy κ
   /-- There exists a Doob function h that achieves the BE degradation bound.
       In BE theory, this means ε(h) = flags.doob.ε where
       ε(h) = sup_φ {∫ Γ₂(log h, φ) dμ / ‖φ‖²} -/
@@ -161,9 +285,10 @@ structure FGStar_sharp {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
   config_optimal : ∀ cfg' : MultiScaleConfig m,
     (∑ i, cfg'.α i = 0) →  -- Same zero-sum constraint
     spectralSymbolSupNorm cfg ≤ spectralSymbolSupNorm cfg'
-  /-- Cauchy-Schwarz equality holds in the spectral estimate.
-      This means the test function φ is an eigenfunction of the multi-scale operator. -/
-  cauchy_schwarz_sharp : CauchySchwarzSharp H cfg Γ κ μ flags.spectral
+  /-- Cauchy–Schwarzの等号が鋭い形で達成され、
+      固有方程式まで満たすテスト関数が存在する。 -/
+  cauchy_schwarz_sharp :
+    CauchySchwarzSharp H cfg Γ κ μ flags.fgstar_const
 
 /-- Scale optimization: Choosing optimal multi-scale parameters -/
 def optimal_scale_config {X : Type*} [MeasurableSpace X] {m : PNat} : MultiScaleConfig m :=
@@ -194,11 +319,11 @@ theorem FGStar_G_invariance_prop_scale {X : Type*} [MeasurableSpace X] [PseudoMe
 theorem cauchy_schwarz_equality_characterization
     {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
-    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) (spectral : SpectralPenalty H cfg)
+    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) (fgstar_const : FGStarConstant H cfg Γ μ)
     (φ : X → ℝ) (h_nontrivial : ∃ x : X, φ x ≠ 0) :
     -- The equality holds iff φ is an eigenfunction
     (∃ lam : ℝ, ∀ x : X, multiScaleDiff H cfg φ x = lam * φ x) ↔
-    ∃ cs : CauchySchwarzSharp H cfg Γ κ μ spectral, cs.eigenfunction = φ := by
+    ∃ cs : CauchySchwarzSharp H cfg Γ κ μ fgstar_const, cs.eigenfunction = φ := by
   constructor
   · -- Forward: If φ is an eigenfunction, then CS equality holds
     intro ⟨lam, h_eigen⟩
@@ -231,24 +356,20 @@ theorem cauchy_schwarz_sharp_proof
       (∃ x : X, φ x ≠ 0) ∧
       -- The eigenvalue is related to the spectral symbol
       |lam| ≤ spectralSymbolSupNorm cfg := by
-  -- Extract the eigenfunction from the sharp condition
-  obtain ⟨φ, lam, h_nontrivial, h_eigen, h_eq⟩ := sharp.cauchy_schwarz_sharp
-  use φ, lam
-  refine ⟨h_eigen, h_nontrivial, ?_⟩
-  -- The eigenvalue bound follows from spectral theory
-  -- For the multi-scale operator, eigenvalues are bounded by ‖ψ_m‖_∞
-  -- This is a fundamental property of the spectral symbol
-  -- The eigenvalue bound follows from spectral theory of the multi-scale operator
-  -- Since φ is an eigenfunction: Δ^{⟨m⟩} φ = lam*φ
-  -- In Fourier space: ψ_m(ξ) φ̂(ξ) = lam φ̂(ξ)
-  -- This means lam is in the range of ψ_m, hence |lam| ≤ ‖ψ_m‖_∞
-  -- For the multi-scale operator with bounded coefficients, we can establish:
-  have h_weights_bounded : ∀ i : Fin m, |cfg.α i| ≤ 1 := cfg.hα_bound
-  have h_sum_zero : ∑ i : Fin m, cfg.α i = 0 := cfg.hα_sum
-  -- The spectral symbol ψ_m(λ) = ∑ α_i (e^{-τ_i λ} - 1) has bounded range
-  -- Since exponentials are bounded and weights sum to zero, |ψ_m(λ)| ≤ 2∑|α_i| ≤ 2m
-  -- Apply the assumed eigenvalue bound
-  exact h_eigenvalue_bound lam ⟨φ, h_nontrivial, h_eigen⟩
+  -- Extract the sharp Cauchy–Schwarz witness providing an eigenfunction
+  let cs := sharp.cauchy_schwarz_sharp
+  -- Take the eigenfunction and eigenvalue from the witness
+  use cs.eigenfunction, cs.eigenvalue
+  refine ⟨?eigen_eq, ?nontrivial, ?bound⟩
+  · -- eigen-equation holds pointwise by the witness
+    exact cs.eigen_equation
+  · -- nontriviality from the witness
+    exact cs.nontrivial
+  · -- eigenvalue bounded by spectral sup-norm (assumption)
+    apply h_eigenvalue_bound cs.eigenvalue
+    refine ⟨cs.eigenfunction, ?_, ?_⟩
+    · exact cs.nontrivial
+    · exact cs.eigen_equation
 
 /-- Key lemma: In Fourier space, the Cauchy-Schwarz equality
     corresponds to phase alignment of spectral components. -/

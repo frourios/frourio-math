@@ -178,15 +178,14 @@ theorem lam_eff_liminf {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     -- Assume convergence of base parameters and Doob degradations
     Tendsto (fun n => (flags_n n).lam_base) atTop (nhds flags.lam_base) →
     Tendsto (fun n => (flags_n n).doob.ε) atTop (nhds flags.doob.ε) →
-    Tendsto (fun n => (flags_n n).spectral.C_dirichlet) atTop (nhds flags.spectral.C_dirichlet) →
+    Tendsto (fun n => (flags_n n).fgstar_const.C_energy) atTop (nhds flags.fgstar_const.C_energy) →
     -- Then the effective lambda is lower semicontinuous
     Filter.liminf (fun n => (flags_n n).lam_eff) atTop ≥ flags.lam_eff := by
   intro h_lam_conv h_doob_conv h_C_conv
   -- Use the FG★ formula for each n
   have hn : ∀ n, (flags_n n).lam_eff = (flags_n n).lam_base -
                  2 * (flags_n n).doob.ε -
-                 κ * (flags_n n).spectral.C_dirichlet *
-                 (spectralSymbolSupNorm (cfg_n n))^2 := by
+                 spectral_penalty_term (cfg_n n) (flags_n n).fgstar_const.C_energy κ := by
     intro n
     exact (flags_n n).lam_eff_eq
 
@@ -220,18 +219,18 @@ theorem lam_eff_liminf {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
   have h_d2 :
     Tendsto (fun n => (spectralSymbolSupNorm (cfg_n n))^2) atTop
             (nhds ((spectralSymbolSupNorm cfg)^2)) := by
-    have hc : Continuous (fun x : ℝ => x^2) := by continuity
+    have hc : Continuous (fun x : ℝ => x^2) := continuous_pow 2
     exact (hc.continuousAt.tendsto.comp h_spec)
   -- Step 2: product c * d^2
   have h_prod_cd :
-    Tendsto (fun n => (flags_n n).spectral.C_dirichlet * (spectralSymbolSupNorm (cfg_n n))^2)
+    Tendsto (fun n => (flags_n n).fgstar_const.C_energy * (spectralSymbolSupNorm (cfg_n n))^2)
             atTop
-            (nhds (flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2)) := by
+            (nhds (flags.fgstar_const.C_energy * (spectralSymbolSupNorm cfg)^2)) := by
     simpa using h_C_conv.mul h_d2
   -- Step 3: multiply by κ (constant)
   have h_k_prod :
-    Tendsto (fun n => κ * ((flags_n n).spectral.C_dirichlet * (spectralSymbolSupNorm (cfg_n n))^2))
-    atTop (nhds (κ * (flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2))) := by
+    Tendsto (fun n => κ * ((flags_n n).fgstar_const.C_energy * (spectralSymbolSupNorm (cfg_n n))^2))
+    atTop (nhds (κ * (flags.fgstar_const.C_energy * (spectralSymbolSupNorm cfg)^2))) := by
     simpa using (tendsto_const_nhds.mul h_prod_cd)
   -- Step 4: 2 * ε_n and the subtraction/addition chain
   have h_2eps : Tendsto (fun n => 2 * (flags_n n).doob.ε) atTop (nhds (2 * flags.doob.ε)) := by
@@ -239,33 +238,30 @@ theorem lam_eff_liminf {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
   -- Combine: a_n - (2 ε_n) - (κ c_n d_n^2)
   have h_lim2 :
     Tendsto (fun n => (flags_n n).lam_base - (2 * (flags_n n).doob.ε)
-                  - (κ * ((flags_n n).spectral.C_dirichlet * (spectralSymbolSupNorm (cfg_n n))^2)))
+                  - (κ * ((flags_n n).fgstar_const.C_energy * (spectralSymbolSupNorm (cfg_n n))^2)))
             atTop
             (nhds (flags.lam_base - (2 * flags.doob.ε)
-                       - (κ * (flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2)))) := by
+                       - (κ * (flags.fgstar_const.C_energy * (spectralSymbolSupNorm cfg)^2)))) := by
     simpa using (h_lam_conv.sub (h_2eps.add_const 0) |>.sub h_k_prod)
   -- Hence `lam_eff_n → lam_eff` using the FG★ identities.
   have h_eff_tendsto :
     Tendsto (fun n => (flags_n n).lam_eff) atTop (nhds flags.lam_eff) := by
-    simpa [hn, flags.lam_eff_eq, sub_eq_add_neg, add_comm, add_left_comm, add_assoc,
-           mul_comm, mul_left_comm, mul_assoc] using h_lim2
+    simp only [hn, flags.lam_eff_eq, spectral_penalty_term]
+    convert h_lim2 using 2
+    · ring
+    · ring
   -- Conclude `liminf ≥ limit` using the characterization `le_liminf_iff`.
   have h_ev : ∀ y < flags.lam_eff, ∀ᶠ n in atTop, y < (flags_n n).lam_eff := by
     intro y hy
     -- Neighborhood basis at `flags.lam_eff`: eventually in `Ioi y`.
     have : Set.Ioi y ∈ nhds flags.lam_eff := Ioi_mem_nhds hy
     exact (h_eff_tendsto this)
-  -- Since (flags_n n).lam_eff → flags.lam_eff, we have liminf = limit ≥ limit
-  -- This follows from the general property that for convergent sequences,
-  -- liminf equals the limit
-  have h_lim_expanded : Filter.liminf (fun n => (flags_n n).lam_base - 2 * (flags_n n).doob.ε -
-                                              κ * (flags_n n).spectral.C_dirichlet *
-                                              (spectralSymbolSupNorm (cfg_n n))^2) atTop =
-                       flags.lam_eff := by
-    -- This equals liminf of lam_eff by the FG★ formula
-    conv_lhs => arg 1; ext n; rw [← hn n]
-    exact h_eff_tendsto.liminf_eq
-  exact ge_of_eq h_lim_expanded
+  -- Since (flags_n n).lam_eff → flags.lam_eff, we have liminf ≥ limit
+  have : ∀ n, (flags_n n).lam_base - 2 * (flags_n n).doob.ε -
+              spectral_penalty_term (cfg_n n) (flags_n n).fgstar_const.C_energy κ = 
+              (flags_n n).lam_eff := fun n => (hn n).symm
+  simp only [this]
+  exact le_of_eq h_eff_tendsto.liminf_eq.symm
 
 /-- Stability of the FG★ inequality under Mosco limits -/
 theorem FGStar_stable_under_Mosco {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
@@ -280,7 +276,7 @@ theorem FGStar_stable_under_Mosco {X : Type*} [MeasurableSpace X] [PseudoMetricS
     -- If the flags converge appropriately
     Tendsto (fun n => (flags_n n).lam_base) atTop (nhds flags.lam_base) →
     Tendsto (fun n => (flags_n n).doob.ε) atTop (nhds flags.doob.ε) →
-    Tendsto (fun n => (flags_n n).spectral.C_dirichlet) atTop (nhds flags.spectral.C_dirichlet) →
+    Tendsto (fun n => (flags_n n).fgstar_const.C_energy) atTop (nhds flags.fgstar_const.C_energy) →
     -- Then the effective parameters converge with the inequality preserved
     Filter.liminf (fun n => (flags_n n).lam_eff) atTop ≥ flags.lam_eff := by
   -- This is a direct application of lam_eff_liminf

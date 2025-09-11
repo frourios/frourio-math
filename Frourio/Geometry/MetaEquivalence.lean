@@ -224,7 +224,7 @@ theorem metaToRealFlags_holds {X : Type*} [MeasurableSpace X] [PseudoMetricSpace
     -- Choose c = 0 since (Ent.Ent ρ).toReal ≥ 0 for all ρ
     use (0 : ℝ)
     intro ρ
-    simpa using (ENNReal.toReal_nonneg (Ent.Ent ρ))
+    simp
   · -- Third conjunct: triangle inequality for dynamic distance
     -- This follows from the flags.dyn_flags.triangle property
     exact flags.dyn_flags.triangle
@@ -323,8 +323,6 @@ lemma entropy_lsc_P2_lifting {X : Type*} [MeasurableSpace X] [PseudoMetricSpace 
 theorem entropyToPLFAFunctional_lsc {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     [TopologicalSpace X] [TopologicalSpace (P2 X)]
     (μ : Measure X) [IsFiniteMeasure μ] (Ent : EntropyFunctional X μ)
-    (h_compatible : ∀ (ρₙ : ℕ → P2 X) (ρ : P2 X),
-      Filter.Tendsto ρₙ Filter.atTop (nhds ρ) → P2Converges ρₙ ρ)
     (h_lscP2 : LowerSemicontinuous (entropyToPLFAFunctional μ Ent)) :
     LowerSemicontinuous (entropyToPLFAFunctional μ Ent) := by
   -- We assume the desired lower semicontinuity on P2 as a hypothesis.
@@ -380,8 +378,6 @@ theorem entropy_PLFA_complete {X : Type*} [MeasurableSpace X] [PseudoMetricSpace
     [TopologicalSpace X] [TopologicalSpace (P2 X)]
     (μ : Measure X) [IsFiniteMeasure μ] [IsProbabilityMeasure μ]
     (Ent : EntropyFunctional X μ)
-    (h_compatible : ∀ (ρₙ : ℕ → P2 X) (ρ : P2 X),
-      Filter.Tendsto ρₙ Filter.atTop (nhds ρ) → P2Converges ρₙ ρ)
     (h_lscP2 : LowerSemicontinuous (entropyToPLFAFunctional μ Ent))
     (h_compactP2 : ∀ c : ℝ, IsCompact {ρ : P2 X | entropyToPLFAFunctional μ Ent ρ ≤ c})
     (h_nonempty : Nonempty (P2 X)) :
@@ -418,7 +414,7 @@ theorem entropy_PLFA_admissible {X : Type*} [MeasurableSpace X] [PseudoMetricSpa
       LowerSemicontinuous F ∧
       (∃ ρ : P2 X, ∃ M : ℝ, F ρ < M) ∧
       -- Coercivity: entropy has bounded sublevel sets
-      (∀ c : ℝ, ∃ R : ℝ, R > 0 ∧ True) := by
+      (∀ _ : ℝ, ∃ R : ℝ, R > 0 ∧ True) := by
   use entropyToPLFAFunctional μ Ent
   constructor
   · rfl
@@ -460,9 +456,9 @@ theorem entropy_EVI_convexity {X : Type*} [MeasurableSpace X] [PseudoMetricSpace
 
 /-- Connection to JKO scheme: discrete minimization step -/
 def entropyJKOStep {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
-    {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
-    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) [IsFiniteMeasure μ]
-    (Ent : EntropyFunctional X μ) (τ : ℝ) (hτ : 0 < τ) (ρ : P2 X) : P2 X :=
+    {m : PNat} (_H : HeatSemigroup X) (_cfg : MultiScaleConfig m)
+    (_Γ : CarreDuChamp X) (_κ : ℝ) (μ : Measure X) [IsFiniteMeasure μ]
+    (_Ent : EntropyFunctional X μ) (τ : ℝ) (_hτ : 0 < τ) (ρ : P2 X) : P2 X :=
   -- JKO step: minimize Ent(σ) + d_m²(σ,ρ)/(2τ) over σ
   ρ  -- Placeholder: would require optimization theory
 
@@ -470,10 +466,7 @@ def entropyJKOStep {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
 theorem JKO_to_gradientFlow {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) [IsFiniteMeasure μ]
-    (Ent : EntropyFunctional X μ) (lam_eff : ℝ)
-    (flags : MetaAnalyticFlags H cfg Γ κ μ Ent lam_eff)
-    -- Well-posedness hypotheses supplying the flow and JKO convergence
-    (flow : ℝ → P2 X → P2 X)
+    (Ent : EntropyFunctional X μ) (flow : ℝ → P2 X → P2 X)
     (h_energy : ∀ t : ℝ, 0 ≤ t → ∀ ρ₀ : P2 X,
       Ent.Ent (flow t ρ₀).val ≤ Ent.Ent ρ₀.val)
     (h_jko : ∀ ε > 0, ∃ τ₀ > 0, ∀ τ : ℝ, (hτ : 0 < τ) → τ < τ₀ →
@@ -496,7 +489,7 @@ theorem JKO_to_gradientFlow {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X
   · intro t ht ρ₀; exact h_energy t ht ρ₀
   · intro ε hε; obtain ⟨τ₀, hτ0pos, hrest⟩ := h_jko ε hε; exact ⟨τ₀, hτ0pos, hrest⟩
 
-/-! ### EDE/EVI/JKO Connection 
+/-! ### EDE/EVI/JKO Connection
 
 This section connects the entropy functional to the EDE/EVI/JKO framework,
 establishing the four-equivalence for gradient flows in Wasserstein space.
@@ -526,17 +519,17 @@ structure EntropyEVI {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
 theorem entropy_to_EDE_EVI_JKO {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     [TopologicalSpace X] [TopologicalSpace (P2 X)]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
-    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) 
+    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
     [IsFiniteMeasure μ] [IsProbabilityMeasure μ]
     (Ent : EntropyFunctional X μ) (lam : ℝ)
-    (h_lsc : LowerSemicontinuous (entropyToPLFAFunctional μ Ent))
-    (h_proper : ∃ ρ : P2 X, ∃ M : ℝ, entropyToPLFAFunctional μ Ent ρ < M)
-    (h_coercive : ∀ c : ℝ, IsCompact {ρ : P2 X | entropyToPLFAFunctional μ Ent ρ ≤ c})
+    (_h_lsc : LowerSemicontinuous (entropyToPLFAFunctional μ Ent))
+    (_h_proper : ∃ ρ : P2 X, ∃ M : ℝ, entropyToPLFAFunctional μ Ent ρ < M)
+    (_h_coercive : ∀ c : ℝ, IsCompact {ρ : P2 X | entropyToPLFAFunctional μ Ent ρ ≤ c})
     (ede_witness : EntropyEDE H cfg Γ κ μ Ent)
     (evi_witness : EntropyEVI H cfg Γ κ μ Ent lam) :
     -- There exists gradient flow satisfying EDE and EVI
-    (∃ ede : EntropyEDE H cfg Γ κ μ Ent, True) ∧
-    (∃ evi : EntropyEVI H cfg Γ κ μ Ent lam, True) ∧
+    (∃ _ede : EntropyEDE H cfg Γ κ μ Ent, True) ∧
+    (∃ _evi : EntropyEVI H cfg Γ κ μ Ent lam, True) ∧
     -- JKO scheme converges to gradient flow
     (∀ τ : ℝ, ∀ hτ : 0 < τ, ∀ ρ₀ : P2 X, ∃ ρ_τ : P2 X,
       ρ_τ = entropyJKOStep H cfg Γ κ μ Ent τ hτ ρ₀) := by
@@ -564,19 +557,20 @@ theorem four_equivalence_main {X : Type*} [MeasurableSpace X] [PseudoMetricSpace
       (∃ ρ : P2 X, ∃ M : ℝ, F ρ < M) ∧
       (∀ c : ℝ, IsCompact {ρ : P2 X | F ρ ≤ c})) :
     -- The four formulations are equivalent
-    (∃ plfa_flow : ℝ → P2 X → P2 X, True) ↔
-    (∃ ede : EntropyEDE H cfg Γ κ μ Ent, True) ∧
-    (∃ evi : EntropyEVI H cfg Γ κ μ Ent lam, True) ∧
+    (∃ _plfa_flow : ℝ → P2 X → P2 X, True) ↔
+    (∃ _ede : EntropyEDE H cfg Γ κ μ Ent, True) ∧
+    (∃ _evi : EntropyEVI H cfg Γ κ μ Ent lam, True) ∧
     (∀ τ : ℝ, ∀ hτ : 0 < τ, ∀ ρ₀ : P2 X, ∃ ρ_τ : P2 X,
       ρ_τ = entropyJKOStep H cfg Γ κ μ Ent τ hτ ρ₀) := by
   -- Extract the admissibility conditions
   obtain ⟨F, hF_eq, hF_lsc, hF_proper, hF_coercive⟩ := h_admissible
   rw [hF_eq] at hF_lsc hF_proper hF_coercive
-  
+
   constructor
   · -- Forward direction: PLFA → EDE ∧ EVI ∧ JKO
     intro ⟨_, _⟩
-    exact entropy_to_EDE_EVI_JKO H cfg Γ κ μ Ent lam hF_lsc hF_proper hF_coercive ede_witness evi_witness
+    exact entropy_to_EDE_EVI_JKO
+      H cfg Γ κ μ Ent lam hF_lsc hF_proper hF_coercive ede_witness evi_witness
   · -- Backward direction: EDE ∧ EVI ∧ JKO → PLFA
     intro ⟨⟨ede, _⟩, _, _⟩
     -- The gradient flow from any of these is the PLFA flow

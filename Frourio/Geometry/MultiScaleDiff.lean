@@ -428,9 +428,8 @@ lemma spectralSymbolLipschitzConstant_nonneg {m : PNat} (cfg : MultiScaleConfig 
   intro i _
   exact mul_nonneg (abs_nonneg _) (le_of_lt (cfg.hτ_pos i))
 
-/-- Note: The Lipschitz constant from spectralSymbol_lipschitz equals spectralSymbolLipschitzConstant -/
 lemma spectralSymbol_lipschitz_constant_eq {m : PNat} (cfg : MultiScaleConfig m) :
-    ∃ L : ℝ, L = spectralSymbolLipschitzConstant cfg ∧ 
+    ∃ L : ℝ, L = spectralSymbolLipschitzConstant cfg ∧
     (∀ lam₁ lam₂ : ℝ, 0 ≤ lam₁ → 0 ≤ lam₂ →
       |spectralSymbol cfg lam₁ - spectralSymbol cfg lam₂| ≤ L * |lam₁ - lam₂|) := by
   -- We reproduce the Lipschitz proof with the explicit constant
@@ -485,9 +484,8 @@ lemma spectralSymbol_lipschitz_constant_eq {m : PNat} (cfg : MultiScaleConfig m)
     -- Factor out |lam₁ - lam₂|
     have : ∑ i : Fin m, |cfg.α i| * cfg.τ i * |lam₁ - lam₂|
         = (∑ i : Fin m, |cfg.α i| * cfg.τ i) * |lam₁ - lam₂| := by
-      simpa [Finset.sum_mul] using (Finset.sum_mul (s := (Finset.univ : Finset (Fin m)))
-        (f := fun i => |cfg.α i| * cfg.τ i) (g := fun _ => |lam₁ - lam₂|))
-    simpa [spectralSymbolLipschitzConstant, this]
+      simp [Finset.sum_mul]
+    simp [spectralSymbolLipschitzConstant, this]
 
 /-- Explicit bound when all coefficients satisfy |α_i| ≤ C -/
 theorem spectralSymbolSupNorm_explicit_bound {m : PNat} (cfg : MultiScaleConfig m)
@@ -539,7 +537,7 @@ theorem spectralSymbol_derivative_bound {m : PNat} (cfg : MultiScaleConfig m)
   -- Bound absolute value of the derivative by summing term-wise bounds
   have : |deriv (spectralSymbol cfg) lam|
       = |∑ i : Fin m, (-cfg.α i) * cfg.τ i * Real.exp (-cfg.τ i * lam)| := by
-    simpa [hderiv]
+    simp [hderiv]
   calc
     |deriv (spectralSymbol cfg) lam|
         = |∑ i : Fin m, (-cfg.α i) * cfg.τ i * Real.exp (-cfg.τ i * lam)| := this
@@ -552,7 +550,7 @@ theorem spectralSymbol_derivative_bound {m : PNat} (cfg : MultiScaleConfig m)
           have h1 : |(-cfg.α i) * cfg.τ i * Real.exp (-cfg.τ i * lam)|
                 = |cfg.α i| * cfg.τ i * Real.exp (-cfg.τ i * lam) := by
             have : |(-cfg.α i) * cfg.τ i| = |cfg.α i| * cfg.τ i := by
-              simpa [abs_mul, abs_of_pos hτi] using congrArg abs (by ring : (-cfg.α i) * cfg.τ i = - (cfg.α i * cfg.τ i))
+              simp [abs_mul, abs_of_pos hτi]
             simpa [abs_mul, this]
           have h2 : Real.exp (-cfg.τ i * lam) ≤ 1 := hexp_le_one i
           have hnonneg : 0 ≤ |cfg.α i| * cfg.τ i :=
@@ -580,7 +578,7 @@ structure FGStarConstants {m : PNat} (cfg : MultiScaleConfig m) where
   energy_const_nonneg : 0 ≤ energy_const
 
 /-- Construction of FG★ constants with explicit values -/
-noncomputable def constructFGStarConstants {m : PNat} (cfg : MultiScaleConfig m) : 
+noncomputable def constructFGStarConstants {m : PNat} (cfg : MultiScaleConfig m) :
     FGStarConstants cfg where
   spectral_const := spectralSymbolSupNorm cfg
   energy_const := 1  -- Placeholder; would depend on energy functional

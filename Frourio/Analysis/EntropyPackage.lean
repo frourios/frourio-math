@@ -270,7 +270,8 @@ lemma integrable_llr_of_bounded_rnDeriv {X : Type*} [MeasurableSpace X]
     simpa [g] using hmax
 
   -- Apply Integrable.of_bound
-  have hmeas : AEStronglyMeasurable (fun x => InformationTheory.klFun ((μ.rnDeriv ν x).toReal)) ν := by
+  have hmeas : AEStronglyMeasurable
+    (fun x => InformationTheory.klFun ((μ.rnDeriv ν x).toReal)) ν := by
     -- klFun is continuous, hence strongly measurable
     -- The composition with rnDeriv.toReal is strongly measurable
     apply (hcont.stronglyMeasurable).aestronglyMeasurable.comp_aemeasurable
@@ -349,13 +350,13 @@ lemma integrable_llr_of_uniform_bounds {X : Type*} [MeasurableSpace X]
 /-- Data processing inequality: KL divergence decreases under stochastic maps -/
 theorem relativeEntropy_data_processing {X Y : Type*} [MeasurableSpace X] [MeasurableSpace Y]
     (μ ρ : Measure X) (f : X → Y) [IsFiniteMeasure μ] [IsFiniteMeasure ρ]
-    (hf : Measurable f) : True := by
+    (_hf : Measurable f) : True := by
   -- Placeholder: data processing inequality requires a dedicated development.
   trivial
 
 /-- Entropy has compact sublevel sets (abstract statement) -/
 theorem entropy_compact_sublevels {X : Type*} [MeasurableSpace X] [TopologicalSpace X]
-    [CompactSpace X] (μ : Measure X) [IsProbabilityMeasure μ] (c : ℝ) :
+    [CompactSpace X] (μ : Measure X) [IsProbabilityMeasure μ] (_c : ℝ) :
     True := by
   -- Would require weak compactness theory
   trivial
@@ -412,8 +413,8 @@ noncomputable def ConcreteEntropyFunctional {X : Type*} [MeasurableSpace X] [Top
 /-- Displacement convexity of entropy along Wasserstein geodesics -/
 theorem entropy_displacement_convex {X : Type*} [MeasurableSpace X]
     [PseudoMetricSpace X] (μ : Measure X) [IsFiniteMeasure μ]
-    (K : ℝ) (hK : 0 ≤ K) :
-    ∃ lam : ℝ, ∀ ρ₀ ρ₁ : ProbabilityMeasure X, ∀ t : ℝ, 0 ≤ t → t ≤ 1 →
+    (K : ℝ) (_hK : 0 ≤ K) :
+    ∃ _lam : ℝ, ∀ _ρ₀ _ρ₁ : ProbabilityMeasure X, ∀ t : ℝ, 0 ≤ t → t ≤ 1 →
       -- Along W₂-geodesic γ_t from ρ₀ to ρ₁:
       -- H(γ_t) ≤ (1-t)H(ρ₀) + tH(ρ₁) - λt(1-t)W₂²(ρ₀,ρ₁)/2
       True := by  -- Placeholder for actual inequality
@@ -433,7 +434,7 @@ structure EntropyGradientFlow (X : Type*) [MeasurableSpace X] [PseudoMetricSpace
     InformationTheory.klDiv (flow s ρ₀).toMeasure
       μ ≤ InformationTheory.klDiv (flow t ρ₀).toMeasure μ
   /-- Continuity in time (abstract property) -/
-  time_continuous : ∀ ρ₀ : ProbabilityMeasure X, ∀ t s : ℝ, 0 ≤ t → 0 ≤ s →
+  time_continuous : ∀ _ρ₀ : ProbabilityMeasure X, ∀ t s : ℝ, 0 ≤ t → 0 ≤ s →
     ∀ ε : ℝ, ε > 0 → ∃ δ : ℝ, δ > 0 ∧ (|t - s| < δ →
     -- Abstract: distance between flow t ρ₀ and flow s ρ₀ is small
     True)  -- Placeholder for actual continuity condition
@@ -447,12 +448,12 @@ noncomputable def entropyToPLFA {X : Type*} [MeasurableSpace X] [PseudoMetricSpa
 
 /-- Entropy functional satisfies convexity along geodesics (for PLFA) -/
 theorem entropy_geodesic_convex {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
-    (μ : Measure X) [IsFiniteMeasure μ] (K : ℝ) :
+    (μ : Measure X) [IsFiniteMeasure μ] (_K : ℝ) :
     -- Along geodesics in P₂(X), entropy satisfies K-convexity
     ∃ F : ProbabilityMeasure X → ℝ,
       F = entropyToPLFA μ ∧
       -- F is K-geodesically convex
-      (∀ ρ₀ ρ₁ : ProbabilityMeasure X, ∀ t : ℝ, 0 ≤ t → t ≤ 1 →
+      (∀ _ρ₀ _ρ₁ : ProbabilityMeasure X, ∀ t : ℝ, 0 ≤ t → t ≤ 1 →
         -- Placeholder for geodesic convexity condition
         True) := by
   use entropyToPLFA μ
@@ -464,8 +465,8 @@ theorem entropy_geodesic_convex {X : Type*} [MeasurableSpace X] [PseudoMetricSpa
 /-- Entropy satisfies the Energy-Dissipation Equality (EDE) -/
 theorem entropy_EDE {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     (μ : Measure X) [IsFiniteMeasure μ] :
-    ∃ (flow : EntropyGradientFlow X μ),
-      ∀ t : ℝ, 0 ≤ t → ∀ ρ₀ : ProbabilityMeasure X,
+    ∃ (_flow : EntropyGradientFlow X μ),
+      ∀ t : ℝ, 0 ≤ t → ∀ _ρ₀ : ProbabilityMeasure X,
         -- d/dt H(ρ_t) + |∂H|(ρ_t)² = 0 (placeholder)
         True := by
   -- Construct a trivial (constant-in-time) flow which satisfies the placeholder properties
@@ -486,9 +487,9 @@ theorem entropy_EDE {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
 
 /-- Entropy satisfies Evolution Variational Inequality (EVI) -/
 theorem entropy_EVI {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
-    (μ : Measure X) [IsFiniteMeasure μ] (K : ℝ) :
-    ∃ (flow : EntropyGradientFlow X μ),
-      ∀ t : ℝ, 0 ≤ t → ∀ ρ₀ σ : ProbabilityMeasure X,
+    (μ : Measure X) [IsFiniteMeasure μ] (_K : ℝ) :
+    ∃ (_flow : EntropyGradientFlow X μ),
+      ∀ t : ℝ, 0 ≤ t → ∀ _ρ₀ _σ : ProbabilityMeasure X,
         -- EVI placeholder inequality
         True := by
   -- Reuse the same trivial flow
@@ -504,7 +505,7 @@ theorem entropy_EVI {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
 
 /-- JKO scheme for entropy: discrete gradient flow -/
 noncomputable def entropyJKO {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
-    (μ : Measure X) [IsFiniteMeasure μ] (τ : ℝ) (hτ : 0 < τ) :
+    (μ : Measure X) [IsFiniteMeasure μ] (τ : ℝ) (_hτ : 0 < τ) :
     ProbabilityMeasure X → ProbabilityMeasure X :=
   fun ρ =>
     -- ρ^{n+1} = argmin_σ { H(σ) + W₂²(σ, ρ^n)/(2τ) }
@@ -513,8 +514,8 @@ noncomputable def entropyJKO {X : Type*} [MeasurableSpace X] [PseudoMetricSpace 
 /-- JKO iterates converge to gradient flow as τ → 0 -/
 theorem JKO_convergence {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     (μ : Measure X) [IsFiniteMeasure μ] :
-    ∃ (flow : EntropyGradientFlow X μ),
-      ∀ ρ₀ : ProbabilityMeasure X,
+    ∃ (_flow : EntropyGradientFlow X μ),
+      ∀ _ρ₀ : ProbabilityMeasure X,
         -- As τ → 0, JKO iterates converge to continuous flow (placeholder)
         True := by
   -- Provide the same trivial flow

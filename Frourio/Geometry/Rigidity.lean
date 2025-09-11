@@ -96,7 +96,7 @@ structure EqualityCaseFlags {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X
     (flags : MetaEVIFlags H cfg Γ κ μ) where
   /-- The FG★ inequality is an equality -/
   fg_equality : flags.lam_eff = flags.lam_base - 2 * flags.doob.ε -
-                               κ * flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2
+                               spectral_penalty_term cfg flags.fgstar_const.C_energy κ
   /-- Cauchy-Schwarz equality in the spectral estimate -/
   cauchy_schwarz_equality : Prop  -- Placeholder: CS equality in ∫|Δ^{⟨m⟩} φ|² ≤ ...
   /-- The spectral evaluation achieves its bound -/
@@ -223,7 +223,7 @@ theorem FGStar_equality_from_rigidity {X : Type*} [MeasurableSpace X] [PseudoMet
     (flags : MetaEVIFlags H cfg Γ κ μ) :
     -- These conditions imply FG★ is an equality
     flags.lam_eff = flags.lam_base - 2 * flags.doob.ε -
-                    κ * flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2 := by
+                    spectral_penalty_term cfg flags.fgstar_const.C_energy κ := by
   -- The converse requires showing that all inequalities in the chain are equalities
   -- This follows from the saturation conditions
   exact flags.lam_eff_eq
