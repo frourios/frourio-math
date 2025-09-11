@@ -14,35 +14,56 @@ import Mathlib.Dynamics.Ergodic.RadonNikodym
 import Mathlib.Order.Filter.Basic
 import Mathlib.Order.LiminfLimsup
 import Mathlib.Topology.Order.LiminfLimsup
+import Mathlib.MeasureTheory.Integral.IntegrableOn
+import Mathlib.Topology.MetricSpace.Bounded
+import Mathlib.Topology.Bornology.Basic
 
 namespace Frourio
 
-open MeasureTheory Topology ENNReal ProbabilityTheory Filter
+open MeasureTheory Topology ENNReal ProbabilityTheory Filter Metric
 
 /-!
 # Entropy Functional Analysis Package
 
 This file provides the functional analytic framework for entropy functionals
-needed in the meta-variational principle, implementing Phase 3-1 of the plan.
+needed in the meta-variational principle.
 
-## Main definitions
+## Main API (Section 1-1 of plan2)
 
-- `EntropyLSC`: Lower semicontinuity of entropy
-- `EntropyCompactness`: Quasi-compactness properties
-- `EntropyGradientFlow`: Gradient flow structure for entropy
+- `InformationTheory.klDiv` : The relative entropy D(ρ‖μ) with values in ℝ≥0∞
+- `probability_klDiv_self` : For probability measure μ, D(μ‖μ) = 0
+
+## Lower semicontinuity and chain rules (Section 1-2)
+
+- `relativeEntropy_lsc` : Liminf-type LSC under RN density convergence
+- `llr_add_of_rnDeriv_mul` : Additivity of log-likelihood ratios
+- `relativeEntropy_chain_rule_prob_toReal` : Chain rule for KL divergence
+
+## Integrability conditions (Section 1-3)
+
+- `integrable_llr_of_integrable_klFun_rnDeriv` : Transfer lemma for integrability
 
 ## Implementation notes
 
-We provide concrete implementations and properties of entropy functionals
-that interface with the existing PLFA/EVI framework.
+We use ℝ≥0∞ as the codomain for entropy functionals, converting to ℝ via toReal
+only when interfacing with PLFA/EVI frameworks.
 -/
 
 -- We use `InformationTheory.klDiv ρ μ` from mathlib as the relative entropy `D(ρ‖μ)`.
 
-/-- Liminf-type lower semicontinuity of KL under RN 密度の a.e. 収束.
-If `(ρₙ)` と `ρ` がすべて `μ` に絶対連続で、かつ RN 密度
-`(ρₙ.rnDeriv μ).toReal → (ρ.rnDeriv μ).toReal` が `μ`-a.e. 収束するなら
-`klDiv ρ μ ≤ liminfₙ klDiv (ρₙ) μ` が成り立つ（Fatou による）。
+/-- For a probability measure μ, the relative entropy D(μ‖μ) equals zero.
+This is the key lemma from task 1-1 that highlights the self-entropy property. -/
+theorem probability_klDiv_self {X : Type*} [MeasurableSpace X]
+    (μ : Measure X) [IsProbabilityMeasure μ] :
+    InformationTheory.klDiv μ μ = 0 := by
+  exact InformationTheory.klDiv_self μ
+
+/-- Liminf-type lower semicontinuity of relative entropy under a.e. convergence of RN derivatives.
+If `(ρₙ)` and `ρ` are all absolutely continuous w.r.t. `μ`, and the RN derivatives
+`(ρₙ.rnDeriv μ).toReal → (ρ.rnDeriv μ).toReal` converge `μ`-a.e., then
+`klDiv ρ μ ≤ liminf_n klDiv (ρₙ) μ` holds by Fatou's lemma.
+
+This is a key technical result for establishing LSC in the weak topology.
 -/
 theorem relativeEntropy_lsc {X : Type*} [MeasurableSpace X]
     (μ : Measure X) [IsFiniteMeasure μ]
@@ -108,9 +129,11 @@ theorem relativeEntropy_eq_zero_iff {X : Type*} [MeasurableSpace X]
   simpa using InformationTheory.klDiv_eq_zero_iff (μ := ρ) (ν := μ)
 
 /-!
-Core lemma (a.e. additivity of llr under a multiplicative RN-derivative hypothesis).
-This is the key step towards a chain-rule formula on KL divergences for probability
-measures. It isolates the purely pointwise identity on log-likelihood ratios.
+### Core lemma: Additivity of log-likelihood ratios
+
+Under a multiplicative RN-derivative hypothesis, log-likelihood ratios add a.e.
+This is the key step towards the chain rule formula for KL divergences.
+It isolates the purely pointwise identity on log-likelihood ratios.
 -/
 lemma llr_add_of_rnDeriv_mul {X : Type*} [MeasurableSpace X]
     (μ ν ρ : Measure X) [SigmaFinite μ] [SigmaFinite ν] [SigmaFinite ρ]
@@ -152,11 +175,15 @@ lemma llr_add_of_rnDeriv_mul {X : Type*} [MeasurableSpace X]
     simp [hloglhs, hlog]
   simp [MeasureTheory.llr, hlogeq]
 
-/-- Chain rule for KL (probability version, toReal-level):
-for probability measures with μ ≪ ν, ν ≪ ρ, assuming a.e. multiplicative RN-derivative and
-positivity conditions, we have
-  (klDiv μ ρ).toReal = (klDiv μ ν).toReal + ∫ llr ν ρ dμ.
-This is the concrete form needed downstream. -/
+/-- Chain rule for relative entropy (probability measure version with toReal).
+
+For probability measures with μ ≪ ν ≪ ρ and appropriate integrability conditions,
+we have the chain rule:
+  `(klDiv μ ρ).toReal = (klDiv μ ν).toReal + ∫ llr ν ρ dμ`
+
+This is the concrete form needed for PLFA/EVI frameworks where we work with real values.
+The integrability assumptions `h_int1` and `h_int2` are explicit as required by plan2.
+-/
 theorem relativeEntropy_chain_rule_prob_toReal {X : Type*} [MeasurableSpace X]
     (μ ν ρ : Measure X) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν] [IsProbabilityMeasure ρ]
     [SigmaFinite μ] [SigmaFinite ν] [SigmaFinite ρ]
@@ -188,8 +215,14 @@ theorem relativeEntropy_chain_rule_prob_toReal {X : Type*} [MeasurableSpace X]
     _ = ∫ x, MeasureTheory.llr μ ν x ∂μ + ∫ x, MeasureTheory.llr ν ρ x ∂μ := hsum
     _ = (InformationTheory.klDiv μ ν).toReal + ∫ x, MeasureTheory.llr ν ρ x ∂μ := by simp [h2]
 
-/-! ### Integrability transfer lemmas for llr -/
+/-! ### Section 1-3: Integrability conditions for chain rule
 
+These lemmas provide sufficient conditions to ensure the integrability assumptions
+required by the chain rule `relativeEntropy_chain_rule_prob_toReal`.
+-/
+
+/-- Transfer lemma: integrability of klFun composed with RN derivative implies integrability of llr.
+This is the main tool for verifying integrability conditions in the chain rule. -/
 lemma integrable_llr_of_integrable_klFun_rnDeriv {X : Type*} [MeasurableSpace X]
     (μ ν : Measure X) [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ ≪ ν)
     (h : Integrable (fun x => InformationTheory.klFun ((μ.rnDeriv ν x).toReal)) ν) :
@@ -198,7 +231,120 @@ lemma integrable_llr_of_integrable_klFun_rnDeriv {X : Type*} [MeasurableSpace X]
   have := InformationTheory.integrable_klFun_rnDeriv_iff (μ := μ) (ν := ν) hμν
   exact this.mp h
 
--- (Optional) Further integrability criteria can be added here if needed.
+/-- When the RN derivative is bounded, llr is integrable for finite measures.
+This provides a simple sufficient condition for integrability. -/
+lemma integrable_llr_of_bounded_rnDeriv {X : Type*} [MeasurableSpace X]
+    (μ ν : Measure X) [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ ≪ ν)
+    (C : ℝ) (hC : 0 ≤ C)
+    (hbound : ∀ᵐ x ∂ν, (μ.rnDeriv ν x).toReal ≤ C) :
+    Integrable (MeasureTheory.llr μ ν) μ := by
+  -- Apply the transfer lemma with bounded klFun
+  apply integrable_llr_of_integrable_klFun_rnDeriv μ ν hμν
+  -- Need to show: Integrable (fun x => klFun ((μ.rnDeriv ν x).toReal)) ν
+
+  -- klFun is continuous, hence |klFun| is continuous and bounded on [0, C]
+  have hcont := InformationTheory.continuous_klFun
+  have hcompact : IsCompact (Set.Icc (0 : ℝ) C) := isCompact_Icc
+
+  -- Nonemptiness of [0,C] from hC : 0 ≤ C
+  have hne : (Set.Icc (0:ℝ) C).Nonempty := by
+    refine ⟨0, ?_⟩
+    exact ⟨by simp, hC⟩
+
+  -- Maximize g(t) = |klFun t| on [0,C]
+  let g : ℝ → ℝ := fun t => |InformationTheory.klFun t|
+  have hg_cont : Continuous g := hcont.abs
+  have ⟨M, hM⟩ := hcompact.exists_isMaxOn hne (hg_cont.continuousOn)
+
+  -- Show the composition is bounded a.e. by the maximum value |klFun M|
+  have hbounded : ∀ᵐ x ∂ν, |InformationTheory.klFun ((μ.rnDeriv ν x).toReal)| ≤
+      |InformationTheory.klFun M| := by
+    filter_upwards [hbound] with x hx
+    -- Since 0 ≤ (μ.rnDeriv ν x).toReal ≤ C, the point lies in [0,C]
+    have h_in : (μ.rnDeriv ν x).toReal ∈ Set.Icc (0:ℝ) C := by
+      constructor
+      · exact ENNReal.toReal_nonneg
+      · exact hx
+    -- By maximality of g on [0,C], g at this point is ≤ g M
+    have hmax := hM.2 h_in
+    simpa [g] using hmax
+
+  -- Apply Integrable.of_bound
+  have hmeas : AEStronglyMeasurable (fun x => InformationTheory.klFun ((μ.rnDeriv ν x).toReal)) ν := by
+    -- klFun is continuous, hence strongly measurable
+    -- The composition with rnDeriv.toReal is strongly measurable
+    apply (hcont.stronglyMeasurable).aestronglyMeasurable.comp_aemeasurable
+    exact (Measure.measurable_rnDeriv _ _).ennreal_toReal.aemeasurable
+  exact Integrable.of_bound hmeas (|InformationTheory.klFun M|) hbounded
+
+/-- For probability measures with finite KL divergence, llr is integrable. -/
+lemma integrable_llr_of_finite_klDiv {X : Type*} [MeasurableSpace X]
+    (μ ν : Measure X) [IsProbabilityMeasure μ] [IsProbabilityMeasure ν]
+    (hfin : InformationTheory.klDiv μ ν < ⊤) :
+    Integrable (MeasureTheory.llr μ ν) μ := by
+  -- Use the key lemma: klDiv_ne_top_iff states that klDiv μ ν ≠ ∞ ↔ μ ≪ ν ∧ Integrable (llr μ ν) μ
+  have h_ne_top : InformationTheory.klDiv μ ν ≠ ⊤ := ne_of_lt hfin
+  rw [InformationTheory.klDiv_ne_top_iff] at h_ne_top
+  -- Extract the integrability from the conjunction
+  exact h_ne_top.2
+
+/-- When RN derivatives are uniformly bounded above and below, llr is integrable. -/
+lemma integrable_llr_of_uniform_bounds {X : Type*} [MeasurableSpace X]
+    (μ ν : Measure X) [IsFiniteMeasure μ] [IsFiniteMeasure ν] (hμν : μ ≪ ν)
+    (a b : ℝ) (ha : 0 < a) (hb : a < b)
+    (hbound : ∀ᵐ x ∂ν, a ≤ (μ.rnDeriv ν x).toReal ∧ (μ.rnDeriv ν x).toReal ≤ b) :
+    Integrable (MeasureTheory.llr μ ν) μ := by
+  -- llr = log of RN derivative is bounded when RN derivative is bounded away from 0 and ∞
+  -- Since log is continuous on [a,b] with 0 < a, it's bounded there
+  have hcompact : IsCompact (Set.Icc a b) := isCompact_Icc
+  have hlog_cont : ContinuousOn Real.log (Set.Icc a b) := by
+    apply ContinuousOn.mono Real.continuousOn_log
+    intro x hx
+    -- x ∈ [a,b] and 0 < a implies x ≠ 0
+    simp only [Set.mem_compl_iff, Set.mem_singleton_iff]
+    exact ne_of_gt (lt_of_lt_of_le ha hx.1)
+
+  -- Get bounds for log on [a,b]
+  have hne : (Set.Icc a b).Nonempty := by
+    use a
+    simp [hb.le]
+  have ⟨m, hm⟩ := hcompact.exists_isMinOn hne hlog_cont
+  have ⟨M, hM⟩ := hcompact.exists_isMaxOn hne hlog_cont
+
+  -- Show llr is bounded a.e. with respect to μ
+  have hbounded_llr : ∀ᵐ x ∂μ, |MeasureTheory.llr μ ν x| ≤ max |Real.log m| |Real.log M| + 1 := by
+    -- First transfer the bound from ν to μ using absolute continuity
+    have hbound_mu := hμν hbound
+    filter_upwards [hbound_mu] with x ⟨hxa, hxb⟩
+    -- llr μ ν x = log((μ.rnDeriv ν x).toReal)
+    simp only [MeasureTheory.llr]
+    -- The RN derivative is in [a,b], so its log is in [log a, log b]
+    have hx_mem : (μ.rnDeriv ν x).toReal ∈ Set.Icc a b := ⟨hxa, hxb⟩
+    have hlog_bound_m := hm.2 hx_mem
+    have hlog_bound_M := hM.2 hx_mem
+    -- Bound the absolute value
+    calc |Real.log ((μ.rnDeriv ν x).toReal)|
+        ≤ max |Real.log m| |Real.log M| := by
+          rw [abs_le]
+          constructor
+          · calc -(max |Real.log m| |Real.log M|)
+                ≤ -|Real.log m| := by
+                  rw [neg_le_neg_iff]
+                  exact le_max_left _ _
+                _ ≤ Real.log m := by simp [neg_abs_le]
+                _ ≤ Real.log ((μ.rnDeriv ν x).toReal) := hlog_bound_m
+          · calc Real.log ((μ.rnDeriv ν x).toReal)
+                ≤ Real.log M := hlog_bound_M
+                _ ≤ |Real.log M| := le_abs_self _
+                _ ≤ max |Real.log m| |Real.log M| := le_max_right _ _
+        _ ≤ max |Real.log m| |Real.log M| + 1 := by linarith
+
+  -- llr is measurable
+  have hmeas : AEStronglyMeasurable (MeasureTheory.llr μ ν) μ :=
+    (Measurable.stronglyMeasurable (MeasureTheory.measurable_llr _ _)).aestronglyMeasurable
+
+  -- Apply Integrable.of_bound
+  exact Integrable.of_bound hmeas (max |Real.log m| |Real.log M| + 1) hbounded_llr
 
 /-- Data processing inequality: KL divergence decreases under stochastic maps -/
 theorem relativeEntropy_data_processing {X Y : Type*} [MeasurableSpace X] [MeasurableSpace Y]

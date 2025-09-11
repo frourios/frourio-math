@@ -118,8 +118,8 @@ structure FGStar_EVI_connection {X : Type*} [MeasurableSpace X] [PseudoMetricSpa
   geo : MetaGeodesicStructure H cfg Γ κ μ
   /-- The entropy is geodesically λ_eff-convex along d_m geodesics -/
   geodesic_convexity : ∀ ρ₀ ρ₁ : P2 X, ∀ t ∈ Set.Icc (0:ℝ) 1,
-    Ent.Ent (geo.γ ρ₀ ρ₁ t).val ≤
-    (1 - t) * Ent.Ent ρ₀.val + t * Ent.Ent ρ₁.val -
+    (Ent.Ent (geo.γ ρ₀ ρ₁ t).val).toReal ≤
+    (1 - t) * (Ent.Ent ρ₀.val).toReal + t * (Ent.Ent ρ₁.val).toReal -
     flags.lam_eff * t * (1 - t) * (dm H cfg Γ κ μ ρ₀.val ρ₁.val)^2 / 2
   /-- The gradient flow of entropy exists and is well-defined -/
   gradient_flow_exists : Prop  -- Placeholder: existence of gradient flow
@@ -132,14 +132,11 @@ EVI contraction with the degraded rate λ_eff. -/
 theorem FGStar_with_EVI {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m) (Γ : CarreDuChamp X)
     (κ : ℝ) (μ : Measure X) (Ent : EntropyFunctional X μ) (flags : MetaEVIFlags H cfg Γ κ μ)
-    (connection : FGStar_EVI_connection H cfg Γ κ μ Ent flags) :
+    (_connection : FGStar_EVI_connection H cfg Γ κ μ Ent flags) :
     -- The main inequality holds and EVI contracts at the degraded rate
     flags.lam_eff = flags.lam_base - 2 * flags.doob.ε -
-                  κ * flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2 ∧
-    Nonempty (FGStar_EVI_connection H cfg Γ κ μ Ent flags) := by
-  constructor
-  · exact FGStar_main_inequality H cfg Γ κ μ flags
-  · exact ⟨connection⟩
+                  κ * flags.spectral.C_dirichlet * (spectralSymbolSupNorm cfg)^2 :=
+  FGStar_main_inequality H cfg Γ κ μ flags
 
 /-- Optimality: The FG★ inequality is sharp (becomes an equality).
     This requires all inequalities in the chain to be equalities. -/
