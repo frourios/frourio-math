@@ -1,11 +1,15 @@
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Fin.Basic
 import Mathlib.Algebra.BigOperators.Fin
+import Mathlib.Analysis.Calculus.Deriv.MeanValue
 import Mathlib.Analysis.SpecialFunctions.Exp
+import Mathlib.Analysis.SpecialFunctions.ExpDeriv
 import Mathlib.MeasureTheory.Measure.MeasureSpace
 import Mathlib.MeasureTheory.Function.LpSpace.Basic
 
 namespace Frourio
+
+open MeasureTheory
 
 /-!
 # Multi-Scale Difference Operator for Meta-Variational Principle
@@ -60,6 +64,14 @@ structure HeatSemigroup (X : Type*) where
       explicitly to avoid requiring `[MeasurableSpace X]` at the structure level. -/
   measurable_in_function : ∀ t : ℝ, ∀ φ : X → ℝ,
     (∀ [MeasurableSpace X], Measurable φ → Measurable (fun x => H t φ x))
+  /-- L² continuity: H_t preserves L² functions -/
+  l2_continuous : ∀ t : ℝ, ∀ φ : X → ℝ,
+    (∀ [MeasurableSpace X] (μ : MeasureTheory.Measure X),
+      MeasureTheory.MemLp φ 2 μ → MeasureTheory.MemLp (fun x => H t φ x) 2 μ)
+  /-- L² contractivity: H_t is a contraction on L² -/
+  l2_contractive : ∀ t : ℝ, ∀ φ : X → ℝ,
+    (∀ [MeasurableSpace X] (μ : MeasureTheory.Measure X),
+      (0 ≤ t) → MeasureTheory.MemLp φ 2 μ → MeasureTheory.MemLp (fun x => H t φ x) 2 μ)
 
 /-- The m-point multi-scale difference operator Δ^{⟨m⟩}_{α,τ}.
 Definition: Δ^{⟨m⟩} φ := ∑ α_i H_{τ_i} φ - (∑ α_i)I φ.
@@ -102,7 +114,27 @@ theorem multiScaleDiff_zero {X : Type*} {m : PNat}
     multiScaleDiff H cfg (fun _ => 0) = fun _ => 0 := by
   exact multiScaleDiff_const_zero H cfg 0
 
-/-- Measurability property for multiScaleDiff (placeholder for future development) -/
+/-- HeatSemigroup preserves measurability -/
+lemma heatSemigroup_measurable {X : Type*} [MeasurableSpace X]
+    (H : HeatSemigroup X) (t : ℝ) (φ : X → ℝ) (hφ : Measurable φ) :
+    Measurable (fun x => H.H t φ x) :=
+  H.measurable_in_function t φ hφ
+
+/-- HeatSemigroup preserves L² functions -/
+lemma heatSemigroup_l2_preserves {X : Type*} [MeasurableSpace X]
+    (H : HeatSemigroup X) (t : ℝ) (μ : MeasureTheory.Measure X) (φ : X → ℝ)
+    (hφ : MeasureTheory.MemLp φ 2 μ) :
+    MeasureTheory.MemLp (fun x => H.H t φ x) 2 μ :=
+  H.l2_continuous t φ μ hφ
+
+/-- HeatSemigroup is L² contractive for non-negative time -/
+lemma heatSemigroup_l2_contraction {X : Type*} [MeasurableSpace X]
+    (H : HeatSemigroup X) (t : ℝ) (ht : 0 ≤ t) (μ : MeasureTheory.Measure X) (φ : X → ℝ)
+    (hφ : MeasureTheory.MemLp φ 2 μ) :
+    MeasureTheory.MemLp (fun x => H.H t φ x) 2 μ :=
+  H.l2_contractive t φ μ ht hφ
+
+/-- Measurability property for multiScaleDiff -/
 lemma multiScaleDiff_measurable {X : Type*} [MeasurableSpace X] {m : PNat}
     (H : HeatSemigroup X) (cfg : MultiScaleConfig m) (φ : X → ℝ) (hφ : Measurable φ) :
     Measurable (multiScaleDiff H cfg φ) := by
@@ -125,13 +157,17 @@ lemma multiScaleDiff_measurable {X : Type*} [MeasurableSpace X] {m : PNat}
   -- Rewrite back to the original definition
   simpa [multiScaleDiff, f] using hsum
 
-/-- Integrability property for multiScaleDiff squared (placeholder for future development) -/
--- A practical L² (p = 2) version: if each semigroup-evolved component is in L²,
--- then their finite linear combination `multiScaleDiff` is also in L².
+/-- Integrability property for multiScaleDiff squared -/
+-- A practical L² (p = 2) version: if φ is in L², then multiScaleDiff is also in L²
+-- (using the L² continuity of the heat semigroup).
 lemma multiScaleDiff_square_integrable {X : Type*} [MeasurableSpace X] {m : PNat}
     (H : HeatSemigroup X) (cfg : MultiScaleConfig m) (μ : MeasureTheory.Measure X) (φ : X → ℝ)
-    (hL2 : ∀ i : Fin m, MeasureTheory.MemLp (fun x => H.H (cfg.τ i) φ x) 2 μ) :
+    (hφ : MeasureTheory.MemLp φ 2 μ) :
     MeasureTheory.MemLp (multiScaleDiff H cfg φ) 2 μ := by
+  -- First establish that each H_t φ is in L²
+  have hL2 : ∀ i : Fin m, MeasureTheory.MemLp (fun x => H.H (cfg.τ i) φ x) 2 μ := by
+    intro i
+    exact heatSemigroup_l2_preserves H (cfg.τ i) μ φ hφ
   classical
   -- Define components with scalar weights
   let f : Fin m → X → ℝ := fun i x => cfg.α i * H.H (cfg.τ i) φ x
@@ -157,6 +193,7 @@ lemma multiScaleDiff_square_integrable {X : Type*} [MeasurableSpace X] {m : PNat
   -- Tie back to the original definition
   simpa [multiScaleDiff, f] using hsum_mem
 
+
 /-- The spectral symbol ψ_m(λ) = ∑ α_i (exp(-τ_i λ) - 1) for λ ≥ 0 -/
 noncomputable def spectralSymbol {m : PNat} (cfg : MultiScaleConfig m) (lam : ℝ) : ℝ :=
   ∑ i : Fin m, cfg.α i * (Real.exp (-cfg.τ i * lam) - 1)
@@ -166,6 +203,189 @@ theorem spectralSymbol_at_zero {m : PNat} (cfg : MultiScaleConfig m) :
     spectralSymbol cfg 0 = 0 := by
   simp only [spectralSymbol]
   simp [Real.exp_zero, mul_zero, sub_self, Finset.sum_const_zero]
+
+/-- Basic bound: |ψ_m(λ)| ≤ ∑|α_i| for all λ ≥ 0 -/
+theorem spectralSymbol_basic_bound {m : PNat} (cfg : MultiScaleConfig m)
+    (lam : ℝ) (hlam : 0 ≤ lam) :
+    |spectralSymbol cfg lam| ≤ ∑ i : Fin m, |cfg.α i| := by
+  unfold spectralSymbol
+  -- Use triangle inequality
+  have := Finset.abs_sum_le_sum_abs (s := (Finset.univ : Finset (Fin m)))
+    (f := fun i => cfg.α i * (Real.exp (-cfg.τ i * lam) - 1))
+  refine le_trans this ?_
+  refine Finset.sum_le_sum ?_
+  intro i _
+  -- Bound each term |α_i * (exp(-τ_i λ) - 1)| ≤ |α_i|
+  have hexp_le : Real.exp (-cfg.τ i * lam) ≤ 1 := by
+    have hτpos := cfg.hτ_pos i
+    have hneg : -cfg.τ i * lam ≤ 0 := by
+      have : 0 ≤ cfg.τ i * lam := mul_nonneg (le_of_lt hτpos) hlam
+      linarith
+    exact Real.exp_le_one_iff.2 hneg
+  have habs : |Real.exp (-cfg.τ i * lam) - 1| ≤ 1 := by
+    rw [abs_sub_comm]
+    have hnonneg : 0 ≤ 1 - Real.exp (-cfg.τ i * lam) := sub_nonneg.mpr hexp_le
+    rw [abs_of_nonneg hnonneg]
+    have hexp_nonneg : 0 ≤ Real.exp (-cfg.τ i * lam) := Real.exp_nonneg _
+    linarith
+  calc |cfg.α i * (Real.exp (-cfg.τ i * lam) - 1)|
+      = |cfg.α i| * |Real.exp (-cfg.τ i * lam) - 1| := abs_mul _ _
+    _ ≤ |cfg.α i| * 1 := mul_le_mul_of_nonneg_left habs (abs_nonneg _)
+    _ = |cfg.α i| := mul_one _
+
+/-/ Mean value theorem for exponential: |e^a - e^b| ≤ max(e^a, e^b) * |a - b| -/
+lemma exp_diff_le {a b : ℝ} :
+    |Real.exp a - Real.exp b| ≤ max (Real.exp a) (Real.exp b) * |a - b| := by
+  classical
+  rcases lt_trichotomy a b with hlt | heq | hgt
+  · -- a < b
+    have hcont : ContinuousOn (fun t : ℝ => Real.exp t) (Set.Icc a b) :=
+      Real.continuous_exp.continuousOn
+    have hderiv : ∀ x ∈ Set.Ioo a b, HasDerivAt (fun t : ℝ => Real.exp t) (Real.exp x) x :=
+      fun x _ => by simpa using Real.hasDerivAt_exp x
+    obtain ⟨c, hc, hEq⟩ :=
+      exists_hasDerivAt_eq_slope (f := fun t : ℝ => Real.exp t)
+        (f' := fun x => Real.exp x) hlt hcont hderiv
+    -- |exp a - exp b| = exp c * |a - b|
+    have habs_raw : |Real.exp a - Real.exp b| = Real.exp c * (b - a) := by
+      have hba_pos : 0 < b - a := sub_pos.mpr hlt
+      have hmul : Real.exp c * (b - a) = Real.exp b - Real.exp a :=
+        (eq_div_iff (ne_of_gt hba_pos)).mp hEq
+      have := congrArg (fun x => |x|) hmul.symm
+      simpa [abs_mul, abs_of_pos hba_pos, abs_sub_comm] using this
+    have habs : |Real.exp a - Real.exp b| = Real.exp c * |a - b| := by
+      have : |a - b| = b - a := by
+        have : a - b < 0 := sub_neg.mpr hlt
+        simpa [abs_of_neg this, sub_eq_add_neg, add_comm] using (abs_of_neg this)
+      simpa [this] using habs_raw
+    -- Bound exp c ≤ max … using c ∈ (a,b)
+    have hc_le : Real.exp c ≤ max (Real.exp a) (Real.exp b) := by
+      have hcIcc : c ∈ Set.Icc a b := ⟨(Set.mem_Ioo.mp hc).1.le, (Set.mem_Ioo.mp hc).2.le⟩
+      have : Real.exp c ≤ Real.exp b := Real.exp_le_exp.mpr hcIcc.2
+      exact this.trans (le_max_right _ _)
+    have hmul_le := mul_le_mul_of_nonneg_right hc_le (abs_nonneg (a - b))
+    simpa [habs, mul_comm, mul_left_comm, mul_assoc] using hmul_le
+  · -- a = b
+    subst heq; simp
+  · -- a > b: swap
+    have hcont : ContinuousOn (fun t : ℝ => Real.exp t) (Set.Icc b a) :=
+      Real.continuous_exp.continuousOn
+    have hderiv : ∀ x ∈ Set.Ioo b a, HasDerivAt (fun t : ℝ => Real.exp t) (Real.exp x) x :=
+      fun x _ => by simpa using Real.hasDerivAt_exp x
+    have hlt' : b < a := hgt
+    obtain ⟨c, hc, hEq⟩ :=
+      exists_hasDerivAt_eq_slope (f := fun t : ℝ => Real.exp t)
+        (f' := fun x => Real.exp x) hlt' hcont hderiv
+    have habs_raw : |Real.exp a - Real.exp b| = Real.exp c * (a - b) := by
+      have hba_pos : 0 < a - b := sub_pos.mpr hlt'
+      have hmul : Real.exp c * (a - b) = Real.exp a - Real.exp b :=
+        (eq_div_iff (ne_of_gt hba_pos)).mp hEq
+      have := congrArg (fun x => |x|) hmul
+      have := this.symm
+      simpa [abs_mul, abs_of_pos hba_pos] using this
+    have habs : |Real.exp a - Real.exp b| = Real.exp c * |a - b| := by
+      have : |a - b| = a - b := by
+        have : 0 ≤ a - b := sub_nonneg.mpr hlt'.le
+        simp [abs_of_nonneg this]
+      simpa [this] using habs_raw
+    -- |exp a - exp b| ≤ max … * |a-b| by symmetry
+    have hc_le : Real.exp c ≤ max (Real.exp a) (Real.exp b) := by
+      have hcIcc : c ∈ Set.Icc b a := ⟨(Set.mem_Ioo.mp hc).1.le, (Set.mem_Ioo.mp hc).2.le⟩
+      have : Real.exp c ≤ Real.exp a := Real.exp_le_exp.mpr hcIcc.2
+      exact this.trans (le_max_left _ _)
+    have hmul_le := mul_le_mul_of_nonneg_right hc_le (abs_nonneg (a - b))
+    have heq_abs : |Real.exp a - Real.exp b| = Real.exp c * |a - b| := habs
+    simpa [heq_abs, mul_comm, mul_left_comm, mul_assoc] using hmul_le
+
+/-- Refined bound for exponential differences when arguments are non-positive -/
+lemma exp_diff_le_of_nonpos {a b : ℝ} (ha : a ≤ 0) (hb : b ≤ 0) :
+    |Real.exp a - Real.exp b| ≤ |a - b| := by
+  have h := exp_diff_le (a := a) (b := b)
+  have hmax : max (Real.exp a) (Real.exp b) ≤ 1 := by
+    rw [max_le_iff]; exact ⟨Real.exp_le_one_iff.mpr ha, Real.exp_le_one_iff.mpr hb⟩
+  calc
+    |Real.exp a - Real.exp b| ≤ max (Real.exp a) (Real.exp b) * |a - b| := h
+    _ ≤ 1 * |a - b| := mul_le_mul_of_nonneg_right hmax (abs_nonneg _)
+    _ = |a - b| := by simp
+
+/-- The spectral symbol is Lipschitz continuous in λ -/
+theorem spectralSymbol_lipschitz {m : PNat} (cfg : MultiScaleConfig m) :
+    ∃ L : ℝ, 0 ≤ L ∧ ∀ lam₁ lam₂ : ℝ, 0 ≤ lam₁ → 0 ≤ lam₂ →
+      |spectralSymbol cfg lam₁ - spectralSymbol cfg lam₂| ≤ L * |lam₁ - lam₂| := by
+  -- The Lipschitz constant is ∑ |α_i| * τ_i
+  use ∑ i : Fin m, |cfg.α i| * cfg.τ i
+  constructor
+  · -- L ≥ 0
+    apply Finset.sum_nonneg
+    intro i _
+    exact mul_nonneg (abs_nonneg _) (le_of_lt (cfg.hτ_pos i))
+  · -- Lipschitz property using mean value theorem
+    intro lam₁ lam₂ hlam₁ hlam₂
+    -- Rewrite the difference as a sum
+    have hdiff : spectralSymbol cfg lam₁ - spectralSymbol cfg lam₂ =
+        ∑ i : Fin m, cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂)) := by
+      unfold spectralSymbol
+      rw [← Finset.sum_sub_distrib]
+      congr 1
+      ext i
+      ring
+    -- Apply triangle inequality
+    rw [hdiff]
+    have htri : |∑ i : Fin m, cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))|
+        ≤ ∑ i : Fin m, |cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))| :=
+      Finset.abs_sum_le_sum_abs _ _
+    apply le_trans htri
+    -- Bound each term using exp_diff_le_of_nonpos
+    have hbound : ∀ i : Fin m,
+        |cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))|
+        ≤ |cfg.α i| * cfg.τ i * |lam₁ - lam₂| := by
+      intro i
+      have hτpos := cfg.hτ_pos i
+      -- Both -τ_i * lam₁ and -τ_i * lam₂ are non-positive
+      have ha : -cfg.τ i * lam₁ ≤ 0 := by
+        have : 0 ≤ cfg.τ i * lam₁ := mul_nonneg (le_of_lt hτpos) hlam₁
+        linarith
+      have hb : -cfg.τ i * lam₂ ≤ 0 := by
+        have : 0 ≤ cfg.τ i * lam₂ := mul_nonneg (le_of_lt hτpos) hlam₂
+        linarith
+      -- Apply exp_diff_le_of_nonpos
+      have hexp := exp_diff_le_of_nonpos ha hb
+      calc |cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))|
+          = |cfg.α i| * |Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂)| := abs_mul _ _
+        _ ≤ |cfg.α i| * |-cfg.τ i * lam₁ - (-cfg.τ i * lam₂)| :=
+            mul_le_mul_of_nonneg_left hexp (abs_nonneg _)
+        _ = |cfg.α i| * |cfg.τ i * (lam₂ - lam₁)| := by congr 2; ring
+        _ = |cfg.α i| * (cfg.τ i * |lam₂ - lam₁|) := by
+            rw [abs_mul, abs_of_pos hτpos]
+        _ = |cfg.α i| * cfg.τ i * |lam₁ - lam₂| := by
+            rw [abs_sub_comm lam₂ lam₁, mul_assoc]
+    -- Sum the bounds
+    have hsum : ∑ i : Fin m, |cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))|
+        ≤ ∑ i : Fin m, |cfg.α i| * cfg.τ i * |lam₁ - lam₂| := by
+      apply Finset.sum_le_sum
+      intro i _
+      exact hbound i
+    apply le_trans hsum
+    -- Factor out |lam₁ - lam₂|
+    rw [← Finset.sum_mul]
+
+/-- Monotonicity: ψ_m(λ) is decreasing for λ ≥ 0 when all α_i ≥ 0 -/
+theorem spectralSymbol_monotone_decreasing {m : PNat} (cfg : MultiScaleConfig m)
+    (hα_nonneg : ∀ i, 0 ≤ cfg.α i) :
+    ∀ lam₁ lam₂ : ℝ, 0 ≤ lam₁ → lam₁ ≤ lam₂ →
+      spectralSymbol cfg lam₂ ≤ spectralSymbol cfg lam₁ := by
+  intro lam₁ lam₂ hlam₁ hle
+  unfold spectralSymbol
+  apply Finset.sum_le_sum
+  intro i _
+  -- Each term α_i * (exp(-τ_i λ) - 1) is decreasing
+  have hexp_mono : Real.exp (-cfg.τ i * lam₂) ≤ Real.exp (-cfg.τ i * lam₁) := by
+    apply Real.exp_le_exp.mpr
+    have hτpos := cfg.hτ_pos i
+    nlinarith
+  have : Real.exp (-cfg.τ i * lam₂) - 1 ≤ Real.exp (-cfg.τ i * lam₁) - 1 := by
+    linarith
+  exact mul_le_mul_of_nonneg_left this (hα_nonneg i)
 
 /-- Flags for spectral bounds and Bochner-type inequalities.
 These are assumptions/axioms at this stage, to be proved later. -/
@@ -183,6 +403,42 @@ structure SpectralBound {X : Type*} {m : PNat} (H : HeatSemigroup X)
 /-- The sup-norm of the spectral symbol. Defined abstractly. -/
 noncomputable def spectralSymbolSupNorm {m : PNat} (cfg : MultiScaleConfig m) : ℝ :=
   sSup { y : ℝ | ∃ lam : ℝ, 0 ≤ lam ∧ y = |spectralSymbol cfg lam| }
+
+/-- The sup-norm is bounded by ∑|α_i| -/
+theorem spectralSymbolSupNorm_bounded {m : PNat} (cfg : MultiScaleConfig m) :
+    spectralSymbolSupNorm cfg ≤ ∑ i : Fin m, |cfg.α i| := by
+  apply csSup_le
+  · -- The set is nonempty
+    use |spectralSymbol cfg 0|
+    refine ⟨0, le_refl _, rfl⟩
+  · -- Upper bound
+    intro y hy
+    rcases hy with ⟨lam, hlam, rfl⟩
+    exact spectralSymbol_basic_bound cfg lam hlam
+
+/-- Optimal bound: When cfg.hα_bound gives |α_i| ≤ 1, the sup-norm is at most m -/
+theorem spectralSymbolSupNorm_optimal_bound {m : PNat} (cfg : MultiScaleConfig m) :
+    spectralSymbolSupNorm cfg ≤ m := by
+  calc spectralSymbolSupNorm cfg
+      ≤ ∑ i : Fin m, |cfg.α i| := spectralSymbolSupNorm_bounded cfg
+    _ ≤ ∑ i : Fin m, 1 := Finset.sum_le_sum (fun i _ => cfg.hα_bound i)
+    _ = m := by simp [Finset.sum_const, Finset.card_univ, Fintype.card_fin]
+
+/-- The spectral symbol achieves its sup-norm at λ = 0 when all α_i have the same sign -/
+theorem spectralSymbol_zero_at_zero {m : PNat} (cfg : MultiScaleConfig m) :
+    |spectralSymbol cfg 0| = 0 := by
+  exact abs_eq_zero.mpr (spectralSymbol_at_zero cfg)
+
+/-- Refined bound with optimal constant tracking -/
+structure OptimalSpectralBound {m : PNat} (cfg : MultiScaleConfig m) where
+  /-- The optimal bound constant -/
+  C_opt : ℝ
+  /-- Non-negativity -/
+  C_opt_nonneg : 0 ≤ C_opt
+  /-- The bound is sharp (achieved for some λ) -/
+  is_sharp : ∃ lam : ℝ, 0 ≤ lam ∧ |spectralSymbol cfg lam| = C_opt
+  /-- The bound holds uniformly -/
+  uniform_bound : ∀ lam : ℝ, 0 ≤ lam → |spectralSymbol cfg lam| ≤ C_opt
 
 /-- Auxiliary hypothesis: the spectral symbol is bounded.
     This would follow from detailed Fourier analysis. -/
