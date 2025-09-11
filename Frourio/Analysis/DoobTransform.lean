@@ -10,6 +10,20 @@ Heavy analysis (Leibniz, Hessian calculus) is deferred. Key identities are
 stated as `Prop` so CI remains light.
 -/
 
+/-- Doob transform effect on curvature-dimension parameter.
+The BE degradation: λ ↦ λ - 2ε(h) where h > 0 is the Doob function.
+In BE theory, ε(h) measures the curvature degradation:
+- ε(h) = sup_φ {∫ Γ₂(log h, φ) dμ / ‖φ‖²}
+- ε(h) = 0 iff h is log-harmonic (∇²(log h) = 0)
+The transformed measure is dμ_h = h²dμ. -/
+structure DoobDegradation where
+  /-- The degradation amount ε(h) from the Doob function h -/
+  ε : ℝ
+  /-- Non-negativity (always true in BE theory) -/
+  ε_nonneg : 0 ≤ ε
+  /-- The degraded parameter after Doob transform -/
+  degraded_lambda : ℝ → ℝ := fun lam => lam - 2 * ε
+
 structure Diffusion (X : Type*) where
   (E : (X → ℝ) → ℝ)
   (L : (X → ℝ) → (X → ℝ))

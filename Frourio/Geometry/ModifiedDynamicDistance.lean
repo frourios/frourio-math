@@ -745,6 +745,10 @@ structure P2 (X : Type*) [MeasurableSpace X] [PseudoMetricSpace X] where
   /-- Has finite second moment -/
   finite_second_moment : ∃ x₀ : X, (∫⁻ x, ENNReal.ofReal ((dist x x₀) ^ (2 : ℕ)) ∂val) < ⊤
 
+/-- TopologicalSpace instance for P2. We use a discrete topology for now. -/
+instance {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X] :
+    TopologicalSpace (P2 X) := ⊥
+
 /-- dm defines a metric on P₂(X) -/
 noncomputable instance P2_PseudoMetricSpace {X : Type*} [MeasurableSpace X]
     [PseudoMetricSpace X] {m : PNat}

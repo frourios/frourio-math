@@ -35,24 +35,15 @@ def domain_of_carre_du_champ {X : Type*} [MeasurableSpace X]
     (Γ : CarreDuChamp X) (μ : Measure X) : Set (X → ℝ) :=
   {φ : X → ℝ | MeasureTheory.Integrable (fun x => Γ.Γ φ φ x) μ}
 
-/-- Structure to track the constant C(ℰ) in the FG★ inequality -/
-structure FGStarConstant {X : Type*} [MeasurableSpace X] {m : PNat}
+/-- Extended FG★ constant with spectral bound -/
+structure FGStarConstantExt {X : Type*} [MeasurableSpace X] {m : PNat}
     (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
-    (Γ : CarreDuChamp X) (μ : Measure X) where
-  /-- The constant C(ℰ) from the energy functional -/
-  C_energy : ℝ
-  /-- Non-negativity of the constant -/
-  C_energy_nonneg : 0 ≤ C_energy
+    (Γ : CarreDuChamp X) (μ : Measure X) extends FGStarConstant where
   /-- The constant satisfies the spectral bound -/
   spectral_bound : ∀ φ : X → ℝ, MeasureTheory.MemLp φ 2 μ →
     φ ∈ domain_of_carre_du_champ Γ μ →
     ∫ x, (multiScaleDiff H cfg φ x)^2 ∂μ ≤
       C_energy * (spectralSymbolSupNorm cfg)^2 * ∫ x, Γ.Γ φ φ x ∂μ
-
-/-- The spectral penalty term in the effective parameter formula -/
-noncomputable def spectral_penalty_term {m : PNat} (cfg : MultiScaleConfig m)
-    (C : ℝ) (κ : ℝ) : ℝ :=
-  κ * C * (spectralSymbolSupNorm cfg)^2
 
 /-- Cauchy-Schwarz equality condition for the spectral estimate.
     The inequality ∫|Δ^{⟨m⟩} φ|² dμ ≤ C‖ψ_m‖_∞² ∫Γ(φ,φ) dμ becomes an equality
@@ -60,7 +51,7 @@ noncomputable def spectral_penalty_term {m : PNat} (cfg : MultiScaleConfig m)
 structure CauchySchwarzSharp {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
-    (fgstar_const : FGStarConstant H cfg Γ μ) where
+    (fgstar_const : FGStarConstant) where
   /-- The eigenfunction that achieves equality -/
   eigenfunction : X → ℝ
   /-- The eigenvalue corresponding to the eigenfunction -/
@@ -76,26 +67,14 @@ structure CauchySchwarzSharp {X : Type*} [MeasurableSpace X] [PseudoMetricSpace 
   equality_holds : ∀ x : X,
     |multiScaleDiff H cfg eigenfunction x| = |eigenvalue| * |eigenfunction x|
 
-/-- Complete flag structure for meta-variational EVI contraction.
-Combines all components affecting the effective contraction rate. -/
-structure MetaEVIFlags {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
+/-- Extended meta-EVI flags with dynamic distance -/
+structure MetaEVIFlagsExt {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
-    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) where
-  /-- Base curvature-dimension parameter -/
-  lam_base : ℝ
-  /-- Doob transform component -/
-  doob : DoobDegradation
-  /-- FG★ constant tracking the energy functional -/
-  fgstar_const : FGStarConstant H cfg Γ μ
+    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) extends MetaEVIFlags H cfg Γ κ μ where
   /-- Dynamic distance flags -/
   dyn_flags : DynDistanceFlags H cfg Γ κ μ
   /-- Positivity of regularization parameter -/
   κ_pos : 0 < κ
-  /-- The effective parameter -/
-  lam_eff : ℝ
-  /-- The effective parameter satisfies the FG★ formula -/
-  lam_eff_eq : lam_eff = lam_base - 2 * doob.ε -
-    spectral_penalty_term cfg fgstar_const.C_energy κ
 
 /-- Extract the effective contraction rate from meta-variational flags.
 This gives the rate λ_eff = λ - 2ε(h) - κC(ℰ)‖ψ_m‖_∞² -/
@@ -118,7 +97,8 @@ theorem FGStar_main_inequality {X : Type*} [MeasurableSpace X] [PseudoMetricSpac
 /-- Corollary: The effective rate is decreased by both Doob transform and spectral penalty -/
 theorem FGStar_degradation {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
-    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) (flags : MetaEVIFlags H cfg Γ κ μ) :
+    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
+    (flags : MetaEVIFlags H cfg Γ κ μ) (hκ_nonneg : 0 ≤ κ) :
     flags.lam_eff ≤ flags.lam_base := by
   rw [FGStar_main_inequality]
   simp only [spectral_penalty_term]
@@ -130,7 +110,7 @@ theorem FGStar_degradation {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
   have h2 : 0 ≤ κ * flags.fgstar_const.C_energy * (spectralSymbolSupNorm cfg)^2 := by
     apply mul_nonneg
     apply mul_nonneg
-    · exact le_of_lt flags.κ_pos
+    · exact hκ_nonneg
     · exact flags.fgstar_const.C_energy_nonneg
     · apply sq_nonneg
   linarith
@@ -157,7 +137,7 @@ structure FGStar_EVI_connection {X : Type*} [MeasurableSpace X] [PseudoMetricSpa
 theorem FGStar_L2_inequality {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (μ : Measure X) [IsFiniteMeasure μ]
-    (C : FGStarConstant H cfg Γ μ)
+    (C : FGStarConstantExt H cfg Γ μ)
     (φ : X → ℝ) (hφ_L2 : MeasureTheory.MemLp φ 2 μ)
     (hφ_dom : φ ∈ domain_of_carre_du_champ Γ μ) :
     ∫ x, (multiScaleDiff H cfg φ x)^2 ∂μ ≤
@@ -168,7 +148,7 @@ theorem FGStar_L2_inequality {X : Type*} [MeasurableSpace X] [PseudoMetricSpace 
 theorem FGStar_ENNReal_inequality {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (μ : Measure X) [IsFiniteMeasure μ]
-    (C : FGStarConstant H cfg Γ μ)
+    (C : FGStarConstantExt H cfg Γ μ)
     (φ : X → ℝ) (hφ_L2 : MeasureTheory.MemLp φ 2 μ)
     (hφ_dom : φ ∈ domain_of_carre_du_champ Γ μ)
     -- Move to ENNReal internally via lintegral_ofReal_eq_ofReal_integral
@@ -235,7 +215,7 @@ theorem FGStar_ENNReal_inequality {X : Type*} [MeasurableSpace X] [PseudoMetricS
 theorem FGStar_parameter_degradation {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) [IsFiniteMeasure μ]
-    (C : FGStarConstant H cfg Γ μ) (lam_base : ℝ) (doob_ε : ℝ)
+    (C : FGStarConstantExt H cfg Γ μ) (lam_base : ℝ) (doob_ε : ℝ)
     (hκ_pos : 0 < κ) (hdoob_nonneg : 0 ≤ doob_ε) :
     -- The effective parameter after FG★ degradation
     let lam_eff := lam_base - 2 * doob_ε - spectral_penalty_term cfg C.C_energy κ
@@ -319,7 +299,7 @@ theorem FGStar_G_invariance_prop_scale {X : Type*} [MeasurableSpace X] [PseudoMe
 theorem cauchy_schwarz_equality_characterization
     {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
-    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) (fgstar_const : FGStarConstant H cfg Γ μ)
+    (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) (fgstar_const : FGStarConstant)
     (φ : X → ℝ) (h_nontrivial : ∃ x : X, φ x ≠ 0) :
     -- The equality holds iff φ is an eigenfunction
     (∃ lam : ℝ, ∀ x : X, multiScaleDiff H cfg φ x = lam * φ x) ↔
