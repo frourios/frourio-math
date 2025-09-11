@@ -416,6 +416,95 @@ theorem spectralSymbolSupNorm_bounded {m : PNat} (cfg : MultiScaleConfig m) :
     rcases hy with ⟨lam, hlam, rfl⟩
     exact spectralSymbol_basic_bound cfg lam hlam
 
+/-- Explicit constant tracking: spectral symbol Lipschitz constant -/
+def spectralSymbolLipschitzConstant {m : PNat} (cfg : MultiScaleConfig m) : ℝ :=
+  ∑ i : Fin m, |cfg.α i| * cfg.τ i
+
+/-- The Lipschitz constant is non-negative -/
+lemma spectralSymbolLipschitzConstant_nonneg {m : PNat} (cfg : MultiScaleConfig m) :
+    0 ≤ spectralSymbolLipschitzConstant cfg := by
+  unfold spectralSymbolLipschitzConstant
+  apply Finset.sum_nonneg
+  intro i _
+  exact mul_nonneg (abs_nonneg _) (le_of_lt (cfg.hτ_pos i))
+
+/-- Note: The Lipschitz constant from spectralSymbol_lipschitz equals spectralSymbolLipschitzConstant -/
+lemma spectralSymbol_lipschitz_constant_eq {m : PNat} (cfg : MultiScaleConfig m) :
+    ∃ L : ℝ, L = spectralSymbolLipschitzConstant cfg ∧ 
+    (∀ lam₁ lam₂ : ℝ, 0 ≤ lam₁ → 0 ≤ lam₂ →
+      |spectralSymbol cfg lam₁ - spectralSymbol cfg lam₂| ≤ L * |lam₁ - lam₂|) := by
+  -- We reproduce the Lipschitz proof with the explicit constant
+  use spectralSymbolLipschitzConstant cfg
+  constructor
+  · rfl
+  · intro lam₁ lam₂ hlam₁ hlam₂
+    -- Rewrite the difference as a sum
+    have hdiff : spectralSymbol cfg lam₁ - spectralSymbol cfg lam₂ =
+        ∑ i : Fin m, cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂)) := by
+      unfold spectralSymbol
+      rw [← Finset.sum_sub_distrib]
+      congr 1
+      ext i
+      ring
+    -- Triangle inequality for sums
+    rw [hdiff]
+    have htri : |∑ i : Fin m, cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))|
+        ≤ ∑ i : Fin m, |cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))| :=
+      Finset.abs_sum_le_sum_abs _ _
+    apply le_trans htri
+    -- Bound each term using exp_diff_le_of_nonpos
+    have hbound : ∀ i : Fin m,
+        |cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))|
+        ≤ |cfg.α i| * cfg.τ i * |lam₁ - lam₂| := by
+      intro i
+      have hτpos := cfg.hτ_pos i
+      have ha : -cfg.τ i * lam₁ ≤ 0 := by
+        have : 0 ≤ cfg.τ i * lam₁ := mul_nonneg (le_of_lt hτpos) hlam₁
+        linarith
+      have hb : -cfg.τ i * lam₂ ≤ 0 := by
+        have : 0 ≤ cfg.τ i * lam₂ := mul_nonneg (le_of_lt hτpos) hlam₂
+        linarith
+      have hexp := exp_diff_le_of_nonpos ha hb
+      calc |cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))|
+          = |cfg.α i| * |Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂)| :=
+              abs_mul _ _
+        _ ≤ |cfg.α i| * |-cfg.τ i * lam₁ - (-cfg.τ i * lam₂)| :=
+              mul_le_mul_of_nonneg_left hexp (abs_nonneg _)
+        _ = |cfg.α i| * |cfg.τ i * (lam₂ - lam₁)| := by congr 2; ring
+        _ = |cfg.α i| * (cfg.τ i * |lam₂ - lam₁|) := by
+              rw [abs_mul, abs_of_pos hτpos]
+        _ = |cfg.α i| * cfg.τ i * |lam₁ - lam₂| := by
+              rw [abs_sub_comm lam₂ lam₁, mul_assoc]
+    -- Sum the bounds and factor |lam₁ - lam₂|
+    have hsum : ∑ i : Fin m, |cfg.α i * (Real.exp (-cfg.τ i * lam₁) - Real.exp (-cfg.τ i * lam₂))|
+        ≤ ∑ i : Fin m, |cfg.α i| * cfg.τ i * |lam₁ - lam₂| := by
+      apply Finset.sum_le_sum
+      intro i _
+      exact hbound i
+    apply le_trans hsum
+    -- Factor out |lam₁ - lam₂|
+    have : ∑ i : Fin m, |cfg.α i| * cfg.τ i * |lam₁ - lam₂|
+        = (∑ i : Fin m, |cfg.α i| * cfg.τ i) * |lam₁ - lam₂| := by
+      simpa [Finset.sum_mul] using (Finset.sum_mul (s := (Finset.univ : Finset (Fin m)))
+        (f := fun i => |cfg.α i| * cfg.τ i) (g := fun _ => |lam₁ - lam₂|))
+    simpa [spectralSymbolLipschitzConstant, this]
+
+/-- Explicit bound when all coefficients satisfy |α_i| ≤ C -/
+theorem spectralSymbolSupNorm_explicit_bound {m : PNat} (cfg : MultiScaleConfig m)
+    (C : ℝ) (hC : ∀ i, |cfg.α i| ≤ C) :
+    spectralSymbolSupNorm cfg ≤ m * C := by
+  have h1 : spectralSymbolSupNorm cfg ≤ ∑ i : Fin m, |cfg.α i| :=
+    spectralSymbolSupNorm_bounded cfg
+  have h2 : ∑ i : Fin m, |cfg.α i| ≤ ∑ i : Fin m, C := by
+    apply Finset.sum_le_sum
+    intro i _
+    exact hC i
+  have h3 : ∑ i : Fin m, C = m * C := by
+    simp [Finset.sum_const, Finset.card_univ, Fintype.card_fin]
+  calc spectralSymbolSupNorm cfg ≤ ∑ i : Fin m, |cfg.α i| := h1
+    _ ≤ ∑ i : Fin m, C := h2
+    _ = m * C := h3
+
 /-- Optimal bound: When cfg.hα_bound gives |α_i| ≤ 1, the sup-norm is at most m -/
 theorem spectralSymbolSupNorm_optimal_bound {m : PNat} (cfg : MultiScaleConfig m) :
     spectralSymbolSupNorm cfg ≤ m := by
@@ -428,6 +517,84 @@ theorem spectralSymbolSupNorm_optimal_bound {m : PNat} (cfg : MultiScaleConfig m
 theorem spectralSymbol_zero_at_zero {m : PNat} (cfg : MultiScaleConfig m) :
     |spectralSymbol cfg 0| = 0 := by
   exact abs_eq_zero.mpr (spectralSymbol_at_zero cfg)
+
+/-- Precise constant for the derivative bound of spectral symbol -/
+def spectralSymbolDerivativeBound {m : PNat} (cfg : MultiScaleConfig m) : ℝ :=
+  ∑ i : Fin m, |cfg.α i| * cfg.τ i
+
+/-- The derivative of spectral symbol at any point is bounded -/
+theorem spectralSymbol_derivative_bound {m : PNat} (cfg : MultiScaleConfig m)
+    (lam : ℝ) (hlam : 0 ≤ lam)
+    (hderiv : deriv (spectralSymbol cfg) lam
+      = ∑ i : Fin m, (-cfg.α i) * cfg.τ i * Real.exp (-cfg.τ i * lam)) :
+    |deriv (spectralSymbol cfg) lam| ≤ spectralSymbolDerivativeBound cfg := by
+  classical
+  -- Rewrite derivative using the provided formula
+  have hτpos : ∀ i : Fin m, 0 < cfg.τ i := cfg.hτ_pos
+  have hexp_le_one : ∀ i : Fin m, Real.exp (-cfg.τ i * lam) ≤ 1 := by
+    intro i
+    have : 0 ≤ cfg.τ i * lam := mul_nonneg (le_of_lt (hτpos i)) hlam
+    have hnonpos : -cfg.τ i * lam ≤ 0 := by linarith
+    exact Real.exp_le_one_iff.mpr hnonpos
+  -- Bound absolute value of the derivative by summing term-wise bounds
+  have : |deriv (spectralSymbol cfg) lam|
+      = |∑ i : Fin m, (-cfg.α i) * cfg.τ i * Real.exp (-cfg.τ i * lam)| := by
+    simpa [hderiv]
+  calc
+    |deriv (spectralSymbol cfg) lam|
+        = |∑ i : Fin m, (-cfg.α i) * cfg.τ i * Real.exp (-cfg.τ i * lam)| := this
+    _ ≤ ∑ i : Fin m, |(-cfg.α i) * cfg.τ i * Real.exp (-cfg.τ i * lam)| :=
+          Finset.abs_sum_le_sum_abs _ _
+    _ ≤ ∑ i : Fin m, |cfg.α i| * cfg.τ i := by
+          refine Finset.sum_le_sum ?termBound
+          intro i _
+          have hτi := hτpos i
+          have h1 : |(-cfg.α i) * cfg.τ i * Real.exp (-cfg.τ i * lam)|
+                = |cfg.α i| * cfg.τ i * Real.exp (-cfg.τ i * lam) := by
+            have : |(-cfg.α i) * cfg.τ i| = |cfg.α i| * cfg.τ i := by
+              simpa [abs_mul, abs_of_pos hτi] using congrArg abs (by ring : (-cfg.α i) * cfg.τ i = - (cfg.α i * cfg.τ i))
+            simpa [abs_mul, this]
+          have h2 : Real.exp (-cfg.τ i * lam) ≤ 1 := hexp_le_one i
+          have hnonneg : 0 ≤ |cfg.α i| * cfg.τ i :=
+            mul_nonneg (abs_nonneg _) (le_of_lt hτi)
+          have : |cfg.α i| * cfg.τ i * Real.exp (-cfg.τ i * lam)
+                ≤ |cfg.α i| * cfg.τ i * 1 := by
+            exact mul_le_mul_of_nonneg_left h2 hnonneg
+          have hτabs : |cfg.τ i| = cfg.τ i := by simpa using (abs_of_pos hτi)
+          simpa [h1, hτabs] using this
+    _ = spectralSymbolDerivativeBound cfg := by
+          simp [spectralSymbolDerivativeBound]
+
+/-- Precise tracking of the constant C(ℰ) in FG★ inequality -/
+structure FGStarConstants {m : PNat} (cfg : MultiScaleConfig m) where
+  /-- Constant from spectral bound -/
+  spectral_const : ℝ
+  /-- Constant from energy functional properties -/
+  energy_const : ℝ
+  /-- Combined constant for FG★ inequality -/
+  combined_const : ℝ
+  /-- Relation between constants -/
+  const_relation : combined_const = spectral_const * energy_const
+  /-- All constants are non-negative -/
+  spectral_const_nonneg : 0 ≤ spectral_const
+  energy_const_nonneg : 0 ≤ energy_const
+
+/-- Construction of FG★ constants with explicit values -/
+noncomputable def constructFGStarConstants {m : PNat} (cfg : MultiScaleConfig m) : 
+    FGStarConstants cfg where
+  spectral_const := spectralSymbolSupNorm cfg
+  energy_const := 1  -- Placeholder; would depend on energy functional
+  combined_const := spectralSymbolSupNorm cfg * 1
+  const_relation := rfl
+  spectral_const_nonneg := by
+    -- spectralSymbolSupNorm is non-negative since it's a supremum of absolute values
+    unfold spectralSymbolSupNorm
+    -- The supremum of non-negative values is non-negative
+    apply Real.sSup_nonneg
+    intro y hy
+    rcases hy with ⟨lam, _, rfl⟩
+    exact abs_nonneg _
+  energy_const_nonneg := zero_le_one
 
 /-- Refined bound with optimal constant tracking -/
 structure OptimalSpectralBound {m : PNat} (cfg : MultiScaleConfig m) where

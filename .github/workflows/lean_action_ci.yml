@@ -93,7 +93,7 @@ jobs:
       - name: Upload to S3
         run: |
           # S3パスの構成: bucket/repo/year/month/commit-short-hash/
-          S3_PATH="s3://${S3_BUCKET_NAME}/${{ github.repository }}/$(date +%Y)/$(date +%m)/${{ steps.commit.outputs.short_hash }}"
+          S3_PATH="s3://${S3_BUCKET_NAME}/ots/$(date +%Y)/$(date +%m)/${{ steps.commit.outputs.short_hash }}"
 
           echo "Uploading OTS proofs to: ${S3_PATH}"
 
@@ -115,8 +115,8 @@ jobs:
         run: |
           echo "🔍 Verification Instructions:"
           echo "1. Download the files from S3:"
-          echo "   aws s3 cp s3://${S3_BUCKET_NAME}/${{ github.repository }}/$(date +%Y)/$(date +%m)/${{ steps.commit.outputs.short_hash }}/commit-hash.txt ."
-          echo "   aws s3 cp s3://${S3_BUCKET_NAME}/${{ github.repository }}/$(date +%Y)/$(date +%m)/${{ steps.commit.outputs.short_hash }}/commit-hash.txt.ots ."
+          echo "   aws s3 cp s3://${S3_BUCKET_NAME}/ots/$(date +%Y)/$(date +%m)/${{ steps.commit.outputs.short_hash }}/commit-hash.txt ."
+          echo "   aws s3 cp s3://${S3_BUCKET_NAME}/ots/$(date +%Y)/$(date +%m)/${{ steps.commit.outputs.short_hash }}/commit-hash.txt.ots ."
           echo ""
           echo "2. Verify the timestamp (after Bitcoin confirmation):"
           echo "   ots-cli.js verify commit-hash.txt.ots"
