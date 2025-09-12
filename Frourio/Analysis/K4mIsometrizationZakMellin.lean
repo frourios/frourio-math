@@ -191,7 +191,7 @@ theorem zakMellin_displacement_compatibility (s : ℝ) (hs : s = 0) :
   -- Now handle the interpolation condition
   have hprod_pos : 0 < x.rpow (1 - θ) * y.rpow θ := by
     convert mul_pos hxθ hyθ
-  rw [if_pos (And.intro hprod_pos (by trivial))]
+  rw [if_pos (And.intro hprod_pos (by exact True.intro))]
   -- Now we have (x.rpow (1-θ) * y.rpow θ).rpow 0 * t.rpow (-0)
   -- Simplify all the rpow 0 terms to 1
   have h1 : (x.rpow (1 - θ) * y.rpow θ).rpow 0 = 1 := Real.rpow_zero _

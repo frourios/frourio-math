@@ -116,7 +116,7 @@ lemma budget_commutative_simplify (σ : ℝ) :
   · simpa using (budgetFromSigmaWithFlag_comm_true σ).1
   · simpa using (budgetFromSigmaWithFlag_comm_true σ).2
 
-/-- A simple nontrivial model for the m‑point coefficients.
+/-- A simple model for the m‑point coefficients.
 Tunable gains `k*`, `kD` produce nonnegative coefficients depending on `σ`. -/
 noncomputable def cStarCoeff_model (kStar : ℝ) (σ : ℝ) : ℝ := kStar * σ ^ (2 : ℕ)
 noncomputable def cDCoeff_model (kD : ℝ) (σ : ℝ) : ℝ := kD * |σ|
@@ -135,7 +135,7 @@ lemma cDCoeff_model_nonneg {kD σ : ℝ} (hk : 0 ≤ kD) :
   have : 0 ≤ |σ| := abs_nonneg σ
   exact mul_nonneg hk this
 
-/-- Assemble a budget from the nontrivial model. -/
+/-- Assemble a budget from the model. -/
 noncomputable def budgetFromSigmaModel (kStar kD σ : ℝ) : ConstantBudget :=
   ⟨cStarCoeff_model kStar σ, cDCoeff_model kD σ⟩
 
@@ -316,7 +316,7 @@ for `F := Ent + γ·Dσm` with `λ_eff := lambdaBE λ ε`, from FG-side assumpti
 The content remains statement-level until analytic proofs are added. -/
 
 /-- Produce `AnalyticFlags` for `F := Ent + γ·Dσm` (statement-level).
-We accept minimal nontrivial inputs (`K1prime`, `K4m`) and build the flags. -/
+We accept minimal inputs (`K1prime`, `K4m`) and build the flags. -/
 theorem analytic_flags_for_FG
   {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   (S : GradientFlowSystem X)

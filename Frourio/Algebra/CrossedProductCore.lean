@@ -224,8 +224,8 @@ instance instMonoidCrossedProduct {A : Type*} [Ring A] {m : ℕ}
   mul_one := by
     intro x; simpa using mul_one_mul σ x
 
-/-- 恒等作用による自明な Z^m-作用。 -/
-def trivialZmAction (A : Type*) [Ring A] (m : ℕ) : ZmAction A m :=
+/-- 恒等作用による Z^m-作用。 -/
+def identityZmAction (A : Type*) [Ring A] (m : ℕ) : ZmAction A m :=
   { act := fun _ a => a
   , act_zero := by intro a; rfl
   , act_add := by intro v w a; rfl
@@ -238,7 +238,7 @@ def trivialZmAction (A : Type*) [Ring A] (m : ℕ) : ZmAction A m :=
 将来的に `A` を関数環等に特化した上でスケール `Λ` による作用へ差し替える。 -/
 def FrourioOperator.toZmAction {m : ℕ}
     (_op : FrourioOperator m) (A : Type*) [Ring A] : ZmAction A m :=
-  trivialZmAction A m
+  identityZmAction A m
 
 /-- v ∈ ℤ^m に対する合成スケール因子。
 exp(∑ᵢ vᵢ log Λᵢ) として定義すると加法が積に対応し、作用の結合が証明しやすい。 -/
@@ -461,7 +461,7 @@ noncomputable def OreSystem.matrixJordanId (A : Type*) [CommRing A] : OreSystem 
 
 /-
 Simplified σ-Jordan Ore system placeholder: uses the standard scalar embedding
-`A → M₂(A)` and a trivial `Δ = 0`. The Ore relation holds tautologically for
+`A → M₂(A)` and `Δ = 0`. The Ore relation holds tautologically for
 any ring endomorphism `σ`. This keeps the API surface while avoiding a custom
 `Algebra` instance at this stage.
 -/
@@ -493,10 +493,6 @@ def matrixJordanDiagProp {A : Type*} [CommRing A]
           let J : Matrix (Fin 2) (Fin 2) A := ![![0, (1 : A)], ![0, 0]]
           exact J * (algebraMap A (Matrix (Fin 2) (Fin 2) A) a)
               - (algebraMap A (Matrix (Fin 2) (Fin 2) A) (σ a)) * J = 0)
-
-/-- Optional: a placeholder for specifying a monomial order on generators,
-to be used in σ-PBW rewriting (statement only). -/
-abbrev MonomialOrder (ι : Type*) := ι → ι → Prop
 
 /--
 Multi-generator σ-PBW extension skeleton.

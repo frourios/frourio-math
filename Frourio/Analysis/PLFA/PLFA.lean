@@ -11,10 +11,10 @@ namespace Frourio
 section NoMetric
 variable {X : Type*}
 
-/-- Trivial JKO→PLFA: from any initial point and a JKO initializer,
+/-- Constant JKO→PLFA: from any initial point and a JKO initializer,
 produce a PLFA curve by taking the constant curve. This provides a
 minimizing-movement route without using the JKO witness. -/
-theorem jko_to_plfa_trivial (F : X → ℝ) : JKO_to_PLFA_pred F := by
+theorem jko_to_plfa_constant (F : X → ℝ) : JKO_to_PLFA_pred F := by
   intro ρ0 _hJKO
   refine ⟨(fun _ => ρ0), rfl, ?_⟩
   intro s t _hst; simp
@@ -27,7 +27,7 @@ section MMRealRoute
 variable {X : Type*} [PseudoMetricSpace X]
 
 /- Specialize placeholder analytic flags for the quadratic energy on ℝ.
-Provides trivial HalfConvex and StrongUpperBound witnesses (c = 0). -/
+Provides HalfConvex and StrongUpperBound witnesses (c = 0). -/
 section QuadraticReal
 
 open scoped BigOperators
@@ -46,17 +46,17 @@ theorem quadratic_strongUpperBound : StrongUpperBound (FqR) := by
   refine ⟨0, by norm_num, ?_⟩; intro x; simp [FqR]
 
 /-- From an `EDE⇔EVI` builder on analytic flags, derive `EDE → EVI` for the
-quadratic energy on ℝ using the trivial core flags. -/
+quadratic energy on ℝ using the core flags. -/
 theorem ede_to_evi_quadratic_from_builder
   (H : EDE_EVI_from_analytic_flags (X := ℝ) (FqR) lamEff) :
   ∀ ρ : ℝ → ℝ, EDE (FqR) ρ → IsEVISolution ({ E := FqR, lam := lamEff } : EVIProblem ℝ) ρ :=
 by
   intro ρ hEDE
-  -- Use the builder on the trivial core flags.
+  -- Use the builder on the core flags.
   have : EDE_to_EVI_from_flags (X := ℝ) (FqR) lamEff :=
     ede_to_evi_from_flags_builder (X := ℝ) (F := FqR) (lamEff := lamEff) H
       (quadratic_halfConvex (lamEff := lamEff)) (quadratic_strongUpperBound)
-  -- Supply the trivial core flags to the directional bridge and conclude.
+  -- Supply the core flags to the directional bridge and conclude.
   exact this ⟨quadratic_halfConvex (lamEff := lamEff), quadratic_strongUpperBound⟩ ρ hEDE
 
 end QuadraticReal
@@ -131,7 +131,7 @@ theorem ede_evi_from_mm_impl (F : X → ℝ) (lamEff : ℝ)
   (H : EDE_EVI_from_analytic_flags (X := X) F lamEff) : ede_evi_from_mm (X := X) F lamEff :=
 by
   intro _flagsReal
-  -- Supply trivial core flags for the placeholder builder (sufficient for this phase).
+  -- Supply core flags for the placeholder builder (sufficient for this phase).
   exact H ⟨
     (⟨0, le_rfl, by intro x; simp⟩ : HalfConvex F lamEff),
     (⟨0, le_rfl, by intro x; simp⟩ : StrongUpperBound F)

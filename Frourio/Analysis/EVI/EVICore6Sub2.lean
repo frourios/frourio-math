@@ -149,8 +149,7 @@ lemma lemma_U2_directed_two_point
   intros y z hy hz hyz hy_near hz_near hdiff
 
   by_cases h_eq : y = z
-  · -- If y = z, the inequality is trivial
-    rw [h_eq]
+  · rw [h_eq]
     simp
   · -- If y < z, apply the uniform bound
     have h_pos : 0 < z - y := by

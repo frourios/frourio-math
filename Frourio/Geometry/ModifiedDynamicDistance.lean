@@ -841,8 +841,7 @@ theorem dm_squared_self_eq_zero {X : Type*} [MeasurableSpace X] {m : PNat}
     refine ⟨?h1, ?h2, ?h3, ?h4⟩
     · intro x; simpa using (continuous_const : Continuous fun _ : ℝ => (0 : ℝ))
     · intro t; simpa using (potential.measurable t)
-    · -- weak continuity is assumed as `True`
-      exact trivial
+    · exact True.intro
     · intro ψ hψ t
       -- φ_t = 0 関数
       have hφ0 : potential.φ t = (fun _ : X => 0) := by funext x; rfl

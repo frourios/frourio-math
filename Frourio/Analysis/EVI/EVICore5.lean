@@ -62,14 +62,13 @@ preimage with no energy inflation. -/
 def MoscoM2 {ι : Type*} (S : MoscoSystem ι) : Prop :=
   ∀ x : S.X, ∃ (h : ι) (xh : S.Xh h), S.Th h xh = x ∧ S.Eh h xh ≤ S.E x
 
-/-- Assumption pack using the minimal nontrivial Mosco predicates. -/
 /- Sequential lower semicontinuity on a metric space: along any sequence
 converging to `x`, the liminf of energies dominates the value at `x`. -/
 def LowerSemicontinuousSeq {X : Type*} [PseudoMetricSpace X] (E : X → ℝ) : Prop :=
   ∀ x : X, ∀ s : ℕ → X, Filter.Tendsto s Filter.atTop (nhds x) →
     E x ≤ Filter.liminf (fun n => E (s n)) Filter.atTop
 
-/-- Assumption pack using the minimal nontrivial Mosco predicates,
+/-- Assumption pack using the minimal Mosco predicates,
 with a concrete sequential lower semicontinuity requirement for the limit energy. -/
 structure MoscoAssumptions {ι : Type*} (S : MoscoSystem ι) : Prop where
   (geodesic_complete : MoscoGeodesicComplete S)
@@ -78,7 +77,7 @@ structure MoscoAssumptions {ι : Type*} (S : MoscoSystem ι) : Prop where
   (M1 : MoscoM1 S)
   (M2 : MoscoM2 S)
 
-/-- Limit EVI property under Mosco convergence (minimal nontrivial form).
+/-- Limit EVI property under Mosco convergence.
 We record that the liminf/recovery/tightness and geodesic completeness
 conditions are available at the limit. This predicate is deliberately
 lightweight and will be strengthened to true EVI statements in later phases. -/

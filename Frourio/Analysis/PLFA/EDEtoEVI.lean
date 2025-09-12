@@ -62,7 +62,6 @@ lemma dini_upper_le_of_quotient_bounded {f : ℝ → ℝ} {t c m : ℝ}
   -- Work with the right-neighborhood filter at 0.
   dsimp [DiniUpper]
   set l := nhdsWithin (0 : ℝ) (Set.Ioi 0)
-  -- Ensure the right-neighborhood filter is nontrivial.
   haveI : Filter.NeBot l := by
     simpa [l] using (nhdsWithin_Ioi_neBot (α := ℝ) (a := 0) (b := 0) le_rfl)
   -- Show that (0,1) is a neighborhood of 0 within (0,∞).

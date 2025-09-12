@@ -18,7 +18,7 @@ section EVItoEDE
 
 variable {X : Type*}
 
-/- Constant‑curve case: if ρ is constant, then EDE holds (trivial). -/
+/- Constant‑curve case: if ρ is constant, then EDE holds. -/
 theorem evi_to_ede_constant (F : X → ℝ) (x : X)
     (ρ : ℝ → X) (hconst : ∀ t, ρ t = x) :
     EDE F ρ := by

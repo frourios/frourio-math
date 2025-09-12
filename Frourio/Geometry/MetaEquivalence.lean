@@ -92,7 +92,7 @@ noncomputable def entropyFromCore {X : Type*} [MeasurableSpace X]
     · intro a b hlt; exact Nat.succ_lt_succ hlt
     · simpa using hprob 0
     · simpa using hc 0
-    · exact ⟨True, trivial⟩
+    · exact ⟨True, True.intro⟩
   proper := by
     -- Use ρ = μ; since klDiv μ μ = 0 for probability measures,
     -- core.Ent μ = (klDiv μ μ).toReal = 0.toReal = 0
@@ -104,7 +104,7 @@ noncomputable def entropyFromCore {X : Type*} [MeasurableSpace X]
   convex := by
     -- Would require convexity proof for relative entropy
     intros
-    trivial
+    exact True.intro
 
 /-- The concrete entropy functional evaluates to 0 at μ itself.
     This is a key result for establishing the proper property, as it shows
@@ -437,7 +437,7 @@ theorem entropy_PLFA_admissible {X : Type*} [MeasurableSpace X] [PseudoMetricSpa
     use 1  -- R = 1 as a placeholder bound
     constructor
     · norm_num
-    · trivial
+    · exact True.intro
 
 /-- Entropy satisfies EVI λ-convexity along d_m geodesics -/
 theorem entropy_EVI_convexity {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
@@ -535,10 +535,10 @@ theorem entropy_to_EDE_EVI_JKO {X : Type*} [MeasurableSpace X] [PseudoMetricSpac
       ρ_τ = entropyJKOStep H cfg Γ κ μ Ent τ hτ ρ₀) := by
   constructor
   · -- EDE existence (assumed)
-    exact ⟨ede_witness, trivial⟩
+    exact ⟨ede_witness, True.intro⟩
   constructor
   · -- EVI existence (assumed)
-    exact ⟨evi_witness, trivial⟩
+    exact ⟨evi_witness, True.intro⟩
   · -- JKO convergence
     intros τ hτ ρ₀
     use entropyJKOStep H cfg Γ κ μ Ent τ hτ ρ₀

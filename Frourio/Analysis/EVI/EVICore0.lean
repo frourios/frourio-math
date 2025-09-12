@@ -131,7 +131,6 @@ theorem DiniUpperE_bounds_const_lower (c t : ℝ) :
   refine ⟨0, ?_⟩
   exact Filter.Eventually.of_forall (fun _h => by simp)
 
-/-- Time-rescale identity holds trivially for constants. -/
 theorem DiniUpper_timeRescale_const (σ c t : ℝ) :
   DiniUpper (fun τ => (fun _ => c) (σ * τ)) t = σ * DiniUpper (fun _ => c) (σ * t) := by
   -- Both sides are 0 since the map is constant.
@@ -242,7 +241,6 @@ theorem DiniUpper_eq_toReal_of_finite
   -- Real/EReal difference quotients.
   set fu : ℝ → ℝ := fun h => (φ (t + h) - φ t) / h
   set uE : ℝ → EReal := fun h => ((fu h : ℝ) : EReal)
-  -- Ensure `l` is nontrivial (needed by `map_limsup_of_continuousAt`).
   haveI : Filter.NeBot l := by
     simpa [l] using (nhdsWithin_Ioi_neBot (α := ℝ) (a := 0) (b := 0) le_rfl)
   -- Supply boundedness assumptions for `fu` on `l`.

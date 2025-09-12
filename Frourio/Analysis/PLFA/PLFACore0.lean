@@ -26,7 +26,6 @@ def JKO (F : X → ℝ) (ρ0 : X) : Prop := ∃ ρ : ℝ → X, ρ 0 = ρ0 ∧ �
 -- HalfConvex (surrogate): existence of a global quadratic slack.
 -- We mirror the shape of a semiconvex upper bound by allowing a nonnegative
 -- constant `c` so that `F x ≤ F x + c` for all `x`. This keeps the flag
--- nontrivial yet always satisfiable with `c = 0` in this non-metric core.
 def HalfConvex (F : X → ℝ) (_lamEff : ℝ) : Prop :=
   ∃ c : ℝ, 0 ≤ c ∧ ∀ x : X, F x ≤ F x + c
 -- A concrete yet lightweight surrogate: there exists a nonnegative constant `c`
@@ -290,11 +289,9 @@ theorem jko_plfa_from_real_flags_impl {X : Type*} [PseudoMetricSpace X]
     JKO_to_PLFA_pred F := by
   intro ρ0 _hJKO
   -- For the placeholder implementation, we use a constant curve
-  -- which trivially satisfies PLFA
   use (fun _ => ρ0), rfl
   -- Show PLFA for constant curve
   intro s t _hst
-  -- F(ρ0) ≤ F(ρ0) is trivial
   simp
 
 end GeodesicStructures

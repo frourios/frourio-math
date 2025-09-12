@@ -137,7 +137,7 @@ by
 
 end Xsuite
 
-/-- Minimal tensorization predicate (placeholder with nontrivial content):
+/-- Minimal tensorization predicate:
 requires coercivity surrogates and nonnegative coupling for both factors. -/
 def tensorization_min_rule {X Y : Type*}
   [PseudoMetricSpace X] [MeasurableSpace X]

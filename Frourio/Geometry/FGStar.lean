@@ -56,8 +56,7 @@ structure CauchySchwarzSharp {X : Type*} [MeasurableSpace X] [PseudoMetricSpace 
   eigenfunction : X → ℝ
   /-- The eigenvalue corresponding to the eigenfunction -/
   eigenvalue : ℝ
-  /-- The eigenfunction is non-trivial -/
-  nontrivial : ∃ x : X, eigenfunction x ≠ 0
+  nonzero_eigenfunction : ∃ x : X, eigenfunction x ≠ 0
   /-- The eigenfunction satisfies the eigenvalue equation with multi-scale operator -/
   eigen_equation : ∀ x : X,
     multiScaleDiff H cfg eigenfunction x = eigenvalue * eigenfunction x
@@ -300,7 +299,7 @@ theorem cauchy_schwarz_equality_characterization
     {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X) (fgstar_const : FGStarConstant)
-    (φ : X → ℝ) (h_nontrivial : ∃ x : X, φ x ≠ 0) :
+    (φ : X → ℝ) (h_nonzero : ∃ x : X, φ x ≠ 0) :
     -- The equality holds iff φ is an eigenfunction
     (∃ lam : ℝ, ∀ x : X, multiScaleDiff H cfg φ x = lam * φ x) ↔
     ∃ cs : CauchySchwarzSharp H cfg Γ κ μ fgstar_const, cs.eigenfunction = φ := by
@@ -309,7 +308,7 @@ theorem cauchy_schwarz_equality_characterization
     intro ⟨lam, h_eigen⟩
     use { eigenfunction := φ
           eigenvalue := lam
-          nontrivial := h_nontrivial
+          nonzero_eigenfunction := h_nonzero
           eigen_equation := h_eigen
           equality_holds := by
             intro x
@@ -340,15 +339,14 @@ theorem cauchy_schwarz_sharp_proof
   let cs := sharp.cauchy_schwarz_sharp
   -- Take the eigenfunction and eigenvalue from the witness
   use cs.eigenfunction, cs.eigenvalue
-  refine ⟨?eigen_eq, ?nontrivial, ?bound⟩
+  refine ⟨?eigen_eq, ?nonzero_eigenfunction, ?bound⟩
   · -- eigen-equation holds pointwise by the witness
     exact cs.eigen_equation
-  · -- nontriviality from the witness
-    exact cs.nontrivial
+  · exact cs.nonzero_eigenfunction
   · -- eigenvalue bounded by spectral sup-norm (assumption)
     apply h_eigenvalue_bound cs.eigenvalue
     refine ⟨cs.eigenfunction, ?_, ?_⟩
-    · exact cs.nontrivial
+    · exact cs.nonzero_eigenfunction
     · exact cs.eigen_equation
 
 /-- Key lemma: In Fourier space, the Cauchy-Schwarz equality

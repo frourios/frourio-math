@@ -116,23 +116,20 @@ noncomputable def ThreePointExample (δ : ℝ) (hδ : 0 < δ) : FrourioOperator 
 
 /-- 交叉積の自明作用における簡単な計算例（m=2, Λ=φ）。 -/
 example :
-    CrossedProduct.mul (trivialZmAction ℝ 2)
+    CrossedProduct.mul (identityZmAction ℝ 2)
       { base := φ, scales := fun _ => (0 : ℤ) }
       { base := 1, scales := fun i : Fin 2 => if i = 0 then (1 : ℤ) else 0 }
       =
       { base := φ, scales := fun i : Fin 2 => if i = 0 then (1 : ℤ) else 0 } := by
   -- 自明作用では base は通常の積、scales は加法
   have hzero : (fun _ : Fin 2 => (0 : ℤ)) = (0 : Fin 2 → ℤ) := rfl
-  simp [CrossedProduct.mul, trivialZmAction, φ, hzero]
+  simp [CrossedProduct.mul, identityZmAction, φ, hzero]
 
 end Frourio
 
 /-!
 Basic 1D example: from an initial value to JKO, then to EDE and EVI.
-
 We take `X := ℝ`, the energy `F := fun _ => 0`, and `λ_eff := 0`.
-For a constant curve `ρ t = ρ0`, JKO and EDE are immediate, and EVI holds
-trivially since the squared distance to any fixed `v` is constant in time.
 -/
 
 namespace FrourioExamples
@@ -285,7 +282,7 @@ theorem chain_quadratic_to_EVI (lamEff : ℝ)
   (x0 : ℝ) :
   ∃ ρ : ℝ → ℝ, ρ 0 = x0 ∧ IsEVISolution ({ E := Fq, lam := lamEff } : EVIProblem ℝ) ρ :=
 by
-  -- Use the generic `jko_to_evi` from the analysis layer with the trivial JKO witness.
+  -- Use the generic `jko_to_evi` from the analysis layer with the JKO witness.
   -- Use implicit `τ, xPrev` from the section for `quadratic_JKO`.
   exact Frourio.jko_to_evi (F := Fq) lamEff G x0 (quadratic_JKO x0)
 

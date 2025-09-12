@@ -67,7 +67,7 @@ structure HarmonicWeights {m : PNat} (cfg : MultiScaleConfig m) where
   harmonic_relation : ∀ i j : Fin m, i ≠ j →
     ∃ (c : ℝ), c ≠ 0 ∧ cfg.α i * cfg.τ j = c * cfg.α j * cfg.τ i
   /-- At least two weights are non-zero (non-degeneracy) -/
-  nontrivial : ∃ i j : Fin m, i ≠ j ∧ cfg.α i ≠ 0 ∧ cfg.α j ≠ 0
+  nonzero_weights : ∃ i j : Fin m, i ≠ j ∧ cfg.α i ≠ 0 ∧ cfg.α j ≠ 0
 
 /-- Equal ripple saturation: the spectral symbol achieves its supremum uniformly.
     This is relevant for the equality case in the spectral estimate. -/
@@ -231,8 +231,7 @@ structure Eigenfunction {X : Type*} [MeasurableSpace X] (H : HeatSemigroup X) wh
   /-- Eigenvalue equation: (H_t - I)φ/t → -λφ as t → 0 -/
   eigen_eq : ∀ x, Filter.Tendsto (fun t => (H.H t φ x - φ x) / t)
     (nhds 0) (nhds (-eigenvalue * φ x))
-  /-- Non-triviality -/
-  nontrivial : ∃ x, φ x ≠ 0
+  nonzero_function : ∃ x, φ x ≠ 0
 
 /-- Weak eigenfunction statement: if the Cauchy–Schwarz equality witness
     identifies `φ` as the sharp function, then `φ` is an eigenfunction of
@@ -243,7 +242,7 @@ theorem eigenfunction_from_FGStar_equality
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
     (flags : MetaEVIFlags H cfg Γ κ μ)
     (φ : X → ℝ) (_hφ_L2 : MeasureTheory.MemLp φ 2 μ)
-    (h_nontrivial : ∃ x : X, φ x ≠ 0)
+    (h_nonzero : ∃ x : X, φ x ≠ 0)
     -- Sharpness witness: CS equality achieved by φ
     (h_sharp : ∃ cs : CauchySchwarzSharp H cfg Γ κ μ flags.fgstar_const,
       cs.eigenfunction = φ) :
@@ -251,7 +250,7 @@ theorem eigenfunction_from_FGStar_equality
   -- Use the equivalence lemma from FGStar: CS equality ↔ eigenfunction
   have := cauchy_schwarz_equality_characterization
               (H := H) (cfg := cfg) (Γ := Γ) (κ := κ) (μ := μ)
-              (fgstar_const := flags.fgstar_const) (φ := φ) (h_nontrivial := h_nontrivial)
+              (fgstar_const := flags.fgstar_const) (φ := φ) (h_nonzero := h_nonzero)
   -- Apply the ← direction to extract the eigenvalue/equation
   rcases (this).2 h_sharp with ⟨lam, h_eig⟩
   exact ⟨lam, h_eig⟩
@@ -262,14 +261,14 @@ theorem FGStar_equality_from_eigenfunction
     {m : PNat} (H : HeatSemigroup X) (cfg : MultiScaleConfig m)
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
     (flags : MetaEVIFlags H cfg Γ κ μ)
-    (φ : X → ℝ) (h_nontrivial : ∃ x : X, φ x ≠ 0)
+    (φ : X → ℝ) (h_nonzero : ∃ x : X, φ x ≠ 0)
     -- Assume φ is a pointwise eigenfunction of multiScaleDiff
     (h_eig : ∃ lam : ℝ, ∀ x : X, multiScaleDiff H cfg φ x = lam * φ x) :
     ∃ cs : CauchySchwarzSharp H cfg Γ κ μ flags.fgstar_const, cs.eigenfunction = φ := by
   -- Use the equivalence: eigenfunction ⇒ CS equality witness
   have := cauchy_schwarz_equality_characterization
               (H := H) (cfg := cfg) (Γ := Γ) (κ := κ) (μ := μ)
-              (fgstar_const := flags.fgstar_const) (φ := φ) (h_nontrivial := h_nontrivial)
+              (fgstar_const := flags.fgstar_const) (φ := φ) (h_nonzero := h_nonzero)
   -- Apply the → direction
   rcases (this).1 h_eig with ⟨cs, h_eq⟩
   exact ⟨cs, h_eq⟩
@@ -313,13 +312,13 @@ theorem FGStar_rigidity_complete
     (Γ : CarreDuChamp X) (κ : ℝ) (μ : Measure X)
     (flags : MetaEVIFlags H cfg Γ κ μ)
     (φ : X → ℝ) (_hφ : MeasureTheory.MemLp φ 2 μ)
-    (h_nontrivial : ∃ x : X, φ x ≠ 0) :
+    (h_nonzero : ∃ x : X, φ x ≠ 0) :
     ((∃ cs : CauchySchwarzSharp H cfg Γ κ μ flags.fgstar_const, cs.eigenfunction = φ)
       ↔ (∃ lam : ℝ, ∀ x : X, multiScaleDiff H cfg φ x = lam * φ x)) := by
   simpa using
     (cauchy_schwarz_equality_characterization (H := H) (cfg := cfg)
       (Γ := Γ) (κ := κ) (μ := μ) (fgstar_const := flags.fgstar_const)
-      (φ := φ) (h_nontrivial := h_nontrivial)).symm
+      (φ := φ) (h_nonzero := h_nonzero)).symm
 
 /-- Spectral gap characterization via rigidity -/
 theorem spectral_gap_from_rigidity {X : Type*} [MeasurableSpace X] [PseudoMetricSpace X]

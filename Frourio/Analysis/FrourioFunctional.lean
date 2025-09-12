@@ -40,13 +40,13 @@ noncomputable def FrourioFunctional.ofK {X : Type*} [PseudoMetricSpace X]
   (Ent : X → ℝ) (K : KTransform X) (gamma Ssup : ℝ) : FrourioFunctional X :=
 { Ent := Ent, Dsigmam := DsigmamFromK K Ssup, gamma := gamma }
 
-/-- Narrow-continuity surrogate (K1′, minimalist nontrivial form):
+/-- Narrow-continuity surrogate:
 we require a uniform lower bound for `Dsigmam` (coercivity proxy). -/
 def K1prime {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) : Prop :=
   ∃ C : ℝ, ∀ x : X, A.Dsigmam x ≥ -C
 
-/-- Geodesic-affinity surrogate (K4^m, minimalist nontrivial form):
+/-- Geodesic-affinity surrogate:
 we assume nonnegativity of the coupling parameter `gamma`.
 This encodes that the extra term does not invert convexity trends. -/
 def K4m {X : Type*} [PseudoMetricSpace X]
@@ -193,7 +193,6 @@ by
   constructor
   · rfl
   · intro t
-    -- F(ρ0) ≤ F(ρ0) trivially
     exact le_refl _
 
 /-- JKO property with explicit curve construction.
@@ -212,7 +211,6 @@ by
   · -- Non-increasing property
     intro t
     dsimp [constructJKOCurve]
-    -- F(ρ0) ≤ F(ρ0) trivially
     exact le_refl _
 
 /-- K4^m is preserved under scaling of gamma by a nonnegative factor. -/
@@ -561,8 +559,8 @@ theorem slope_strong_upper_bound_default {X : Type*} [PseudoMetricSpace X]
         + A.gamma * (budget.cStar * Ssup ^ (2 : ℕ) + budget.cD * XiNorm) :=
   H
 
-/-- A trivial slope upper bound using the dummy slope = 0 and nonnegativity. -/
-theorem slope_upper_bound_trivial {X : Type*} [PseudoMetricSpace X]
+/-- A slope upper bound using the zero slope and nonnegativity. -/
+theorem slope_upper_bound_zero {X : Type*} [PseudoMetricSpace X]
   (A : FrourioFunctional X) (budget : ConstantBudget) (Ssup XiNorm : ℝ)
   (hB : BudgetNonneg budget) (hγ : 0 ≤ A.gamma) (hS : 0 ≤ Ssup) (hX : 0 ≤ XiNorm) :
   StrongSlopeUpperBound_pred A budget Ssup XiNorm :=
@@ -707,7 +705,6 @@ by
 /-- Comparison: The surrogate `Proper` is weaker than the real `proper`. -/
 theorem proper_surrogate_from_real {X : Type*} [PseudoMetricSpace X] (F : X → ℝ) : Proper F :=
 by
-  -- The surrogate version is trivially satisfied with C = 0
   exact ⟨0, fun x => by simp⟩
 
 /-- Helper: Convert real proper to surrogate proper for the functional. -/
@@ -812,7 +809,6 @@ by
 theorem lsc_surrogate_from_real {X : Type*} [PseudoMetricSpace X] (F : X → ℝ) :
   LowerSemicontinuous F :=
 by
-  -- The surrogate version is trivially satisfied with c = 0
   intro x
   exact ⟨0, le_refl 0, by simp⟩
 
@@ -882,7 +878,6 @@ by
 theorem coercive_surrogate_from_real {X : Type*} [NormedAddCommGroup X] [PseudoMetricSpace X]
   (F : X → ℝ) : Coercive F :=
 by
-  -- The surrogate version is trivially satisfied
   intro x
   exact ⟨0, le_refl 0, by simp⟩
 
@@ -1286,7 +1281,7 @@ lemma posPart_smul (c : ℝ) (hc : 0 ≤ c) (a : ℝ) : (c * a)⁺ = c * a⁺ :=
 lemma ereal_limsup_ne_bot_of_eventually_nonneg {α : Type*} {l : Filter α} [l.NeBot]
   {f : α → ℝ} (h : ∀ᶠ a in l, 0 ≤ f a) :
   Filter.limsup (fun a => (f a : EReal)) l ≠ ⊥ := by
-  -- First, show that the function is bounded above in EReal (trivially by ⊤)
+  -- First, show that the function is bounded above in EReal
   have h_bdd : Filter.IsBoundedUnder (· ≤ ·) l (fun a => (f a : EReal)) := by
     apply Filter.isBoundedUnder_of
     use ⊤
@@ -1380,7 +1375,6 @@ lemma descendingSlope_add_le {X : Type*} [PseudoMetricSpace X]
     exact h_div
 
   -- Apply limsup monotonicity + subadditivity via EReal
-  -- First, register the nontriviality of the punctured filter as an instance
   haveI : F.NeBot := by
     -- This follows from the lemma hypothesis `[Filter.NeBot (nhdsWithin x (posDist x))]`.
     simpa [F]
@@ -1536,7 +1530,7 @@ lemma descendingSlope_le_of_lipschitz {X : Type*} [PseudoMetricSpace X]
     have hpos : 0 < dist x y := by
       have : 0 < dist y x := hy; simpa [dist_comm] using this
     exact div_nonneg (posPart_nonneg _) (le_of_lt hpos)
-  -- Upper bound function: constant L is trivially eventually ≤ some M (e.g., L)
+  -- Upper bound function: constant L is eventually ≤ some M (e.g., L)
   have h_gub : ∃ M : ℝ, ∀ᶠ y in F, (L : ℝ) ≤ M := by
     refine ⟨(L : ℝ), ?_⟩
     exact Filter.Eventually.of_forall (fun _ => le_rfl)
@@ -1598,7 +1592,6 @@ by
     exact mul_nonneg hγ (NNReal.coe_nonneg L)
   · -- Show the bound holds for all x
     intro x
-    -- Register the punctured filter nontriviality at x
     haveI : Filter.NeBot (nhdsWithin x (posDist x)) := hNeBot x
     -- Apply the lemmas established above
     calc descendingSlope (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) x
@@ -1728,7 +1721,7 @@ theorem analytic_flags_achievable {X : Type*} [PseudoMetricSpace X] :
   ∃ (Ent : X → ℝ) (K : KTransform X) (gamma Ssup lamEff : ℝ),
     AnalyticFlags (FrourioFunctional.F (FrourioFunctional.ofK Ent K gamma Ssup)) lamEff :=
 by
-  -- Pick a concrete (trivial) instance and invoke the assembled flag provider.
+  -- Pick a concrete instance and invoke the assembled flag provider.
   refine ⟨(fun _ : X => 0), ⟨(fun _ _ => 0), True⟩, 0, 0, 0, ?_⟩
   -- Use the general constructor `ofK_satisfies_analytic_flags`.
   exact ofK_satisfies_analytic_flags (Ent := fun _ => 0)

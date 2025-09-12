@@ -225,7 +225,7 @@ theorem entropy_pushforward_invariant {X Y : Type*} [MeasurableSpace X] [Measura
     (f : X → Y) (μ : Measure X) (ν : Measure Y) [SigmaFinite ν]
     (h_preserve : μ.map f = ν) :
     InformationTheory.klDiv (μ.map f) ν = 0 := by
-  -- Reduce to the trivial identity case and use klDiv_self
+  -- Reduce to the identity case and use klDiv_self
   simp [h_preserve]
 
 /-- Distance compatibility under pullback/pushforward -/
@@ -390,8 +390,7 @@ theorem meta_variational_G_invariant {X : Type*} [MeasurableSpace X] [PseudoMetr
 /-- Main G-invariance for FG★ (effective rate).
 If the Doob degradation amount `ε` is fixed (encoded in `doob : DoobDegradation`),
 then the effective rate `λ_eff = (λ - 2ε) - κ C ‖ψ_m‖_∞^2` is invariant under the
-`G`-action components (Dirichlet automorphism, Doob, scale, reparam). Here the
-nontrivial part is the exact scale-invariance of the spectral sup-norm. -/
+`G`-action components (Dirichlet automorphism, Doob, scale, reparam). -/
 theorem FGStar_G_invariant {X : Type*} [MeasurableSpace X] {m : PNat}
     (cfg : MultiScaleConfig m) (lam : ℝ) (doob : DoobDegradation) (κ C : ℝ) :
     ∀ (g : GAction X m),

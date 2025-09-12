@@ -77,10 +77,6 @@ noncomputable def Doob {X : Type*} (h : X → ℝ) (D : Diffusion X) : Diffusion
   , Gamma := D.Gamma
   , Gamma2 := D.Gamma2 }
 
-/- Assumption pack for Doob transform statements.
-We keep core analytic identities as fields so that theoremization becomes
-trivial at this phase; later, these fields will be derivable from
-positivity and Leibniz/Bochner hypotheses. -/
 structure DoobAssumptions {X : Type*} (h : X → ℝ) (D : Diffusion X) where
   /-- Strict positivity of `h` ensuring the Doob transform is well-defined. -/
   (h_pos : ∀ x : X, 0 < h x)

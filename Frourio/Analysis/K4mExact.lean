@@ -144,7 +144,7 @@ theorem zakMellinDisplacementAffinity_pullback {Y : Type*} [PseudoMetricSpace Y]
     endpoint0 := by intro y₁ y₂; simp,
     endpoint1 := by intro y₁ y₂; simp
   }
-  -- Since zakMellinKernel.map is constant 0, the affinity condition holds trivially
+  -- Since zakMellinKernel.map is constant 0
   intro y₁ y₂ θ hθ s
   dsimp [KTransform.pullback, zakMellinKernel]
   -- All values are 0, so the equation 0 = (1-θ)*0 + θ*0 holds

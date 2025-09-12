@@ -60,7 +60,6 @@ noncomputable def descendingSlope (F : X → ℝ) (x : X) : ℝ :=
 
 -- Basic sanity: for a constant function the inner quotient is 0 pointwise;
 -- lemmas identifying the `limsup` are provided later where appropriate
--- boundedness/nontriviality conditions are organized.
 
 end Frourio
 
@@ -84,7 +83,7 @@ theorem eventually_nonneg_slopeQuot (F : X → ℝ) (x : X) :
     simpa [dist_comm] using this
   exact div_nonneg (posPart_nonneg _) (le_of_lt hpos)
 
-/-- Constant function: EReal descending slope is 0 (nontrivial restricted neighborhood). -/
+/-- Constant function: EReal descending slope is 0. -/
 theorem descendingSlopeE_const (x : X) (c : ℝ)
   [Filter.NeBot (nhdsWithin x (posDist x))] :
   descendingSlopeE (fun _ : X => c) x = 0 := by
@@ -95,7 +94,7 @@ theorem descendingSlopeE_const (x : X) (c : ℝ)
   rw [this]
   simp
 
-/-- Constant function: real descending slope is 0 (nontrivial restricted neighborhood). -/
+/-- Constant function: real descending slope is 0. -/
 theorem descendingSlope_const (x : X) (c : ℝ)
   [Filter.NeBot (nhdsWithin x (posDist x))] :
   descendingSlope (fun _ : X => c) x = 0 := by
