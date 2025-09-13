@@ -14,6 +14,7 @@ import Frourio.Analysis.EntropyPackage
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.MellinPlancherel
 import Frourio.Analysis.PLFA.PLFA
+import Frourio.Analysis.QuadraticForm
 import Frourio.Analysis.YoungRigidity
 import Frourio.Geometry.DiracIndex
 import Frourio.Geometry.FGCore
