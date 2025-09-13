@@ -1159,6 +1159,17 @@ lemma ker_MK_supported_on_zero_set (K : ℝ → ℂ) (g : Lp ℂ 2 (volume : Mea
   intro hg
   exact (ker_MK_iff_ae_zero_on_supp K g hK_meas hK_bdd).mp hg
 
+/-- A-3 (complete characterization): `g` is in the kernel of `M_K`
+    if and only if `g = 0` almost everywhere on the support `{τ | K τ ≠ 0}`.
+    This is the `∀ᵐ`-predicate version of `ker_MK_iff_ae_zero_on_supp`. -/
+lemma ker_MK_ae (K : ℝ → ℂ) (g : Lp ℂ 2 (volume : Measure ℝ))
+    (hK_meas : AEStronglyMeasurable K volume)
+    (hK_bdd : essSup (fun x => (‖K x‖₊ : ℝ≥0∞)) volume < ∞) :
+    g ∈ ker_MK K hK_meas hK_bdd ↔
+      (∀ᵐ x ∂volume.restrict (supp_K K), (g : ℝ → ℂ) x = 0) := by
+  -- The RHS is definitionally the same as `=ᵐ[...] 0` for functions to ℂ.
+  simpa using (ker_MK_iff_ae_zero_on_supp K g hK_meas hK_bdd)
+
 end KernelCharacterization
 
 section PullbackToHσ
