@@ -1,8 +1,15 @@
+import Mathlib.MeasureTheory.Function.LpSpace.Basic
+import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
+import Mathlib.MeasureTheory.Measure.WithDensity
 import Mathlib.Analysis.SpecialFunctions.Complex.Log
 import Mathlib.Analysis.Complex.Trigonometric
 import Mathlib.Algebra.GroupWithZero.Basic
 import Mathlib.Algebra.BigOperators.Group.Finset.Defs
 import Mathlib.Tactic
+
+open MeasureTheory Measure
+open scoped ENNReal
+
 -- Note: We deliberately avoid heavy `MeasureTheory` imports at this stage
 -- to keep CI fast; the integral-based definition is recorded as a signature
 -- and documented, with a lightweight placeholder for now.
@@ -227,16 +234,22 @@ lemma phiSymbol_zero_iff {Λ : ℝ} (hΛ : 1 < Λ) (s : ℂ) :
 /-- Vertical line `Re s = σ` as a subtype. -/
 def VerticalLine (σ : ℝ) := { s : ℂ // s.re = σ }
 
-/-- Lightweight model for `H_σ`. In later phases, this will be identified
-isometrically with `L2(ℝ)` via `t ↦ σ + i t`. Here we keep only the carrier. -/
-structure Hσ (σ : ℝ) where
-  F : ℝ → ℂ
+/-- Multiplicative Haar measure on (0,∞) -/
+noncomputable def mulHaar : Measure ℝ :=
+  (volume.withDensity (fun x => ENNReal.ofReal (1 / x))).restrict (Set.Ioi 0)
+
+/-- Hilbert-Sobolev space Hσ -/
+noncomputable abbrev Hσ (σ : ℝ) :=
+  Lp ℂ 2 (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))
+
+/-- Coercion to function -/
+noncomputable def Hσ.toFun {σ : ℝ} (f : Hσ σ) : ℝ → ℂ := ⇑(f : Lp ℂ 2 _)
 
 /-- Placeholder action `Tphi` on `H_σ`. The analytic definition will act by
-multiplication by `phiSymbol(Λ, σ + i t)` in Mellin space. Here we just carry
-the function along to keep the interface available. -/
+multiplication by `phiSymbol(Λ, σ + i t)` in Mellin space. Here we just return
+a zero element to keep the interface available. -/
 noncomputable def Tphi (_Λ : ℝ) (σ : ℝ) : Hσ σ → Hσ (σ - 1) :=
-  fun u => ⟨u.F⟩
+  fun _u => 0
 
 /-- Placeholder norm on `H_σ` (to be replaced by the Mellin–Plancherel norm). -/
 noncomputable def HσNorm (σ : ℝ) (_u : Hσ σ) : ℝ := 0

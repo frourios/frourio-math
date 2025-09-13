@@ -12,6 +12,7 @@ import Frourio.Analysis.MinimizingMovement
 import Frourio.Analysis.DoobTransform
 import Frourio.Analysis.EntropyPackage
 import Frourio.Analysis.FrourioFunctional
+import Frourio.Analysis.MellinPlancherel
 import Frourio.Analysis.PLFA.PLFA
 import Frourio.Analysis.YoungRigidity
 import Frourio.Geometry.DiracIndex
