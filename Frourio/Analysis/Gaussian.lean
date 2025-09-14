@@ -37,6 +37,10 @@ private lemma norm_cexp_neg_mul_sq (a t : ℝ) :
 private lemma exp_sq_eq (x : ℝ) : Real.exp x * Real.exp x = Real.exp (x + x) := by
   simpa using (Real.exp_add x x).symm
 
+-- Helper for exp square with pow_two and two_mul to avoid timeout
+private lemma exp_sq_pow_two (x : ℝ) : (Real.exp x) ^ 2 = Real.exp (2 * x) := by
+  rw [pow_two, exp_sq_eq, two_mul]
+
 -- L² membership characterization for complex exponential functions
 private lemma memLp_two_iff_integrable_sq_complex (f : ℝ → ℂ)
     (hmeas : AEStronglyMeasurable f (volume : Measure ℝ)) :
@@ -282,6 +286,42 @@ lemma gaussian_integral_scaled (δ : ℝ) (hδ : 0 < δ) :
           simpa [Real.sqrt_div, h2nonneg]
     _ = |δ| / Real.sqrt 2 := by simpa [pow_two] using congrArg (fun x => x / Real.sqrt 2) (Real.sqrt_sq_eq_abs δ)
     _ = δ / Real.sqrt 2 := by simpa [abs_of_pos hδ]
+
+/-! 追加補題: ガウスの L² ノルム（二乗） -/
+
+/-- 実ガウス `exp(-π t² / δ²)` の L² ノルムの二乗は `δ/√2`（δ>0）。 -/
+lemma gaussian_l2_norm_sq_real (δ : ℝ) (hδ : 0 < δ) :
+    (∫ t : ℝ, (Real.exp (-Real.pi * t^2 / δ^2)) ^ 2 ∂(volume : Measure ℝ))
+      = δ / Real.sqrt 2 := by
+  -- 二乗を倍係数の単一指数にまとめる
+  have hpt : (fun t : ℝ => (Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) ^ 2)
+      = (fun t : ℝ => Real.exp (-(2 * Real.pi) * t ^ 2 / δ ^ 2)) := by
+    funext t
+    have hx : (Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) ^ 2
+        = Real.exp (2 * (-Real.pi * t ^ 2 / δ ^ 2)) := by
+      exact exp_sq_pow_two (-Real.pi * t ^ 2 / δ ^ 2)
+    have hx' : 2 * (-Real.pi * t ^ 2 / δ ^ 2)
+        = -(2 * Real.pi) * t ^ 2 / δ ^ 2 := by
+      ring
+    rw [hx, hx']
+  rw [hpt]
+  exact gaussian_integral_scaled δ hδ
+
+/-- 複素数値に持ち上げた実ガウスの L² ノルム二乗も同じ値。 -/
+lemma gaussian_l2_norm_sq_complex (δ : ℝ) (hδ : 0 < δ) :
+    (∫ t : ℝ, ‖(Real.exp (-Real.pi * t^2 / δ^2) : ℂ)‖ ^ (2 : ℕ) ∂(volume : Measure ℝ))
+      = δ / Real.sqrt 2 := by
+  -- ノルムはそのまま実数値に一致する
+  have hpt : (fun t : ℝ => ‖(Real.exp (-Real.pi * t ^ 2 / δ ^ 2) : ℂ)‖ ^ (2 : ℕ))
+      = (fun t : ℝ => (Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) ^ 2) := by
+    funext t
+    have hxpos : 0 < Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := Real.exp_pos _
+    have h1 : ‖(Real.exp (-Real.pi * t ^ 2 / δ ^ 2) : ℂ)‖ = Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
+      simp only [Complex.norm_real]
+      exact abs_of_pos hxpos
+    rw [h1]
+  rw [hpt]
+  exact gaussian_l2_norm_sq_real δ hδ
 
 end GaussianHelpers
 
