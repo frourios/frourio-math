@@ -4,6 +4,7 @@ import Frourio.Zeta.KernelMultiplicity
 import Frourio.Analysis.GammaConvergence
 import Frourio.Analysis.ZakMellin
 import Frourio.Analysis.MellinPlancherel
+import Frourio.Analysis.Gaussian
 import Mathlib.MeasureTheory.Function.LpSpace.Basic
 
 namespace Frourio
@@ -62,17 +63,134 @@ concentration estimates) are deferred to later tasks. -/
 theorem exists_golden_peak_proof (σ τ₀ : ℝ) :
     ∃ F : GoldenTestSeq σ, concentrates_at σ F τ₀ := by
   classical
-  -- For the current phase, we can take the trivial zero sequence in Hσ.
-  let f : ℕ → Hσ σ := fun _ => 0
-  -- Bundle trivial preparation flags to satisfy the interface.
-  let prepared : Prepared σ f := { frame := True, gamma := True, width := True }
-  refine ⟨⟨f, prepared⟩, ?_⟩
-  -- Concentration holds since the current `Uσ` is the zero map, so the trace energy is 0.
+  -- Step 1: shrinking Gaussian widths δ n ↓ 0
+  let δ : ℕ → ℝ := fun n => 1 / (n + 1 : ℝ)
+
+  -- Step 2: normalized Gaussian windows in L² with pointwise Gaussian bound
+  -- Using the normalized Gaussian from `Gaussian.lean`, we get an a.e. pointwise
+  -- bound with the exact normalization constant A = 2^(1/4)/√δ.
+  -- For our purposes in this file, we accept the a.e. bound as a pointwise one,
+  -- since later estimates are made at the level of integrals and can tolerate
+  -- modification on a null set.
+  have gaussian_exists : ∀ n, ∃ w : Lp ℂ 2 (volume : Measure ℝ),
+      ‖w‖ = 1 ∧
+      ∀ᵐ t : ℝ, ‖(w : ℝ → ℂ) t‖ ≤ ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt (δ n)) *
+        Real.exp (-Real.pi * t^2 / (δ n)^2) := by
+    intro n
+    -- define normalized Gaussian profile with width δ n
+    let δn : ℝ := δ n
+    have hδ : 0 < δn := by
+      have : 0 < (n + 1 : ℝ) := by
+        have : (0 : ℕ) < n + 1 := Nat.succ_pos n
+        exact_mod_cast this
+      have hpos : 0 < 1 / (n + 1 : ℝ) := one_div_pos.mpr this
+      exact hpos
+    -- Invoke the pointwise bound lemma for the normalized Gaussian
+    rcases normalized_gaussian_pointwise_bound δn hδ with ⟨w, hnorm, hbound⟩
+    exact ⟨w, hnorm, hbound⟩
+
+  -- Step 3: shift by τ₀ and embed to Hσ
+  choose gaussian hnorm hpt using gaussian_exists
+  let f : ℕ → Hσ σ := fun n =>
+    let shifted := timeShift (-τ₀) (gaussian n)
+    -- Embed the shifted L²-Gaussian into Hσ via a placeholder map
+    toHσ_ofL2 σ shifted
+
+  -- Step 4: Preparedness (frame bounds, Γ-収束, width control)
+  have prepared_proof : Prepared σ f := by
+    refine { frame := ?frame, gamma := ?gamma, width := ?width }
+    · -- frame: use ZakFrame_inequality_proof and suitable window properties
+      -- For each n, we have a normalized Gaussian window with ‖gaussian n‖ = 1
+      -- This satisfies suitable_window requirement
+      -- We need to establish frame bounds for the Zak transform
+      -- The frame property holds for critical sampling Δτ * Δξ = 2π
+
+      -- For now, we assert the frame property holds for our Gaussian windows
+      -- This would require proving Bessel bounds and lower frame bounds
+      -- which follow from Gaussian's good time-frequency localization
+      sorry
+
+    · -- gamma: Γ-convergence of energies for fₙ
+      -- As δ n → 0, the sequence of functionals Γ-converges
+      -- to the limiting functional that enforces RH
+      -- This is a deep result requiring analysis of the quadratic form's behavior
+
+      -- Placeholder for Γ-convergence property
+      -- Will be established in GammaConvergence.lean
+      sorry
+
+    · -- width: δ n → 0 ensures concentration scale shrinks
+      -- We defined δ n = 1/(n+1), so we need to show δ n → 0
+      have h_width : ∀ ε > 0, ∃ N, ∀ n ≥ N, δ n < ε := by
+        intro ε hε
+        -- Choose N such that 1/(N+1) < ε, i.e., N > 1/ε - 1
+        use ⌈1/ε⌉₊
+        intro n hn
+        have h1 : (⌈1/ε⌉₊ : ℝ) ≤ n := Nat.cast_le.mpr hn
+        have h2 : 1/ε ≤ ⌈1/ε⌉₊ := Nat.le_ceil (1/ε)
+        calc δ n = 1 / (n + 1 : ℝ) := rfl
+        _        < 1 / (⌈1/ε⌉₊ : ℝ) := by
+          apply div_lt_div_of_pos_left
+          · exact one_pos
+          · exact Nat.cast_pos.mpr (Nat.ceil_pos.mpr (div_pos one_pos hε))
+          · calc (⌈1/ε⌉₊ : ℝ) ≤ n := h1
+            _                 < n + 1 := by linarith
+        _        ≤ 1 / (1/ε) := by
+          apply div_le_div_of_nonneg_left
+          · exact zero_le_one
+          · exact div_pos one_pos hε
+          · exact h2
+        _        = ε := by
+          field_simp
+
+      -- Convert to the form expected by width condition
+      -- (This depends on the exact definition of width in the framework)
+      sorry
+
+  -- Step 5: concentration at τ₀ from Gaussian decay
+  refine ⟨⟨f, prepared_proof⟩, ?conc⟩
   intro ε hε
-  refine ⟨0, ?_⟩
-  intro n _hn
-  -- The integrand is identically 0 under the present placeholder `Uσ`.
-  simpa [Uσ, f]
+  -- Use Gaussian tail bound to control mass outside |τ-τ₀| > ε
+  -- The Mellin trace Uσ applied to time-shifted Gaussian concentrates at τ₀
+
+  -- Strategy:
+  -- 1. timeShift(-τ₀) moves the Gaussian center from 0 to τ₀
+  -- 2. Under Uσ (which preserves L² norms), the shifted Gaussian remains concentrated
+  -- 3. As δ n → 0, the Gaussian becomes more concentrated, so tail mass → 0
+
+  -- Choose N large enough that δ N is small enough for the tail bound
+  -- We need exp(-π ε²/δ²) < ε, which holds when δ² < -π ε² / log(ε)
+  -- Since δ n = 1/(n+1), we need (n+1)² > -π ε² / log(ε)
+
+  have h_delta_small : ∃ N, ∀ n ≥ N,
+      4 * Real.exp (-Real.pi * ε^2 / (δ n)^2) < ε := by
+    -- For large n, δ n = 1/(n+1) is small, so exp(-π ε²/δ²) decays super-exponentially
+    -- Choose N such that 4 * exp(-π ε² (n+1)²) < ε
+    use ⌈Real.sqrt (-Real.pi * ε^2 / Real.log (ε/4))⌉₊
+    intro n hn
+    sorry -- Technical calculation of exponential decay
+
+  rcases h_delta_small with ⟨N, hN⟩
+  use N
+  intro n hn
+
+  -- Since Uσ is currently a placeholder (zero map), the integral is actually 0
+  -- In the full implementation, we would use:
+  -- 1. Uσ is an isometry (preserves L² norms)
+  -- 2. timeShift(-τ₀) translates in the Mellin domain
+  -- 3. The Gaussian tail bound from normalized_gaussian_tail_vanishes
+
+  -- For now, since Uσ = 0 in the current implementation:
+  -- The integral of ‖0‖^2 over any set is 0 < ε
+  calc (∫ τ in {τ | |τ - τ₀| > ε}, ‖(Uσ σ (f n) : ℝ → ℂ) τ‖^2)
+      = ∫ τ in {τ | |τ - τ₀| > ε}, ‖(0 : ℂ)‖^2 := by
+        congr 1
+        ext τ
+        simp only [Uσ, ContinuousLinearMap.zero_apply, Pi.zero_apply]
+  _   = ∫ τ in {τ | |τ - τ₀| > ε}, (0 : ℝ) := by
+        simp only [norm_zero, pow_two, mul_zero]
+  _   = 0 := integral_zero _ _
+  _   < ε := hε
 
 /-- Phase 3.2: Discrete–continuous consistency along prepared golden sequences
 (statement-level). With current placeholders for bounds and Γ-収束, we record
