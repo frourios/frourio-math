@@ -82,6 +82,17 @@ def lattice_residue_finite (F : TrigPoly a) : Prop :=
       = Finset.sum (symmIdx F.N)
           (fun k => (F.c k).re * ‖(@inner ℂ _ _ (eK a k) g)‖^2)
 
+/-- Phase 4.2: hypotheses wrapper providing the finite lattice residue identity.
+Concrete analytic proofs (orthogonality/Parseval on a periodic domain) will
+populate this wrapper in a later phase. -/
+structure LatticeResidueHypotheses (F : TrigPoly a) : Prop where
+  holds : lattice_residue_finite F
+
+/-- Phase 4.2: from the hypotheses wrapper, conclude the identity. -/
+theorem lattice_residue_finite_proof (F : TrigPoly a)
+    (h : LatticeResidueHypotheses (a := a) F) : lattice_residue_finite F :=
+  h.holds
+
 end LatticeResidue
 
 /-!

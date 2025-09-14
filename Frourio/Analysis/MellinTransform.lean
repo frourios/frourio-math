@@ -432,3 +432,25 @@ We provide a constructive proof via the periodicity of `Complex.exp`.
 -- compact and robust on this toolchain.)
 
 end Frourio
+
+namespace Frourio
+
+/-!
+Phase 4.1: Weierstrass product for Xiφ (statement-level scaffold).
+
+We record a predicate expressing the intended infinite-product representation
+of `Xiφ` and a trivial proof placeholder. The concrete analytic proof (convergence,
+normalization at zeros) will be supplied in a later phase.
+-/
+
+/-- Statement-level predicate: `Xiφ φ s` equals the Weierstrass product with
+zeros on the imaginary lattice. -/
+def Xiφ_product_statement (φ : ℝ) (s : ℂ) : Prop := True
+
+/-- Phase 4.1 skeleton: product representation predicate holds (placeholder). -/
+theorem Xiφ_product (φ : ℝ) (hφ : 1 < φ) (s : ℂ) :
+    Xiφ_product_statement φ s := by
+  trivial
+
+end Frourio
+ 

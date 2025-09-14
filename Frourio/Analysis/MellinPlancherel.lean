@@ -492,53 +492,53 @@ transform. The key insight is that rescaling τ ↦ c·τ in frequency space cor
 unitary transformation that allows conversion between different φ values.
 -/
 
-/-- Scale map on `L²(ℝ)` (phase-0 version).
-At this stage we take scaling to be the identity map; the true rescaling
-`f(τ) ↦ √c · f(c·τ)` will be introduced in a later phase. -/
-noncomputable def scaleMap :
-    Lp ℂ 2 (volume : Measure ℝ) → Lp ℂ 2 (volume : Measure ℝ) :=
-  id
+/-!
+Phase-2 Step 1: Base change and golden calibration.
 
-@[simp] lemma scaleMap_apply (f : Lp ℂ 2 (volume : Measure ℝ)) :
-    scaleMap f = f := rfl
+We introduce the base-change linear isometric equivalence on `L²(ℝ)`.
+For now, we keep the underlying action as the identity to stabilize API; the
+true scaling `(baseChange c) g (t) = √c · g (c·t)` will replace it in P3.
+-/
 
-/-- Linear map version of `scaleMap` for composition in this phase.
-At this stage we take it to be the identity operator on `L²(ℝ)`; this keeps
-the API stable while postponing the true `τ ↦ c·τ` rescaling implementation. -/
-noncomputable def scaleMapL :
-    Lp ℂ 2 (volume : Measure ℝ) →L[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  ContinuousLinearMap.id ℂ (Lp ℂ 2 (volume : Measure ℝ))
+/-- Function-level base change (design): `(baseChangeFun c g) t = √c · g (c·t)`. -/
+noncomputable def baseChangeFun (c : ℝ) (g : ℝ → ℂ) : ℝ → ℂ :=
+  fun t => (Real.sqrt c : ℝ) * g (c * t)
 
-@[simp] lemma scaleMapL_apply (f : Lp ℂ 2 (volume : Measure ℝ)) :
-  scaleMapL f = f := rfl
-
-@[simp] lemma scaleMapL_id :
-    scaleMapL = ContinuousLinearMap.id ℂ (Lp ℂ 2 (volume : Measure ℝ)) := rfl
-
-/-- The scale map is an isometry (preserves L² norm) when properly normalized -/
-theorem scaleMap_isometry : Isometry scaleMap := by
-  -- Current placeholder `scaleMap` is identity, hence an isometry.
-  intro f g; simp [scaleMap]
-
-/-- Scale isometry as a linear isometric equivalence -/
-noncomputable def scaleIsometry :
+/-- Base-change isometry on `L²(ℝ)` (placeholder identity implementation).
+Intended normalization: `(baseChange c) g (t) = √c · g (c·t)` for `0 < c`. -/
+noncomputable def baseChange (c : ℝ) (_hc : 0 < c) :
     Lp ℂ 2 (volume : Measure ℝ) ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
   LinearIsometryEquiv.refl ℂ (Lp ℂ 2 (volume : Measure ℝ))
 
+@[simp] lemma baseChange_apply (c : ℝ) (hc : 0 < c)
+    (f : Lp ℂ 2 (volume : Measure ℝ)) : baseChange c hc f = f := rfl
+
+/-- As a map, `baseChange` is an isometry (since currently identity). -/
+lemma baseChange_isometry (c : ℝ) (hc : 0 < c) : Isometry (baseChange c hc) := by
+  intro f g; simp [baseChange]
+
+/-- Linear map form of baseChange for composition convenience. -/
+noncomputable def baseChangeL (c : ℝ) (hc : 0 < c) :
+    Lp ℂ 2 (volume : Measure ℝ) →L[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
+  (baseChange c hc).toContinuousLinearEquiv.toContinuousLinearMap
+
+@[simp] lemma baseChangeL_apply (c : ℝ) (hc : 0 < c)
+    (f : Lp ℂ 2 (volume : Measure ℝ)) : baseChangeL c hc f = f := rfl
+
 /-- Composition formula: scaling commutes with multiplication operators -/
-theorem scale_mult_commute (c : ℝ) (φ : ℝ) (σ : ℝ)
+theorem scale_mult_commute (c : ℝ) (hc : 0 < c) (φ : ℝ) (σ : ℝ)
     (h : phiSymbol φ (σ : ℂ) = phiSymbol (φ ^ c) (σ : ℂ)) :
-    scaleMapL ∘L Mφ φ σ = Mφ (φ^c) σ ∘L scaleMapL := by
+    baseChangeL c hc ∘L Mφ φ σ = Mφ (φ^c) σ ∘L baseChangeL c hc := by
   -- With current placeholders, both sides are scalar multiples by equal constants.
   ext f
-  simp [scaleMapL, Mφ, h]
+  simp [baseChangeL, Mφ, h]
 
 /-- Base change formula: Convert between different φ values via scaling -/
 theorem base_change_formula (φ φ' : ℝ) (hφ : 1 < φ) (hφ' : 1 < φ') (σ : ℝ) :
     ∃ c : ℝ, 0 < c ∧ φ' = φ^c ∧
     (∀ _ : 0 < c,
       (phiSymbol φ (σ : ℂ) = phiSymbol φ' (σ : ℂ)) →
-        scaleMapL ∘L Mφ φ σ = Mφ φ' σ ∘L scaleMapL) := by
+        baseChangeL c ‹0 < c› ∘L Mφ φ σ = Mφ φ' σ ∘L baseChangeL c ‹0 < c›) := by
   -- Choose c = log φ' / log φ (> 0 since φ, φ' > 1)
   refine ⟨Real.log φ' / Real.log φ, ?_, ?_, ?_⟩
   · -- positivity of c
@@ -587,15 +587,23 @@ theorem base_change_formula (φ φ' : ℝ) (hφ : 1 < φ) (hφ' : 1 < φ') (σ :
     -- Turn the `(φ^c)` on the right into `φ'` using `hpow` mapped through `Mφ · σ`.
     have hpowM : Mφ φ' σ = Mφ (φ ^ (Real.log φ' / Real.log φ)) σ := by
       simpa using congrArg (fun a => Mφ a σ) hpow
-    have comm := scale_mult_commute (c := Real.log φ' / Real.log φ) φ σ heq'
+    have comm := scale_mult_commute (c := Real.log φ' / Real.log φ)
+      (hc := by
+        -- reuse positivity proved above
+        exact (div_pos (Real.log_pos hφ') (Real.log_pos hφ))) φ σ heq'
     -- Rewrite the RHS via `hpowM` to match the goal
     simpa [hpowM] using comm
 
-/-- Golden calibration: normalize any φ > 1 to the golden ratio φ = (1 + √5)/2 -/
-noncomputable def goldenCalibration :
+/-!
+Golden calibration: fix the base to the golden ratio via baseChange.
+-/
+
+noncomputable def goldenCalib (φ : ℝ) (hφ : 1 < φ) :
     Lp ℂ 2 (volume : Measure ℝ) ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  -- Using Frourio.φ = (1 + √5)/2 from Frourio.Basic
-  scaleIsometry
+  baseChange (Real.log φ) (Real.log_pos hφ)
+
+@[simp] lemma goldenCalib_apply (φ : ℝ) (hφ : 1 < φ)
+    (f : Lp ℂ 2 (volume : Measure ℝ)) : goldenCalib φ hφ f = f := rfl
 
 /-- The golden calibration converts φ-symbols to golden-symbols -/
 theorem golden_calibration_formula (φ_real : ℝ) (σ : ℝ) :
