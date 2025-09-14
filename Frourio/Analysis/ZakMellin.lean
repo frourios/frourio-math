@@ -739,4 +739,24 @@ def ZakFrame_inequality
     ∀ g : Lp ℂ 2 (volume : Measure ℝ),
       A * ‖g‖^2 ≤ FrameEnergy w Δτ Δξ g ∧ FrameEnergy w Δτ Δξ g ≤ B * ‖g‖^2
 
+/-- Statement-level proof schema for the Zak–Mellin frame inequality.
+Assuming a Bessel upper bound and a lower frame bound, produce the inequality.
+In later phases, one derives these bounds from critical sampling `Δτ·Δξ = 2π`
+and a suitable window. -/
+theorem ZakFrame_inequality_proof
+    (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ)
+    (hw : suitable_window w)
+    (hcrit : Δτ * Δξ = 2 * Real.pi)
+    (hB : ∃ B : ℝ, besselBound w Δτ Δξ B)
+    (hA : ∃ A : ℝ, 0 < A ∧ ∀ g : Lp ℂ 2 (volume : Measure ℝ), A * ‖g‖^2 ≤ FrameEnergy w Δτ Δξ g)
+    : ZakFrame_inequality w Δτ Δξ := by
+  classical
+  obtain ⟨B, hBprop⟩ := hB
+  obtain ⟨A, hApos, hAlow⟩ := hA
+  refine ⟨A, B, hApos, ?_, ?_⟩
+  · exact hBprop.1
+  · intro g; refine And.intro (hAlow g) ?upper
+    have := frameEnergy_le_of_bessel (hb := hBprop) g
+    simpa using this
+
 end Frourio

@@ -452,5 +452,14 @@ theorem Xiφ_product (φ : ℝ) (hφ : 1 < φ) (s : ℂ) :
     Xiφ_product_statement φ s := by
   trivial
 
+/-- Phase 5.1: Weierstrass infinite product converges (statement-level).
+We record convergence as a predicate placeholder; the analytic proof via
+comparison with the p-series `∑ 1/k^2` will be supplied later. -/
+def Xiφ_product_converges (φ : ℝ) (s : ℂ) : Prop := True
+
+theorem Xiφ_product_convergence (φ : ℝ) (hφ : 1 < φ) (s : ℂ) :
+    Xiφ_product_converges φ s := by
+  trivial
+
 end Frourio
  

@@ -61,4 +61,36 @@ theorem gammaLiminf_proof (Γ : GammaFamily)
 theorem gammaRecovery_proof (Γ : GammaFamily)
     (h : GammaAssumptions Γ) : gammaRecovery Γ := h.recovery
 
+/-- Specialization of assumptions to the discrete family `QdiscGammaFamily`. -/
+def QdiscGammaAssumptions (K : ℝ → ℝ)
+    (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ) : Prop :=
+  let Γ := QdiscGammaFamily K w Δτ Δξ
+  GammaAssumptions Γ
+
+/-- From assumptions, extract Γ-liminf for the discrete family. -/
+theorem Qdisc_gamma_liminf_proof (K : ℝ → ℝ)
+    (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ)
+    (h : QdiscGammaAssumptions K w Δτ Δξ) :
+    let Γ := QdiscGammaFamily K w Δτ Δξ
+    gammaLiminf Γ := by
+  intro Γ; exact (gammaLiminf_proof Γ h)
+
+/-- From assumptions, extract Γ-recovery for the discrete family. -/
+theorem Qdisc_gamma_recovery_proof (K : ℝ → ℝ)
+    (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ)
+    (h : QdiscGammaAssumptions K w Δτ Δξ) :
+    let Γ := QdiscGammaFamily K w Δτ Δξ
+    gammaRecovery Γ := by
+  intro Γ; exact (gammaRecovery_proof Γ h)
+
+/-- Combine both directions to conclude the Γ-convergence `Prop` for `Qdisc`. -/
+theorem Qdisc_gamma_to_Q_proof (K : ℝ → ℝ)
+    (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ)
+    (h : QdiscGammaAssumptions K w Δτ Δξ) :
+    Qdisc_gamma_to_Q K w Δτ Δξ := by
+  dsimp [Qdisc_gamma_to_Q, QdiscGammaAssumptions] at h ⊢
+  refine And.intro ?lim ?rec
+  · exact (gammaLiminf_proof _ h)
+  · exact (gammaRecovery_proof _ h)
+
 end Frourio

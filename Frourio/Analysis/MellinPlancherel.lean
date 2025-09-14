@@ -318,6 +318,21 @@ theorem mellin_energy_zero (σ : ℝ) (f : Hσ σ) :
     ∫ τ : ℝ, ‖MellinTransformAt σ f τ‖^2 ∂volume = 0 := by
   simp [MellinTransformAt]
 
+/-!
+Auxiliary placeholder embedding from `L²(ℝ)` (Lebesgue) into `Hσ`.
+In the present phase, this acts as the zero map to keep the API flowing.
+It will be replaced by the genuine logarithmic pullback inverse in P3.
+-/
+
+/-- Placeholder coercion: map an `L²(ℝ)` function to an element of `Hσ`.
+Currently returns `0` ignoring the input; serves as a scaffold. -/
+noncomputable def toHσ_ofL2 (σ : ℝ) :
+    Lp ℂ 2 (volume : Measure ℝ) → Hσ σ :=
+  fun _ => 0
+
+@[simp] lemma toHσ_ofL2_zero (σ : ℝ) (g : Lp ℂ 2 (volume : Measure ℝ)) :
+    toHσ_ofL2 σ g = 0 := rfl
+
 end MellinIsometry
 
 section FrourioMellinRepresentation
@@ -394,6 +409,7 @@ theorem DΦ_norm_zero (_φ : ℝ) (_hφ : 1 < _φ) (σ : ℝ) :
   intro f; simp [DΦ]
 
 end FrourioMellinRepresentation
+
 
 section ZeroLatticeComplete
 

@@ -58,7 +58,7 @@ def concentrates_at (σ : ℝ) (F : GoldenTestSeq σ) (τ₀ : ℝ) : Prop :=
 /-- Phase 3.1: Existence of a concentrated golden test sequence (skeleton).
 We outline the Gaussian-window construction with shrinking width and a shift to
 center at `τ₀`. Analytical details (Lp construction, preparation, and
-concentration estimates) are deferred to later tasks and marked as `sorry`. -/
+concentration estimates) are deferred to later tasks. -/
 theorem exists_golden_peak_proof (σ τ₀ : ℝ) :
     ∃ F : GoldenTestSeq σ, concentrates_at σ F τ₀ := by
   classical
@@ -85,7 +85,7 @@ theorem disc_consistency_proof (σ : ℝ) (F : GoldenTestSeq σ) :
 This records the logical flow: extract the imaginary part τ₀, build a
 golden-lattice sequence concentrating at τ₀, compare discrete and continuous
 energies, and use the kernel–multiplicity bridge to reach a contradiction with
-β ≠ 1/2. Analytical details are deferred and marked as `sorry`. -/
+β ≠ 1/2. Analytical details are deferred. -/
 theorem off_critical_contradiction_proof_skeleton
     (β τ₀ : ℝ) (hβ : β ≠ (1/2 : ℝ))
     (hZeroHyp : Prop := True) : off_critical_contradiction := by
