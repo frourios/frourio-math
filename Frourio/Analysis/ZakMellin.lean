@@ -3,21 +3,17 @@ import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Frourio.Analysis.QuadraticForm
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.Topology.Algebra.InfiniteSum.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.L1
 import Mathlib.MeasureTheory.Integral.Bochner.VitaliCaratheodory
 import Mathlib.MeasureTheory.Group.Measure
-
-namespace Frourio
-
-open MeasureTheory
-open scoped ENNReal
-
-end Frourio
-
-namespace Frourio
+import Mathlib.Analysis.Complex.Trigonometric
+import Mathlib.Algebra.Module.Basic
 
 open MeasureTheory
-open scoped ENNReal
+open scoped ENNReal Topology BigOperators
+
+namespace Frourio
 
 /-!
 Step 3: Discretization of the quadratic form via Zak coefficients (design-level).
@@ -495,23 +491,228 @@ lemma L2_norm_comp_sub (f : ℝ → ℂ) (τ : ℝ)
 
 end VariableChangeFormulas
 
-/-- L² modulation as a continuous linear map (using existing modFun) -/
+/-! Modulation on L²: multiplication by the unit-modulus phase `t ↦ exp(i ξ t)` -/
+
+-- Helper: pointwise phase factor has unit modulus
+lemma phase_abs_one (ξ t : ℝ) :
+    ‖Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ))‖ = 1 := by
+  -- Reorder to `((t * ξ : ℝ) : ℂ) * I` so the library lemma applies
+  have hmul : Complex.I * (ξ : ℂ) * (t : ℂ) = ((t * ξ : ℝ) : ℂ) * Complex.I := by
+    -- Use commutativity/associativity and collapse real casts
+    have := by
+      -- move `I` to the right of the real product
+      simpa [mul_comm, mul_left_comm, mul_assoc] using
+        (mul_comm (Complex.I) ((ξ : ℂ) * (t : ℂ)))
+    -- Now rewrite `(ξ : ℂ) * (t : ℂ)` as `((ξ * t : ℝ) : ℂ)` and commute factors
+    -- to get `((t * ξ : ℝ) : ℂ) * I`.
+    -- Start from the left-hand side we want to transform
+    -- `Complex.I * (ξ : ℂ) * (t : ℂ)` equals `((ξ : ℂ) * (t : ℂ)) * Complex.I` by the line above
+    -- then fold the real multiplication and swap to `t * ξ`.
+    -- Combine the two steps succinctly:
+    -- first replace LHS by `((ξ : ℂ) * (t : ℂ)) * Complex.I`
+    -- then perform the `ofReal` fold and swap reals.
+    -- Implemented via `calc` for clarity.
+    clear this
+    calc
+      Complex.I * (ξ : ℂ) * (t : ℂ)
+          = ((ξ : ℂ) * (t : ℂ)) * Complex.I := by
+            simpa [mul_comm, mul_left_comm, mul_assoc]
+      _ = ((ξ * t : ℝ) : ℂ) * Complex.I := by
+            simpa [← Complex.ofReal_mul]
+      _ = ((t * ξ : ℝ) : ℂ) * Complex.I := by
+            simpa [mul_comm]
+  -- Apply the norm lemma after rewriting the exponent's argument
+  simpa [hmul] using Complex.norm_exp_ofReal_mul_I (t * ξ)
+
+-- AE pointwise algebra lemmas for modulation by the phase factor
+lemma mod_add_ae (ξ : ℝ)
+    (f g : Lp ℂ 2 (volume : Measure ℝ)) :
+    (fun t : ℝ => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ))
+        * ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t)
+      =ᵐ[volume]
+    (fun t : ℝ =>
+        Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (f : ℝ → ℂ) t
+        + Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (g : ℝ → ℂ) t) := by
+  -- First rewrite `↑↑(f+g)` a.e. as `(↑↑f + ↑↑g)`
+  have h_add := (Lp.coeFn_add f g)
+  refine h_add.mono ?_
+  intro x hx
+  -- Then distribute multiplication pointwise
+  simp only [Pi.add_apply] at hx
+  simp only [hx, mul_add]
+
+lemma mod_smul_ae (ξ : ℝ) (c : ℂ)
+    (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    (fun t : ℝ => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ))
+        * ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t)
+      =ᵐ[volume]
+    (fun t : ℝ =>
+        c • (Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (f : ℝ → ℂ) t)) := by
+  -- Rewrite the representative of `(c • f)` a.e.
+  have h_smul := (Lp.coeFn_smul c f)
+  refine h_smul.mono ?_
+  intro x hx
+  -- Use the equality from h_smul and distribute scalar multiplication
+  simp only [Pi.smul_apply] at hx
+  simp only [hx, Pi.smul_apply, smul_eq_mul]
+  ring
+
+-- The L² class is preserved under modulation
+lemma mod_memLp (ξ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    MemLp (fun t : ℝ => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (f : ℝ → ℂ) t)
+      2 (volume : Measure ℝ) := by
+  -- Start from the L² membership of `f`
+  have hf : MemLp (fun t => (f : ℝ → ℂ) t) 2 (volume : Measure ℝ) := Lp.memLp f
+  -- Define the phase function
+  let phase : ℝ → ℂ := fun t => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ))
+  -- a.e.-strong measurability for the product
+  have h_ae : AEStronglyMeasurable (fun t : ℝ => phase t * (f : ℝ → ℂ) t)
+      (volume : Measure ℝ) := by
+    -- `phase` is continuous, hence (ae-)strongly measurable
+    have hphase_cont : Continuous phase := by
+      -- phase t = exp(I * ((ξ : ℂ) * (t : ℂ)))
+      have h1 : Continuous fun t : ℝ => (t : ℂ) := Complex.continuous_ofReal
+      have h2 : Continuous fun t : ℝ => (ξ : ℂ) * (t : ℂ) := continuous_const.mul h1
+      have h3 : Continuous fun t : ℝ => Complex.I * ((ξ : ℂ) * (t : ℂ)) := continuous_const.mul h2
+      simpa [phase, mul_assoc] using Complex.continuous_exp.comp h3
+    have hphase : AEStronglyMeasurable phase (volume : Measure ℝ) :=
+      hphase_cont.measurable.aestronglyMeasurable
+    apply AEStronglyMeasurable.mul
+    · exact hphase
+    · exact hf.aestronglyMeasurable
+  -- Apply MemLp.of_le_mul with c = 1
+  refine MemLp.of_le_mul (c := 1) hf h_ae ?_
+  -- Show that ‖phase t * f t‖ ≤ 1 * ‖f t‖
+  filter_upwards with t
+  simp only [one_mul, norm_mul, phase]
+  rw [phase_abs_one ξ t, one_mul]
+
+-- Linear map on L² induced by modulation
+noncomputable def mod_linearMap (ξ : ℝ) :
+    Lp ℂ 2 (volume : Measure ℝ) →ₗ[ℂ] Lp ℂ 2 (volume : Measure ℝ) where
+  toFun f :=
+    MemLp.toLp (fun t => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (f : ℝ → ℂ) t)
+      (mod_memLp ξ f)
+  map_add' f g := by
+    -- Compare representatives a.e. and use `Lp.ext`
+    apply Lp.ext (μ := (volume : Measure ℝ))
+    have hfg := MemLp.coeFn_toLp (mod_memLp ξ f)
+    have hgg := MemLp.coeFn_toLp (mod_memLp ξ g)
+    have hsum := MemLp.coeFn_toLp (mod_memLp ξ (f + g))
+    -- assemble AE equality of coeFns all the way to `coeFn (sum)`
+    calc (MemLp.toLp _ (mod_memLp ξ (f + g)) : Lp ℂ 2 (volume : Measure ℝ))
+      =ᵐ[volume] fun t => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t := hsum
+      _ =ᵐ[volume] (fun t : ℝ =>
+        Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (f : ℝ → ℂ) t
+        + Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (g : ℝ → ℂ) t) := mod_add_ae ξ f g
+      _ =ᵐ[volume] (MemLp.toLp _ (mod_memLp ξ f) : Lp ℂ 2 (volume : Measure ℝ)) + (MemLp.toLp _ (mod_memLp ξ g) : Lp ℂ 2 (volume : Measure ℝ)) := (hfg.add hgg).symm
+      _ =ᵐ[volume] (MemLp.toLp _ (mod_memLp ξ f) + MemLp.toLp _ (mod_memLp ξ g) : Lp ℂ 2 (volume : Measure ℝ)) := (Lp.coeFn_add _ _).symm
+  map_smul' c f := by
+    -- Compare representatives a.e. and use `Lp.ext_ae`
+    apply Lp.ext (μ := (volume : Measure ℝ))
+    have hf := MemLp.coeFn_toLp (mod_memLp ξ f)
+    have hcf := MemLp.coeFn_toLp (mod_memLp ξ (c • f))
+    -- assemble AE equality of coeFns
+    calc (MemLp.toLp _ (mod_memLp ξ (c • f)) : Lp ℂ 2 (volume : Measure ℝ))
+      =ᵐ[volume] (fun t : ℝ => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t)) := hcf
+      _ =ᵐ[volume] (fun t : ℝ => c • (Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (f : ℝ → ℂ) t)) := mod_smul_ae ξ c f
+      _ =ᵐ[volume] (fun t : ℝ => c • ((((MemLp.toLp _ (mod_memLp ξ f)) : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t)) := by
+        refine hf.symm.mono ?_
+        intro x hx
+        simpa using congrArg (fun z => c • z) hx
+      _ =ᵐ[volume]
+        (↑↑(((RingHom.id ℂ) c) • (MemLp.toLp _ (mod_memLp ξ f))) : ℝ → ℂ) := by
+        simpa [Pi.smul_apply] using
+          (Lp.coeFn_smul ((RingHom.id ℂ) c) (MemLp.toLp _ (mod_memLp ξ f))).symm
+
+-- Isometry property of modulation
+lemma mod_norm_eq (ξ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    ‖mod_linearMap ξ f‖ = ‖f‖ := by
+  classical
+  -- Coerce to functions and compare L² norms via lintegrals of squared norms
+  let Fξ : ℝ → ℂ := fun t => (((mod_linearMap ξ f) : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t
+  have hrep : Fξ =ᵐ[volume]
+      (fun t => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (f : ℝ → ℂ) t) := by
+    simpa [mod_linearMap] using (MemLp.coeFn_toLp (mod_memLp ξ f))
+  have h_sq_ae :
+      (fun t : ℝ => ((↑‖Fξ t‖₊ : ENNReal) ^ (2 : ℕ)))
+        =ᵐ[volume]
+      (fun t : ℝ => ((↑‖(f : ℝ → ℂ) t‖₊ : ENNReal) ^ (2 : ℕ))) := by
+    refine hrep.mono ?_
+    intro t ht
+    simp only [ht, pow_two, nnnorm_mul]
+    have : ‖Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ))‖₊ = 1 := by
+      -- Prove in ℝ and lift via injectivity of the coercion
+      apply Subtype.ext
+      simpa [NNReal.coe_one, coe_nnnorm] using phase_abs_one ξ t
+    simp [this, one_mul]
+  have h1 : ‖mod_linearMap ξ f‖ ^ 2
+      = (∫⁻ t, ((↑‖Fξ t‖₊ : ENNReal) ^ (2 : ℕ)) ∂(volume : Measure ℝ)).toReal := by
+    simpa [mod_linearMap] using (Lp_norm_sq_as_lintegral (ν := (volume : Measure ℝ)) (mod_linearMap ξ f))
+  have h2 : ‖f‖ ^ 2
+      = (∫⁻ t, ((↑‖(f : ℝ → ℂ) t‖₊ : ENNReal) ^ (2 : ℕ)) ∂(volume : Measure ℝ)).toReal := by
+    simpa using (Lp_norm_sq_as_lintegral (ν := (volume : Measure ℝ)) f)
+  have h_eq := lintegral_congr_ae h_sq_ae
+  have hsq : ‖mod_linearMap ξ f‖ ^ 2 = ‖f‖ ^ 2 := by simpa [h1, h2] using congrArg ENNReal.toReal h_eq
+  have hsqrt := congrArg Real.sqrt hsq
+  simpa [Real.sqrt_sq, norm_nonneg] using hsqrt
+
+-- Final continuous linear map for modulation
 noncomputable def mod (ξ : ℝ) :
     Lp ℂ 2 (volume : Measure ℝ) →L[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  -- For now, return the identity map as a placeholder
-  -- The full implementation requires careful handling of the modulation isometry
-  ContinuousLinearMap.id ℂ (Lp ℂ 2 (volume : Measure ℝ))
+  LinearMap.mkContinuous (mod_linearMap ξ) 1 (by
+    intro f; rw [mod_norm_eq]; simp)
 
-/-- Intended Zak coefficients (design comment):
-`ZakCoeff w Δτ Δξ g (n,k) = ⟪ g, mod (kΔξ) (timeShift (nΔτ) w) ⟫`.
-For now, we keep the value as `0` to maintain a lightweight build. -/
+/-- Zak coefficients: inner products against time–frequency shifts of `w`.
+`ZakCoeff w Δτ Δξ g (n,k) = ⟪ g, mod (kΔξ) (timeShift (nΔτ) w) ⟫` -/
 noncomputable def ZakCoeff (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ)
     (g : Lp ℂ 2 (volume : Measure ℝ)) : ℤ × ℤ → ℂ :=
-  fun _ => 0
+  fun nk =>
+    let n : ℤ := nk.1
+    let k : ℤ := nk.2
+    inner (𝕜 := ℂ) g ((mod ((k : ℝ) * Δξ)) ((timeShift ((n : ℝ) * Δτ)) w))
 
 /-- Placeholder frame energy built from `ZakCoeff` (currently 0). -/
 noncomputable def FrameEnergy (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ)
-    (g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ := 0
+    (g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ :=
+  ∑' nk : ℤ × ℤ, ‖ZakCoeff w Δτ Δξ g nk‖ ^ (2 : ℕ)
+
+/-- Bessel 上界: Zak 係数の有限和が `B‖g‖²` 以下で抑えられる。 -/
+def besselBound (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ B : ℝ) : Prop :=
+  0 ≤ B ∧ ∀ g : Lp ℂ 2 (volume : Measure ℝ), ∀ s : Finset (ℤ × ℤ),
+    s.sum (fun x => ‖ZakCoeff w Δτ Δξ g x‖ ^ (2 : ℕ)) ≤ B * ‖g‖^2
+
+/-- 存在形式の Bessel 上界。 -/
+def HasBesselBound (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ) : Prop :=
+  ∃ B : ℝ, besselBound w Δτ Δξ B
+
+/-- Bessel 上界のもとでフレームエネルギーは有限で、`B‖g‖²` に抑えられる。 -/
+lemma frameEnergy_le_of_bessel
+    {w : Lp ℂ 2 (volume : Measure ℝ)} {Δτ Δξ B : ℝ}
+    (hb : besselBound w Δτ Δξ B)
+    (g : Lp ℂ 2 (volume : Measure ℝ)) :
+    FrameEnergy w Δτ Δξ g ≤ B * ‖g‖^2 := by
+  classical
+  -- 非負列の `tsum` は有限部分和の上限に一致する。ここでは上から `B‖g‖²` に抑えられる。
+  have hnonneg : ∀ nk : ℤ × ℤ, 0 ≤ ‖ZakCoeff w Δτ Δξ g nk‖ ^ (2 : ℕ) := by
+    intro nk; have := sq_nonneg (‖ZakCoeff w Δτ Δξ g nk‖)
+    simpa [pow_two] using this
+  -- FrameEnergyの定義を展開
+  rw [FrameEnergy]
+  -- 収束性を示す：Besselの不等式から任意の有限和が有界
+  have hsummable : Summable (fun nk : ℤ × ℤ => ‖ZakCoeff w Δτ Δξ g nk‖ ^ (2 : ℕ)) := by
+    apply summable_of_sum_le
+    · -- 非負性
+      intro nk
+      exact sq_nonneg _
+    · -- 有限和の上界
+      intro s
+      exact hb.2 g s
+  -- Summable.tsum_le_of_sum_le を使用して tsum の上界を得る
+  apply hsummable.tsum_le_of_sum_le
+  -- 有限部分和の上界は仮定から従う
+  intro s
+  exact hb.2 g s
 
 end Frourio
 
@@ -528,8 +729,8 @@ time-shift/modulation operators are fully implemented on L² and the standard
 Gabor-frame machinery is available.
 -/
 
-/-- Window suitability predicate (design placeholder). -/
-def suitable_window (w : Lp ℂ 2 (volume : Measure ℝ)) : Prop := True
+/-- Window suitability predicate: we require unit L²-norm. -/
+def suitable_window (w : Lp ℂ 2 (volume : Measure ℝ)) : Prop := ‖w‖ = 1
 
 /-- Zak–Mellin frame bounds predicate for steps `(Δτ, Δξ)`. -/
 def ZakFrame_inequality
