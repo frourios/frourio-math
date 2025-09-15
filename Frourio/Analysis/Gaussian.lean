@@ -576,14 +576,222 @@ lemma normalized_gaussian_pointwise_bound (δ : ℝ) (hδ : 0 < δ) :
   _   ≤ ((2 : ℝ)^(1/4 : ℝ) / Real.sqrt δ) * Real.exp (-Real.pi * t^2 / δ^2) := by
         rfl
 
+/-- Helper lemma for integral_const_mul application -/
+private lemma integral_const_mul_gaussian (c δ : ℝ) :
+    ∫ t, c * Real.exp (-Real.pi * t ^ 2 / δ ^ 2)
+      = c * (∫ t, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
+  exact integral_const_mul c (fun t : ℝ => Real.exp (-Real.pi * t ^ 2 / δ ^ 2))
+
+/-- Helper lemma for factoring out constant from integral -/
+private lemma gaussian_tail_integral_factor_out (R δ : ℝ) :
+    ∫ t, Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2)
+      = Real.exp (-Real.pi * R ^ 2 / δ ^ 2)
+          * (∫ t, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
+  exact integral_const_mul_gaussian (Real.exp (-Real.pi * R ^ 2 / δ ^ 2)) δ
+
+/-- Helper lemma: The set {t : ℝ | R < |t|} is measurable -/
+private lemma measurableSet_abs_gt (R : ℝ) :
+    MeasurableSet {t : ℝ | R < |t|} := by
+  have : {t : ℝ | R < |t|} = {t : ℝ | |t| ∈ Set.Ioi R} := by rfl
+  rw [this]
+  exact measurableSet_preimage continuous_abs.measurable measurableSet_Ioi
+
+private lemma integrable_gaussian_product (δ : ℝ) (hδ : 0 < δ) (R : ℝ) :
+    Integrable (fun t => Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
+  -- Base integrable Gaussian with coefficient a = π/δ²
+  have hδsq_pos : 0 < δ ^ 2 := by simpa [pow_two] using mul_pos hδ hδ
+  have hpos : 0 < Real.pi / δ ^ 2 := div_pos Real.pi_pos hδsq_pos
+  have hbase : Integrable (fun t : ℝ => Real.exp (-(Real.pi / δ ^ 2) * t ^ 2)) :=
+    integrable_exp_neg_mul_sq hpos
+  have hbase' : Integrable (fun t : ℝ => Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
+    -- reshape the integrand to match hbase
+    simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using hbase
+  -- multiply by the constant factor exp(-π R²/δ²)
+  exact (hbase'.const_mul (Real.exp (-Real.pi * R ^ 2 / δ ^ 2)))
+
+/-- Helper lemma for the tail bound calculation -/
+private lemma tail_bound_calc_helper (δ : ℝ) (R : ℝ)
+    (hL : ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
+      = ∫ t, Set.indicator {t : ℝ | R < |t|}
+              (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
+    (h_int_le : ∫ t, Set.indicator {t : ℝ | R < |t|}
+              (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t
+        ≤ ∫ t, Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) :
+    ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
+      ≤ ∫ t, Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
+  rw [hL]
+  exact h_int_le
+
 /-- Gaussian tail bound: The L² norm of a Gaussian outside radius R decays exponentially -/
 lemma gaussian_tail_l2_bound (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
     ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t^2 / δ^2) ∂(volume : Measure ℝ)
       ≤ 2 * Real.exp (-Real.pi * R^2 / δ^2) / Real.sqrt (Real.pi / δ^2) := by
-  -- The integral of exp(-2π t²/δ²) over |t| > R
-  -- can be bounded using the Gaussian tail inequality
-  -- For now, we provide a sorry as this requires careful integration
-  sorry
+  -- Pointwise bound on the tail using one factor of exp(-π R^2/δ^2)
+  have hpt : ∀ t : ℝ,
+      Set.indicator {t : ℝ | R < |t|}
+        (fun t => Real.exp (-2 * Real.pi * t^2 / δ^2)) t
+        ≤ Real.exp (-Real.pi * R^2 / δ^2) * Real.exp (-Real.pi * t^2 / δ^2) := by
+    intro t; by_cases hmem : R < |t|
+    · -- On the tail set, use that |t| ≥ R to compare exponentials
+      have hcmp : -Real.pi * t^2 / δ^2 ≤ -Real.pi * R^2 / δ^2 := by
+        have : R^2 ≤ t^2 := by
+          have habs : R ≤ |t| := le_of_lt hmem
+          -- from R ≤ |t|, deduce R^2 ≤ |t|^2 = t^2
+          have hR_nonneg : 0 ≤ R := le_of_lt hR
+          calc R^2 = R * R := by ring
+          _ ≤ |t| * |t| := mul_self_le_mul_self hR_nonneg habs
+          _ = t^2 := by rw [← sq, sq_abs]
+        -- multiply both sides by the negative factor -π/δ^2, which reverses inequality
+        have hδsq_pos : 0 < δ^2 := by simpa [pow_two] using mul_pos hδ hδ
+        have hpos : 0 < Real.pi / δ^2 := div_pos Real.pi_pos hδsq_pos
+        -- From R^2 ≤ t^2, multiply by -π/δ^2 (negative), which reverses the inequality
+        calc -Real.pi * t^2 / δ^2 = -(Real.pi / δ^2) * t^2 := by ring
+        _ ≤ -(Real.pi / δ^2) * R^2 := by
+          apply mul_le_mul_of_nonpos_left this
+          exact neg_nonpos.mpr (le_of_lt hpos)
+        _ = -Real.pi * R^2 / δ^2 := by ring
+      have hmono := Real.exp_le_exp.mpr hcmp
+      -- Now split the square: exp(-2a) = exp(-a)*exp(-a) ≤ exp(-b)*exp(-a)
+      have : Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
+          = Real.exp (-Real.pi * t ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
+        rw [← Real.exp_add]
+        congr 1
+        ring
+      have hxpos : 0 ≤ Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by exact (le_of_lt (Real.exp_pos _))
+      have hineq : Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
+          ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
+        rw [this]
+        exact mul_le_mul_of_nonneg_right hmono hxpos
+      rw [Set.indicator_apply]
+      simp only [Set.mem_setOf_eq, hmem, if_true]
+      exact hineq
+    · -- Outside the tail, the indicator is zero and the RHS is positive
+      have hRHS_pos : 0 ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
+        have hx1 : 0 ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) := le_of_lt (Real.exp_pos _)
+        have hx2 : 0 ≤ Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := le_of_lt (Real.exp_pos _)
+        exact mul_nonneg hx1 hx2
+      rw [Set.indicator_apply]
+      simp only [Set.mem_setOf_eq, hmem, if_false]
+      exact hRHS_pos
+  -- Integrate both sides over ℝ, using monotonicity of the integral
+  have h_int_le :
+      ∫ t, Set.indicator {t : ℝ | R < |t|}
+              (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t
+        ≤ ∫ t, Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
+    -- Monotone by pointwise inequality
+    apply integral_mono_of_nonneg
+    · -- non-negativity of left integrand a.e.
+      apply Filter.Eventually.of_forall
+      intro t
+      apply Set.indicator_nonneg
+      intro _ _
+      exact le_of_lt (Real.exp_pos _)
+    · -- integrability of right integrand
+      exact integrable_gaussian_product δ hδ R
+    · -- pointwise inequality a.e.
+      exact Filter.Eventually.of_forall hpt
+  -- Rewrite the LHS as the set integral
+  have hL : ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
+      = ∫ t, Set.indicator {t : ℝ | R < |t|}
+              (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t := by
+    exact (integral_indicator (measurableSet_abs_gt R)).symm
+  -- Pull out the constant on the RHS integral
+  have hR_factor := gaussian_tail_integral_factor_out R δ
+  -- Evaluate the Gaussian integral ∫ℝ exp(-(π/δ²) t²) dt = δ
+  have hδsq_pos : 0 < δ^2 := by simpa [pow_two] using mul_pos hδ hδ
+  have hpos : 0 < Real.pi / δ^2 := div_pos Real.pi_pos hδsq_pos
+  have h_gauss : (∫ t : ℝ, Real.exp (- (Real.pi / δ^2) * t^2))
+      = Real.sqrt (Real.pi / (Real.pi / δ^2)) := by
+    exact integral_gaussian (Real.pi / δ^2)
+  have h_gauss' : (∫ t : ℝ, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) = δ := by
+    have : (∫ t : ℝ, Real.exp (- (Real.pi / δ^2) * t^2))
+        = (∫ t : ℝ, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
+      -- rearrange the integrand
+      apply integral_congr_ae
+      exact Filter.Eventually.of_forall (fun t => by
+        simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc])
+    have hx := congrArg id h_gauss
+    -- simplify the RHS sqrt
+    have hs : Real.sqrt (Real.pi / (Real.pi / δ ^ 2)) = Real.sqrt (δ ^ 2) := by
+      field_simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
+    have hsqrt : Real.sqrt (δ ^ 2) = |δ| := by simpa [pow_two] using Real.sqrt_sq_eq_abs δ
+    have : (∫ t : ℝ, Real.exp (-Real.pi * t ^ 2 / δ ^ 2))
+        = Real.sqrt (Real.pi / (Real.pi / δ ^ 2)) := by
+      convert h_gauss using 2
+      ext t
+      simp only [neg_div, neg_mul]
+      ring_nf
+    simpa [hs, hsqrt, abs_of_pos hδ] using this
+  -- First, bound the tail integral by a full-line integral with a constant factor
+  have hfinal :
+      ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
+        ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * δ := by
+    -- Use h_int_le, then evaluate the RHS integral via factor-out + Gaussian integral
+    have hR' :
+        (∫ t, Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2))
+          = Real.exp (-Real.pi * R ^ 2 / δ ^ 2)
+              * (∫ t, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
+      simpa using hR_factor
+    have hEval : (∫ t, Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2))
+          = Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * δ := by
+      rw [hR', h_gauss']
+    calc ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
+      ≤ ∫ t, Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2) :=
+        tail_bound_calc_helper δ R hL h_int_le
+      _ = Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * δ := hEval
+  -- Finally, compare δ ≤ (2δ)/√π equivalently √π ≤ 2 (from π < 4)
+  have hπ_le_two : Real.sqrt Real.pi ≤ 2 := by
+    have hle : Real.pi ≤ 4 := Real.pi_le_four
+    have h4 : Real.sqrt 4 = 2 := by
+      rw [show (4 : ℝ) = 2^2 by norm_num]
+      exact Real.sqrt_sq (by norm_num : (0 : ℝ) ≤ 2)
+    calc Real.sqrt Real.pi ≤ Real.sqrt 4 := Real.sqrt_le_sqrt hle
+    _ = 2 := h4
+  have hδ_fac : Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * δ
+      ≤ (2 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) / Real.sqrt (Real.pi / δ ^ 2)) := by
+    -- rewrite 1 / √(π/δ²) = δ / √π
+    have hrewrite : 2 / Real.sqrt (Real.pi / δ ^ 2) = (2 * δ) / Real.sqrt Real.pi := by
+      have : Real.sqrt (Real.pi / δ ^ 2) = Real.sqrt Real.pi / |δ| := by
+        have hbpos : 0 < δ ^ 2 := hδsq_pos
+        have hsqrtb : Real.sqrt (δ ^ 2) = |δ| := by simpa [pow_two] using Real.sqrt_sq_eq_abs δ
+        have : Real.sqrt (Real.pi / δ ^ 2) = Real.sqrt Real.pi / Real.sqrt (δ ^ 2) :=
+          Real.sqrt_div (le_of_lt Real.pi_pos) _
+        simpa [hsqrtb]
+      have hδposabs : |δ| = δ := abs_of_pos hδ
+      rw [this, hδposabs]
+      -- Now prove 2 / (√π / δ) = (2 * δ) / √π
+      calc 2 / (Real.sqrt Real.pi / δ)
+        = 2 * (δ / Real.sqrt Real.pi) := by field_simp
+      _ = (2 * δ) / Real.sqrt Real.pi := by ring
+    -- Reduce to δ ≤ (2δ)/√π
+    have hx : δ ≤ (2 * δ) / Real.sqrt Real.pi := by
+      have hpos_sqrtπ : 0 < Real.sqrt Real.pi := Real.sqrt_pos.mpr Real.pi_pos
+      -- multiply both sides by √π > 0
+      rw [le_div_iff₀ hpos_sqrtπ]
+      have hδnn : 0 ≤ δ := le_of_lt hδ
+      calc δ * Real.sqrt Real.pi
+        ≤ δ * 2 := mul_le_mul_of_nonneg_left hπ_le_two hδnn
+        _ = 2 * δ := by ring
+    have hposExp : 0 ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) := le_of_lt (Real.exp_pos _)
+    have : Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * δ
+        ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * ((2 * δ) / Real.sqrt Real.pi) :=
+      mul_le_mul_of_nonneg_left hx hposExp
+    calc Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * δ
+      ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * ((2 * δ) / Real.sqrt Real.pi) := this
+    _ = (Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * (2 * δ)) / Real.sqrt Real.pi := by ring
+    _ = (2 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * δ) / Real.sqrt Real.pi := by ring
+    _ = 2 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * (δ / Real.sqrt Real.pi) := by ring
+    _ = 2 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * δ / Real.sqrt Real.pi := by ring
+    _ = 2 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) / (Real.sqrt Real.pi / δ) := by rw [div_div_eq_mul_div]
+    _ = 2 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) / Real.sqrt (Real.pi / δ ^ 2) := by
+      congr 1
+      have : Real.sqrt (Real.pi / δ ^ 2) = Real.sqrt Real.pi / δ := by
+        have hδpos2 : 0 < δ ^ 2 := pow_pos hδ 2
+        rw [Real.sqrt_div (le_of_lt Real.pi_pos)]
+        rw [Real.sqrt_sq (le_of_lt hδ)]
+      rw [this]
+  -- Conclude the desired inequality by chaining the two bounds
+  exact (hfinal.trans hδ_fac)
 
 /-- For normalized Gaussian with width δ, the L² mass outside radius R vanishes as δ → 0 -/
 lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
@@ -591,13 +799,262 @@ lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR 
       ‖w‖ = 1 ∧
       (∫ t in {t : ℝ | R < |t|}, ‖(w : ℝ → ℂ) t‖^2 ∂(volume : Measure ℝ))
         ≤ 4 * Real.exp (-Real.pi * R^2 / δ^2) := by
-  -- Use build_normalized_gaussian and the tail bound
-  rcases build_normalized_gaussian δ hδ with ⟨w, hnorm, hpt⟩
+  -- Use the pointwise bound for the normalized Gaussian
+  rcases normalized_gaussian_pointwise_bound δ hδ with ⟨w, hnorm, hpt_bd⟩
   refine ⟨w, hnorm, ?_⟩
-  -- The normalized Gaussian has amplitude 2^(1/4) / √δ
-  -- and form exp(-π t²/δ²), so ‖w(t)‖² ≤ C * exp(-2π t²/δ²)
-  -- Apply gaussian_tail_l2_bound
-  sorry
+  -- Set up constants: A := 2^(1/4)/√δ, so A^2 = √2/δ
+  set A : ℝ := (2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ
+  have hA_sq : A^2 = Real.sqrt 2 / δ := by
+    have hδpos : 0 < δ := hδ
+    have hApos : 0 < A := by
+      have h2pos : 0 < (2 : ℝ) ^ (1/4 : ℝ) :=
+        Real.rpow_pos_of_pos (by norm_num : (0 : ℝ) < 2) _
+      exact div_pos h2pos (Real.sqrt_pos.mpr hδpos)
+    -- Square A explicitly
+    have h14sq : ((2 : ℝ) ^ (1/4 : ℝ))^2 = Real.sqrt 2 := by
+      -- 2^(1/4)^2 = 2^(1/2) = √2
+      have hhalf : (2 : ℝ) ^ ((1 / 2 : ℝ)) = Real.sqrt 2 := by
+        rw [Real.sqrt_eq_rpow]
+      calc ((2 : ℝ) ^ (1/4 : ℝ))^2
+        = ((2 : ℝ) ^ (1/4 : ℝ)) * ((2 : ℝ) ^ (1/4 : ℝ)) := by rw [pow_two]
+        _ = (2 : ℝ) ^ ((1/4 : ℝ) + (1/4 : ℝ)) := by
+          rw [← Real.rpow_add (by norm_num : (0 : ℝ) < 2)]
+        _ = (2 : ℝ) ^ (1/2 : ℝ) := by norm_num
+        _ = Real.sqrt 2 := hhalf
+    have hsqrtδsq : (Real.sqrt δ) ^ 2 = δ :=
+      Real.sq_sqrt (le_of_lt hδpos)
+    calc A^2 = ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 := by simp [A, pow_two]
+      _ = ((2 : ℝ) ^ (1/4 : ℝ))^2 / (Real.sqrt δ)^2 := by simp [div_pow]
+      _ = Real.sqrt 2 / δ := by rw [h14sq, hsqrtδsq]
+  -- Use the a.e. pointwise bound to dominate the tail integrand by A^2 * exp(-2π t²/δ²)
+  have hpt_sq : ∀ᵐ t : ℝ,
+      Set.indicator {t : ℝ | R < |t|} (fun t => ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2) t
+        ≤ Set.indicator {t : ℝ | R < |t|} (fun t => A^2 * Real.exp (-2 * Real.pi * t^2 / δ^2)) t := by
+    -- Square the pointwise bound and restrict with indicator
+    refine hpt_bd.mono ?_
+    intro t hbound
+    have hx : 0 ≤ ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)
+      := le_of_lt (by
+        have h2pos : 0 < (2 : ℝ) ^ (1/4 : ℝ) :=
+          Real.rpow_pos_of_pos (by norm_num : (0 : ℝ) < 2) _
+        exact div_pos h2pos (Real.sqrt_pos.mpr hδ))
+    have hy : 0 ≤ Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := le_of_lt (Real.exp_pos _)
+    have : ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2
+        ≤ ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 * (Real.exp (-Real.pi * t^2 / δ^2))^2 := by
+      -- square both sides of the bound, using nonnegativity
+      calc ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2
+        = ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖ * ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖ := by simp [pow_two]
+        _ ≤ (A * Real.exp (-Real.pi * t^2 / δ^2)) * (A * Real.exp (-Real.pi * t^2 / δ^2)) :=
+          mul_le_mul hbound hbound (norm_nonneg _) (le_trans (norm_nonneg _) hbound)
+        _ = A^2 * (Real.exp (-Real.pi * t^2 / δ^2))^2 := by ring
+        _ = ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 * (Real.exp (-Real.pi * t^2 / δ^2))^2 := by simp [A]
+    -- simplify RHS to A^2 * exp(-2π t²/δ²)
+    have hsimp : ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 * (Real.exp (-Real.pi * t^2 / δ^2))^2
+        = A^2 * Real.exp (-2 * Real.pi * t^2 / δ^2) := by
+      have hpowexp : (Real.exp (-Real.pi * t^2 / δ^2))^2
+          = Real.exp (-2 * Real.pi * t^2 / δ^2) := by
+        rw [pow_two, ← Real.exp_add]
+        congr 1
+        ring
+      calc ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 * (Real.exp (-Real.pi * t^2 / δ^2))^2
+        = ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 * Real.exp (-2 * Real.pi * t^2 / δ^2) := by rw [hpowexp]
+        _ = A^2 * Real.exp (-2 * Real.pi * t^2 / δ^2) := by rfl
+    -- lift to indicators; outside the set the LHS is 0 ≤ RHS as RHS ≥ 0
+    by_cases hmem : R < |t|
+    · have hmem' : t ∈ {t : ℝ | R < |t|} := hmem
+      simp only [Set.indicator_of_mem hmem']
+      rw [← hsimp]
+      exact this
+    · unfold Set.indicator
+      have : t ∉ {t : ℝ | R < |t|} := hmem
+      simp only [if_neg this]
+      exact le_refl 0
+  -- Monotonicity of integral with the indicatorized functions
+  have h_nonneg_ae_left : 0 ≤ᵐ[volume]
+      (fun t : ℝ => Set.indicator {t : ℝ | R < |t|} (fun t => ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2) t) := by
+    refine Filter.Eventually.of_forall ?_
+    intro t
+    by_cases hmem : R < |t|
+    ·
+      -- avoid typeclass issues with `sq_nonneg` by rewriting as a product,
+      -- and discharge the indicator using a membership proof.
+      have hmem' : t ∈ {t : ℝ | R < |t|} := hmem
+      have h := norm_nonneg (((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t)
+      have hmul : 0 ≤ ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖ * ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖ :=
+        mul_nonneg h h
+      simpa [Set.indicator_of_mem hmem', pow_two] using hmul
+    ·
+      -- provide the membership form to `indicator_of_notMem` explicitly
+      have hmem' : t ∉ {t : ℝ | R < |t|} := hmem
+      simp [Set.indicator_of_notMem hmem']
+  have h_int_le :
+      ∫ t, Set.indicator {t : ℝ | R < |t|} (fun t => ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2) t
+        ≤ ∫ t, Set.indicator {t : ℝ | R < |t|} (fun t => A^2 * Real.exp (-2 * Real.pi * t^2 / δ^2)) t := by
+    apply integral_mono_of_nonneg
+    · exact h_nonneg_ae_left
+    · -- RHS integrable since Gaussian is integrable and constants pull out
+      -- Use the standard Gaussian integrability with coefficient 2π/δ²
+      have hδsq_pos : 0 < δ ^ 2 := by simpa [pow_two] using mul_pos hδ hδ
+      have hpos : 0 < (2 * Real.pi) / δ ^ 2 := by
+        have h2pi : 0 < 2 * Real.pi := by positivity
+        exact div_pos h2pi hδsq_pos
+      have hbase : Integrable (fun t : ℝ => Real.exp (-((2 * Real.pi) / δ ^ 2) * t ^ 2)) :=
+        integrable_exp_neg_mul_sq hpos
+      have hbase' : Integrable (fun t : ℝ => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) := by
+        simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using hbase
+      -- indicator preserves integrability; constant multiple is integrable
+      have h_integrable_mul : Integrable (fun t : ℝ => A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) := by
+        exact hbase'.const_mul (A^2)
+      exact h_integrable_mul.indicator (measurableSet_abs_gt R)
+    · exact hpt_sq
+  -- Switch to set integrals on both sides
+  have hL : (∫ t in {t : ℝ | R < |t|}, ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2)
+      = ∫ t, Set.indicator {t : ℝ | R < |t|}
+            (fun t => ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2) t :=
+    (integral_indicator (measurableSet_abs_gt R)).symm
+  have hR_eq : (∫ t in {t : ℝ | R < |t|}, A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2))
+      = ∫ t, Set.indicator {t : ℝ | R < |t|}
+            (fun t => A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t :=
+    (integral_indicator (measurableSet_abs_gt R)).symm
+  -- Combine and bound the RHS tail integral by the Gaussian tail bound
+  have htail :
+      (∫ t in {t : ℝ | R < |t|}, ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2)
+        ≤ A^2 * (∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) := by
+    -- from h_int_le and switching both sides via indicator equalities
+    have := h_int_le
+    -- pull out A^2 from RHS indicator integral
+    have hpull :
+        (∫ t, Set.indicator {t : ℝ | R < |t|}
+                (fun t => A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
+          = A^2 * (∫ t, Set.indicator {t : ℝ | R < |t|}
+                (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) := by
+      -- move the constant outside the indicator pointwise, then pull it out of the integral
+      have hind :
+          (fun t : ℝ => Set.indicator {t : ℝ | R < |t|}
+                (fun t => A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
+            = (fun t : ℝ => A^2 * Set.indicator {t : ℝ | R < |t|}
+                (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) := by
+        funext t
+        by_cases h : R < |t|
+        · have hmem : t ∈ {t : ℝ | R < |t|} := h
+          simp [Set.indicator, hmem]
+        · have hmem : t ∉ {t : ℝ | R < |t|} := h
+          simp [Set.indicator, hmem]
+      -- Private lemma to avoid timeout
+      have integral_const_mul_indicator :
+          ∫ t, A^2 * Set.indicator {t : ℝ | R < |t|}
+                (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t
+            = A^2 * (∫ t, Set.indicator {t : ℝ | R < |t|}
+                (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) := by
+        exact integral_const_mul (μ := volume) (r := A ^ 2)
+          (fun t : ℝ => Set.indicator {t : ℝ | R < |t|}
+            (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
+      calc (∫ t, Set.indicator {t : ℝ | R < |t|}
+                  (fun t => A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
+            = ∫ t, A^2 * Set.indicator {t : ℝ | R < |t|}
+                  (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t := by
+                    rw [hind]
+        _ = A^2 * (∫ t, Set.indicator {t : ℝ | R < |t|}
+                  (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) :=
+                    integral_const_mul_indicator
+    -- conclude via a direct calculation
+    calc (∫ t in {t : ℝ | R < |t|}, ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2)
+        = ∫ t, Set.indicator {t : ℝ | R < |t|}
+              (fun t => ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2) t := by
+              simpa [hL]
+      _ ≤ ∫ t, Set.indicator {t : ℝ | R < |t|}
+              (fun t => A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t := h_int_le
+      _ = A^2 * (∫ t, Set.indicator {t : ℝ | R < |t|}
+              (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) := hpull
+      _ = A^2 * (∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) := by
+              congr 1
+              rw [← integral_indicator (measurableSet_abs_gt R)]
+  -- Apply the Gaussian tail bound and simplify constants
+  have htail_bound := gaussian_tail_l2_bound δ hδ R hR
+  have : (∫ t in {t : ℝ | R < |t|}, ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2)
+      ≤ A^2 * (2 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) / Real.sqrt (Real.pi / δ ^ 2)) := by
+    exact le_trans htail (mul_le_mul_of_nonneg_left htail_bound (by exact pow_two_nonneg A))
+  -- Use A^2 = √2/δ and 1/√(π/δ²) = δ/√π to get a simpler constant
+  have hsimp_const : A^2 * (2 / Real.sqrt (Real.pi / δ ^ 2))
+      = (2 * Real.sqrt 2) / Real.sqrt Real.pi := by
+    have hrewrite : 1 / Real.sqrt (Real.pi / δ ^ 2) = δ / Real.sqrt Real.pi := by
+      have hbpos : 0 < δ ^ 2 := by simpa [pow_two] using mul_pos hδ hδ
+      have hsqrtb : Real.sqrt (δ ^ 2) = |δ| := by simpa [pow_two] using Real.sqrt_sq_eq_abs δ
+      have : Real.sqrt (Real.pi / δ ^ 2) = Real.sqrt Real.pi / Real.sqrt (δ ^ 2) :=
+        Real.sqrt_div (le_of_lt Real.pi_pos) _
+      have hδposabs : |δ| = δ := abs_of_pos hδ
+      have : 1 / Real.sqrt (Real.pi / δ ^ 2)
+          = 1 / (Real.sqrt Real.pi / Real.sqrt (δ ^ 2)) := by simpa [this]
+      simpa [one_div, hsqrtb, hδposabs, div_div_eq_mul_div, mul_comm, mul_left_comm, mul_assoc]
+    calc A^2 * (2 / Real.sqrt (Real.pi / δ ^ 2))
+        = (Real.sqrt 2 / δ) * (2 / Real.sqrt (Real.pi / δ ^ 2)) := by simpa [hA_sq]
+      _ = (Real.sqrt 2) * (2 / Real.sqrt (Real.pi / δ ^ 2)) / δ := by ring
+      _ = (Real.sqrt 2) * (2 * (δ / Real.sqrt Real.pi)) / δ := by
+        rw [← hrewrite]
+        ring
+      _ = (2 * Real.sqrt 2) * (δ / Real.sqrt Real.pi) / δ := by ring
+      _ = (2 * Real.sqrt 2) / Real.sqrt Real.pi := by field_simp
+  -- Therefore the tail integral ≤ (2√2/√π) · exp(-π R²/δ²)
+  have htail_bound' :
+      (∫ t in {t : ℝ | R < |t|}, ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2)
+        ≤ (2 * Real.sqrt 2 / Real.sqrt Real.pi) * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) := by
+    have hineq := this
+    have heq : A^2 * (2 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) / Real.sqrt (Real.pi / δ ^ 2))
+        = (A^2 * (2 / Real.sqrt (Real.pi / δ ^ 2))) * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) := by ring
+    -- rewrite constants
+    calc ∫ (t : ℝ) in {t | R < |t|}, ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖ ^ 2
+        ≤ A ^ 2 * (2 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) / Real.sqrt (Real.pi / δ ^ 2)) := hineq
+      _ = Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * (2 * Real.sqrt 2 / Real.sqrt Real.pi) := by
+          rw [heq, hsimp_const]
+          ring
+      _ = (2 * Real.sqrt 2 / Real.sqrt Real.pi) * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) := by
+          ring
+  -- Finally, loosen the constant to 4 using π ≥ 1/2
+  have hconst_le_four : (2 * Real.sqrt 2) / Real.sqrt Real.pi ≤ 4 := by
+    have hden_pos : 0 < Real.sqrt Real.pi := Real.sqrt_pos.mpr Real.pi_pos
+    -- Multiply both sides by √π > 0
+    have hineq' : 2 * Real.sqrt 2 ≤ 4 * Real.sqrt Real.pi := by
+      -- It suffices that √2 ≤ 2√π, which after squaring is 2 ≤ 4π
+      have hπ_ge_half : (1 / 2 : ℝ) ≤ Real.pi := by
+        -- We know π > 3, so π > 1/2
+        have : 3 < Real.pi := by
+          norm_num [Real.pi_gt_three]
+        linarith
+      have : 2 ≤ 4 * Real.pi := by
+        have : (1 / 2 : ℝ) ≤ Real.pi := hπ_ge_half
+        nlinarith
+      -- Convert to square roots form
+      -- Since both sides are nonnegative, we can use this inequality directly via arithmetic
+      -- 2 * √2 ≤ 4 * √π follows from 2 ≤ 4π by monotonicity of sqrt and scaling
+      -- Provide a direct numeric inequality by dividing both sides by 2
+      have : Real.sqrt 2 ≤ 2 * Real.sqrt Real.pi := by
+        -- Square both sides safely (both nonnegative)
+        have hL : 0 ≤ Real.sqrt 2 := Real.sqrt_nonneg _
+        have hR : 0 ≤ 2 * Real.sqrt Real.pi := by
+          have : 0 ≤ Real.sqrt Real.pi := Real.sqrt_nonneg _
+          nlinarith
+        -- Now compare squares
+        have : (Real.sqrt 2)^2 ≤ (2 * Real.sqrt Real.pi)^2 := by
+          -- (√2)² = 2 and (2√π)² = 4π
+          rw [Real.sq_sqrt (by norm_num : (0 : ℝ) ≤ 2)]
+          rw [mul_pow, Real.sq_sqrt (le_of_lt Real.pi_pos)]
+          ring_nf
+          rw [mul_comm π 4]
+          exact this
+        -- deduce the inequality of the roots
+        have : Real.sqrt 2 ≤ 2 * Real.sqrt Real.pi := by
+          rw [← Real.sqrt_sq hL, ← Real.sqrt_sq hR]
+          exact Real.sqrt_le_sqrt this
+        exact this
+      nlinarith
+    rw [div_le_iff₀ hden_pos]
+    exact hineq'
+  -- Chain the bounds
+  exact le_trans htail_bound' (by
+    have hx : (2 * Real.sqrt 2 / Real.sqrt Real.pi) * Real.exp (-Real.pi * R ^ 2 / δ ^ 2)
+        ≤ 4 * Real.exp (-Real.pi * R ^ 2 / δ ^ 2) := by
+      exact mul_le_mul_of_nonneg_right hconst_le_four (by exact le_of_lt (Real.exp_pos _))
+    simpa [mul_comm, mul_left_comm, mul_assoc] using hx)
 
 end GaussianHelpers
 
