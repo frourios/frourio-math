@@ -26,8 +26,8 @@ noncomputable def Mult (_τ0 : ℝ) : ℕ := 0
 
 /-- Predicate: the L² trace `g = Uσ f` vanishes at the ζ zeros with the
 specified multiplicities (design-level placeholder). -/
-def VanishAtZeros (g : Lp ℂ 2 (volume : Measure ℝ))
-    (m : ℝ → ℕ) : Prop := True
+def VanishAtZeros (_ : Lp ℂ 2 (volume : Measure ℝ))
+    (_ : ℝ → ℕ) : Prop := True
 
 /-- Statement: If `Qζσ σ f = 0`, then the trace `Uσ f` vanishes at the ζ zeros
 with multiplicities recorded by `Mult`. This is the intended endpoint of the
@@ -40,4 +40,3 @@ theorem zero_enforces_vanishing (σ : ℝ) (f : Hσ σ) :
   trivial
 
 end Frourio
-

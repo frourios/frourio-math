@@ -26,9 +26,9 @@ and boundedness assumptions on `K`.
 -/
 
 /-- Discrete quadratic form built from `K` and Zak coefficients (placeholder 0). -/
-noncomputable def Qdisc (K : ℝ → ℝ)
-    (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ)
-    (g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ := 0
+noncomputable def Qdisc (_K : ℝ → ℝ)
+    (_w : Lp ℂ 2 (volume : Measure ℝ)) (_Δτ _Δξ : ℝ)
+    (_g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ := 0
 
 /-- Bounds predicate connecting the continuous and discrete quadratic forms. -/
 def Q_bounds (K : ℝ → ℝ)
@@ -225,22 +225,25 @@ lemma ae_comp_translation_of_ae_eq
   -- Conclude measure-zero via subadditivity on finite unions
   have hUnion2 :
       volume (((translationMap τ) ⁻¹' S) ∪ ((translationMap τ) ⁻¹' Su)) = 0 := by
-    have hle := measure_union_le (μ := (volume : Measure ℝ)) ((translationMap τ) ⁻¹' S) ((translationMap τ) ⁻¹' Su)
+    have hle := measure_union_le (μ := (volume : Measure ℝ))
+      ((translationMap τ) ⁻¹' S) ((translationMap τ) ⁻¹' Su)
     have : volume ((translationMap τ) ⁻¹' S) + volume ((translationMap τ) ⁻¹' Su) = 0 := by
-      simpa [hpreim_null, hpreim_Su]
+      simp [hpreim_null, hpreim_Su]
     have hle0 : volume (((translationMap τ) ⁻¹' S) ∪ ((translationMap τ) ⁻¹' Su)) ≤ 0 := by
       simpa [this]
         using hle
     -- Measures take values in `ENNReal`, which are nonnegative by `bot_le`.
-    exact le_antisymm hle0 (by simpa using bot_le)
-  have hUnion3 :
-      volume ((((translationMap τ) ⁻¹' S) ∪ ((translationMap τ) ⁻¹' Su)) ∪ ((translationMap τ) ⁻¹' Sv)) = 0 := by
-    have hle := measure_union_le (μ := (volume : Measure ℝ)) (((translationMap τ) ⁻¹' S) ∪ ((translationMap τ) ⁻¹' Su)) ((translationMap τ) ⁻¹' Sv)
-    have hle0 : volume ((((translationMap τ) ⁻¹' S) ∪ ((translationMap τ) ⁻¹' Su)) ∪ ((translationMap τ) ⁻¹' Sv)) ≤ 0 := by
+    exact le_antisymm hle0 (by simp)
+  have hUnion3 : volume ((((translationMap τ) ⁻¹' S) ∪ ((translationMap τ) ⁻¹' Su)) ∪
+        ((translationMap τ) ⁻¹' Sv)) = 0 := by
+    have hle := measure_union_le (μ := (volume : Measure ℝ)) (((translationMap τ) ⁻¹' S) ∪
+        ((translationMap τ) ⁻¹' Su)) ((translationMap τ) ⁻¹' Sv)
+    have hle0 : volume ((((translationMap τ) ⁻¹' S) ∪ ((translationMap τ) ⁻¹' Su)) ∪
+        ((translationMap τ) ⁻¹' Sv)) ≤ 0 := by
       have : volume (((translationMap τ) ⁻¹' S) ∪ ((translationMap τ) ⁻¹' Su)) = 0 := hUnion2
-      simpa [this, hpreim_Sv] using hle
+      simp [this, hpreim_Sv]
     -- Measures take values in `ENNReal`, which are nonnegative by `bot_le`.
-    exact le_antisymm hle0 (by simpa using bot_le)
+    exact le_antisymm hle0 (by simp)
   -- Final: the target set is a subset of a null set
   exact measure_mono_null hsubset_union hUnion3
 
@@ -405,15 +408,17 @@ lemma timeShift_norm_eq (τ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
     -- The integral of f(x - τ) equals the integral of f(y) by change of variables
     -- This is a standard result for translation-invariant measures
     calc (∫⁻ x, ((↑‖(f : ℝ → ℂ) (x - τ)‖₊ : ENNReal) ^ (2 : ℕ)) ∂(volume : Measure ℝ))
-        = ∫⁻ x, ((↑‖(f : ℝ → ℂ) (translationMap τ x)‖₊ : ENNReal) ^ (2 : ℕ)) ∂(volume : Measure ℝ) := by
-          simp [translationMap]
-      _ = ∫⁻ y, ((↑‖(f : ℝ → ℂ) y‖₊ : ENNReal) ^ (2 : ℕ)) ∂(Measure.map (translationMap τ) (volume : Measure ℝ)) := by
+        = ∫⁻ x, ((↑‖(f : ℝ → ℂ) (translationMap τ x)‖₊ : ENNReal) ^
+          (2 : ℕ)) ∂(volume : Measure ℝ) := by simp [translationMap]
+      _ = ∫⁻ y, ((↑‖(f : ℝ → ℂ) y‖₊ : ENNReal) ^ (2 : ℕ)) ∂(Measure.map (translationMap τ)
+          (volume : Measure ℝ)) := by
           -- This uses the standard change of variables formula for lintegral
           -- We use the symmetry of lintegral_map
           symm
           -- Show the integrand is AEMeasurable
           have hf_aemeas := (Lp.aestronglyMeasurable f).aemeasurable
-          have h_integrand : AEMeasurable (fun y => ((↑‖(f : ℝ → ℂ) y‖₊ : ENNReal) ^ (2 : ℕ))) (Measure.map (translationMap τ) (volume : Measure ℝ)) := by
+          have h_integrand : AEMeasurable (fun y => ((↑‖(f : ℝ → ℂ) y‖₊ : ENNReal) ^
+              (2 : ℕ))) (Measure.map (translationMap τ) (volume : Measure ℝ)) := by
             rw [h_map]
             refine AEMeasurable.pow ?_ ?_
             · apply AEMeasurable.coe_nnreal_ennreal
@@ -421,7 +426,8 @@ lemma timeShift_norm_eq (τ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
               exact hf_aemeas
             · exact aemeasurable_const
           -- Apply the change of variables formula
-          exact lintegral_map' h_integrand (aemeasurable_id'.comp_measurable (measurable_translation τ))
+          exact lintegral_map' h_integrand (aemeasurable_id'.comp_measurable
+            (measurable_translation τ))
       _ = ∫⁻ y, ((↑‖(f : ℝ → ℂ) y‖₊ : ENNReal) ^ (2 : ℕ)) ∂(volume : Measure ℝ) := by
           rw [h_map]
   -- Step 3: translate equality of lintegrals of squares into equality of norms
@@ -442,7 +448,7 @@ lemma timeShift_norm_eq (τ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
       _ = ∫⁻ x, ((↑‖(f : ℝ → ℂ) x‖₊ : ENNReal) ^ (2 : ℕ)) ∂(volume : Measure ℝ) := h_change
   -- Conclude from equality of squares and nonnegativity of norms
   have hsq : ‖timeShift_linearMap τ f‖ ^ 2 = ‖f‖ ^ 2 := by
-    simpa [h1, h2, h_eq_int]
+    simp [h1, h2, h_eq_int]
   have hsqrt := congrArg Real.sqrt hsq
   simpa [Real.sqrt_sq, norm_nonneg] using hsqrt
 
@@ -457,7 +463,7 @@ section VariableChangeFormulas
 
 /-- Change of variables formula for integration: ∫f(t-τ) = ∫f(t) -/
 lemma integral_comp_sub {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E] [CompleteSpace E]
-    (f : ℝ → E) (τ : ℝ) (hf : Integrable f (volume : Measure ℝ)) :
+    (f : ℝ → E) (τ : ℝ) :
     ∫ t, f (t - τ) ∂(volume : Measure ℝ) = ∫ t, f t ∂(volume : Measure ℝ) := by
   -- Change of variables via measure-preserving + measurable embedding
   have hMP : MeasurePreserving (translationMap τ) (μa := volume) (μb := volume) :=
@@ -515,12 +521,9 @@ lemma phase_abs_one (ξ t : ℝ) :
     clear this
     calc
       Complex.I * (ξ : ℂ) * (t : ℂ)
-          = ((ξ : ℂ) * (t : ℂ)) * Complex.I := by
-            simpa [mul_comm, mul_left_comm, mul_assoc]
-      _ = ((ξ * t : ℝ) : ℂ) * Complex.I := by
-            simpa [← Complex.ofReal_mul]
-      _ = ((t * ξ : ℝ) : ℂ) * Complex.I := by
-            simpa [mul_comm]
+        = ((ξ : ℂ) * (t : ℂ)) * Complex.I := by simp [mul_comm, mul_left_comm]
+      _ = ((ξ * t : ℝ) : ℂ) * Complex.I := by simp [← Complex.ofReal_mul]
+      _ = ((t * ξ : ℝ) : ℂ) * Complex.I := by simp [mul_comm]
   -- Apply the norm lemma after rewriting the exponent's argument
   simpa [hmul] using Complex.norm_exp_ofReal_mul_I (t * ξ)
 
@@ -554,7 +557,7 @@ lemma mod_smul_ae (ξ : ℝ) (c : ℂ)
   intro x hx
   -- Use the equality from h_smul and distribute scalar multiplication
   simp only [Pi.smul_apply] at hx
-  simp only [hx, Pi.smul_apply, smul_eq_mul]
+  simp only [hx, smul_eq_mul]
   ring
 
 -- The L² class is preserved under modulation
@@ -584,7 +587,7 @@ lemma mod_memLp (ξ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
   refine MemLp.of_le_mul (c := 1) hf h_ae ?_
   -- Show that ‖phase t * f t‖ ≤ 1 * ‖f t‖
   filter_upwards with t
-  simp only [one_mul, norm_mul, phase]
+  simp only [one_mul, norm_mul]
   rw [phase_abs_one ξ t, one_mul]
 
 -- Linear map on L² induced by modulation
@@ -601,12 +604,15 @@ noncomputable def mod_linearMap (ξ : ℝ) :
     have hsum := MemLp.coeFn_toLp (mod_memLp ξ (f + g))
     -- assemble AE equality of coeFns all the way to `coeFn (sum)`
     calc (MemLp.toLp _ (mod_memLp ξ (f + g)) : Lp ℂ 2 (volume : Measure ℝ))
-      =ᵐ[volume] fun t => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t := hsum
+      =ᵐ[volume] fun t => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) *
+        ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t := hsum
       _ =ᵐ[volume] (fun t : ℝ =>
         Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (f : ℝ → ℂ) t
         + Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (g : ℝ → ℂ) t) := mod_add_ae ξ f g
-      _ =ᵐ[volume] (MemLp.toLp _ (mod_memLp ξ f) : Lp ℂ 2 (volume : Measure ℝ)) + (MemLp.toLp _ (mod_memLp ξ g) : Lp ℂ 2 (volume : Measure ℝ)) := (hfg.add hgg).symm
-      _ =ᵐ[volume] (MemLp.toLp _ (mod_memLp ξ f) + MemLp.toLp _ (mod_memLp ξ g) : Lp ℂ 2 (volume : Measure ℝ)) := (Lp.coeFn_add _ _).symm
+      _ =ᵐ[volume] (MemLp.toLp _ (mod_memLp ξ f) : Lp ℂ 2 (volume : Measure ℝ)) +
+          (MemLp.toLp _ (mod_memLp ξ g) : Lp ℂ 2 (volume : Measure ℝ)) := (hfg.add hgg).symm
+      _ =ᵐ[volume] (MemLp.toLp _ (mod_memLp ξ f) + MemLp.toLp _ (mod_memLp ξ g) :
+          Lp ℂ 2 (volume : Measure ℝ)) := (Lp.coeFn_add _ _).symm
   map_smul' c f := by
     -- Compare representatives a.e. and use `Lp.ext_ae`
     apply Lp.ext (μ := (volume : Measure ℝ))
@@ -614,9 +620,12 @@ noncomputable def mod_linearMap (ξ : ℝ) :
     have hcf := MemLp.coeFn_toLp (mod_memLp ξ (c • f))
     -- assemble AE equality of coeFns
     calc (MemLp.toLp _ (mod_memLp ξ (c • f)) : Lp ℂ 2 (volume : Measure ℝ))
-      =ᵐ[volume] (fun t : ℝ => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t)) := hcf
-      _ =ᵐ[volume] (fun t : ℝ => c • (Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * (f : ℝ → ℂ) t)) := mod_smul_ae ξ c f
-      _ =ᵐ[volume] (fun t : ℝ => c • ((((MemLp.toLp _ (mod_memLp ξ f)) : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t)) := by
+      =ᵐ[volume] (fun t : ℝ => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) *
+          (((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t)) := hcf
+      _ =ᵐ[volume] (fun t : ℝ => c • (Complex.exp (Complex.I * (ξ : ℂ) *
+          (t : ℂ)) * (f : ℝ → ℂ) t)) := mod_smul_ae ξ c f
+      _ =ᵐ[volume] (fun t : ℝ => c • ((((MemLp.toLp _ (mod_memLp ξ f)) :
+          Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t)) := by
         refine hf.symm.mono ?_
         intro x hx
         simpa using congrArg (fun z => c • z) hx
@@ -648,12 +657,14 @@ lemma mod_norm_eq (ξ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
     simp [this, one_mul]
   have h1 : ‖mod_linearMap ξ f‖ ^ 2
       = (∫⁻ t, ((↑‖Fξ t‖₊ : ENNReal) ^ (2 : ℕ)) ∂(volume : Measure ℝ)).toReal := by
-    simpa [mod_linearMap] using (Lp_norm_sq_as_lintegral (ν := (volume : Measure ℝ)) (mod_linearMap ξ f))
+    simpa [mod_linearMap]
+    using (Lp_norm_sq_as_lintegral (ν := (volume : Measure ℝ)) (mod_linearMap ξ f))
   have h2 : ‖f‖ ^ 2
       = (∫⁻ t, ((↑‖(f : ℝ → ℂ) t‖₊ : ENNReal) ^ (2 : ℕ)) ∂(volume : Measure ℝ)).toReal := by
     simpa using (Lp_norm_sq_as_lintegral (ν := (volume : Measure ℝ)) f)
   have h_eq := lintegral_congr_ae h_sq_ae
-  have hsq : ‖mod_linearMap ξ f‖ ^ 2 = ‖f‖ ^ 2 := by simpa [h1, h2] using congrArg ENNReal.toReal h_eq
+  have hsq : ‖mod_linearMap ξ f‖ ^ 2 = ‖f‖ ^ 2 := by
+    simpa [h1, h2] using congrArg ENNReal.toReal h_eq
   have hsqrt := congrArg Real.sqrt hsq
   simpa [Real.sqrt_sq, norm_nonneg] using hsqrt
 
@@ -745,8 +756,6 @@ In later phases, one derives these bounds from critical sampling `Δτ·Δξ = 2
 and a suitable window. -/
 theorem ZakFrame_inequality_proof
     (w : Lp ℂ 2 (volume : Measure ℝ)) (Δτ Δξ : ℝ)
-    (hw : suitable_window w)
-    (hcrit : Δτ * Δξ = 2 * Real.pi)
     (hB : ∃ B : ℝ, besselBound w Δτ Δξ B)
     (hA : ∃ A : ℝ, 0 < A ∧ ∀ g : Lp ℂ 2 (volume : Measure ℝ), A * ‖g‖^2 ≤ FrameEnergy w Δτ Δξ g)
     : ZakFrame_inequality w Δτ Δξ := by

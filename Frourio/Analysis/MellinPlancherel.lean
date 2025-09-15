@@ -34,8 +34,8 @@ logarithmic pullback map from L²(ℝ) to Hσ.
 private lemma hx_id_helper (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
     (wσ : ℝ → ℝ≥0∞) (hwσ : wσ = fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
     (g : ℝ → ℂ) (hg : g = fun x =>
-      if hx : 0 < x then
-        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)
+      if _ : 0 < x then
+        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ)
       else 0)
     (x : ℝ) (hx : x ∈ Set.Ioi 0) :
     (((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x) * ENNReal.ofReal (1 / x)
@@ -47,10 +47,9 @@ private lemma hx_id_helper (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
     simp [hg, if_pos hx']
   -- Split product inside squared norm via coe_nnnorm_mul
   have hsplit :
-      ((‖((f : ℝ → ℂ) (Real.log x) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
-        = (((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) *
-            (‖(x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)‖₊ : ℝ≥0∞)) ^ (2 : ℕ)) := by
-    simpa [coe_nnnorm_mul]
+    ((‖((f : ℝ → ℂ) (Real.log x) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+      = (((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) *
+        (‖(x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)‖₊ : ℝ≥0∞)) ^ (2 : ℕ)) := by simp
   -- exponent helper identities
   have h_exp : x ^ (2 * σ - 1) = x ^ (2 * (σ - 1/2)) := by
     congr 1; ring
@@ -74,11 +73,12 @@ private lemma hx_id_helper (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
   -- Core cancellation packaged in a helper lemma
   have hx_cancel :
       (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * wσ x)) = (1 : ℝ≥0∞) :=
-    hx_cancel_for_optimization σ x hx' wσ hwσ hnorm₁
+    hx_cancel_for_optimization σ x hx' wσ hwσ
   -- Combine pieces: factor structure and cancel
   -- Define A and B to streamline algebra in ℝ≥0∞
   set A : ℝ≥0∞ := ((‖(x : ℂ) ^ ((2⁻¹ - σ) : ℂ)‖₊ : ℝ≥0∞)) with hA
-  set B : ℝ≥0∞ := ((‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞) * (‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞)) with hB
+  set B : ℝ≥0∞ := ((‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞) *
+    (‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞)) with hB
   have hx_cancel' : wσ x * (A * A * B) = B := by
     -- Rearrange the cancellation equation
     calc wσ x * (A * A * B) = (wσ x * A * A) * B := by ring
@@ -118,9 +118,9 @@ private lemma hx_id_helper (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
   -- Reshape both sides explicitly to the `h_eq` pattern and conclude
   -- Left side to ENNReal.ofReal x⁻¹ * (wσ x * (A*A*B))
   have hLsq : ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))
-      = (A * (‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞)) ^ 2 := by
+    = (A * (‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞)) ^ 2 := by
     -- use hxg and product split inside nnnorm
-    simp [hxg, hsplit, hA, mul_comm, mul_left_comm, mul_assoc]
+    simp [hxg, hA, mul_comm]
   have hMul : (A * (‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞)) ^ 2
       = A * A * B := by
     simp [pow_two, hB, mul_comm, mul_left_comm, mul_assoc]
@@ -143,8 +143,8 @@ private lemma hx_id_helper (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
 private lemma private_hg_memLp (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
     (wσ : ℝ → ℝ≥0∞) (hwσ : wσ = fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
     (g : ℝ → ℂ) (hg : g = fun x =>
-      if hx : 0 < x then
-        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)
+      if _ : 0 < x then
+        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ)
       else 0) :
   MemLp g 2 (mulHaar.withDensity wσ) := by
   -- Reuse the construction in `toHσ_ofL2`; provide MemLp witness succinctly
@@ -201,8 +201,8 @@ private lemma private_hg_memLp (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
     -- From `f ∈ L²`
     have h1 : eLpNorm (fun t => (f : ℝ → ℂ) t) 2 volume < ∞ := by
       -- `f` is in L² by definition
-      have : Memℒp (fun t => (f : ℝ → ℂ) t) 2 volume := by
-        simpa using (Lp.memℒp f)
+      have : MemLp (fun t => (f : ℝ → ℂ) t) 2 volume := by
+        simpa using (Lp.memLp f)
       exact this.2 -- Memℒp.2 gives eLpNorm < ∞
     -- Re-express eLpNorm in terms of lintegral of nnnorm^2
     rw [eLpNorm_eq_eLpNorm' (by norm_num : (2 : ℝ≥0∞) ≠ 0)
@@ -275,7 +275,7 @@ private lemma private_hg_memLp (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
         simp only [one_div, Real.rpow_neg_one]]
       -- Now apply the change of variables result
       -- Simplify function composition and the exponential term
-      simp only [Function.comp_apply] at this
+      simp only at this
       -- Transform the exponential term on the right: exp(-1 * t + t) = exp(0) = 1
       have h_exp : ∀ t, rexp (-1 * t + t) = 1 := by
         intro t
@@ -307,24 +307,16 @@ private lemma private_hg_memLp (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
               ((f : ℝ → ℂ) (Real.log x))
                 * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)) := by
           funext x; by_cases hx : 0 < x
-          ·
-            -- Align exponents: -(σ - 1/2) = 1/2 - σ and (1/2 : ℂ) = (2⁻¹ : ℂ)
+          · -- Align exponents: -(σ - 1/2) = 1/2 - σ and (1/2 : ℂ) = (2⁻¹ : ℂ)
             have hneg : (-(σ - (1/2 : ℝ)) : ℝ) = (1/2 - σ) := by ring
-            have hnegC : (-(σ - (1/2 : ℝ)) : ℂ) = ((1/2 : ℝ) - σ : ℂ) := by
-              simpa using congrArg Complex.ofReal hneg
-            have hhalfC : ((1/2 : ℝ) : ℂ) = (2⁻¹ : ℂ) := by
-              -- (1/2 : ℝ) cast to ℂ equals (2 : ℂ)⁻¹ = 2⁻¹
-              simpa [one_div] using (by
-                have : ((1/2 : ℝ) : ℂ) = (2 : ℂ)⁻¹ := by simp [one_div]
-                exact this)
+            have hnegC : (-(σ - (1/2 : ℝ)) : ℂ) = ((1/2 : ℝ) - σ : ℂ) := by simp
+            have hhalfC : ((1/2 : ℝ) : ℂ) = (2⁻¹ : ℂ) := by simp [one_div]
             have hexp : (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)
-                = (x : ℂ) ^ ((2⁻¹ : ℂ) - (σ : ℂ)) := by
-              simpa [hnegC, hhalfC]
+              = (x : ℂ) ^ ((2⁻¹ : ℂ) - (σ : ℂ)) := by simp
             have hx_mem : x ∈ Set.Ioi (0 : ℝ) := by simpa using hx
-            simp [hg, hx, Set.indicator_of_mem hx_mem, hexp]
-          ·
-            have hx_notmem : x ∉ Set.Ioi (0 : ℝ) := by simpa using hx
-            simp [hg, hx, Set.indicator_of_not_mem hx_notmem]
+            simp [hg, hx]
+          · have hx_notmem : x ∉ Set.Ioi (0 : ℝ) := by simpa using hx
+            simp [hg, hx]
         have h_f_log : Measurable fun x : ℝ => ((f : ℝ → ℂ) (Real.log x)) :=
           (Lp.stronglyMeasurable f).measurable.comp Real.measurable_log
         have h_cpow : Measurable fun x : ℝ => (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ) := by
@@ -341,10 +333,11 @@ private lemma private_hg_memLp (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
 private lemma private_h_coe (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
   let wσ : ℝ → ℝ≥0∞ := fun x => ENNReal.ofReal (x ^ (2 * σ - 1))
   let g : ℝ → ℂ := fun x =>
-    if hx : 0 < x then
+    if _ : 0 < x then
       ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)
     else 0
-  (toHσ_ofL2 σ f : Lp ℂ 2 (mulHaar.withDensity wσ)) = MemLp.toLp g (private_hg_memLp σ f wσ rfl g rfl) := by
+  (toHσ_ofL2 σ f : Lp ℂ 2 (mulHaar.withDensity wσ)) =
+    MemLp.toLp g (private_hg_memLp σ f wσ rfl g rfl) := by
   -- This follows from the definition of toHσ_ofL2
   -- which constructs exactly this MemLp.toLp
   simp only [toHσ_ofL2]
@@ -459,7 +452,7 @@ theorem toHσ_ofL2_isometry (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
       -- Align 1/x with x^(-1)
       simp only [one_div, Real.rpow_neg_one]]
     -- Simplify the RHS and apply to the goal
-    simp only [Function.comp_apply] at this
+    simp only at this
     have h_exp : ∀ t, rexp (-1 * t + t) = 1 := by
       intro t
       simp [neg_add_cancel, Real.exp_zero]
@@ -473,12 +466,11 @@ theorem toHσ_ofL2_isometry (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
     rw [hH_sq', h_change]
     exact hf_sq.symm
   -- Take square roots; both sides are nonnegative
-  have h_nonneg_left : 0 ≤ ‖toHσ_ofL2 σ f‖ := by simpa using norm_nonneg _
-  have h_nonneg_right : 0 ≤ ‖f‖ := by simpa using norm_nonneg _
+  have h_nonneg_left : 0 ≤ ‖toHσ_ofL2 σ f‖ := by simp
+  have h_nonneg_right : 0 ≤ ‖f‖ := by simp
   -- Use sqrt to avoid case splits from `sq_eq_sq`
   have h_sqrt := congrArg Real.sqrt h_sq_eq
-  simp [Real.sqrt_sq_eq_abs, abs_of_nonneg h_nonneg_left,
-    abs_of_nonneg h_nonneg_right] at h_sqrt
+  simp at h_sqrt
   exact h_sqrt
 
 end MellinIsometry

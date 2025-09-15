@@ -266,11 +266,12 @@ lemma volume_exp_image_eq_integral {s : Set ℝ} (hs : MeasurableSet s) :
   have hexp_inj : Set.InjOn Real.exp s := Real.exp_injective.injOn
 
   -- Apply the change of variables theorem
-  have h := MeasureTheory.lintegral_image_eq_lintegral_abs_deriv_mul hs hexp_deriv_within hexp_inj (fun x => 1)
+  have h := MeasureTheory.lintegral_image_eq_lintegral_abs_deriv_mul
+    hs hexp_deriv_within hexp_inj (fun x => 1)
 
   -- Simplify the result
-  simp only [Pi.one_apply, mul_one, lintegral_one, Measure.restrict_apply MeasurableSet.univ,
-             Set.univ_inter] at h
+  simp only [mul_one, lintegral_one, Measure.restrict_apply MeasurableSet.univ,
+    Set.univ_inter] at h
 
   -- Now h : volume (exp '' s) = ∫⁻ x in s, ENNReal.ofReal |exp x|
   rw [h]
@@ -300,7 +301,6 @@ lemma measurableSet_exp_image {s : Set ℝ} (hs : MeasurableSet s) :
 
 /-- Pushforward of Lebesgue measure on `(0,∞)` by `log` equals Lebesgue on `ℝ`
 weighted by the density `exp`. Concretely:
-`Measure.map Real.log (volume.restrict (Set.Ioi 0)) = volume.withDensity (fun t => ENNReal.ofReal (Real.exp t))`.
 This is the change-of-variables formula for `x = exp t` at the level of measures. -/
 lemma map_log_restrict_Ioi_eq_withDensity_exp :
     Measure.map Real.log (volume.restrict (Set.Ioi (0 : ℝ)))
@@ -417,8 +417,6 @@ lemma lintegral_change_of_variables_exp {α : ℝ} {f : ℝ → ENNReal}
     ∫⁻ t, f t * ENNReal.ofReal (Real.exp (α * t + t)) ∂volume := by
   classical
   -- Step 1: express the left side via the pushforward of `volume.restrict (Ioi 0)` by `log`.
-  -- The identity `Measure.map Real.log (volume.restrict (Ioi 0)) = volume.withDensity (ofReal ∘ exp)`
-  -- is a standard change-of-variables fact. We leave it as a placeholder here.
   have h_push :
       Measure.map Real.log (volume.restrict (Set.Ioi (0 : ℝ)))
         = volume.withDensity (fun t => ENNReal.ofReal (Real.exp t)) := by
@@ -462,7 +460,7 @@ lemma lintegral_change_of_variables_exp {α : ℝ} {f : ℝ → ENNReal}
       have hxpos' : 0 < x := hxpos
       have hxexp : x ^ α = Real.exp (α * Real.log x) := by
         -- `Real.rpow_def_of_pos` gives x^α = exp (α * log x) for x > 0.
-        simpa [Real.rpow_def_of_pos hxpos', mul_comm]
+        simp [Real.rpow_def_of_pos hxpos', mul_comm]
       simp [hxexp.symm]
     -- Apply the a.e. congruence.
     simpa using lintegral_congr_ae h_ae
@@ -474,7 +472,7 @@ lemma lintegral_change_of_variables_exp {α : ℝ} {f : ℝ → ENNReal}
             ∂(Measure.map Real.log (volume.restrict (Set.Ioi 0))) := h_map
     _ = ∫⁻ t, (f t * ENNReal.ofReal (Real.exp (α * t)))
             ∂(volume.withDensity (fun t => ENNReal.ofReal (Real.exp t))) := by
-          simpa [h_push]
+          simp [h_push]
     _ = ∫⁻ t, (f t * ENNReal.ofReal (Real.exp t)) * ENNReal.ofReal (Real.exp (α * t)) ∂volume := by
           -- expand withDensity: ∫ g d(μ.withDensity w) = ∫ g * w dμ
           -- with factors reordered to prepare for combining exponentials
@@ -503,11 +501,9 @@ lemma lintegral_log_substitute {f : ℝ → ENNReal} (hf : Measurable f) :
     ∫⁻ t, f t ∂volume := by
   -- When α = -1, we get exp((-1+1)·t) = exp(0) = 1
   convert lintegral_change_of_variables_exp (α := -1) hf using 2
-  · congr 1
-    ext x
+  · ext x
     simp only [inv_eq_one_div, rpow_neg_one]
-  · congr 1
-    ext t
+  · ext t
     -- We need to show: exp((-1) * t + t) = exp(0) = 1
     have : (-1 : ℝ) * t + t = 0 := by ring
     rw [this, Real.exp_zero, ENNReal.ofReal_one, mul_one]
@@ -541,8 +537,7 @@ lemma mulHaar_eq_volume_div_x :
       using this.trans (by simp)
   -- Since the complement of `(0,∞)` has measure zero under `withDensity w`,
   -- the restriction to `(0,∞)` is equal to the original measure.
-  have h_compl : (Set.Ioi (0 : ℝ))ᶜ = Set.Iic (0 : ℝ) := by
-    simpa using (Set.compl_Ioi (a := (0 : ℝ)))
+  have h_compl : (Set.Ioi (0 : ℝ))ᶜ = Set.Iic (0 : ℝ) := by simp
   have h_restrict :
       (volume.withDensity w).restrict (Set.Ioi (0 : ℝ)) = volume.withDensity w := by
     -- Prove equality of measures by agreeing on all measurable sets.
@@ -590,7 +585,7 @@ lemma norm_cpow_real (x : ℝ) (σ : ℝ) (hx : 0 < x) :
     have hcpow' : (x : ℂ) ^ (-σ : ℂ)
         = Complex.exp (-(Complex.log (x : ℂ) * (σ : ℂ))) := by
       -- unfold cpow at nonzero base
-      simpa [Complex.cpow_def, hx0]
+      simp [Complex.cpow_def, hx0]
     have : (x : ℂ) ^ (-σ : ℂ) = Complex.exp ((-σ : ℂ) * Complex.log (x : ℂ)) := by
       -- commute multiplication inside the negation
       simpa [mul_comm, mul_left_comm, mul_assoc] using hcpow'
@@ -608,11 +603,11 @@ lemma norm_cpow_real (x : ℝ) (σ : ℝ) (hx : 0 < x) :
     -- simplify Re((−σ) * log x)
     have hre : (((-σ : ℂ) * Complex.log (x : ℂ)).re) = (-σ) * Real.log x := by
       -- both factors are real
-      simp [hlog, Complex.ofReal_mul]
+      simp [hlog]
     -- Express the real part of the product and rewrite via re(log x) = Real.log x
     have hReMul : (((-σ : ℂ) * Complex.log (x : ℂ)).re)
         = - (σ * (Complex.log (x : ℂ)).re) := by
-      simp [mul_comm, mul_left_comm, mul_assoc]
+      simp [mul_comm]
     have hre0 : (Complex.log (x : ℂ)).re = Real.log x := by
       simpa using Complex.log_ofReal_re x
     -- Chain the equalities
@@ -623,17 +618,17 @@ lemma norm_cpow_real (x : ℝ) (σ : ℝ) (hx : 0 < x) :
   have h_right : ((NNReal.rpow (Real.toNNReal x) (-σ)) : ℝ)
       = Real.rpow ((Real.toNNReal x : ℝ)) (-σ) := by
     -- known coercion lemma for NNReal.rpow
-    simpa using (NNReal.coe_rpow (Real.toNNReal x) (-σ))
+    simp
   -- Since x > 0, toNNReal x coerces to x and real rpow is exp(r * log x).
   have h_base : ((Real.toNNReal x : ℝ)) = x := by
     -- toNNReal x = max x 0, so for x > 0 this is x
     simp [Real.toNNReal, max_eq_left_of_lt hx]
   have : Real.rpow ((Real.toNNReal x : ℝ)) (-σ) = Real.exp ((-σ) * Real.log x) := by
     -- rpow on positives: x^y = exp(y * log x); commute to match ordering
-    simpa [h_base, Real.rpow_def_of_pos hx, mul_comm]
+    simp [h_base, Real.rpow_def_of_pos hx, mul_comm]
   -- Rewrite the RHS target into (max x 0) ^ (-σ) and identify it with exp(…)
   have hrpow_max : (max x 0) ^ (-σ) = Real.exp (-(σ * Real.log x)) := by
-    have hxmax : max x 0 = x := by simpa [max_eq_left_of_lt hx]
+    have hxmax : max x 0 = x := by simp [max_eq_left_of_lt hx]
     simpa [hxmax, mul_comm] using (Real.rpow_def_of_pos hx (y := -σ))
   -- Finish by rewriting with hrpow_max
   simpa [hrpow_max] using h_left
@@ -643,9 +638,8 @@ lemma norm_cpow_real (x : ℝ) (σ : ℝ) (hx : 0 < x) :
 lemma coe_nnnorm_mul (a b : ℂ) :
     ((‖a * b‖₊ : ℝ≥0∞)) = ((‖a‖₊ : ℝ≥0∞) * (‖b‖₊ : ℝ≥0∞)) := by
   -- move to ℝ≥0, use `nnnorm_mul`, then coerce back to `ℝ≥0∞`
-  change ((↑(‖a * b‖₊)) : ℝ≥0∞) = ((↑(‖a‖₊)) * (↑(‖b‖₊)) : ℝ≥0∞)
-  have : ‖a * b‖₊ = ‖a‖₊ * ‖b‖₊ := by simpa using (nnnorm_mul a b)
-  simpa [this, ENNReal.coe_mul]
+  have : ‖a * b‖₊ = ‖a‖₊ * ‖b‖₊ := by simp
+  simp [this, ENNReal.coe_mul]
 
 /-!
 Auxiliary placeholder embedding from `L²(ℝ)` (Lebesgue) into `Hσ`.
@@ -659,8 +653,7 @@ lemma hwσ_meas_for_optimization (σ : ℝ) (wσ : ℝ → ℝ≥0∞)
   measurability
 
 lemma hx_cancel_for_optimization (σ x : ℝ) (hx' : 0 < x) (wσ : ℝ → ℝ≥0∞)
-    (hwσ : wσ = fun x ↦ ENNReal.ofReal (x ^ (2 * σ - 1)))
-    (hnorm₁ : (‖(x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)‖₊ : ℝ≥0∞) = ENNReal.ofReal (x ^ (-(σ - 1/2)))) :
+    (hwσ : wσ = fun x ↦ ENNReal.ofReal (x ^ (2 * σ - 1))) :
     (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * wσ x)) = (1 : ℝ≥0∞) := by
   -- rewrite the nnnorm as ofReal of a real rpow
   have hpos : 0 ≤ x := le_of_lt hx'
@@ -681,8 +674,9 @@ lemma hx_cancel_for_optimization (σ x : ℝ) (hx' : 0 < x) (wσ : ℝ → ℝ�
     simpa using (ENNReal.ofReal_mul (p := x ^ (1/2 - σ)) (q := x ^ (1/2 - σ)) hA0).symm
   -- now include the weight wσ x
   have :
-      (ENNReal.ofReal (x ^ (1/2 - σ)) * ENNReal.ofReal (x ^ (1/2 - σ)) * ENNReal.ofReal (x ^ (2 * σ - 1)))
-        = ENNReal.ofReal ((x ^ (1/2 - σ)) * (x ^ (1/2 - σ))) * ENNReal.ofReal (x ^ (2 * σ - 1)) := by
+    (ENNReal.ofReal (x ^ (1/2 - σ)) * ENNReal.ofReal (x ^ (1/2 - σ)) *
+      ENNReal.ofReal (x ^ (2 * σ - 1))) = ENNReal.ofReal ((x ^ (1/2 - σ)) *
+        (x ^ (1/2 - σ))) * ENNReal.ofReal (x ^ (2 * σ - 1)) := by
     -- use `ofReal_mul` on the first two factors, then multiply both sides by the third
     have hpair := (ENNReal.ofReal_mul (p := x ^ (1/2 - σ)) (q := x ^ (1/2 - σ)) hA0).symm
     simpa [mul_comm, mul_left_comm, mul_assoc]
@@ -694,14 +688,16 @@ lemma hx_cancel_for_optimization (σ x : ℝ) (hx' : 0 < x) (wσ : ℝ → ℝ�
     have hnonneg : 0 ≤ (x ^ (1/2 - σ)) * (x ^ (1/2 - σ)) :=
       mul_nonneg hA0 hA0
     simpa using
-      (ENNReal.ofReal_mul (p := ((x ^ (1/2 - σ)) * (x ^ (1/2 - σ)))) (q := x ^ (2 * σ - 1)) hnonneg).symm
+      (ENNReal.ofReal_mul (p := ((x ^ (1/2 - σ)) * (x ^ (1/2 - σ))))
+        (q := x ^ (2 * σ - 1)) hnonneg).symm
   -- simplify exponents: (x^(1/2-σ))^2 * x^(2σ-1) = x^0 = 1
   -- first, rewrite the product of two identical rpow terms as a square,
   -- then convert the square into doubling the exponent via `Real.rpow_mul`.
   have hx0' : 0 ≤ x := le_of_lt hx'
   have hsquare : (x ^ (1/2 - σ)) ^ (2 : ℕ) = x ^ (2 * (1/2 - σ)) := by
     -- via rpow_mul: (x^a)^2 = x^(a*2)
-    simpa [pow_two, mul_comm] using (Real.rpow_mul (x := x) (y := (1/2 - σ)) (z := (2 : ℝ)) hx0').symm
+    simpa [pow_two, mul_comm]
+    using (Real.rpow_mul (x := x) (y := (1/2 - σ)) (z := (2 : ℝ)) hx0').symm
   have hsum : (2 * (1/2 - σ)) + (2 * σ - 1) = 0 := by ring
   -- conclude: the real product reduces to x^0 = 1
   have hxpos : 0 < x := hx'
@@ -727,7 +723,7 @@ lemma hx_cancel_for_optimization (σ x : ℝ) (hx' : 0 < x) (wσ : ℝ → ℝ�
   -- the earlier equalities justify the conversions
   -- Finally conclude the cancellation equality
   -- As we built equalities through `have` steps named `this`, `simp` will close it
-  simp only [hnorm₁, h_exp_eq] at *
+  simp only [h_exp_eq] at *
   -- We need to show ENNReal.ofReal (x ^ (σ * 2 - 1)) * (↑‖x ^ (2⁻¹ - σ)‖₊ * ↑‖x ^ (2⁻¹ - σ)‖₊) = 1
   -- We have this : x ^ (σ * 2 - 1) * (x ^ (2⁻¹ - σ) * x ^ (2⁻¹ - σ)) = 1
   -- Since x ^ (2⁻¹ - σ) is positive, its norm is itself
@@ -750,7 +746,8 @@ lemma hx_cancel_for_optimization (σ x : ℝ) (hx' : 0 < x) (wσ : ℝ → ℝ�
       simpa using Real.rpow_nonneg hpos (2⁻¹ - σ)
     exact (ENNReal.ofReal_mul hA0').symm
   have hLHS_eq :
-      ENNReal.ofReal (x ^ (2⁻¹ - σ)) * ENNReal.ofReal (x ^ (2⁻¹ - σ)) * ENNReal.ofReal (x ^ (2 * σ - 1))
+    ENNReal.ofReal (x ^ (2⁻¹ - σ)) * ENNReal.ofReal (x ^ (2⁻¹ - σ)) *
+      ENNReal.ofReal (x ^ (2 * σ - 1))
         = ENNReal.ofReal (x ^ (2⁻¹ - σ) * x ^ (2⁻¹ - σ) * x ^ (2 * σ - 1)) := by
     -- multiply h12 by the third factor and combine again using ofReal_mul
     have hnonneg : 0 ≤ x ^ (2⁻¹ - σ) * x ^ (2⁻¹ - σ) := by
@@ -774,7 +771,7 @@ lemma hx_cancel_for_optimization (σ x : ℝ) (hx' : 0 < x) (wσ : ℝ → ℝ�
       -- rewrite the exponent using 2⁻¹ = 1/2 without invoking heavy simp
       have hexp : (2⁻¹ : ℝ) - σ = 1 / 2 - σ := by
         exact congrArg (fun t : ℝ => t - σ) h_half
-      simpa [hexp]
+      simp [hexp]
     simpa [hpow] using h'
   -- Conclude by transporting equality through the two equalities above
   rw [h_norm]
@@ -782,8 +779,8 @@ lemma hx_cancel_for_optimization (σ x : ℝ) (hx' : 0 < x) (wσ : ℝ → ℝ�
 
 lemma hg_meas_for_optimization (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
     (g : ℝ → ℂ) (hg_def : g = fun x =>
-      if hx : 0 < x then
-        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)
+      if _ : 0 < x then
+        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ)
       else 0) :
     Measurable fun x => (‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ) := by
   classical
@@ -792,8 +789,8 @@ lemma hg_meas_for_optimization (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
       g = Set.indicator (Set.Ioi (0 : ℝ)) (fun x =>
         ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)) := by
     funext x; by_cases hx : 0 < x
-    · simp [hg_def, hx, Set.indicator_of_mem hx]
-    · simp [hg_def, hx, Set.indicator_of_not_mem hx]
+    · simp [hg_def, hx]
+    · simp [hg_def, hx]
   -- Measurability of the inside function: (f ∘ log) · (x ↦ x^const)
   have h_f_log : Measurable fun x : ℝ => ((f : ℝ → ℂ) (Real.log x)) :=
     (Lp.stronglyMeasurable f).measurable.comp Real.measurable_log
@@ -862,7 +859,6 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
       refine lintegral_congr_ae ?_;
       refine ((ae_restrict_iff' measurableSet_Ioi).mpr ?_)
       refine Filter.Eventually.of_forall (fun x hx => ?_)
-      -- On x>0: g x = f(log x) * x^(-(σ-1/2)); its norm-square times the Hσ-weight collapses with 1/x
       have hx' : 0 < x := hx
       have hx'' := weight_product_simplify (σ := σ) x hx
       -- Use that ‖a * b‖ = ‖a‖ * ‖b‖ and ‖x^(−(σ-1/2))‖² · x^(2σ-1) = x
@@ -878,13 +874,13 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
         have hwx : (wσ x) * ENNReal.ofReal (1 / x) = ENNReal.ofReal (x ^ (2 * σ - 1) / x) := by
           simpa [wσ, hwσ, mul_comm] using hx''
         -- Reshuffle and reduce to cancelling the cpow factor with the weight
-        simp [hxg, hwx, mul_comm, mul_left_comm, mul_assoc]
+        simp [hxg, mul_comm]
         -- Bring out the product inside the squared nnnorm
         have hsplit :
             ((‖((f : ℝ → ℂ) (Real.log x) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
               = (((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) *
                   (‖(x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)‖₊ : ℝ≥0∞)) ^ (2 : ℕ)) := by
-          simpa [coe_nnnorm_mul]
+          simp
         -- Use exponent arithmetic to match x^(2σ-1) with (x^(σ-1/2))^2
         have h_exp : x ^ (2 * σ - 1) = x ^ (2 * (σ - 1/2)) := by
           congr 1; ring
@@ -913,12 +909,13 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
         -- Rearrange to isolate ((‖x^(1/2-σ)‖₊)^2) * wσ x
         have hx_cancel :
             (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * wσ x)) = (1 : ℝ≥0∞) :=
-          hx_cancel_for_optimization σ x hx' wσ hwσ hnorm₁
+          hx_cancel_for_optimization σ x hx' wσ hwσ
         -- Now use the cancellation inside the big product and finish
         -- target has a common left factor ENNReal.ofReal x⁻¹; after cancellation we match RHS
         -- Define A := ‖x^(1/2-σ)‖₊ and B := ‖f(log x)‖₊ * ‖f(log x)‖₊ in ℝ≥0∞
         set A : ℝ≥0∞ := ((‖(x : ℂ) ^ ((2⁻¹ - σ) : ℂ)‖₊ : ℝ≥0∞)) with hA
-        set B : ℝ≥0∞ := ((‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞) * (‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞)) with hB
+        set B : ℝ≥0∞ := ((‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞) *
+          (‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞)) with hB
         have hx_cancel' : wσ x * (A * A * B) = B := by
           -- Rearrange the cancellation equation
           calc wσ x * (A * A * B) = (wσ x * A * A) * B := by ring
@@ -931,9 +928,8 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
                   -- First show the norms are equal as real numbers
                   have h_norm : ‖(x : ℂ) ^ ((2⁻¹ - σ) : ℂ)‖ = ‖x ^ (2⁻¹ - σ)‖ := by
                     rw [Complex.norm_cpow_eq_rpow_re_of_pos hx']
-                    -- After norm_cpow_eq_rpow_re_of_pos, the goal is x ^ (2⁻¹ - ↑σ).re = ‖x ^ (2⁻¹ - σ)‖
-                    -- Note that (2⁻¹ - ↑σ).re = 2⁻¹ - σ
-                    have : (2⁻¹ - (σ : ℂ)).re = 2⁻¹ - σ := by simp [Complex.sub_re, Complex.ofReal_re]
+                    have : (2⁻¹ - (σ : ℂ)).re = 2⁻¹ - σ := by
+                      simp [Complex.sub_re, Complex.ofReal_re]
                     rw [this, Real.norm_eq_abs, abs_eq_self.mpr (Real.rpow_nonneg hx0 _)]
                   -- Convert to nnnorm equality
                   have h_nnnorm : ‖(x : ℂ) ^ ((2⁻¹ - σ) : ℂ)‖₊ = ‖x ^ (2⁻¹ - σ)‖₊ := by
@@ -1007,7 +1003,8 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
         rw [this]
       -- hf_mem.2 gives us eLpNorm f 2 volume < ∞
       have h1 : eLpNorm (fun t => (f : ℝ → ℂ) t) 2 volume < ∞ := hf_mem.2
-      rw [eLpNorm_eq_lintegral_rpow_enorm (by norm_num : (2 : ℝ≥0∞) ≠ 0) (by norm_num : (2 : ℝ≥0∞) ≠ ∞)] at h1
+      rw [eLpNorm_eq_lintegral_rpow_enorm (by norm_num : (2 : ℝ≥0∞) ≠ 0)
+        (by norm_num : (2 : ℝ≥0∞) ≠ ∞)] at h1
       simp only [ENNReal.toReal_ofNat] at h1
       -- The eLpNorm is (∫⁻ t, ‖f t‖ₑ ^ 2) ^ (1/2)
       -- We want ∫⁻ t, ‖f t‖ₑ ^ 2 < ∞
@@ -1028,7 +1025,8 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
           funext t
           norm_cast
         rw [this] at h3
-        have : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℕ)) = (∫⁻ t, ((‖(f : ℝ → ℂ) t‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
+        have : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℕ))
+          = (∫⁻ t, ((‖(f : ℝ → ℂ) t‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
           simp only [enorm_eq_nnnorm]
         rw [← this]
         exact h3
@@ -1045,8 +1043,8 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
           g = Set.indicator (Set.Ioi (0 : ℝ)) (fun x =>
             ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)) := by
         funext x; by_cases hx : 0 < x
-        · simp [g, hx, Set.indicator_of_mem hx]
-        · simp [g, hx, Set.indicator_of_not_mem hx]
+        · simp [g, hx]
+        · simp [g, hx]
       have h_f_log : Measurable fun x : ℝ => ((f : ℝ → ℂ) (Real.log x)) :=
         (Lp.stronglyMeasurable f).measurable.comp Real.measurable_log
       have h_cpow : Measurable fun x : ℝ => (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ) := by
@@ -1070,7 +1068,7 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
               = (fun x => ((↑‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
           funext x
           have hx : (‖g x‖ₑ : ℝ≥0∞) = (↑‖g x‖₊ : ℝ≥0∞) := rfl
-          simpa [hx]
+          simp [hx]
         -- Lift to equality of lintegrals and take the 1/2 power
         have hrepr_int :
             (∫⁻ x, (ENNReal.ofReal ‖g x‖) ^ (2 : ℕ) ∂(mulHaar.withDensity wσ))
@@ -1092,7 +1090,7 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
             funext x
             -- By definition, ‖·‖ₑ = (↑‖·‖₊ : ℝ≥0∞)
             have hx : (‖g x‖ₑ : ℝ≥0∞) = (↑‖g x‖₊ : ℝ≥0∞) := rfl
-            simpa [hx]
+            simp [hx]
           simpa using congrArg (fun φ => ∫⁻ x, φ x ∂(mulHaar.withDensity wσ)) this
         -- eLpNorm for p = 2 is defined differently
         rw [eLpNorm_eq_eLpNorm' (by norm_num : (2 : ℝ≥0∞) ≠ 0) (by norm_num : (2 : ℝ≥0∞) ≠ ∞)]
@@ -1117,7 +1115,7 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
               = (fun t => (((↑‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞)) ^ (2 : ℕ))) := by
           funext t
           have : ((‖((f : ℝ → ℂ) t)‖ₑ : ℝ≥0∞)) = (↑‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) := rfl
-          simpa [this]
+          simp [this]
         -- integrate both sides and raise to the same power
         have hi :
             (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖ₑ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume)
@@ -1132,10 +1130,12 @@ noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : 
         rw [eLpNorm_eq_eLpNorm' (by norm_num : (2 : ℝ≥0∞) ≠ 0) (by norm_num : (2 : ℝ≥0∞) ≠ ∞)] at h1
         simp only [ENNReal.toReal_ofNat, eLpNorm', one_div] at h1
         -- Now we need to show the integrands are the same
-        have : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℝ)) = (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
+        have : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℝ))
+          = (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
           congr 1
           funext t
-          have : (‖(f : ℝ → ℂ) t‖ₑ : ℝ≥0∞) ^ (2 : ℝ) = (‖(f : ℝ → ℂ) t‖ₑ : ℝ≥0∞) ^ (2 : ℕ) := by norm_cast
+          have : (‖(f : ℝ → ℂ) t‖ₑ : ℝ≥0∞) ^ (2 : ℝ)
+            = (‖(f : ℝ → ℂ) t‖ₑ : ℝ≥0∞) ^ (2 : ℕ) := by norm_cast
           rw [this]
           rfl
         rw [this] at h1

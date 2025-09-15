@@ -95,17 +95,18 @@ theorem suitable_window_of_normalized_gaussian (δ : ℝ) (hδ : 0 < δ) :
           have hct : m * (1 + t ^ 2) ≤ 1 + c * t ^ 2 := by
             by_cases hle : c ≤ 1
             · -- m = c
-              have hm : m = c := by simpa [m, min_eq_right_iff.mpr hle]
+              have hm : m = c := by simp [m, min_eq_right_iff.mpr hle]
               -- 1 ≥ c, so 1 + c t² ≥ c + c t²
               have : (1 : ℝ) ≥ c := le_trans (le_of_eq rfl) hle
               have h1 : (1 : ℝ) + c * t ^ 2 ≥ c + c * t ^ 2 := by
                 exact add_le_add_right this (c * t ^ 2)
-              simpa [hm, mul_add, add_comm, add_left_comm, add_assoc, mul_comm, mul_left_comm, mul_assoc] using h1
+              simpa [hm, mul_add, add_comm, add_left_comm, add_assoc, mul_comm,
+                mul_left_comm, mul_assoc] using h1
             · -- 1 ≤ c, so m = 1 and c t² ≥ t²
               have hge : 1 ≤ c := le_of_not_ge hle
               have hm : m = 1 := by
                 have : min (1 : ℝ) c = 1 := by
-                  simpa [min_eq_left_iff.mpr hge]
+                  simp [min_eq_left_iff.mpr hge]
                 simpa [m] using this
               have ht2 : t ^ 2 ≤ c * t ^ 2 := by
                 have ht2nonneg : 0 ≤ t ^ 2 := sq_nonneg t
@@ -164,7 +165,8 @@ theorem suitable_window_of_normalized_gaussian (δ : ℝ) (hδ : 0 < δ) :
               have : 0 ≤ t ^ 2 := sq_nonneg t
               exact add_pos_of_pos_of_nonneg (by norm_num : (0 : ℝ) < 1) this
             have hpos_abs : 0 < (1 + |t|) ^ 2 := by
-              have : 0 < 1 + |t| := add_pos_of_pos_of_nonneg (by norm_num : (0 : ℝ) < 1) (abs_nonneg _)
+              have : 0 < 1 + |t| := add_pos_of_pos_of_nonneg
+                (by norm_num : (0 : ℝ) < 1) (abs_nonneg _)
               exact pow_pos this 2
             -- From hden: (1 + |t|)^2 ≤ 2*(1 + t^2)
             -- Taking reciprocals: 1/(2*(1 + t^2)) ≤ 1/((1 + |t|)^2)
@@ -178,7 +180,8 @@ theorem suitable_window_of_normalized_gaussian (δ : ℝ) (hδ : 0 < δ) :
               rw [one_div, one_div]
               exact step1
             calc 1 / (1 + t ^ 2) = 2 * (1 / (2 * (1 + t ^ 2))) := by field_simp
-              _ ≤ 2 * (1 / ((1 + |t|) ^ 2)) := mul_le_mul_of_nonneg_left h1 (by norm_num : 0 ≤ (2 : ℝ))
+              _ ≤ 2 * (1 / ((1 + |t|) ^ 2)) :=
+              mul_le_mul_of_nonneg_left h1 (by norm_num : 0 ≤ (2 : ℝ))
           -- combine inequalities
           have := mul_le_mul_of_nonneg_left hfinal (by
             have : 0 ≤ (1 / m) := by
@@ -206,7 +209,7 @@ theorem suitable_window_of_normalized_gaussian (δ : ℝ) (hδ : 0 < δ) :
                   simp [c, div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
             _ ≤ (1 / m) * (1 / (1 + t ^ 2)) := hexp_bound
             _ ≤ (2 : ℝ) / m * (1 / ((1 + |t|) ^ 2)) := hbound_ineq
-            _ = (2 : ℝ) / m * (1 + |t|) ^ (-(2 : ℝ)) := by simpa [hpow]
+            _ = (2 : ℝ) / m * (1 + |t|) ^ (-(2 : ℝ)) := by simp [hpow]
         -- conclude using AE bound and the pointwise inequality
         refine hA.mono ?_
         intro t ht

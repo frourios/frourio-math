@@ -21,7 +21,7 @@ noncomputable def gaussianFun (α : ℝ) (t : ℝ) : ℝ :=
 
 /-- L² window (placeholder): the actual `Lp` element will be provided when we
 install the precise isometry context. -/
-noncomputable def gaussian (α : ℝ) : Lp ℂ 2 (volume : Measure ℝ) := 0
+noncomputable def gaussian (_ : ℝ) : Lp ℂ 2 (volume : Measure ℝ) := 0
 
 /-- Decay statement for the Gaussian profile (signature).
 Intended: `‖gaussianFun α t‖ ≤ exp(−c α t²)` with a suitable constant `c>0`. -/
@@ -45,7 +45,7 @@ theorem gaussian_decay_of_nonneg {α : ℝ} (hα : 0 ≤ α) : gaussian_decay α
     -- Reduce absolute value using positivity of the exponential
     have hpos : 0 < Real.exp (-(Real.pi) * α * t^2) := Real.exp_pos _
     have hnorm : |gaussianFun α t| = Real.exp (-(Real.pi) * α * t^2) := by
-      simpa [gaussianFun, abs_of_nonneg (le_of_lt hpos)]
+      simp [gaussianFun]
     -- Monotonicity of exp with comparison of exponents
     have hA : 0 ≤ α * t^2 := mul_nonneg hα (by simpa using sq_nonneg t)
     have hπc : -Real.pi ≤ -(min Real.pi 1) := by
