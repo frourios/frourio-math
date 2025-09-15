@@ -13,6 +13,7 @@ import Frourio.Analysis.DoobTransform
 import Frourio.Analysis.EntropyPackage
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.MellinPlancherel
+import Frourio.Analysis.SuitableWindow
 import Frourio.Analysis.ZakMellin
 import Frourio.Analysis.GammaConvergence
 import Frourio.Analysis.Windows
