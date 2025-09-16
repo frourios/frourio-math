@@ -1,9 +1,3 @@
-/-
-Copyright (c) 2024 Frourio Contributors. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Frourio Contributors
--/
-
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Topology.Compactness.Compact
 import Mathlib.Data.Real.Basic

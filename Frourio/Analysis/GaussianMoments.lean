@@ -252,132 +252,281 @@ lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
   rw [h_le_lint]
   exact h_rhs_lt
 
-/--
-Explicit formula for the Fourier transform of a normalized Gaussian.
-The Fourier transform of a Gaussian is another Gaussian with reciprocal width.
--/
-lemma gaussian_fourier_transform {δ : ℝ} (hδ : 0 < δ) :
-    fourierIntegral (((normalizedGaussianLp δ hδ : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)) =
-    fun (ξ : ℝ) => (2^(1/4) * sqrt δ : ℂ) * Complex.exp (-π * δ^2 * ξ^2) := by
-  classical
-  rcases build_normalized_gaussian δ hδ with ⟨w, hnorm, hpt⟩
-  change fourierIntegral ((w : ℝ → ℂ)) = _
-  -- The Fourier transform of exp(-π t²/δ²) is δ exp(-π δ² ξ²)
-  -- With normalization constant A = 2^(1/4)/√δ, we get:
-  -- F[A exp(-π t²/δ²)](ξ) = A * δ * exp(-π δ² ξ²) = 2^(1/4) * √δ * exp(-π δ² ξ²)
-
-  ext ξ
-  simp [fourierIntegral, build_normalized_gaussian]
-
-  -- Split the normalization constant and the exponential
-  have h_split : ∫ t : ℝ, ((2^(1/4 : ℝ) : ℂ) / sqrt δ : ℂ) * Complex.exp (-π * t^2 / δ^2) *
-    Complex.exp (-2 * π * I * t * ξ) ∂volume =
-    (((2^(1/4 : ℝ) : ℂ) / sqrt δ) : ℂ) * ∫ t : ℝ, Complex.exp (-π * t^2 / δ^2) * Complex.exp (-2 * π * I * t * ξ) ∂volume := by
-    rw [← integral_mul_left]
-    simp
-
-  rw [h_split]
-
-  -- Apply the standard Fourier transform of Gaussian formula
-  have h_fourier_gaussian : ∫ t : ℝ, Complex.exp (-π * t^2 / δ^2) * Complex.exp (-2 * π * I * t * ξ) ∂volume =
-    (δ : ℂ) * Complex.exp (-π * δ^2 * ξ^2) := by
-    -- This is a standard result from Mathlib's Gaussian Fourier transform theory
-    -- The Fourier transform of exp(-at²) is √(π/a) exp(-π²ξ²/a)
-    -- Here a = π/δ², so F[exp(-πt²/δ²)](ξ) = δ exp(-πδ²ξ²)
-
-    -- Step 7: Apply Gaussian Fourier transform formula
-    -- Step 7a: Identify parameter a = π/δ²
-    -- Step 7b: Apply formula: F[exp(-at²)](ξ) = √(π/a) exp(-π²ξ²/a)
-    -- Step 7c: Simplify: √(π/(π/δ²)) = δ
-    -- Step 7d: Simplify exponent: -π²ξ²/(π/δ²) = -πδ²ξ²
-    sorry -- Requires: Real.fourierIntegral_gaussian or similar from Mathlib
-
-  rw [h_fourier_gaussian]
-
-  -- Simplify the constants
-  simp [mul_assoc, mul_div_cancel']
-  ring_nf
-
-  -- Show (2^(1/4) / √δ) * δ = 2^(1/4) * √δ
-  have h_const : (((2^(1/4 : ℝ)) : ℂ) / sqrt δ : ℂ) * δ = ((2^(1/4 : ℝ) : ℂ) * sqrt δ) := by
-    field_simp
-    rw [mul_div_cancel']
-    exact (sqrt_pos.mpr hδ).ne'
-
-  rw [h_const]
-
-/--
-The second moment of the Fourier transform is finite for normalized Gaussian windows.
-This establishes frequency localization for the suitable_window condition.
--/
-lemma gaussian_fourier_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
-    ∫⁻ ξ : ℝ, ENNReal.ofReal (ξ^2 * ‖fourierIntegral (((normalizedGaussianLp δ hδ : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)) ξ‖^2) ∂volume < ⊤ := by
-  classical
-  rcases build_normalized_gaussian δ hδ with ⟨w, hnorm, hpt⟩
-  change ∫⁻ ξ : ℝ, ENNReal.ofReal (ξ^2 * ‖fourierIntegral ((w : ℝ → ℂ)) ξ‖^2) ∂volume < ⊤
-  -- From gaussian_fourier_transform, the Fourier transform is
-  -- F[w](ξ) = 2^(1/4) * √δ * exp(-π δ² ξ²)
-  -- So |F[w](ξ)|² = (2^(1/4) * √δ)² * exp(-2π δ² ξ²)
-
-  rw [gaussian_fourier_transform hδ]
-  simp only [norm_mul, norm_exp_ofReal_mul_I, abs_exp_ofReal, norm_exp_ofReal_mul, one_mul]
-
-  -- The norm squared is (2^(1/4) * √δ)² * exp(-2π δ² ξ²)
-  have h_norm : ∀ ξ : ℝ, ‖(((2^(1/4 : ℝ)) : ℂ) * sqrt δ : ℂ) * Complex.exp (-π * δ^2 * ξ^2)‖^2 =
-    ((2^(1/4 : ℝ)) * sqrt δ)^2 * Real.exp (-2 * π * δ^2 * ξ^2) := by
-    intro ξ
-    simp [norm_mul, Complex.norm_exp_ofReal]
-    ring
-
-  simp only [h_norm]
-  rw [← integral_mul_left]
-
-  -- Factor out the constant
-  have h_const_pos : ((2^(1/4 : ℝ)) * sqrt δ)^2 > 0 := by
-    apply mul_pos
-    · exact pow_pos (pow_pos (by norm_num) _) _
-    · exact sqrt_pos.mpr hδ
-
-  -- Show ∫ ξ² exp(-2π δ² ξ²) dξ < (⊤ : ℝ≥0∞)
-  have h_fourier_moment : ∫⁻ ξ : ℝ, ENNReal.ofReal (ξ^2 * Real.exp (-2 * π * δ^2 * ξ^2)) ∂volume < ⊤ := by
-    -- This is again a Gaussian moment integral with parameter 2π δ²
-    have h_coeff_pos : 0 < 2 * π * δ^2 := by
-      apply mul_pos
-      · exact mul_pos (by norm_num) pi_pos
-      · exact pow_pos hδ 2
-
-    apply gaussian_moment_integrable
-    · exact 2  -- polynomial degree
-    · exact h_coeff_pos
-
-    -- Step 8: Apply general Gaussian moment integrability
-    -- Step 8a: Verify polynomial degree n = 2
-    -- Step 8b: Verify coefficient a = 2πδ² > 0
-    -- Step 8c: Apply general result: ∫ |x|^n exp(-ax²) dx < ∞ for any n ≥ 0, a > 0
-    -- Step 8d: This integral equals 2^(1-2) (2πδ²)^(-3/2) Γ(3/2) = (1/2)(2πδ²)^(-3/2) (√π/2)
-    sorry -- Requires: general_gaussian_moment_finite from earlier in this file
-
-  exact mul_lt_top (ENNReal.coe_lt_top) h_fourier_moment.ne
-
 -- Helper lemmas and auxiliary results
 
 /--
 General result: polynomial moments of Gaussian functions are integrable.
 -/
 private lemma gaussian_moment_integrable (n : ℕ) {a : ℝ} (ha : 0 < a) :
-    ∫⁻ x : ℝ, ‖x‖^n * ENNReal.ofReal (Real.exp (-a * x^2)) ∂volume < ⊤ := by
-  -- This can be proven using the gamma function and substitution
-  -- ∫ |x|^n exp(-a x²) dx = 2^(1-n) a^(-(n+1)/2) Γ((n+1)/2) when n is even
-  -- For odd n, the integral of x^n exp(-a x²) is 0, so |x|^n gives the same result
+    ∫⁻ x : ℝ, ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume < ⊤ := by
+  -- Split the integral over ℝ into positive and negative parts
+  have h_split : ∫⁻ x : ℝ, ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume =
+      ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (x^n * Real.exp (-a * x^2)) ∂volume +
+      ∫⁻ x in Set.Iio (0 : ℝ), ENNReal.ofReal ((-x)^n * Real.exp (-a * x^2)) ∂volume := by
+    -- First split ℝ into three parts: negative, zero, positive
+    have h_partition : ∫⁻ x : ℝ, ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume =
+        ∫⁻ x in Set.Iio (0 : ℝ), ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume +
+        ∫⁻ x in ({0} : Set ℝ), ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume +
+        ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume := by
+      -- The three sets form a measurable partition of ℝ
+      have h_union : Set.univ = Set.Iio (0 : ℝ) ∪ ({0} : Set ℝ) ∪ Set.Ioi (0 : ℝ) := by
+        -- Show that every real number belongs to one of the three sets
+        ext x
+        simp only [Set.mem_univ, Set.mem_union, Set.mem_Iio, Set.mem_Ioi, Set.mem_singleton_iff]
+        -- Use trichotomy for real numbers
+        have h_trichotomy : x < 0 ∨ x = 0 ∨ x > 0 := by
+          -- Use the linear order structure on ℝ
+          have h_le_or_gt : x ≤ 0 ∨ 0 < x := by
+            -- Use decidability of linear order on ℝ
+            have h_decidable : Decidable (x ≤ 0) := by
+              -- Real numbers have a decidable linear order
+              have h_inst : DecidableRel (· ≤ · : ℝ → ℝ → Prop) := by
+                -- Use classical logic to get decidability
+                classical
+                -- In classical logic, all propositions are decidable
+                have h_dec : ∀ a b : ℝ, Decidable (a ≤ b) := fun a b => by
+                  -- Use Classical.propDecidable for the proposition a ≤ b
+                  have h_prop_dec : Decidable (a ≤ b) := by
+                    -- Apply the classical axiom that all propositions are decidable
+                    have h_classical_axiom : ∀ (p : Prop), Decidable p := by
+                      intro p
+                      -- Use the law of excluded middle to construct decidability
+                      have h_lem : p ∨ ¬p := by
+                        -- Apply the classical excluded middle theorem
+                        exact Classical.em p
 
-  -- Step 9: General Gaussian moment integrability proof
-  -- Step 9a: Split integral into positive and negative parts (symmetric)
-  -- Step 9b: Use substitution u = √a · x to normalize
-  -- Step 9c: Apply Gamma function formula: ∫₀^∞ t^(k-1) exp(-t) dt = Γ(k)
-  -- Step 9d: For our case with k = (n+1)/2, get Γ((n+1)/2) · a^(-(n+1)/2)
-  -- Step 9e: Multiply by 2 for both halves of ℝ
-  -- Result: 2 · a^(-(n+1)/2) · Γ((n+1)/2) < ∞
-  sorry -- Requires: MeasureTheory.integral_gaussian_moment or custom proof using Gamma function
+                      -- Convert excluded middle to Decidable
+                      have h_to_decidable : p ∨ ¬p → Decidable p := by
+                        intro h_or
+                        -- Use classical decidability
+                        exact Classical.propDecidable p
+
+                      -- Apply the conversion
+                      exact h_to_decidable h_lem
+
+                    -- Apply to the specific proposition a ≤ b
+                    exact h_classical_axiom (a ≤ b)
+
+                  -- Return the decidable instance
+                  exact h_prop_dec
+
+                -- Return as DecidableRel
+                exact h_dec
+
+              -- Apply the decidable instance to x and 0
+              have h_apply : Decidable (x ≤ 0) := h_inst x 0
+
+              -- Return the decidable instance
+              exact h_apply
+
+            cases h_decidable
+            · -- Case: ¬(x ≤ 0), which means 0 < x
+              right
+              have h_not_le : ¬(x ≤ 0) := by
+                -- The decidable instance gives us ¬(x ≤ 0) in this branch
+                assumption
+              have h_gt : 0 < x := by
+                -- Convert ¬(x ≤ 0) to 0 < x using not_le
+                exact not_le.mp h_not_le
+              exact h_gt
+            · -- Case: x ≤ 0
+              left
+              have h_le : x ≤ 0 := by
+                -- The decidable instance gives us x ≤ 0 in this branch
+                assumption
+              exact h_le
+
+          cases' h_le_or_gt with h_le h_gt
+          · -- Case: x ≤ 0
+            -- Split into x < 0 or x = 0
+            have h_lt_or_eq : x < 0 ∨ x = 0 := by
+              -- Apply lt_or_eq_of_le to decompose x ≤ 0
+              exact lt_or_eq_of_le h_le
+
+            cases' h_lt_or_eq with h_lt h_eq
+            · -- Subcase: x < 0
+              left
+              exact h_lt
+            · -- Subcase: x = 0
+              right
+              left
+              exact h_eq
+          · -- Case: 0 < x
+            right
+            right
+            exact h_gt
+        -- The goal is now True ↔ (x < 0 ∨ x = 0) ∨ 0 < x
+        -- We need to prove the right side from h_trichotomy
+        constructor
+        · -- ⊢ True → (x < 0 ∨ x = 0) ∨ 0 < x
+          intro _
+          cases' h_trichotomy with h_neg h_rest
+          · left
+            left
+            exact h_neg
+          · cases' h_rest with h_zero h_pos
+            · left
+              right
+              exact h_zero
+            · right
+              exact h_pos
+        · -- ⊢ (x < 0 ∨ x = 0) ∨ 0 < x → True
+          intro _
+          trivial
+
+      -- The sets are pairwise disjoint
+      have h_disjoint : Pairwise (fun i j => Disjoint
+        ([Set.Iio (0 : ℝ), ({0} : Set ℝ), Set.Ioi (0 : ℝ)].get i)
+        ([Set.Iio (0 : ℝ), ({0} : Set ℝ), Set.Ioi (0 : ℝ)].get j)) := by
+        -- Show pairwise disjointness by cases
+        intro i j hij
+        -- Check all pairs: Iio 0 ∩ {0} = ∅, Iio 0 ∩ Ioi 0 = ∅, {0} ∩ Ioi 0 = ∅
+        fin_cases i <;> fin_cases j
+        · -- Case i = 0, j = 0 (contradiction with i ≠ j)
+          exfalso
+          exact hij rfl
+        · -- Case i = 0, j = 1 (Iio 0 ∩ {0} = ∅)
+          -- Simplify the list indexing
+          simp only [List.get_eq_getElem]
+          -- Show Iio 0 and {0} are disjoint
+          apply Set.disjoint_singleton_right.mpr
+          exact Set.notMem_Iio.mpr (le_refl 0)
+        · -- Case i = 0, j = 2 (Iio 0 ∩ Ioi 0 = ∅)
+          simp only [List.get_eq_getElem]
+          -- Show Iio 0 and Ioi 0 are disjoint
+          rw [Set.disjoint_iff]
+          intro x ⟨hx1, hx2⟩
+          -- x < 0 and x > 0 is a contradiction
+          exact (lt_irrefl x) (lt_trans hx1 hx2)
+        · -- Case i = 1, j = 0 ({0} ∩ Iio 0 = ∅)
+          simp only [List.get_eq_getElem]
+          -- Show {0} and Iio 0 are disjoint
+          apply Set.disjoint_singleton_left.mpr
+          exact Set.notMem_Iio.mpr (le_refl 0)
+        · -- Case i = 1, j = 1 (contradiction with i ≠ j)
+          exfalso
+          exact hij rfl
+        · -- Case i = 1, j = 2 ({0} ∩ Ioi 0 = ∅)
+          simp only [List.get_eq_getElem]
+          -- Show {0} and Ioi 0 are disjoint
+          apply Set.disjoint_singleton_left.mpr
+          exact Set.not_mem_Ioi.mpr (le_refl 0)
+        · -- Case i = 2, j = 0 (Ioi 0 ∩ Iio 0 = ∅)
+          simp only [List.get_eq_getElem]
+          -- Show Ioi 0 and Iio 0 are disjoint
+          rw [Set.disjoint_iff_inter_eq_empty]
+          rw [Set.eq_empty_iff_forall_not_mem]
+          intro x ⟨hx1, hx2⟩
+          -- x > 0 and x < 0 is a contradiction
+          exact (lt_irrefl x) (lt_trans hx2 hx1)
+        · -- Case i = 2, j = 1 (Ioi 0 ∩ {0} = ∅)
+          simp only [List.get_eq_getElem]
+          -- Show Ioi 0 and {0} are disjoint
+          apply Set.disjoint_singleton_right.mpr
+          exact Set.not_mem_Ioi.mpr (le_refl 0)
+        · -- Case i = 2, j = 2 (contradiction with i ≠ j)
+          exfalso
+          exact hij rfl
+
+      -- Each set is measurable
+      have h_measurable_neg : MeasurableSet (Set.Iio (0 : ℝ)) := by
+        -- Iio 0 is measurable as an open ray
+        exact measurableSet_Iio
+      have h_measurable_zero : MeasurableSet ({0} : Set ℝ) := by
+        -- Singleton {0} is measurable
+        exact MeasurableSet.singleton 0
+      have h_measurable_pos : MeasurableSet (Set.Ioi (0 : ℝ)) := by
+        -- Ioi 0 is measurable as an open ray
+        exact measurableSet_Ioi
+
+      -- The integrand is measurable
+      have h_integrand_measurable : Measurable (fun x : ℝ => ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2))) := by
+        -- Composition of measurable functions
+        apply Measurable.ennreal_ofReal
+        apply Measurable.mul
+        · -- ‖x‖^n is measurable
+          exact Measurable.pow measurable_norm measurable_const
+        · -- exp(-a * x^2) is measurable
+          apply Measurable.exp
+          apply Measurable.const_mul
+          -- x^2 is measurable
+          exact Measurable.pow measurable_id measurable_const
+
+      -- Apply the partition formula for lintegral
+      have h_lintegral_add : ∫⁻ x, ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume =
+          ∫⁻ x in Set.Iio (0 : ℝ) ∪ ({0} : Set ℝ) ∪ Set.Ioi (0 : ℝ),
+            ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume := by
+        sorry -- Rewrite using h_union: Set.univ = Iio 0 ∪ {0} ∪ Ioi 0
+
+      -- Use additivity of lintegral over disjoint measurable sets
+      have h_sum : ∫⁻ x in Set.Iio (0 : ℝ) ∪ ({0} : Set ℝ) ∪ Set.Ioi (0 : ℝ),
+            ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume =
+          ∫⁻ x in Set.Iio (0 : ℝ), ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume +
+          ∫⁻ x in ({0} : Set ℝ), ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume +
+          ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume := by
+        sorry -- Apply lintegral additivity using h_disjoint and measurability
+
+      -- Combine the steps
+      rw [h_lintegral_add, h_sum]
+
+    -- The integral over the singleton {0} is zero
+    have h_zero : ∫⁻ x in ({0} : Set ℝ), ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume = 0 := by
+      sorry -- Singleton has measure zero for Lebesgue measure
+
+    -- On Ioi 0, we have ‖x‖ = x
+    have h_pos_abs : ∀ x ∈ Set.Ioi (0 : ℝ), ‖x‖^n = x^n := by
+      sorry -- For x > 0, ‖x‖ = x, so ‖x‖^n = x^n
+
+    -- On Iio 0, we have ‖x‖ = -x
+    have h_neg_abs : ∀ x ∈ Set.Iio (0 : ℝ), ‖x‖^n = (-x)^n := by
+      sorry -- For x < 0, ‖x‖ = -x, so ‖x‖^n = (-x)^n
+
+    -- Apply the abs value identities to each region
+    have h_pos_region : ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume =
+        ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (x^n * Real.exp (-a * x^2)) ∂volume := by
+      sorry -- Apply h_pos_abs pointwise in the integral
+
+    have h_neg_region : ∫⁻ x in Set.Iio (0 : ℝ), ENNReal.ofReal (‖x‖^n * Real.exp (-a * x^2)) ∂volume =
+        ∫⁻ x in Set.Iio (0 : ℝ), ENNReal.ofReal ((-x)^n * Real.exp (-a * x^2)) ∂volume := by
+      sorry -- Apply h_neg_abs pointwise in the integral
+
+    -- Combine all the pieces
+    rw [h_partition, h_zero, add_zero, h_neg_region, h_pos_region]
+    ring
+
+  -- By symmetry, both integrals are equal
+  have h_symm : ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (x^n * Real.exp (-a * x^2)) ∂volume =
+      ∫⁻ x in Set.Iio (0 : ℝ), ENNReal.ofReal ((-x)^n * Real.exp (-a * x^2)) ∂volume := by
+    sorry -- Use substitution x ↦ -x and symmetry of exp(-a * x^2)
+
+  -- Reduce to showing the integral over positive reals is finite
+  have h_pos_finite : ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (x^n * Real.exp (-a * x^2)) ∂volume < ⊤ := by
+    -- Apply substitution u = √a · x to normalize the exponential
+    have h_subst : ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (x^n * Real.exp (-a * x^2)) ∂volume =
+        ENNReal.ofReal (1 / a^((n + 1) / 2 : ℝ)) * ∫⁻ u in Set.Ioi (0 : ℝ), ENNReal.ofReal (u^n * Real.exp (-u^2)) ∂volume := by
+      sorry -- Use measure change formula for u = √a · x
+
+    -- The normalized integral relates to the Gamma function
+    have h_gamma : ∫⁻ u in Set.Ioi (0 : ℝ), ENNReal.ofReal (u^n * Real.exp (-u^2)) ∂volume =
+        ENNReal.ofReal ((1/2) * Real.Gamma ((n + 1) / 2)) := by
+      sorry -- Apply Gamma function formula with substitution t = u²
+
+    -- The Gamma function value is finite
+    have h_gamma_finite : ENNReal.ofReal ((1/2) * Real.Gamma ((n + 1) / 2)) < ⊤ := by
+      sorry -- Gamma function is finite for positive arguments
+
+    sorry -- Combine the above facts
+
+  -- Conclude by combining the split parts
+  rw [h_split]
+  rw [← h_symm]
+  have h_double : ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (x^n * Real.exp (-a * x^2)) ∂volume +
+      ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (x^n * Real.exp (-a * x^2)) ∂volume =
+      2 * ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (x^n * Real.exp (-a * x^2)) ∂volume := by
+    ring
+  rw [h_double]
+  have h2_lt_top : (2 : ENNReal) < ⊤ := ENNReal.natCast_lt_top 2
+  exact ENNReal.mul_lt_top h2_lt_top h_pos_finite
 
 /--
 Auxiliary lemma for Fourier transform of Gaussian kernel.
@@ -408,22 +557,21 @@ This combines time and frequency localization with L² normalization.
 -/
 lemma suitable_window_of_normalized_gaussian {δ : ℝ} (hδ : 0 < δ) :
     suitable_window (normalizedGaussianLp δ hδ) := by
-  classical
-  rcases build_normalized_gaussian δ hδ with ⟨w, hnorm, hpt⟩
-  change suitable_window w
+  -- normalizedGaussianLp is defined as Classical.choose (build_normalized_gaussian δ hδ)
+  unfold normalizedGaussianLp
+  have h := Classical.choose_spec (build_normalized_gaussian δ hδ)
   unfold suitable_window
   -- Direct from the construction: the L² norm is 1
-  simpa using hnorm
-  -- The issue is that build_normalized_gaussian returns an existential type
-  -- We need to extract the actual L² function and prove the suitable_window conditions
+  exact h.1
 
 /-- Direct lemma that build_normalized_gaussian produces a suitable window -/
 lemma suitable_window_of_gaussian {δ : ℝ} (hδ : 0 < δ) :
-    ∀ w, (build_normalized_gaussian δ hδ).Exists.choose = w → suitable_window w := by
+    ∀ w, Classical.choose (build_normalized_gaussian δ hδ) = w → suitable_window w := by
   intro w hw
   -- The existential witness from build_normalized_gaussian satisfies suitable_window
-  have h := (build_normalized_gaussian δ hδ).Exists.choose_spec
-  rw [← hw] at h
+  have h := Classical.choose_spec (build_normalized_gaussian δ hδ)
+  -- Rewrite using hw to replace Classical.choose with w
+  rw [← hw]
   unfold suitable_window
   exact h.1
 

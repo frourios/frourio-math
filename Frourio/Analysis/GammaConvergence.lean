@@ -2,6 +2,7 @@ import Mathlib.MeasureTheory.Function.LpSpace.Basic
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mathlib.Topology.Algebra.InfiniteSum.Basic
 import Mathlib.Order.Filter.Basic
+import Mathlib.Topology.Basic
 import Frourio.Analysis.QuadraticForm
 import Frourio.Analysis.Gaussian
 import Frourio.Analysis.ZakMellin
@@ -24,7 +25,7 @@ needed for the Riemann Hypothesis criterion proof.
 
 namespace Frourio
 
-open MeasureTheory Filter
+open MeasureTheory Filter Topology
 
 /-- A Γ-convergence family on L²(ℝ): a sequence of functionals `Fh` and a limit `F`. -/
 structure GammaFamily where
@@ -187,5 +188,50 @@ lemma critical_line_energy_minimum (σ : ℝ) [RHMinimizationCharacterization] :
   exact RHMinimizationCharacterization.critical_min σ h
 
 end RHCriterion
+
+-- Simplified Gamma convergence for immediate use
+
+section SimpleGammaConvergence
+
+/-- Simplified version of Gamma convergence focusing on converging minimizers.
+This is a minimal implementation for the RH criterion proof. -/
+def GammaConvergesSimple {α : Type*} [NormedAddCommGroup α] (E : ℕ → α → ℝ)
+    (E_inf : α → ℝ) : Prop :=
+  ∃ (xₙ : ℕ → α) (x₀ : α),
+    (∀ n x, E n (xₙ n) ≤ E n x + 1/(n+1 : ℝ)) ∧  -- xₙ n is 1/n-approximate minimizer
+    (Filter.Tendsto xₙ Filter.atTop (𝓝 x₀)) ∧  -- The sequence converges
+    (∀ x, E_inf x₀ ≤ E_inf x)  -- The limit minimizes E_inf
+
+/-- The critical line energy functional in simplified form -/
+noncomputable def critical_line_energy (σ : ℝ) : Hσ σ → ℝ :=
+  limiting_energy σ
+
+/-- Gaussian window energy Gamma converges to critical line energy (simplified).
+This provides the minimal assertion needed for the RH criterion proof. -/
+lemma gaussian_energy_gamma_converges_simple (σ : ℝ) (F : GoldenTestSeq σ) :
+    GammaConvergesSimple
+      (fun n => fun h => Qζσ σ (F.f n + h))
+      (critical_line_energy σ) := by
+  -- Since GammaConvergesSimple is defined as an existential proposition,
+  -- we need to provide witnesses for xₙ and x₀
+  use fun n => (0 : Hσ σ)  -- Zero is the trivial minimizer candidate
+  use 0  -- The limit point
+
+  constructor
+  · -- Each 0 is an approximate minimizer (placeholder)
+    intro n x
+    -- This would require showing optimality properties
+    sorry
+
+  constructor
+  · -- The zero sequence trivially converges to zero
+    exact tendsto_const_nhds
+
+  · -- The limit minimizes the critical line energy (deep connection to RH)
+    intro x
+    -- This is where the RH equivalence enters
+    sorry
+
+end SimpleGammaConvergence
 
 end Frourio

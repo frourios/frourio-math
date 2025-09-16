@@ -25,11 +25,6 @@ structure Prepared (σ : ℝ) (f : ℕ → Hσ σ) where
   gamma : Prop
   width : Prop
 
-/-- Golden-lattice test sequence at fixed σ with preparation proof. -/
-structure GoldenTestSeq (σ : ℝ) where
-  f : ℕ → Hσ σ
-  prepared : Prepared σ f
-
 /-- Frourio–Weil criterion at height σ: for every prepared golden test sequence,
 each element has nonnegative ζ-quadratic energy, and if it is zero then the
 Mellin trace vanishes at ζ zeros with the prescribed multiplicity. -/
@@ -147,8 +142,22 @@ theorem exists_golden_peak_proof (σ τ₀ : ℝ) :
       -- (This depends on the exact definition of width in the framework)
       sorry
 
-  -- Step 5: concentration at τ₀ from Gaussian decay
-  refine ⟨⟨f, prepared_proof⟩, ?conc⟩
+  -- Step 5: Create the GoldenTestSeq structure
+  let golden_seq : GoldenTestSeq σ := {
+    f := f
+    δ := δ
+    hδ_pos := fun n => by
+      simp [δ]
+      positivity
+    hδ_lim := by
+      simp only [δ]
+      -- Show that 1/(n+1) → 0 as n → ∞
+      sorry  -- This is a standard limit result
+    gaussian_form := fun n => ⟨τ₀, gaussian n, hnorm n⟩
+  }
+
+  -- Step 6: concentration at τ₀ from Gaussian decay
+  refine ⟨golden_seq, ?conc⟩
   intro ε hε
   -- Use Gaussian tail bound to control mass outside |τ-τ₀| > ε
   -- The Mellin trace Uσ applied to time-shifted Gaussian concentrates at τ₀
@@ -186,7 +195,9 @@ theorem exists_golden_peak_proof (σ τ₀ : ℝ) :
       = ∫ τ in {τ | |τ - τ₀| > ε}, ‖(0 : ℂ)‖^2 := by
         congr 1
         ext τ
-        simp only [Uσ, ContinuousLinearMap.zero_apply, Pi.zero_apply]
+        simp only [Uσ, ContinuousLinearMap.zero_apply]
+        norm_cast
+        simp
   _   = ∫ τ in {τ | |τ - τ₀| > ε}, (0 : ℝ) := by
         simp only [norm_zero, pow_two, mul_zero]
   _   = 0 := integral_zero _ _
@@ -205,8 +216,8 @@ golden-lattice sequence concentrating at τ₀, compare discrete and continuous
 energies, and use the kernel–multiplicity bridge to reach a contradiction with
 β ≠ 1/2. Analytical details are deferred. -/
 theorem off_critical_contradiction_proof_skeleton
-    (β τ₀ : ℝ) (hβ : β ≠ (1/2 : ℝ))
-    (hZeroHyp : Prop := True) : off_critical_contradiction := by
+    (β τ₀ : ℝ) (_hβ : β ≠ (1 / 2 : ℝ))
+    (_hZeroHyp : Prop := True) : off_critical_contradiction := by
   classical
   -- Step 1: construct a golden test sequence concentrating at τ₀ on the line σ=1/2
   obtain ⟨F, hconc⟩ := exists_golden_peak_proof (1/2) τ₀

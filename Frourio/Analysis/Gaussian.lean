@@ -1072,10 +1072,6 @@ lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR 
 
 end GaussianHelpers
 
-end Frourio
-
-namespace Frourio
-
 open Real
 
 /-- 大きな n に対する正規化定数の比較補題。
