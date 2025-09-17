@@ -214,23 +214,28 @@ lemma gaussian_energy_gamma_converges_simple (σ : ℝ) (F : GoldenTestSeq σ) :
       (critical_line_energy σ) := by
   -- Since GammaConvergesSimple is defined as an existential proposition,
   -- we need to provide witnesses for xₙ and x₀
-  use fun n => (0 : Hσ σ)  -- Zero is the trivial minimizer candidate
-  use 0  -- The limit point
+  classical
+  use fun _n => (0 : Hσ σ)
+  use (0 : Hσ σ)
 
   constructor
-  · -- Each 0 is an approximate minimizer (placeholder)
-    intro n x
-    -- This would require showing optimality properties
-    sorry
+  · intro n x
+    have h_nonneg_inv : 0 ≤ ((n : ℝ) + 1)⁻¹ := by
+      have h_pos : 0 < (n + 1 : ℝ) := by
+        have : (0 : ℝ) ≤ (n : ℝ) := by exact_mod_cast (Nat.zero_le n)
+        exact add_pos_of_nonneg_of_pos this zero_lt_one
+      exact inv_nonneg.mpr (le_of_lt h_pos)
+    have h_nonneg : 0 ≤ 1 / (n + 1 : ℝ) := by
+      simpa [one_div, add_comm, add_left_comm, add_assoc, Nat.cast_add, Nat.cast_one]
+        using h_nonneg_inv
+    simpa [Qζσ, Qσ, Qℝ, Uσ, Nat.cast_add, Nat.cast_one] using h_nonneg
 
   constructor
-  · -- The zero sequence trivially converges to zero
-    exact tendsto_const_nhds
+  · exact tendsto_const_nhds
 
-  · -- The limit minimizes the critical line energy (deep connection to RH)
-    intro x
-    -- This is where the RH equivalence enters
-    sorry
+  · intro x
+    have hx : 0 ≤ Qζσ σ x := Qζσ_pos (σ := σ) (f := x)
+    simp [critical_line_energy, limiting_energy, Qζσ, Qσ, Qℝ, Uσ]
 
 end SimpleGammaConvergence
 

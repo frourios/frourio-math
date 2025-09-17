@@ -1,4 +1,5 @@
 import Frourio.Analysis.Gaussian
+import Frourio.Analysis.GaussianFourierTransform
 import Frourio.Analysis.ZakMellin
 import Mathlib.Analysis.Fourier.FourierTransform
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus
@@ -20,10 +21,6 @@ open Real Complex MeasureTheory Measure FourierTransform ENNReal
 
 variable {δ : ℝ} (hδ : 0 < δ)
 
--- Canonical L² witness for the normalized Gaussian, to avoid `.val`
-def normalizedGaussianLp (δ : ℝ) (hδ : 0 < δ) : Lp ℂ 2 (volume : Measure ℝ) :=
-  Classical.choose (build_normalized_gaussian δ hδ)
-
 lemma normalizedGaussianLp_norm_one {δ : ℝ} (hδ : 0 < δ) :
     ‖normalizedGaussianLp δ hδ‖ = 1 := by
   unfold normalizedGaussianLp
@@ -35,7 +32,8 @@ The second moment ∫ t² |w(t)|² dt is finite for normalized Gaussian windows.
 This establishes time localization for the suitable_window condition.
 -/
 lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
-    ∫⁻ t : ℝ, ENNReal.ofReal (t^2 * ‖(((normalizedGaussianLp δ hδ : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)) t‖^2) ∂volume < ⊤ := by
+    ∫⁻ t : ℝ, ENNReal.ofReal (t^2 * ‖(((normalizedGaussianLp δ hδ :
+      Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)) t‖^2) ∂volume < ⊤ := by
   -- Use the fact that normalizedGaussianLp is defined as Classical.choose
   unfold normalizedGaussianLp
   -- Now we have the Classical.choose term directly
@@ -48,12 +46,14 @@ lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
   have h_spec := Classical.choose_spec (build_normalized_gaussian δ hδ)
   -- From h_spec.2, we have a.e. pointwise formula
   -- w t = A · exp(-π t²/δ²) with A := 2^(1/4)/√δ (as a real constant, coerced to ℂ)
-  have hApt : ∀ᵐ t : ℝ, (w : ℝ → ℂ) t = (2^(1/4 : ℝ) / Real.sqrt δ : ℝ) * Real.exp (-π * t^2 / δ^2) := by
+  have hApt : ∀ᵐ t : ℝ, (w : ℝ → ℂ) t = (2^(1/4 : ℝ) / Real.sqrt δ : ℝ) *
+      Real.exp (-π * t^2 / δ^2) := by
     simp only [w]
     exact h_spec.2
 
   -- Hence a.e. we have an equality for the squared norm with an explicit Gaussian
-  have h_bound_ae : ∀ᵐ t : ℝ, ‖(w : ℝ → ℂ) t‖^2 = (2^(1/4 : ℝ) / Real.sqrt δ)^2 * Real.exp (-2 * π * t^2 / δ^2) := by
+  have h_bound_ae : ∀ᵐ t : ℝ, ‖(w : ℝ → ℂ) t‖^2 = (2^(1/4 : ℝ) / Real.sqrt δ)^2 *
+      Real.exp (-2 * π * t^2 / δ^2) := by
     filter_upwards [hApt] with t ht
     -- rewrite and use multiplicativity of the norm, then square
     have : ‖(w : ℝ → ℂ) t‖ = (2^(1/4 : ℝ) / Real.sqrt δ) * Real.exp (-π * t^2 / δ^2) := by
@@ -92,7 +92,8 @@ lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
   -- Turn the a.e. equality into an a.e. equality on the integrand inside `ofReal`
   have h_le_integrand_ae :
       (fun t => ENNReal.ofReal (t^2 * ‖(w : ℝ → ℂ) t‖^2)) =ᵐ[volume]
-      (fun t => ENNReal.ofReal ((2^(1/4 : ℝ) / Real.sqrt δ)^2 * t^2 * Real.exp (-2 * π * t^2 / δ^2))) := by
+      (fun t => ENNReal.ofReal ((2^(1/4 : ℝ) / Real.sqrt δ)^2 * t^2 *
+        Real.exp (-2 * π * t^2 / δ^2))) := by
     filter_upwards [h_bound_ae] with t ht
     rw [ht]
     ring_nf
@@ -100,11 +101,13 @@ lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
   -- Use the a.e. equality to rewrite the lintegral
   have h_le_lint :
       (∫⁻ t : ℝ, ENNReal.ofReal (t^2 * ‖(w : ℝ → ℂ) t‖^2) ∂volume)
-        = ∫⁻ t, ENNReal.ofReal ((2^(1/4 : ℝ) / Real.sqrt δ)^2 * t^2 * Real.exp (-2 * π * t^2 / δ^2)) ∂volume :=
+        = ∫⁻ t, ENNReal.ofReal ((2^(1/4 : ℝ) / Real.sqrt δ)^2 * t^2 *
+          Real.exp (-2 * π * t^2 / δ^2)) ∂volume :=
     lintegral_congr_ae h_le_integrand_ae
 
   -- Factor out the constant on the right-hand side
-  have h_fact : ∫⁻ t, ENNReal.ofReal ((2^(1/4 : ℝ) / Real.sqrt δ)^2 * t^2 * Real.exp (-2 * π * t^2 / δ^2)) ∂volume
+  have h_fact : ∫⁻ t, ENNReal.ofReal ((2^(1/4 : ℝ) / Real.sqrt δ)^2 *
+      t^2 * Real.exp (-2 * π * t^2 / δ^2)) ∂volume
       = ENNReal.ofReal ((2^(1/4 : ℝ) / Real.sqrt δ)^2) *
         ∫⁻ t, ENNReal.ofReal (t^2 * Real.exp (-2 * π * t^2 / δ^2)) ∂volume := by
     rw [← lintegral_const_mul']
@@ -123,7 +126,8 @@ lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
   -- This is a standard Gaussian moment estimate developed below in this proof
 
   -- Now show the integral without the constant is finite
-  have h_gaussian_moment : ∫⁻ t : ℝ, ENNReal.ofReal (t^2 * Real.exp (-2 * π * t^2 / δ^2)) ∂volume < ⊤ := by
+  have h_gaussian_moment : ∫⁻ t : ℝ, ENNReal.ofReal (t^2 * Real.exp (-2 *
+      π * t^2 / δ^2)) ∂volume < ⊤ := by
     -- Let c = (2π)/δ² and β = (3/4)c. Use the global inequality
     -- t² e^{-c t²} ≤ (4/c) e^{-β t²} for all t, then dominate by an integrable Gaussian.
     have hδsq_pos : 0 < δ ^ 2 := by simpa [pow_two] using mul_pos hδ hδ
@@ -150,7 +154,6 @@ lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
             exact mul_nonneg (le_of_lt hc) (sq_nonneg _)
             norm_num
           -- For x ≥ 0, we have x ≤ exp(x)
-          -- This follows from 1 + x ≤ exp(x), and since exp(x) ≥ 1 + x, we get x ≤ exp(x) - 1 ≤ exp(x)
           have h1 : (c * t^2) / 2 + 1 ≤ Real.exp ((c * t^2) / 2) := Real.add_one_le_exp _
           linarith
         linarith
@@ -215,7 +218,8 @@ lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
       -- An integrable function has finite lintegral
       have h_nonneg : ∀ t, 0 ≤ Real.exp (-β * t^2) := fun t => Real.exp_nonneg _
       -- Convert the integrability to finite lintegral
-      have h_eq : (fun t => ENNReal.ofReal (Real.exp (-β * t^2))) = fun t => (‖Real.exp (-β * t^2)‖₊ : ENNReal) := by
+      have h_eq : (fun t => ENNReal.ofReal (Real.exp (-β * t^2))) =
+          fun t => (‖Real.exp (-β * t^2)‖₊ : ENNReal) := by
         ext t
         simp only [nnnorm_of_nonneg (h_nonneg t), ENNReal.coe_nnreal_eq]
         rfl
@@ -243,7 +247,8 @@ lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
 
   -- Combine the constant factor with finiteness of the inner integral
   have h_rhs_lt :
-      (∫⁻ t, ENNReal.ofReal ((2^(1/4 : ℝ) / Real.sqrt δ)^2 * t^2 * Real.exp (-2 * π * t^2 / δ^2)) ∂volume) < ⊤ := by
+      (∫⁻ t, ENNReal.ofReal ((2^(1/4 : ℝ) / Real.sqrt δ)^2 * t^2 *
+      Real.exp (-2 * π * t^2 / δ^2)) ∂volume) < ⊤ := by
     -- rewrite via factoring and apply `mul_lt_top`
     rw [h_fact]
     exact ENNReal.mul_lt_top ENNReal.ofReal_lt_top h_gaussian_moment
@@ -251,6 +256,46 @@ lemma gaussian_second_moment_finite {δ : ℝ} (hδ : 0 < δ) :
   -- Final: original integral = RHS, hence also < ⊤
   rw [h_le_lint]
   exact h_rhs_lt
+
+/--
+Rewrites the mixed real/complex exponential expression appearing in the Gaussian
+Fourier kernel to a purely complex-exponential form.
+-/
+lemma gaussian_kernel_integrand_eq (δ ξ : ℝ) :
+    (fun t : ℝ =>
+        Complex.exp (↑(-2 * π * ξ * t) * I) * ↑(Real.exp (-Real.pi * t^2 / δ^2))) =
+    fun t : ℝ =>
+        Complex.exp (-π * t^2 / δ^2) * Complex.exp (-2 * π * I * t * ξ) := by
+  funext t
+  have h_phase :
+      Complex.exp (↑(-2 * π * ξ * t) * I) =
+        Complex.exp (-2 * π * I * t * ξ) := by
+    apply congrArg Complex.exp
+    have : (↑(-2 * π * ξ * t) : ℂ) = (-2 : ℂ) * π * ξ * t := by
+      simp [Complex.ofReal_mul, Complex.ofReal_neg]
+    calc
+      (↑(-2 * π * ξ * t) * I : ℂ)
+          = ((-2 : ℂ) * π * ξ * t) * I := by simp
+      _ = (-2 : ℂ) * π * ξ * t * I := by ac_rfl
+      _ = (-2 : ℂ) * π * I * t * ξ := by ac_rfl
+  have h_gaussian_cast :
+      (↑(Real.exp (-Real.pi * t^2 / δ^2)) : ℂ) =
+        Complex.exp (↑(-Real.pi * t^2 / δ^2)) := by
+    simp
+  have h_gaussian_arg :
+      Complex.exp (↑(-Real.pi * t^2 / δ^2)) =
+        Complex.exp (-π * t^2 / δ^2) := by
+    apply congrArg Complex.exp
+    simp [Complex.ofReal_mul, Complex.ofReal_div, Complex.ofReal_pow,
+      Complex.ofReal_neg]
+  calc
+    Complex.exp (↑(-2 * π * ξ * t) * I) * ↑(Real.exp (-Real.pi * t^2 / δ^2))
+        = Complex.exp (-2 * π * I * t * ξ) * Complex.exp (↑(-Real.pi * t^2 / δ^2)) := by
+          rw [h_phase, h_gaussian_cast]
+    _ = Complex.exp (-2 * π * I * t * ξ) * Complex.exp (-π * t^2 / δ^2) := by
+          rw [h_gaussian_arg]
+    _ = Complex.exp (-π * t^2 / δ^2) * Complex.exp (-2 * π * I * t * ξ) := by
+          simp [mul_comm]
 
 /--
 Auxiliary lemma for Fourier transform of Gaussian kernel.
@@ -261,15 +306,20 @@ lemma fourier_transform_gaussian_kernel {δ ξ : ℝ} (hδ : 0 < δ) :
   -- This follows from the standard Gaussian Fourier transform formula
   -- F[exp(-π t²/σ²)](ξ) = σ exp(-π σ² ξ²)
   -- Here σ = δ
-
-  -- Step 10: Fourier transform of Gaussian
-  -- Step 10a: Write exp(-πt²/δ²) · exp(-2πitξ) as exp(-πt²/δ² - 2πitξ)
-  -- Step 10b: Complete the square in the exponent: -π(t/δ + iδξ)² + πδ²ξ²
-  -- Step 10c: Factor out exp(-πδ²ξ²) from the integral
-  -- Step 10d: Change variable s = t/δ + iδξ (contour shift in complex plane)
-  -- Step 10e: Apply standard Gaussian integral: ∫ exp(-πs²) ds = 1
-  -- Step 10f: Multiply by Jacobian factor δ to get final result
-  sorry -- Requires: Complex.integral_gaussian or Real.fourierIntegral_gaussian_pi from Mathlib
+  have h_integrand_eq := gaussian_kernel_integrand_eq δ ξ
+  have h_rhs : (δ : ℂ) * Complex.exp (-π * δ^2 * ξ^2) =
+      δ * Complex.exp (-π * δ^2 * ξ^2) := by
+    simp
+  -- Rewrite the Gaussian Fourier transform lemma to match our formulation
+  have h := gaussian_fourier_real_exp (δ := δ) hδ ξ
+  have h_int_eq := congrArg (fun f : ℝ → ℂ => ∫ t, f t ∂volume) h_integrand_eq.symm
+  calc
+    ∫ t : ℝ, Complex.exp (-π * t^2 / δ^2) * Complex.exp (-2 * π * I * t * ξ) ∂volume
+        = ∫ t : ℝ,
+              Complex.exp (↑(-2 * π * ξ * t) * I) * ↑(Real.exp (-Real.pi * t^2 / δ^2)) ∂volume :=
+          h_int_eq
+    _ = (δ : ℂ) * Complex.exp (-π * δ^2 * ξ^2) := by
+          simpa [h_rhs] using h
 
 end
 

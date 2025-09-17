@@ -198,64 +198,6 @@ lemma cauchy_rectangle_formula {f : ℂ → ℂ} {R : ℝ} {y₁ y₂ : ℝ}
   -- Need to show equality after converting to appropriate form
   ring
 
-lemma vertical_integral_bound_exp {a : ℂ} {R : ℝ} {y₁ y₂ : ℝ}
-    (ha : 0 < a.re) (hy : y₁ ≤ y₂) :
-    ∃ C : ℝ, ‖∫ t in y₁..y₂, Complex.exp (-a * (R + t * I)^2)‖ ≤
-    Real.exp (-a.re * R^2) * C := by
-  -- For f(z) = exp(-a * z²), we evaluate the integral along the vertical line
-  -- z = R + t*I for t ∈ [y₁, y₂]
-
-  -- Expand (R + t*I)² = R² + 2*R*t*I - t²
-  have h_expand : ∀ t : ℝ, (R + t * I : ℂ)^2 = R^2 - t^2 + 2*R*t*I := by
-    intro t
-    simp only [sq, add_mul, mul_add, mul_comm I, mul_assoc, I_mul_I]
-    ring
-
-  -- So -a * (R + t*I)² = -a.re * (R² - t²) + 2*a.im*R*t - i*(a.im * (R² - t²) + 2*a.re*R*t)
-  have h_exp_decomp : ∀ t : ℝ,
-    -a * (R + t * I)^2 = ((-a.re * (R^2 - t^2) + 2*a.im*R*t) : ℂ)
-                       + I * ((-a.im * (R^2 - t^2) - 2*a.re*R*t) : ℝ) := by
-    intro t
-    sorry -- Complex decomposition of -a * (R + t * I)^2
-
-  -- The norm of exp(-a * (R + t*I)²) equals exp of the real part
-  have h_norm : ∀ t : ℝ,
-    ‖Complex.exp (-a * (R + t * I)^2)‖ = Real.exp (-a.re * (R^2 - t^2) + 2*a.im*R*t) := by
-    intro t
-    rw [h_exp_decomp]
-    -- Use the fact that |exp(z)| = exp(Re(z))
-    sorry -- Complex norm evaluation
-
-  -- Factor out exp(-a.re * R²) from the bound
-  have h_factor : ∀ t : ℝ,
-    ‖Complex.exp (-a * (R + t * I)^2)‖ = Real.exp (-a.re * R^2) *
-      Real.exp (a.re * t^2 + 2*a.im*R*t) := by
-    intro t
-    rw [h_norm]
-    rw [← Real.exp_add]
-    congr 1
-    ring
-
-  -- Define C as the integral of the remaining factor
-  let C := |y₂ - y₁| * Real.exp (a.re * (max (y₁^2) (y₂^2)) + 2 * |a.im| * |R| * (max |y₁| |y₂|))
-
-  use C
-
-  -- Apply the bound using the factorization
-  calc ‖∫ t in y₁..y₂, Complex.exp (-a * (R + t * I)^2)‖
-    ≤ ∫ t in y₁..y₂, ‖Complex.exp (-a * (R + t * I)^2)‖ :=
-        intervalIntegral.norm_integral_le_integral_norm hy
-    _ = ∫ t in y₁..y₂, Real.exp (-a.re * R^2) * Real.exp (a.re * t^2 + 2*a.im*R*t) := by
-        congr 1
-        ext t
-        exact h_factor t
-    _ = Real.exp (-a.re * R^2) * ∫ t in y₁..y₂, Real.exp (a.re * t^2 + 2*a.im*R*t) := by
-        rw [intervalIntegral.integral_const_mul]
-    _ ≤ Real.exp (-a.re * R^2) * C := by
-        gcongr
-        -- The integral is bounded by |y₂ - y₁| times the max of the integrand
-        sorry -- This requires bounding the integral by the maximum value times the interval length
-
 lemma contour_limit_theorem {f : ℂ → ℂ} {y₁ y₂ : ℝ}
     (hf_integrable_y1 : Integrable (fun x : ℝ => f (x + y₁ * I)))
     (hf_integrable_y2 : Integrable (fun x : ℝ => f (x + y₂ * I)))
@@ -352,60 +294,6 @@ lemma contour_limit_theorem {f : ℂ → ℂ} {y₁ y₂ : ℝ}
 
   -- Conclude equality from limit_eq: diff = 0 implies equality
   exact sub_eq_zero.mp limit_eq
-
-lemma gaussian_integrable_horizontal {a : ℂ} {y : ℝ} (ha : 0 < a.re) :
-    Integrable (fun x : ℝ => Complex.exp (-a * (x + y * I)^2)) := by
-  -- The Gaussian exp(-a(x+yi)²) satisfies the decay condition needed for horizontal_contour_shift
-  -- We'll show integrability using the same approach as in horizontal_contour_shift
-
-  -- Define the function
-  let f := fun z => Complex.exp (-a * z^2)
-
-  -- Verify f is entire
-  have hf_entire : ∀ z, DifferentiableAt ℂ f z := by
-    intro z
-    simp [f]
-    apply DifferentiableAt.cexp
-    apply DifferentiableAt.neg
-    apply DifferentiableAt.const_mul
-    apply DifferentiableAt.pow
-    exact differentiableAt_id
-
-  -- Establish Gaussian decay for f
-  have hf_decay : ∃ (A B : ℝ) (hA : 0 < A) (hB : 0 < B),
-      ∀ z : ℂ, ‖f z‖ ≤ A * Real.exp (-B * ‖z‖^2) := by
-    -- For z = x + yi, we have z² = (x² - y²) + 2xyi
-    -- So -a * z² = -a.re(x² - y²) + a.im·2xy - i(...)
-    -- Thus |exp(-a * z²)| = exp(-a.re(x² - y²) + 2a.im·xy)
-
-    -- We need to bound exp(-a.re(x² - y²) + 2a.im·xy) ≤ A * exp(-B(x² + y²))
-    -- Using the inequality: 2|a.im·xy| ≤ |a.im|(x² + y²) for appropriate constants
-
-    -- Choose B = a.re/2 (half the real part for safety)
-    -- Choose A to compensate for the worst case of the imaginary part
-    use Real.exp (|a.im|^2 / (2 * a.re)), a.re / 2, by {
-      -- Show A > 0
-      exact Real.exp_pos _
-    }, by {
-      -- Show B = a.re/2 > 0
-      exact half_pos ha
-    }
-
-    intro z
-    simp [f]
-    -- Need to show: ‖exp(-a * z^2)‖ ≤ exp(|a.im|²/(2a.re)) * exp(-(a.re/2) * ‖z‖^2)
-
-    -- This requires the inequality:
-    -- exp(-a.re(x²-y²) + 2a.im·xy) ≤ exp(|a.im|²/(2a.re)) * exp(-(a.re/2)(x²+y²))
-    -- Which follows from completing the square in the exponent
-    sorry -- Detailed computation with completing the square
-
-  -- Apply integrable_of_gaussian_decay_horizontal with y parameter
-  have h_integrable : Integrable (fun x : ℝ => f (x + y * I)) :=
-    integrable_of_gaussian_decay_horizontal (y := y) hf_entire hf_decay
-
-  -- The function on the horizontal line y is exactly what we need
-  convert h_integrable
 
 /--
 For entire functions with Gaussian decay, the integral over any horizontal line
@@ -660,53 +548,5 @@ theorem horizontal_contour_shift {f : ℂ → ℂ} {y₁ y₂ : ℝ}
   exact contour_limit_theorem hf_integrable_y1 hf_integrable_y2 vert_vanish rect_eq
 
 end CauchyTheorem
-
-section RiemannLebesgue
-
-/--
-The Riemann-Lebesgue lemma: For an L¹ function f, its Fourier transform
-vanishes at infinity.
--/
-theorem riemann_lebesgue_lemma {f : ℝ → ℂ} (hf : Integrable f) :
-    Filter.Tendsto (fun ξ : ℝ => ∫ x : ℝ, f x * Complex.exp (-2 * π * I * ↑ξ * ↑x))
-    Filter.atTop (𝓝 0) := by
-  sorry
-
-/--
-Special case for Gaussian times oscillating exponential.
-This is useful for analyzing the Fourier transform of Gaussians.
--/
-theorem gaussian_oscillating_integral {δ : ℝ} (hδ : 0 < δ) (ξ : ℝ) :
-    ∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * ↑a^2) * Complex.exp (-2 * ↑π * I * ↑ξ * ↑a) =
-    Complex.exp (-↑π * ↑δ^2 * ↑ξ^2) * ∫ s : ℝ, Complex.exp (-↑π / ↑δ^2 * ↑s^2) := by
-  sorry
-
-end RiemannLebesgue
-
-section ComplexIntegration
-
-/--
-Change of variables formula for complex integrals along the real line.
-If φ : ℝ → ℂ is a smooth bijection preserving orientation, then
-∫ f(z) dz = ∫ f(φ(t)) φ'(t) dt
--/
-theorem complex_change_of_variables {f : ℂ → ℂ} {φ : ℝ → ℂ}
-    (hf : ContinuousOn f (φ '' Set.univ))
-    (hφ : Differentiable ℝ (fun t => (φ t).re) ∧ Differentiable ℝ (fun t => (φ t).im))
-    (hφ_bij : Function.Bijective φ) :
-    ∫ z : ℝ, f (z : ℂ) = ∫ t : ℝ, f (φ t) * deriv φ t := by
-  sorry
-
-/--
-Integration by parts for complex functions on the real line.
--/
-theorem complex_integration_by_parts {f g : ℝ → ℂ}
-    (hf : Differentiable ℝ f) (hg : Differentiable ℝ g)
-    (h_decay : Filter.Tendsto (fun x => f x * g x) Filter.atTop (𝓝 0) ∧
-               Filter.Tendsto (fun x => f x * g x) Filter.atBot (𝓝 0)) :
-    ∫ x : ℝ, (deriv f x) * g x = - ∫ x : ℝ, f x * (deriv g x) := by
-  sorry
-
-end ComplexIntegration
 
 end Frourio
