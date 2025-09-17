@@ -9,20 +9,20 @@ import Mathlib.Analysis.Real.Pi.Bounds
 
 namespace Frourio
 
-section GaussianHelpers
-
 open MeasureTheory Real Complex
 open scoped Real ENNReal
 
+section GaussianHelpers
+
 -- Small helper to keep rewriting light inside big proofs
-private lemma norm_ofReal_exp_neg_mul_sq (a t : ℝ) :
+lemma norm_ofReal_exp_neg_mul_sq (a t : ℝ) :
     ‖(Real.exp (-(a * t ^ 2)) : ℂ)‖ = Real.exp (-(a * t ^ 2)) := by
   have hxpos : 0 < Real.exp (-(a * t ^ 2)) := Real.exp_pos _
   simp only [Complex.norm_real]
   exact abs_of_pos hxpos
 
 -- Direct helper matching the complex Gaussian form
-private lemma norm_cexp_neg_mul_sq (a t : ℝ) :
+lemma norm_cexp_neg_mul_sq (a t : ℝ) :
     ‖Complex.exp (-( (a : ℂ) * (t : ℂ) ^ 2))‖ = Real.exp (-(a * t ^ 2)) := by
   -- rewrite the complex exponent of a real number into `ofReal (Real.exp ...)`
   have hz_real : -((a : ℂ) * (t : ℂ) ^ 2) = (-(a * t ^ 2) : ℂ) := by
@@ -35,15 +35,15 @@ private lemma norm_cexp_neg_mul_sq (a t : ℝ) :
   simpa using norm_ofReal_exp_neg_mul_sq a t
 
 -- Lightweight helper to avoid heavy `simp` chains
-private lemma exp_sq_eq (x : ℝ) : Real.exp x * Real.exp x = Real.exp (x + x) := by
+lemma exp_sq_eq (x : ℝ) : Real.exp x * Real.exp x = Real.exp (x + x) := by
   simpa using (Real.exp_add x x).symm
 
 -- Helper for exp square with pow_two and two_mul to avoid timeout
-private lemma exp_sq_pow_two (x : ℝ) : (Real.exp x) ^ 2 = Real.exp (2 * x) := by
+lemma exp_sq_pow_two (x : ℝ) : (Real.exp x) ^ 2 = Real.exp (2 * x) := by
   rw [pow_two, exp_sq_eq, two_mul]
 
 -- L² membership characterization for complex exponential functions
-private lemma memLp_two_iff_integrable_sq_complex (f : ℝ → ℂ)
+lemma memLp_two_iff_integrable_sq_complex (f : ℝ → ℂ)
     (hmeas : AEStronglyMeasurable f (volume : Measure ℝ)) :
     MemLp f 2 (volume : Measure ℝ) ↔
     Integrable (fun t => ‖f t‖ ^ (2 : ℕ)) (volume : Measure ℝ) := by
@@ -199,7 +199,7 @@ lemma gaussian_memLpC_cexp (a : ℝ) (ha : 0 < a) :
   exact (memLp_two_iff_integrable_sq_complex _ hmeas).mpr hInt_sq
 
 -- Pointwise identity between the complex Gaussian and the coerced real exponential
-private lemma cexp_neg_mul_sq_ofReal (a t : ℝ) :
+lemma cexp_neg_mul_sq_ofReal (a t : ℝ) :
     Complex.exp (-( (a : ℂ) * (t : ℂ) ^ 2)) = (Real.exp (-(a * t^2)) : ℂ) := by
   have hz_real : -((a : ℂ) * (t : ℂ) ^ 2) = (-(a * t ^ 2) : ℂ) := by
     simp [pow_two]
@@ -335,7 +335,7 @@ lemma gaussian_l2_norm_sq_complex (δ : ℝ) (hδ : 0 < δ) :
 /-! 正規化ガウス関数の構成 -/
 
 /-- Helper lemma for complex exponential equality -/
-private lemma cexp_pi_delta_sq_eq (δ : ℝ) (x : ℝ) :
+lemma cexp_pi_delta_sq_eq (δ : ℝ) (x : ℝ) :
     Complex.exp (-( ((Real.pi / δ^2) : ℂ) * (x : ℂ) ^ 2))
       = (Real.exp (-(Real.pi / δ^2) * x^2) : ℂ) :=
   by
@@ -344,7 +344,7 @@ private lemma cexp_pi_delta_sq_eq (δ : ℝ) (x : ℝ) :
     simp [pow_two, mul_comm, mul_left_comm]
 
 /-- Helper lemma: Complex Gaussian exp(-(π/δ²) * t²) in L² -/
-private lemma gaussian_memLp_pi_delta_sq (δ : ℝ) (hδ : 0 < δ) :
+lemma gaussian_memLp_pi_delta_sq (δ : ℝ) (hδ : 0 < δ) :
     MemLp (fun t : ℝ => Complex.exp (-( ((Real.pi / δ^2) : ℂ) * (t : ℂ) ^ 2))) 2
         (volume : Measure ℝ) := by
   -- Directly apply the complex Gaussian L² lemma with a = π/δ²
@@ -352,7 +352,7 @@ private lemma gaussian_memLp_pi_delta_sq (δ : ℝ) (hδ : 0 < δ) :
   simpa using gaussian_memLpC_cexp (Real.pi / δ^2) ha
 
 /-- Helper lemma: Convert L² norm from Lebesgue integral to regular integral form -/
-private lemma lintegral_norm_sq_eq_integral_norm_sq (f : ℝ → ℂ)
+lemma lintegral_norm_sq_eq_integral_norm_sq (f : ℝ → ℂ)
     (hmeas : AEStronglyMeasurable f (volume : Measure ℝ))
     (hf : MemLp f 2 (volume : Measure ℝ)) :
     ((∫⁻ t, ‖f t‖ₑ ^ (2 : ℝ) ∂(volume : Measure ℝ)) ^ (1 / (2 : ℝ))).toReal =
@@ -585,26 +585,26 @@ lemma normalized_gaussian_pointwise_bound (δ : ℝ) (hδ : 0 < δ) :
         rfl
 
 /-- Helper lemma for integral_const_mul application -/
-private lemma integral_const_mul_gaussian (c δ : ℝ) :
+lemma integral_const_mul_gaussian (c δ : ℝ) :
     ∫ t, c * Real.exp (-Real.pi * t ^ 2 / δ ^ 2)
       = c * (∫ t, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
   exact integral_const_mul c (fun t : ℝ => Real.exp (-Real.pi * t ^ 2 / δ ^ 2))
 
 /-- Helper lemma for factoring out constant from integral -/
-private lemma gaussian_tail_integral_factor_out (R δ : ℝ) :
+lemma gaussian_tail_integral_factor_out (R δ : ℝ) :
     ∫ t, Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2)
       = Real.exp (-Real.pi * R ^ 2 / δ ^ 2)
           * (∫ t, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
   exact integral_const_mul_gaussian (Real.exp (-Real.pi * R ^ 2 / δ ^ 2)) δ
 
 /-- Helper lemma: The set {t : ℝ | R < |t|} is measurable -/
-private lemma measurableSet_abs_gt (R : ℝ) :
+lemma measurableSet_abs_gt (R : ℝ) :
     MeasurableSet {t : ℝ | R < |t|} := by
   have : {t : ℝ | R < |t|} = {t : ℝ | |t| ∈ Set.Ioi R} := by rfl
   rw [this]
   exact measurableSet_preimage continuous_abs.measurable measurableSet_Ioi
 
-private lemma integrable_gaussian_product (δ : ℝ) (hδ : 0 < δ) (R : ℝ) :
+lemma integrable_gaussian_product (δ : ℝ) (hδ : 0 < δ) (R : ℝ) :
   Integrable (fun t => Real.exp (-Real.pi * R ^ 2 / δ ^ 2) *
     Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
   -- Base integrable Gaussian with coefficient a = π/δ²
@@ -619,7 +619,7 @@ private lemma integrable_gaussian_product (δ : ℝ) (hδ : 0 < δ) (R : ℝ) :
   exact (hbase'.const_mul (Real.exp (-Real.pi * R ^ 2 / δ ^ 2)))
 
 /-- Helper lemma for the tail bound calculation -/
-private lemma tail_bound_calc_helper (δ : ℝ) (R : ℝ)
+lemma tail_bound_calc_helper (δ : ℝ) (R : ℝ)
     (hL : ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
       = ∫ t, Set.indicator {t : ℝ | R < |t|}
               (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
@@ -631,6 +631,90 @@ private lemma tail_bound_calc_helper (δ : ℝ) (R : ℝ)
   rw [hL]
   exact h_int_le
 
+lemma gaussian_exp_square_split (a t : ℝ) :
+    Real.exp (-2 * a * t^2) = Real.exp (-a * t^2) * Real.exp (-a * t^2) := by
+  rw [← Real.exp_add]
+  congr 1
+  ring
+
+lemma gaussian_tail_exp_monotonicity (δ R t : ℝ) (hδ : 0 < δ) (hR_pos : 0 ≤ R) (hR : R ≤ |t|) :
+    -Real.pi * t^2 / δ^2 ≤ -Real.pi * R^2 / δ^2 := by
+  have : R^2 ≤ t^2 := by
+    calc R^2 = R * R := by ring
+    _ ≤ |t| * |t| := mul_self_le_mul_self hR_pos hR
+    _ = t^2 := by rw [← sq, sq_abs]
+  -- multiply both sides by the negative factor -π/δ^2, which reverses inequality
+  have hδsq_pos : 0 < δ^2 := by simpa [pow_two] using mul_pos hδ hδ
+  have hpos : 0 < Real.pi / δ^2 := div_pos Real.pi_pos hδsq_pos
+  calc -Real.pi * t^2 / δ^2 = -(Real.pi / δ^2) * t^2 := by ring
+  _ ≤ -(Real.pi / δ^2) * R^2 := by
+    apply mul_le_mul_of_nonpos_left this
+    exact neg_nonpos.mpr (le_of_lt hpos)
+  _ = -Real.pi * R^2 / δ^2 := by ring
+
+lemma gaussian_tail_pointwise_bound (δ R t : ℝ) (hδ : 0 < δ) (hR : 0 < R) (hmem : R < |t|) :
+    Real.exp (-2 * Real.pi * t^2 / δ^2) ≤
+    Real.exp (-Real.pi * R^2 / δ^2) * Real.exp (-Real.pi * t^2 / δ^2) := by
+  -- Use that |t| ≥ R to compare exponentials
+  have hR_nonneg : 0 ≤ R := le_of_lt hR
+  have habs : R ≤ |t| := le_of_lt hmem
+  have hcmp := gaussian_tail_exp_monotonicity δ R t hδ hR_nonneg habs
+  have hmono := Real.exp_le_exp.mpr hcmp
+  -- Now split the square: exp(-2a) = exp(-a)*exp(-a) ≤ exp(-b)*exp(-a)
+  have hsplit : Real.exp (-2 * Real.pi * t^2 / δ^2) =
+      Real.exp (-Real.pi * t^2 / δ^2) * Real.exp (-Real.pi * t^2 / δ^2) := by
+    rw [← Real.exp_add]
+    congr 1
+    ring
+  have hxpos : 0 ≤ Real.exp (-Real.pi * t^2 / δ^2) := by exact (le_of_lt (Real.exp_pos _))
+  rw [hsplit]
+  exact mul_le_mul_of_nonneg_right hmono hxpos
+
+lemma gaussian_product_nonneg (δ R t : ℝ) :
+    0 ≤ Real.exp (-Real.pi * R^2 / δ^2) * Real.exp (-Real.pi * t^2 / δ^2) := by
+  have h1 : 0 ≤ Real.exp (-Real.pi * R^2 / δ^2) := le_of_lt (Real.exp_pos _)
+  have h2 : 0 ≤ Real.exp (-Real.pi * t^2 / δ^2) := le_of_lt (Real.exp_pos _)
+  exact mul_nonneg h1 h2
+
+lemma integral_mono_of_pointwise_le_indicator {f g : ℝ → ℝ} {S : Set ℝ}
+    (hf_nonneg : ∀ t, 0 ≤ Set.indicator S f t)
+    (hg_int : Integrable g)
+    (hle : ∀ t, Set.indicator S f t ≤ g t) :
+    ∫ t, Set.indicator S f t ≤ ∫ t, g t := by
+  apply integral_mono_of_nonneg
+  · -- non-negativity of left integrand a.e.
+    apply Filter.Eventually.of_forall
+    exact hf_nonneg
+  · -- integrability of right integrand
+    exact hg_int
+  · -- pointwise inequality a.e.
+    exact Filter.Eventually.of_forall hle
+
+lemma gaussian_integral_value (δ : ℝ) (hδ : 0 < δ) :
+    ∫ t : ℝ, Real.exp (-Real.pi * t^2 / δ^2) = δ := by
+  have hδsq_pos : 0 < δ^2 := by simpa [pow_two] using mul_pos hδ hδ
+  have hpos : 0 < Real.pi / δ^2 := div_pos Real.pi_pos hδsq_pos
+  have h_gauss : (∫ t : ℝ, Real.exp (- (Real.pi / δ^2) * t^2))
+      = Real.sqrt (Real.pi / (Real.pi / δ^2)) := by
+    exact integral_gaussian (Real.pi / δ^2)
+  have : (∫ t : ℝ, Real.exp (- (Real.pi / δ^2) * t^2))
+      = (∫ t : ℝ, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
+    -- rearrange the integrand
+    apply integral_congr_ae
+    exact Filter.Eventually.of_forall (fun t => by
+      simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc])
+  -- simplify the RHS sqrt
+  have hs : Real.sqrt (Real.pi / (Real.pi / δ ^ 2)) = Real.sqrt (δ ^ 2) := by
+    field_simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
+  have hsqrt : Real.sqrt (δ ^ 2) = |δ| := by simpa [pow_two] using Real.sqrt_sq_eq_abs δ
+  have : (∫ t : ℝ, Real.exp (-Real.pi * t ^ 2 / δ ^ 2))
+      = Real.sqrt (Real.pi / (Real.pi / δ ^ 2)) := by
+    convert h_gauss using 2
+    ext t
+    simp only [neg_div, neg_mul]
+    ring_nf
+  simpa [hs, hsqrt, abs_of_pos hδ] using this
+
 /-- Gaussian tail bound: The L² norm of a Gaussian outside radius R decays exponentially -/
 lemma gaussian_tail_l2_bound (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
     ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t^2 / δ^2) ∂(volume : Measure ℝ)
@@ -641,45 +725,14 @@ lemma gaussian_tail_l2_bound (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
         (fun t => Real.exp (-2 * Real.pi * t^2 / δ^2)) t
         ≤ Real.exp (-Real.pi * R^2 / δ^2) * Real.exp (-Real.pi * t^2 / δ^2) := by
     intro t; by_cases hmem : R < |t|
-    · -- On the tail set, use that |t| ≥ R to compare exponentials
-      have hcmp : -Real.pi * t^2 / δ^2 ≤ -Real.pi * R^2 / δ^2 := by
-        have : R^2 ≤ t^2 := by
-          have habs : R ≤ |t| := le_of_lt hmem
-          -- from R ≤ |t|, deduce R^2 ≤ |t|^2 = t^2
-          have hR_nonneg : 0 ≤ R := le_of_lt hR
-          calc R^2 = R * R := by ring
-          _ ≤ |t| * |t| := mul_self_le_mul_self hR_nonneg habs
-          _ = t^2 := by rw [← sq, sq_abs]
-        -- multiply both sides by the negative factor -π/δ^2, which reverses inequality
-        have hδsq_pos : 0 < δ^2 := by simpa [pow_two] using mul_pos hδ hδ
-        have hpos : 0 < Real.pi / δ^2 := div_pos Real.pi_pos hδsq_pos
-        -- From R^2 ≤ t^2, multiply by -π/δ^2 (negative), which reverses the inequality
-        calc -Real.pi * t^2 / δ^2 = -(Real.pi / δ^2) * t^2 := by ring
-        _ ≤ -(Real.pi / δ^2) * R^2 := by
-          apply mul_le_mul_of_nonpos_left this
-          exact neg_nonpos.mpr (le_of_lt hpos)
-        _ = -Real.pi * R^2 / δ^2 := by ring
-      have hmono := Real.exp_le_exp.mpr hcmp
-      -- Now split the square: exp(-2a) = exp(-a)*exp(-a) ≤ exp(-b)*exp(-a)
-      have : Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
-          = Real.exp (-Real.pi * t ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
-        rw [← Real.exp_add]
-        congr 1
-        ring
-      have hxpos : 0 ≤ Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by exact (le_of_lt (Real.exp_pos _))
-      have hineq : Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
-          ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
-        rw [this]
-        exact mul_le_mul_of_nonneg_right hmono hxpos
+    · -- Use the gaussian_tail_pointwise_bound lemma
+      have hbound := gaussian_tail_pointwise_bound δ R t hδ hR hmem
       rw [Set.indicator_apply]
       simp only [Set.mem_setOf_eq, hmem, if_true]
-      exact hineq
+      exact hbound
     · -- Outside the tail, the indicator is zero and the RHS is positive
       have hRHS_pos : 0 ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) *
-          Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
-        have hx1 : 0 ≤ Real.exp (-Real.pi * R ^ 2 / δ ^ 2) := le_of_lt (Real.exp_pos _)
-        have hx2 : 0 ≤ Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := le_of_lt (Real.exp_pos _)
-        exact mul_nonneg hx1 hx2
+          Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := gaussian_product_nonneg δ R t
       rw [Set.indicator_apply]
       simp only [Set.mem_setOf_eq, hmem, if_false]
       exact hRHS_pos
@@ -689,17 +742,16 @@ lemma gaussian_tail_l2_bound (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
               (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t
         ≤ ∫ t, Real.exp (-Real.pi * R ^ 2 / δ ^ 2) * Real.exp (-Real.pi * t ^ 2 / δ ^ 2) := by
     -- Monotone by pointwise inequality
-    apply integral_mono_of_nonneg
-    · -- non-negativity of left integrand a.e.
-      apply Filter.Eventually.of_forall
+    apply integral_mono_of_pointwise_le_indicator
+    · -- non-negativity of left integrand
       intro t
       apply Set.indicator_nonneg
       intro _ _
       exact le_of_lt (Real.exp_pos _)
     · -- integrability of right integrand
       exact integrable_gaussian_product δ hδ R
-    · -- pointwise inequality a.e.
-      exact Filter.Eventually.of_forall hpt
+    · -- pointwise inequality
+      exact hpt
   -- Rewrite the LHS as the set integral
   have hL : ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
       = ∫ t, Set.indicator {t : ℝ | R < |t|}
@@ -708,30 +760,7 @@ lemma gaussian_tail_l2_bound (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
   -- Pull out the constant on the RHS integral
   have hR_factor := gaussian_tail_integral_factor_out R δ
   -- Evaluate the Gaussian integral ∫ℝ exp(-(π/δ²) t²) dt = δ
-  have hδsq_pos : 0 < δ^2 := by simpa [pow_two] using mul_pos hδ hδ
-  have hpos : 0 < Real.pi / δ^2 := div_pos Real.pi_pos hδsq_pos
-  have h_gauss : (∫ t : ℝ, Real.exp (- (Real.pi / δ^2) * t^2))
-      = Real.sqrt (Real.pi / (Real.pi / δ^2)) := by
-    exact integral_gaussian (Real.pi / δ^2)
-  have h_gauss' : (∫ t : ℝ, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) = δ := by
-    have : (∫ t : ℝ, Real.exp (- (Real.pi / δ^2) * t^2))
-        = (∫ t : ℝ, Real.exp (-Real.pi * t ^ 2 / δ ^ 2)) := by
-      -- rearrange the integrand
-      apply integral_congr_ae
-      exact Filter.Eventually.of_forall (fun t => by
-        simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc])
-    have hx := congrArg id h_gauss
-    -- simplify the RHS sqrt
-    have hs : Real.sqrt (Real.pi / (Real.pi / δ ^ 2)) = Real.sqrt (δ ^ 2) := by
-      field_simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
-    have hsqrt : Real.sqrt (δ ^ 2) = |δ| := by simpa [pow_two] using Real.sqrt_sq_eq_abs δ
-    have : (∫ t : ℝ, Real.exp (-Real.pi * t ^ 2 / δ ^ 2))
-        = Real.sqrt (Real.pi / (Real.pi / δ ^ 2)) := by
-      convert h_gauss using 2
-      ext t
-      simp only [neg_div, neg_mul]
-      ring_nf
-    simpa [hs, hsqrt, abs_of_pos hδ] using this
+  have h_gauss' := gaussian_integral_value δ hδ
   -- First, bound the tail integral by a full-line integral with a constant factor
   have hfinal :
       ∫ t in {t : ℝ | R < |t|}, Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)
@@ -762,7 +791,7 @@ lemma gaussian_tail_l2_bound (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
     -- rewrite 1 / √(π/δ²) = δ / √π
     have hrewrite : 2 / Real.sqrt (Real.pi / δ ^ 2) = (2 * δ) / Real.sqrt Real.pi := by
       have : Real.sqrt (Real.pi / δ ^ 2) = Real.sqrt Real.pi / |δ| := by
-        have hbpos : 0 < δ ^ 2 := hδsq_pos
+        have hbpos := by simpa [pow_two] using mul_pos hδ hδ
         have hsqrtb : Real.sqrt (δ ^ 2) = |δ| := by simpa [pow_two] using Real.sqrt_sq_eq_abs δ
         have : Real.sqrt (Real.pi / δ ^ 2) = Real.sqrt Real.pi / Real.sqrt (δ ^ 2) :=
           Real.sqrt_div (le_of_lt Real.pi_pos) _
@@ -804,6 +833,63 @@ lemma gaussian_tail_l2_bound (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
   -- Conclude the desired inequality by chaining the two bounds
   exact (hfinal.trans hδ_fac)
 
+lemma gaussian_normalization_factor_squared (δ : ℝ) (hδ : 0 < δ) :
+    ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 = Real.sqrt 2 / δ := by
+  -- Square 2^(1/4) explicitly
+  have h14sq : ((2 : ℝ) ^ (1/4 : ℝ))^2 = Real.sqrt 2 := by
+    -- 2^(1/4)^2 = 2^(1/2) = √2
+    have hhalf : (2 : ℝ) ^ ((1 / 2 : ℝ)) = Real.sqrt 2 := by
+      rw [Real.sqrt_eq_rpow]
+    calc ((2 : ℝ) ^ (1/4 : ℝ))^2
+      = ((2 : ℝ) ^ (1/4 : ℝ)) * ((2 : ℝ) ^ (1/4 : ℝ)) := by rw [pow_two]
+      _ = (2 : ℝ) ^ ((1/4 : ℝ) + (1/4 : ℝ)) := by
+        rw [← Real.rpow_add (by norm_num : (0 : ℝ) < 2)]
+      _ = (2 : ℝ) ^ (1/2 : ℝ) := by norm_num
+      _ = Real.sqrt 2 := hhalf
+  have hsqrtδsq : (Real.sqrt δ) ^ 2 = δ :=
+    Real.sq_sqrt (le_of_lt hδ)
+  calc ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2
+    = ((2 : ℝ) ^ (1/4 : ℝ))^2 / (Real.sqrt δ)^2 := by simp [div_pow]
+    _ = Real.sqrt 2 / δ := by rw [h14sq, hsqrtδsq]
+
+lemma exp_squared_formula (t δ : ℝ) :
+    (Real.exp (-Real.pi * t^2 / δ^2))^2 = Real.exp (-2 * Real.pi * t^2 / δ^2) := by
+  rw [pow_two, ← Real.exp_add]
+  congr 1
+  ring
+
+lemma integrable_indicator_gaussian (δ : ℝ) (hδ : 0 < δ) (R A : ℝ) :
+    Integrable (fun t => Set.indicator {t : ℝ | R < |t|}
+      (fun t => A^2 * Real.exp (-2 * Real.pi * t^2 / δ^2)) t) := by
+  -- Use the standard Gaussian integrability with coefficient 2π/δ²
+  have hδsq_pos : 0 < δ ^ 2 := by simpa [pow_two] using mul_pos hδ hδ
+  have hpos : 0 < (2 * Real.pi) / δ ^ 2 := by
+    have h2pi : 0 < 2 * Real.pi := by positivity
+    exact div_pos h2pi hδsq_pos
+  have hbase : Integrable (fun t : ℝ => Real.exp (-((2 * Real.pi) / δ ^ 2) * t ^ 2)) :=
+    integrable_exp_neg_mul_sq hpos
+  have hbase' : Integrable (fun t : ℝ => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) := by
+    simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using hbase
+  -- indicator preserves integrability; constant multiple is integrable
+  have h_integrable_mul : Integrable (fun t : ℝ => A^2 *
+      Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) := by
+    exact hbase'.const_mul (A^2)
+  exact h_integrable_mul.indicator (measurableSet_abs_gt R)
+
+lemma integral_indicator_const_mul (S : Set ℝ) (c : ℝ) (f : ℝ → ℝ) :
+    ∫ t, Set.indicator S (fun t => c * f t) t =
+    c * ∫ t, Set.indicator S f t := by
+  -- move the constant outside the indicator pointwise, then pull it out of the integral
+  have hind :
+      (fun t : ℝ => Set.indicator S (fun t => c * f t) t)
+        = (fun t : ℝ => c * Set.indicator S f t) := by
+    funext t
+    by_cases h : t ∈ S
+    · simp [Set.indicator, h]
+    · simp [Set.indicator, h]
+  rw [hind]
+  exact integral_const_mul (μ := volume) (r := c) (fun t : ℝ => Set.indicator S f t)
+
 /-- For normalized Gaussian with width δ, the L² mass outside radius R vanishes as δ → 0 -/
 lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
     ∃ w : Lp ℂ 2 (volume : Measure ℝ),
@@ -815,28 +901,7 @@ lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR 
   refine ⟨w, hnorm, ?_⟩
   -- Set up constants: A := 2^(1/4)/√δ, so A^2 = √2/δ
   set A : ℝ := (2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ
-  have hA_sq : A^2 = Real.sqrt 2 / δ := by
-    have hδpos : 0 < δ := hδ
-    have hApos : 0 < A := by
-      have h2pos : 0 < (2 : ℝ) ^ (1/4 : ℝ) :=
-        Real.rpow_pos_of_pos (by norm_num : (0 : ℝ) < 2) _
-      exact div_pos h2pos (Real.sqrt_pos.mpr hδpos)
-    -- Square A explicitly
-    have h14sq : ((2 : ℝ) ^ (1/4 : ℝ))^2 = Real.sqrt 2 := by
-      -- 2^(1/4)^2 = 2^(1/2) = √2
-      have hhalf : (2 : ℝ) ^ ((1 / 2 : ℝ)) = Real.sqrt 2 := by
-        rw [Real.sqrt_eq_rpow]
-      calc ((2 : ℝ) ^ (1/4 : ℝ))^2
-        = ((2 : ℝ) ^ (1/4 : ℝ)) * ((2 : ℝ) ^ (1/4 : ℝ)) := by rw [pow_two]
-        _ = (2 : ℝ) ^ ((1/4 : ℝ) + (1/4 : ℝ)) := by
-          rw [← Real.rpow_add (by norm_num : (0 : ℝ) < 2)]
-        _ = (2 : ℝ) ^ (1/2 : ℝ) := by norm_num
-        _ = Real.sqrt 2 := hhalf
-    have hsqrtδsq : (Real.sqrt δ) ^ 2 = δ :=
-      Real.sq_sqrt (le_of_lt hδpos)
-    calc A^2 = ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 := by simp [A, pow_two]
-      _ = ((2 : ℝ) ^ (1/4 : ℝ))^2 / (Real.sqrt δ)^2 := by simp [div_pow]
-      _ = Real.sqrt 2 / δ := by rw [h14sq, hsqrtδsq]
+  have hA_sq : A^2 = Real.sqrt 2 / δ := gaussian_normalization_factor_squared δ hδ
   -- Use the a.e. pointwise bound to dominate the tail integrand by A^2 * exp(-2π t²/δ²)
   have hpt_sq : ∀ᵐ t : ℝ,
     Set.indicator {t : ℝ | R < |t|} (fun t => ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2) t
@@ -865,10 +930,7 @@ lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR 
     have hsimp : ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 * (Real.exp (-Real.pi * t^2 / δ^2))^2
         = A^2 * Real.exp (-2 * Real.pi * t^2 / δ^2) := by
       have hpowexp : (Real.exp (-Real.pi * t^2 / δ^2))^2
-          = Real.exp (-2 * Real.pi * t^2 / δ^2) := by
-        rw [pow_two, ← Real.exp_add]
-        congr 1
-        ring
+          = Real.exp (-2 * Real.pi * t^2 / δ^2) := exp_squared_formula t δ
       calc ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 * (Real.exp (-Real.pi * t^2 / δ^2))^2
         = ((2 : ℝ) ^ (1/4 : ℝ) / Real.sqrt δ)^2 *
           Real.exp (-2 * Real.pi * t^2 / δ^2) := by rw [hpowexp]
@@ -907,20 +969,7 @@ lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR 
     apply integral_mono_of_nonneg
     · exact h_nonneg_ae_left
     · -- RHS integrable since Gaussian is integrable and constants pull out
-      -- Use the standard Gaussian integrability with coefficient 2π/δ²
-      have hδsq_pos : 0 < δ ^ 2 := by simpa [pow_two] using mul_pos hδ hδ
-      have hpos : 0 < (2 * Real.pi) / δ ^ 2 := by
-        have h2pi : 0 < 2 * Real.pi := by positivity
-        exact div_pos h2pi hδsq_pos
-      have hbase : Integrable (fun t : ℝ => Real.exp (-((2 * Real.pi) / δ ^ 2) * t ^ 2)) :=
-        integrable_exp_neg_mul_sq hpos
-      have hbase' : Integrable (fun t : ℝ => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) := by
-        simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using hbase
-      -- indicator preserves integrability; constant multiple is integrable
-      have h_integrable_mul : Integrable (fun t : ℝ => A^2 *
-          Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) := by
-        exact hbase'.const_mul (A^2)
-      exact h_integrable_mul.indicator (measurableSet_abs_gt R)
+      exact integrable_indicator_gaussian δ hδ R A
     · exact hpt_sq
   -- Switch to set integrals on both sides
   have hL : (∫ t in {t : ℝ | R < |t|}, ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2)
@@ -942,36 +991,9 @@ lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR 
         (∫ t, Set.indicator {t : ℝ | R < |t|}
                 (fun t => A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
           = A^2 * (∫ t, Set.indicator {t : ℝ | R < |t|}
-                (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) := by
-      -- move the constant outside the indicator pointwise, then pull it out of the integral
-      have hind :
-          (fun t : ℝ => Set.indicator {t : ℝ | R < |t|}
-                (fun t => A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
-            = (fun t : ℝ => A^2 * Set.indicator {t : ℝ | R < |t|}
-                (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) := by
-        funext t
-        by_cases h : R < |t|
-        · have hmem : t ∈ {t : ℝ | R < |t|} := h
-          simp [Set.indicator, hmem]
-        · have hmem : t ∉ {t : ℝ | R < |t|} := h
-          simp [Set.indicator, hmem]
-      -- Private lemma to avoid timeout
-      have integral_const_mul_indicator :
-          ∫ t, A^2 * Set.indicator {t : ℝ | R < |t|}
-                (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t
-            = A^2 * (∫ t, Set.indicator {t : ℝ | R < |t|}
-                (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) := by
-        exact integral_const_mul (μ := volume) (r := A ^ 2)
-          (fun t : ℝ => Set.indicator {t : ℝ | R < |t|}
-            (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
-      calc (∫ t, Set.indicator {t : ℝ | R < |t|}
-                  (fun t => A^2 * Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t)
-            = ∫ t, A^2 * Set.indicator {t : ℝ | R < |t|}
-                  (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t := by
-                    rw [hind]
-        _ = A^2 * (∫ t, Set.indicator {t : ℝ | R < |t|}
-                  (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) :=
-                    integral_const_mul_indicator
+                (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2)) t) :=
+      integral_indicator_const_mul {t : ℝ | R < |t|} (A^2)
+        (fun t => Real.exp (-2 * Real.pi * t ^ 2 / δ ^ 2))
     -- conclude via a direct calculation
     calc (∫ t in {t : ℝ | R < |t|}, ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2)
         = ∫ t, Set.indicator {t : ℝ | R < |t|}
@@ -1072,7 +1094,70 @@ lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR 
 
 end GaussianHelpers
 
-open Real
+lemma sqrt_two_pi_lt_three :
+    Real.sqrt (2 * Real.pi) < 3 := by
+  have h2pi_lt8 : (2 : ℝ) * Real.pi < 8 := by
+    have hπlt4 : Real.pi < 4 := pi_lt_four
+    nlinarith
+  have h2pi_nonneg : 0 ≤ (2 : ℝ) * Real.pi := by positivity
+  have hsq_mono := (Real.sqrt_lt_sqrt_iff h2pi_nonneg).mpr h2pi_lt8
+  have h_sqrt8_lt3 : Real.sqrt 8 < 3 := by
+    have : Real.sqrt 8 < Real.sqrt 9 := by
+      apply Real.sqrt_lt_sqrt
+      · norm_num
+      · norm_num
+    have h9eq : Real.sqrt 9 = (3 : ℝ) := by
+      -- `sqrt (3^2) = 3` since `3 ≥ 0`, and `3^2 = 9`.
+      have hpow : (3 : ℝ) ^ 2 = 9 := by norm_num
+      simpa [pow_two, hpow] using Real.sqrt_sq (by norm_num : (0 : ℝ) ≤ (3 : ℝ))
+    rw [h9eq] at this
+    exact this
+  simpa using (lt_trans hsq_mono h_sqrt8_lt3)
+
+lemma sqrt_div_sqrt_pi :
+    Real.sqrt (2 * Real.pi) / Real.sqrt Real.pi = Real.sqrt 2 := by
+  have hsqrt_mul : Real.sqrt (2 * Real.pi) = Real.sqrt 2 * Real.sqrt Real.pi := by
+    have h2nonneg : 0 ≤ (2 : ℝ) := by norm_num
+    have hpinonneg : 0 ≤ Real.pi := le_of_lt Real.pi_pos
+    simp
+  have hne : Real.sqrt Real.pi ≠ 0 := ne_of_gt (Real.sqrt_pos.mpr Real.pi_pos)
+  simp [hsqrt_mul, hne]
+
+lemma rpow_half_eq_quarter_sq (x : ℝ) (hx : 0 ≤ x) :
+    x ^ (1/2 : ℝ) = x ^ (1/4 : ℝ) * x ^ (1/4 : ℝ) := by
+  by_cases h : x = 0
+  · simp [h]
+  · have hpos : 0 < x := lt_of_le_of_ne hx (Ne.symm h)
+    rw [← Real.rpow_add hpos]
+    norm_num
+
+lemma nat_split_sqrt (n : ℕ) (hn : 0 < (n : ℝ)) :
+    (n : ℝ) = (n : ℝ) ^ (1/2 : ℝ) * (n : ℝ) ^ (1/2 : ℝ) := by
+  conv_lhs => rw [← Real.rpow_one (n : ℝ)]
+  rw [← Real.rpow_add hn]
+  norm_num
+
+lemma gaussian_const_squared (n : ℕ) (hn : 0 < (n + 1 : ℝ)) :
+    ((2 : ℝ) ^ (1/4 : ℝ) * Real.sqrt (n + 1 : ℝ))^2
+    = (2 : ℝ) ^ (1/2 : ℝ) * (n + 1 : ℝ) := by
+  rw [mul_pow]
+  have h2sq : ((2 : ℝ) ^ (1/4 : ℝ))^2 = (2 : ℝ) ^ (1/2 : ℝ) := by
+    rw [← Real.rpow_two]
+    rw [← Real.rpow_mul (by norm_num : (0 : ℝ) ≤ 2)]
+    norm_num
+  have hsqrt_sq : (Real.sqrt (n + 1 : ℝ))^2 = (n + 1 : ℝ) :=
+    Real.sq_sqrt (le_of_lt hn)
+  rw [h2sq, hsqrt_sq]
+
+lemma pi_quarter_div_squared (n : ℕ) :
+    ((n + 1 : ℝ) / (Real.pi) ^ (1/4 : ℝ))^2
+    = ((n + 1 : ℝ) * (n + 1 : ℝ)) / (Real.pi) ^ (1/2 : ℝ) := by
+  rw [div_pow]
+  have hpi_sq : ((Real.pi) ^ (1/4 : ℝ))^2 = (Real.pi) ^ (1/2 : ℝ) := by
+    rw [← Real.rpow_two]
+    rw [← Real.rpow_mul (le_of_lt Real.pi_pos)]
+    norm_num
+  rw [pow_two (n + 1 : ℝ), hpi_sq]
 
 /-- 大きな n に対する正規化定数の比較補題。
 `δ n = 1/(n+1)` のとき，`n ≥ 2` なら
@@ -1106,24 +1191,7 @@ lemma gaussian_norm_const_le_alt_const_for_large_n (n : ℕ) (hn : 2 ≤ n) :
         ≤ ((n + 1 : ℝ) / (Real.pi ^ (1/4 : ℝ)))^2 := by
     -- Reduce to: √(2π) ≤ n+1
     -- Start from strict bound √(2π) < 3 ≤ n+1 for n ≥ 2
-    have hlt3 : Real.sqrt ((2 : ℝ) * Real.pi) < (3 : ℝ) := by
-      have h2pi_lt8 : (2 : ℝ) * Real.pi < 8 := by
-        have hπlt4 : Real.pi < 4 := pi_lt_four
-        nlinarith
-      have h2pi_nonneg : 0 ≤ (2 : ℝ) * Real.pi := by positivity
-      have hsq_mono := (Real.sqrt_lt_sqrt_iff h2pi_nonneg).mpr h2pi_lt8
-      have h_sqrt8_lt3 : Real.sqrt 8 < 3 := by
-        have : Real.sqrt 8 < Real.sqrt 9 := by
-          apply Real.sqrt_lt_sqrt
-          · norm_num
-          · norm_num
-        have h9eq : Real.sqrt 9 = (3 : ℝ) := by
-          -- `sqrt (3^2) = 3` since `3 ≥ 0`, and `3^2 = 9`.
-          have hpow : (3 : ℝ) ^ 2 = 9 := by norm_num
-          simpa [pow_two, hpow] using Real.sqrt_sq (by norm_num : (0 : ℝ) ≤ (3 : ℝ))
-        rw [h9eq] at this
-        exact this
-      simpa using (lt_trans hsq_mono h_sqrt8_lt3)
+    have hlt3 := sqrt_two_pi_lt_three
     have h3le : (3 : ℝ) ≤ (n + 1 : ℝ) := by
       have : (3 : ℕ) ≤ n + 1 := Nat.succ_le_succ hn
       exact_mod_cast this
@@ -1143,15 +1211,7 @@ lemma gaussian_norm_const_le_alt_const_for_large_n (n : ℕ) (hn : 2 ≤ n) :
       simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using
         (div_le_div_of_nonneg_right hmul (le_of_lt hpos_sqrt_pi))
     -- simplify LHS: √(2π)/√π = √2
-    have hsqrt_mul : Real.sqrt ((2 : ℝ) * Real.pi)
-          = Real.sqrt 2 * Real.sqrt Real.pi := by
-      have h2nonneg : 0 ≤ (2 : ℝ) := by norm_num
-      have hpinonneg : 0 ≤ Real.pi := le_of_lt Real.pi_pos
-      simp
-    have hdivL : (Real.sqrt ((2 : ℝ) * Real.pi) / Real.sqrt Real.pi)
-          = Real.sqrt 2 := by
-      have hne : Real.sqrt Real.pi ≠ 0 := ne_of_gt hpos_sqrt_pi
-      simp [hsqrt_mul, hne]
+    have hdivL := sqrt_div_sqrt_pi
     -- rewrite inequality to the target squared inequality
     have : Real.sqrt 2 * (n + 1 : ℝ)
           ≤ ((n + 1 : ℝ) * (n + 1 : ℝ)) / Real.sqrt Real.pi := by
@@ -1163,103 +1223,22 @@ lemma gaussian_norm_const_le_alt_const_for_large_n (n : ℕ) (hn : 2 ≤ n) :
       simpa [Real.sqrt_eq_rpow] using this
     -- Turn this linear inequality into the desired squared form
     -- Split 1/2 = 1/4 + 1/4 to match ((2^(1/4))^2) and ((π^(1/4))^2).
-    have hsplit2 : (2 : ℝ) ^ (1/2 : ℝ)
-        = (2 : ℝ) ^ (1/4 : ℝ) * (2 : ℝ) ^ (1/4 : ℝ) := by
-      have h2nonneg : (0 : ℝ) ≤ 2 := by norm_num
-      have hmul := (Real.rpow_mul h2nonneg (1/4 : ℝ) (2 : ℝ)).symm
-      -- ((2)^(1/4))^2 = 2^((1/4)*2)
-      have h12'' : (4 : ℝ)⁻¹ * (2 : ℝ) = (2 : ℝ)⁻¹ := by
-        -- (1/4)*2 = 1/2 = 2⁻¹
-        simpa [one_div] using (by
-          have : (1/4 : ℝ) * (2 : ℝ) = (1/2 : ℝ) := by norm_num
-          simpa [one_div] using this)
-      have hsq : ((2 : ℝ) ^ (1/4 : ℝ)) ^ 2 = (2 : ℝ) ^ (2 : ℝ)⁻¹ := by
-        simpa [h12''] using hmul
-      simpa [pow_two] using hsq.symm
-    have hsplitpi : (Real.pi) ^ (1/2 : ℝ)
-        = (Real.pi) ^ (1/4 : ℝ) * (Real.pi) ^ (1/4 : ℝ) := by
-      have hpinonneg : 0 ≤ Real.pi := le_of_lt Real.pi_pos
-      have hmul := (Real.rpow_mul hpinonneg (1/4 : ℝ) (2 : ℝ)).symm
-      have h12pi : (4 : ℝ)⁻¹ * (2 : ℝ) = (2 : ℝ)⁻¹ := by
-        -- (1/4)*2 = 1/2 = 2⁻¹
-        simpa [one_div] using (by
-          have : (1/4 : ℝ) * (2 : ℝ) = (1/2 : ℝ) := by norm_num
-          simpa [one_div] using this)
-      have hsq : ((Real.pi) ^ (1/4 : ℝ)) ^ 2 = (Real.pi) ^ (2 : ℝ)⁻¹ := by
-        simpa [h12pi] using hmul
-      simpa [pow_two] using hsq.symm
+    have hsplit2 := rpow_half_eq_quarter_sq 2 (by norm_num : 0 ≤ (2 : ℝ))
+    have hsplitpi := rpow_half_eq_quarter_sq Real.pi (le_of_lt Real.pi_pos)
     -- Also split (n+1) as (n+1)^(1/2) * (n+1)^(1/2)
     have hn1_split : (n + 1 : ℝ) = (n + 1 : ℝ) ^ (1/2 : ℝ) * (n + 1 : ℝ) ^ (1/2 : ℝ) := by
-      have h := Real.rpow_add (hpos) (1/2 : ℝ) (1/2 : ℝ)
-      -- massage 2⁻¹ to 1/2 in the exponent sum
-      have hhalf' : (2 : ℝ)⁻¹ + (2 : ℝ)⁻¹ = 1 := by
-        have : (1/2 : ℝ) + (1/2 : ℝ) = 1 := by norm_num
-        simpa [one_div] using this
-      simpa [hhalf', Real.rpow_one, one_div] using h
+      conv_lhs => rw [← Real.rpow_one (n + 1 : ℝ)]
+      rw [← Real.rpow_add hpos]
+      norm_num
     -- Rewrite both sides explicitly to avoid heavy simp search
-    have lhs_eq : ((2 : ℝ) ^ (1/4 : ℝ) * Real.sqrt (n + 1 : ℝ)) ^ 2
-          = (2 : ℝ) ^ (2 : ℝ)⁻¹ * (n + 1 : ℝ) := by
-      have h2sq : ((2 : ℝ) ^ (1/4 : ℝ)) ^ 2 = (2 : ℝ) ^ (1/2 : ℝ) := by
-        have h2nonneg : (0 : ℝ) ≤ 2 := by norm_num
-        have hmul := (Real.rpow_mul h2nonneg (1/4 : ℝ) (2 : ℝ)).symm
-        have h12'' : (4 : ℝ)⁻¹ * (2 : ℝ) = (2 : ℝ)⁻¹ := by
-          -- (1/4)*2 = 1/2 = 2⁻¹
-          simpa [one_div] using (by
-            have : (1/4 : ℝ) * (2 : ℝ) = (1/2 : ℝ) := by norm_num
-            simpa [one_div] using this)
-        -- Now rewrite (4⁻¹*2) to (2⁻¹) in the exponent
-        simpa [h12'', one_div] using hmul
-      have hsq_sqrt : (Real.sqrt (n + 1 : ℝ)) ^ 2 = (n + 1 : ℝ) := by
-        simpa using Real.sq_sqrt (le_of_lt hpos)
-      have mul_pow2 : ((2 : ℝ) ^ (1/4 : ℝ) * Real.sqrt (n + 1 : ℝ)) ^ 2
-            = ((2 : ℝ) ^ (1/4 : ℝ)) ^ 2 * (Real.sqrt (n + 1 : ℝ)) ^ 2 := by
-        simpa using (mul_pow ((2 : ℝ) ^ (1/4 : ℝ)) (Real.sqrt (n + 1 : ℝ)) (2 : ℕ))
-      -- combine via transitivity to avoid simp recursion
-      have h2sq' : ((2 : ℝ) ^ (1/4 : ℝ)) ^ 2 = (2 : ℝ) ^ (2 : ℝ)⁻¹ := by
-        simpa [one_div] using h2sq
-      have hstep : ((2 : ℝ) ^ (1/4 : ℝ)) ^ 2 * (Real.sqrt (n + 1 : ℝ)) ^ 2
-            = (2 : ℝ) ^ (2 : ℝ)⁻¹ * (n + 1 : ℝ) := by
-        rw [h2sq', hsq_sqrt]
-      exact mul_pow2.trans hstep
-    have rhs_eq : ((n + 1 : ℝ) / (Real.pi) ^ (1/4 : ℝ)) ^ 2
-          = ((n + 1 : ℝ) * (n + 1 : ℝ)) / (Real.pi) ^ (2 : ℝ)⁻¹ := by
-      -- expand the square of the quotient to a product, then simplify the denominator
-      have div_pow2_prod : ((n + 1 : ℝ) / (Real.pi) ^ (1/4 : ℝ)) ^ 2
-            = ((n + 1 : ℝ) * (n + 1 : ℝ)) / ((Real.pi) ^ (1/4 : ℝ) * (Real.pi) ^ (1/4 : ℝ)) := by
-        -- (a/b)^2 = (a/b) * (a/b) = (a*a) / (b*b)
-        simp [pow_two, div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
-      -- and (π^(1/4))*(π^(1/4)) = π^(1/2) = π^(2⁻¹)
-      have hsplitpi12 : (Real.pi) ^ (1/4 : ℝ) * (Real.pi) ^ (1/4 : ℝ)
-            = (Real.pi) ^ (2 : ℝ)⁻¹ := by
-        have hhalf : (Real.pi) ^ (1/2 : ℝ) = (Real.pi) ^ ((2 : ℝ)⁻¹) := by
-          simp [one_div]
-        -- from earlier: π^(1/2) = π^(1/4) * π^(1/4)
-        simpa [hhalf] using hsplitpi.symm
-      -- Replace the denominator using congrArg to avoid simp shape issues
-      have div_pow2_prod' : ((n + 1 : ℝ) / (Real.pi) ^ (1/4 : ℝ)) ^ 2
-            = ((n + 1 : ℝ) * (n + 1 : ℝ)) / ((Real.pi) ^ (1/4 : ℝ) * (Real.pi) ^ (1/4 : ℝ)) :=
-        div_pow2_prod
-      -- Denominator equality from hsplitpi12
-      let D1 := (Real.pi) ^ (1/4 : ℝ) * (Real.pi) ^ (1/4 : ℝ)
-      let D2 := (Real.pi) ^ (2 : ℝ)⁻¹
-      have hDen : ((n + 1 : ℝ) * (n + 1 : ℝ)) / D1
-            = ((n + 1 : ℝ) * (n + 1 : ℝ)) / D2 := by
-        simpa [D1, D2] using congrArg (fun x => ((n + 1 : ℝ) * (n + 1 : ℝ)) / x) hsplitpi12
-      -- Conclude the desired equality by transitivity
-      have : ((n + 1 : ℝ) / (Real.pi) ^ (1/4 : ℝ)) ^ 2
-            = ((n + 1 : ℝ) * (n + 1 : ℝ)) / D2 := div_pow2_prod'.trans hDen
-      simpa [D2] using this
-    -- Convert the inequality using these identities via exponent normalization
-    have hlin' : (2 : ℝ) ^ (2 : ℝ)⁻¹ * (n + 1 : ℝ)
-          ≤ ((n + 1 : ℝ) * (n + 1 : ℝ)) / Real.pi ^ (2 : ℝ)⁻¹ := by
-      -- rewrite 1/2 as 2⁻¹ on both sides
-      simpa [one_div] using htarget
+    have lhs_eq := gaussian_const_squared n hpos
+    have rhs_eq := pi_quarter_div_squared n
     -- Replace both sides by the squared forms using lhs_eq and rhs_eq
     have hgoal : ((2 : ℝ) ^ (1/4 : ℝ) * Real.sqrt (n + 1 : ℝ)) ^ 2
           ≤ ((n + 1 : ℝ) / (Real.pi) ^ (1/4 : ℝ)) ^ 2 := by
       -- convert both sides of the inequality
       rw [lhs_eq, rhs_eq]
-      exact hlin'
+      exact htarget
     exact hgoal
   -- From squared inequality and nonnegativity, deduce the desired inequality
   have habs :

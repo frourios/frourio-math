@@ -10,6 +10,7 @@ import Frourio.Analysis.MellinSobolev
 import Frourio.Analysis.Slope
 import Frourio.Analysis.MinimizingMovement
 import Frourio.Analysis.DoobTransform
+import Frourio.Analysis.GaussianFourierTransform
 import Frourio.Analysis.EntropyPackage
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.MellinPlancherel

@@ -1,5 +1,6 @@
 import Frourio.Analysis.Gaussian
 import Frourio.Analysis.ZakMellin
+import Frourio.Analysis.GaussianContourShift
 import Mathlib.Analysis.Fourier.FourierTransform
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.FundThmCalculus
 import Mathlib.Analysis.SpecialFunctions.Gaussian.FourierTransform
@@ -400,12 +401,14 @@ lemma complex_gaussian_contour_shift {δ : ℝ} (hδ : 0 < δ) (ξ : ℝ) :
         -- This is the contour shift property we established earlier
         -- The integral of a Gaussian over a horizontal line in the complex plane
         -- is the same as the integral over the real axis
-        sorry -- This is the fundamental contour shift property
+        exact gaussian_contour_shift_real hδ ξ
 
       -- First normalize the expression order
       have normalize_order :
-        (∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * (↑a + ↑ξ * (I * ↑δ^2))^2) * Complex.exp (-↑π * ↑δ^2 * ↑ξ^2)) =
-        (∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * (↑a + I * ↑δ^2 * ↑ξ)^2) * Complex.exp (-↑π * ↑δ^2 * ↑ξ^2)) := by
+        (∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * (↑a + ↑ξ * (I * ↑δ^2))^2) *
+          Complex.exp (-↑π * ↑δ^2 * ↑ξ^2)) =
+        (∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * (↑a + I * ↑δ^2 * ↑ξ)^2) *
+          Complex.exp (-↑π * ↑δ^2 * ↑ξ^2)) := by
         congr 1
         ext a
         congr 2
@@ -417,8 +420,10 @@ lemma complex_gaussian_contour_shift {δ : ℝ} (hδ : 0 < δ) (ξ : ℝ) :
 
       -- Factor out the constant exp(-πδ²ξ²) from the integral
       have factor_exp :
-        (∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * (↑a + I * ↑δ^2 * ↑ξ)^2) * Complex.exp (-↑π * ↑δ^2 * ↑ξ^2)) =
-        Complex.exp (-↑π * ↑δ^2 * ↑ξ^2) * (∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * (↑a + I * ↑δ^2 * ↑ξ)^2)) := by
+        (∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * (↑a + I * ↑δ^2 * ↑ξ)^2) *
+          Complex.exp (-↑π * ↑δ^2 * ↑ξ^2)) =
+        Complex.exp (-↑π * ↑δ^2 * ↑ξ^2) * (∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 *
+          (↑a + I * ↑δ^2 * ↑ξ)^2)) := by
         rw [← integral_const_mul]
         congr 1
         ext a
@@ -577,7 +582,7 @@ lemma gaussian_contour_shift {δ : ℝ} (hδ : 0 < δ) (ξ : ℝ) :
     rw [integral_mul_const]
     rw [mul_comm]
     congr 1
-    exact complex_gaussian_contour_shift hδ ξ
+    exact gaussian_contour_shift_real hδ ξ
 
   rw [key_identity]
 
@@ -589,15 +594,52 @@ lemma gaussian_contour_shift {δ : ℝ} (hδ : 0 < δ) (ξ : ℝ) :
   simp
 
 /--
+Helper lemma for integral_ofReal with specific type signatures.
+-/
+@[simp]
+lemma integral_ofReal' {f : ℝ → ℝ} :
+    (∫ x : ℝ, ↑(f x) : ℂ) = ↑(∫ x : ℝ, f x) := by
+  exact integral_ofReal
+
+/--
 Standard complex Gaussian integral.
 The integral of exp(-π/δ² * s²) over ℝ equals δ.
 This is the complex version of the standard Gaussian integral formula.
 -/
 lemma gaussian_integral_complex {δ : ℝ} (hδ : 0 < δ) :
     ∫ s : ℝ, Complex.exp (-↑π / ↑δ^2 * ↑s^2) = ↑δ := by
-  -- This requires showing that Complex.exp with real argument
-  -- gives the same integral as Real.exp, then applying integral_gaussian
-  sorry
+  -- First, convert the complex exponential to real exponential
+  have : ∫ s : ℝ, Complex.exp (-↑π / ↑δ^2 * ↑s^2) =
+         ∫ s : ℝ, ↑(Real.exp (-π / δ^2 * s^2)) := by
+    congr 1
+    ext s
+    have h : (-↑π / ↑δ^2 * ↑s^2 : ℂ) = ↑(-π / δ^2 * s^2) := by
+      push_cast
+      ring
+    rw [h, Complex.ofReal_exp]
+  rw [this]
+
+  -- Now we have ∫ (s : ℝ), ↑(Real.exp (-π / δ^2 * s^2))
+  -- This equals ↑(∫ (s : ℝ), Real.exp (-π / δ^2 * s^2))
+  rw [integral_ofReal']
+
+  -- Apply the standard Gaussian integral formula
+  have gaussian_formula : ∫ s : ℝ, Real.exp (-π / δ^2 * s^2) = δ := by
+    -- Use the standard Gaussian integral: ∫ exp(-ax²) dx = √(π/a)
+    -- With a = π/δ², we get √(π/(π/δ²)) = √(δ²) = δ
+    have h_pos : 0 < π / δ^2 := by
+      apply div_pos Real.pi_pos
+      exact sq_pos_of_pos hδ
+
+    convert integral_gaussian (π / δ^2) using 2
+    -- The standard formula gives √(π/a) = √(π/(π/δ²)) = √(δ²) = δ
+    · ext x
+      simp only [neg_div, neg_mul]
+    · have : π / (π / δ ^ 2) = δ ^ 2 := by
+        field_simp
+      rw [this, Real.sqrt_sq (le_of_lt hδ)]
+
+  exact_mod_cast gaussian_formula
 
 /--
 Shifted Gaussian integral formula.
