@@ -380,27 +380,6 @@ theorem LogPull_isometry (σ : ℝ) (f : Hσ σ) :
       ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume).toReal := by
   simpa using (Hσ_norm_squared (σ := σ) f)
 
-/-- The Mellin transform as Fourier transform after logarithmic substitution.
-    For f ∈ Hσ, define Mellin[f](σ + iτ) = Fourier[LogPull f](τ)
-    Note: This is a placeholder - full implementation requires proper L¹ theory -/
-noncomputable def MellinTransformAt (σ : ℝ) (_f : Hσ σ) (_τ : ℝ) : ℂ :=
-  -- Placeholder for now - requires Fourier transform setup
-  0
-
-/-- Uσ: The unitary map from Hσ to L²(ℝ) via Mellin transform
-    This is the main isometry establishing Mellin-Plancherel -/
-noncomputable def Uσ (σ : ℝ) : Hσ σ →L[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  -- Placeholder - will compose LogPull with normalized Fourier transform
-  0
-
-/-- Interim property for the current placeholder `Uσ`.
-Since `Uσ` is currently the zero map, it is `0`-Lipschitz (nonexpansive with constant `0`).
-This serves as a temporary, truthful contract until the isometric `Uσ` is implemented. -/
-theorem Uσ_lipschitz_zero (σ : ℝ) : LipschitzWith 0 (Uσ σ) := by
-  intro f g
-  -- Both images are `0`, so the distance is `0`.
-  simp [Uσ]
-
 /-!
 ## Change of Variables Lemmas for Mellin-Plancherel
 

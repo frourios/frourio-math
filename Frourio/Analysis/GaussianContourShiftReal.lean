@@ -1385,7 +1385,7 @@ lemma integral_bound_on_interval (a : ℂ) (y : ℝ) (right : Bool) (M : ℝ)
 /-- Helper lemma: For R ∈ [0, 1] we have |R| ≤ 1, even when considering negative extensions -/
 lemma abs_le_one_of_in_interval (R : ℝ) (hR_lower : -1 ≤ R) (hR_upper : R ≤ 1) : |R| ≤ 1 := by
   -- If -1 ≤ R ≤ 1, then |R| ≤ 1
-  cases' le_or_gt 0 R with hR_pos hR_neg
+  rcases le_or_gt 0 R with hR_pos | hR_neg
   · -- Case: R ≥ 0
     simp [abs_of_nonneg hR_pos]
     exact hR_upper
@@ -1394,7 +1394,7 @@ lemma abs_le_one_of_in_interval (R : ℝ) (hR_lower : -1 ≤ R) (hR_upper : R �
     linarith
 
 /-- Helper lemma: For 0 ≤ R^2 ≤ 1 and a.re > 0, we have exp(a.re/2 - a.re*R^2/2) ≥ 1 -/
-lemma exp_ge_one_of_R_sq_le_one (a : ℂ) (ha : 0 < a.re) (R : ℝ) (h_R_sq : R^2 ≤ 1) :
+lemma exp_ge_one_of_R_sq_le_one (a : ℂ) (ha : 0 < a.re) (R : ℝ) (h_R_sq : R ^ 2 ≤ 1) :
     1 ≤ Real.exp (a.re / 2 - a.re * R^2 / 2) := by
   have h_coeff_nonneg : 0 ≤ a.re / 2 :=
     div_nonneg (le_of_lt ha) (by norm_num : (0 : ℝ) ≤ (2 : ℝ))
@@ -1410,7 +1410,7 @@ lemma exp_ge_one_of_R_sq_le_one (a : ℂ) (ha : 0 < a.re) (R : ℝ) (h_R_sq : R^
   simpa [Real.exp_zero] using h_exp
 
 /-- Helper lemma: Shows M_small + 1 ≤ C_small * exp(-a.re * R^2 / 2) when R^2 ≤ 1 -/
-lemma small_bound_le_C_small_exp (a : ℂ) (ha : 0 < a.re) (R : ℝ) (h_R_sq : R^2 ≤ 1)
+lemma small_bound_le_C_small_exp (a : ℂ) (ha : 0 < a.re) (R : ℝ) (h_R_sq : R ^ 2 ≤ 1)
     (M_small : ℝ) (hM_small_nonneg : 0 ≤ M_small) :
     M_small + 1 ≤ (M_small + 1) * Real.exp (a.re / 2) * Real.exp (-a.re * R^2 / 2) := by
   let C_small := (M_small + 1) * Real.exp (a.re / 2)
@@ -2025,14 +2025,14 @@ lemma integral_gaussian_neg_substitution (a : ℂ) (c : ℂ) :
 
 /-- Helper lemma: Transform integral with shift to standard form -/
 lemma gaussian_shift_transform (a_param : ℂ) (c_param : ℂ)
-    (h_subst_left : ∫ (a : ℝ), Complex.exp (-a_param * (↑a + c_param)^2) =
-                     ∫ (u : ℝ), Complex.exp (-a_param * (↑(-u) + c_param)^2))
-    (h_simplified : ∫ (u : ℝ), Complex.exp (-a_param * (↑(-u) + c_param)^2) =
-                     ∫ (u : ℝ), Complex.exp (-a_param * (↑u - c_param)^2))
-    (h_expand : ∫ (u : ℝ), Complex.exp (-a_param * (↑u - c_param)^2) =
-                 ∫ (u : ℝ), Complex.exp (-a_param * ((↑u)^2 - 2 * ↑u * c_param + c_param^2)))
-    (h_general : ∫ (u : ℝ), Complex.exp (-a_param * (↑u + (-c_param))^2) =
-                  ∫ (s : ℝ), Complex.exp (-a_param * ↑s^2)) :
+    (h_subst_left : ∫ (a : ℝ), Complex.exp (-a_param * (↑a + c_param) ^ 2) =
+                     ∫ (u : ℝ), Complex.exp (-a_param * (↑(-u) + c_param) ^ 2))
+    (h_simplified : ∫ (u : ℝ), Complex.exp (-a_param * (↑(-u) + c_param) ^ 2) =
+                     ∫ (u : ℝ), Complex.exp (-a_param * (↑u - c_param) ^ 2))
+    (h_expand : ∫ (u : ℝ), Complex.exp (-a_param * (↑u - c_param) ^ 2) =
+                 ∫ (u : ℝ), Complex.exp (-a_param * ((↑u) ^ 2 - 2 * ↑u * c_param + c_param ^ 2)))
+    (h_general : ∫ (u : ℝ), Complex.exp (-a_param * (↑u + (-c_param)) ^ 2) =
+                  ∫ (s : ℝ), Complex.exp (-a_param * ↑s ^ 2)) :
     ∫ (a : ℝ), Complex.exp (-a_param * (↑a + c_param)^2) =
     ∫ (s : ℝ), Complex.exp (-a_param * ↑s^2) := by
   calc ∫ (a : ℝ), Complex.exp (-a_param * (↑a + c_param)^2)
@@ -2051,8 +2051,8 @@ lemma gaussian_shift_transform (a_param : ℂ) (c_param : ℂ)
 /-- Helper lemma: Connect parametric form to original form -/
 lemma gaussian_parametric_to_original (δ ξ : ℝ)
     (a_param : ℂ) (c_param : ℂ)
-    (h_a_def : a_param = ↑π / ↑δ^2)
-    (h_c_def : c_param = I * ↑δ^2 * ↑ξ) :
+    (h_a_def : a_param = ↑π / ↑δ ^ 2)
+    (h_c_def : c_param = I * ↑δ ^ 2 * ↑ξ) :
     (∫ (a : ℝ), Complex.exp (-a_param * (↑a + c_param)^2) =
      ∫ (s : ℝ), Complex.exp (-a_param * ↑s^2)) ↔
     (∫ (a : ℝ), Complex.exp (-↑π / ↑δ^2 * (↑a + I * ↑δ^2 * ↑ξ)^2) =

@@ -37,7 +37,8 @@ open scoped BigOperators
 
 /-- Mellin kernel placeholder. Intended: `(x : ℂ)^(s-1)` on `x>0`.
 Kept minimal in P2 to avoid adding heavy dependencies. -/
-noncomputable def mellinKernel (_x : ℝ) (_s : ℂ) : ℂ := 0
+noncomputable def mellinKernel (x : ℝ) (s : ℂ) : ℂ :=
+  if 0 < x then x ^ (s - 1) else 0
 
 /--
 Mellin transform (signature).
@@ -46,7 +47,8 @@ Design intent: `mellinTransform f s = ∫_{0}^{∞} f(x) x^{s-1} dx` over `ℝ`.
 To keep this phase light and CI-friendly, we provide a placeholder value and
 fix the interface. The integral-based definition will be introduced in P3/P4.
 -/
-noncomputable def mellinTransform (_f : ℝ → ℂ) (_s : ℂ) : ℂ := 0
+noncomputable def mellinTransform (f : ℝ → ℂ) (s : ℂ) : ℂ :=
+  ∫ t in Set.Ioi (0 : ℝ), f t * t ^ (s - 1) ∂volume
 
 /-- Φ-difference Mellin symbol
 `ϑ_Φ(Λ,s) := (Λ^{-s} - Λ^{s}) / (Λ - Λ^{-1})` (all coerced to `ℂ`). -/
