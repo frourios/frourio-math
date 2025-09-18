@@ -255,12 +255,168 @@ theorem golden_seq_converges_to_peak (σ τ₀ : ℝ) :
   use construct_golden_seq σ τ₀
   exact construct_golden_seq_concentrates σ τ₀
 
+/-- Gaussian test functions with bounded width have bounded norms -/
+lemma golden_seq_norm_bounded (σ : ℝ) (hσ : σ ∈ Set.Ioo 0 1) (F : GoldenTestSeq σ) :
+    ∃ C : ℝ, ∀ n, ‖F.f n‖ ≤ C := by
+  -- Each F.f n is essentially a normalized Gaussian with time shift
+  -- The Gaussian form ensures each function is normalized
+
+  -- Step 1: Extract the Gaussian form property for each n
+  -- F.gaussian_form tells us each F.f n comes from a normalized window
+  have h_gaussian : ∀ n, ∃ (τ₀ : ℝ) (w : Lp ℂ 2 (volume : Measure ℝ)), ‖w‖ = 1 :=
+    F.gaussian_form
+
+  -- Step 2: The construction of F.f n from w involves:
+  -- - Time shift by τ₀ (preserves L² norm)
+  -- - Modulation (multiplication by e^{iξt}, preserves L² norm)
+  -- - Embedding into Hσ (the norm relationship needs to be established)
+
+  -- Step 3: Show bounded transformation from L²(ℝ) windows to Hσ functions
+  -- We need a specific construction, not just existence
+  -- The construction involves restriction to (0,∞) and weight adjustment
+  have h_embedding_bound : ∃ C_embed : ℝ, ∀ (w : Lp ℂ 2 (volume : Measure ℝ)),
+      ‖w‖ = 1 → ∃ (fw : Hσ σ), ‖fw‖ ≤ C_embed := by
+    -- The embedding depends on how we transfer from L²(ℝ) to Hσ
+    -- This involves the change of measure from dx to x^{2σ-1}dx
+
+    -- Step 1: For σ = 1/2, Hσ is isometric to L²(ℝ⁺, dx/x) via LogPull
+    -- For general σ, we need to account for the weight x^{2σ-1}
+    have h_critical_case : σ = 1/2 → ∃ C : ℝ, C = 1 ∧
+        ∀ (w : Lp ℂ 2 (volume : Measure ℝ)), ‖w‖ = 1 →
+        ∃ (fw : Hσ σ), ‖fw‖ ≤ C := by
+      intro h_half
+      use 1
+      constructor
+      · rfl
+      · intro w hw
+        -- At σ = 1/2, the weight becomes x^0 = 1 (modulo dx/x)
+        -- The LogPull transform gives an isometry
+        sorry  -- h_critical_case: isometry at critical line
+
+    -- Step 2: For the case where the weight is integrable
+    -- We need different treatment based on the sign of 2σ-1
+    have h_weight_case : (2*σ - 1 ≥ 0) ∨
+        (2*σ - 1 < 0 ∧ (∫⁻ x in Set.Ioo 0 1, ENNReal.ofReal (x^(2*σ-1)) ∂volume) ≠ ⊤) := by
+      by_cases h : 2*σ - 1 ≥ 0
+      · left
+        exact h
+      · right
+        constructor
+        · -- Convert ¬(2*σ - 1 ≥ 0) to 2*σ - 1 < 0
+          push_neg at h
+          linarith
+        · -- For -1 < 2σ-1 < 0, the integral ∫₀¹ x^(2σ-1) dx converges
+          -- This follows from the fact that ∫₀¹ x^α dx converges iff α > -1
+          -- We have 2σ-1 > -1 iff σ > 0, and σ ∈ (0,1] by hypothesis
+          -- Use the standard result for power functions near 0
+          have h1 : 2 * σ - 1 > -1 := by linarith [hσ.1]
+          -- The integral ∫₀¹ x^α converges for α > -1
+          sorry  -- This requires Mathlib's integration theory for power functions
+
+    -- Step 3: Construct the embedding constant based on integrability
+    -- For σ = 1/2, the transform is isometric (constant 1)
+    -- For other σ, we need to account for the weight
+    use (if σ = 1/2 then 1 else
+         if h : 2*σ - 1 ≥ 0 then 1  -- bounded case
+         else 10)  -- integrability case, constant depends on integral
+
+    intro w hw
+    -- Construct fw from w using appropriate transformation
+    -- This would involve toHσ_ofL2 or similar construction from MellinPlancherel.lean
+    sorry  -- Final construction of fw with bounded norm
+
+  -- Step 4: Combine to get uniform bound
+  obtain ⟨C_embed, h_embed⟩ := h_embedding_bound
+  use C_embed
+  intro n
+
+  -- For each n, get the Gaussian decomposition
+  obtain ⟨τ₀, w, hw⟩ := h_gaussian n
+
+  -- Apply the embedding bound
+  obtain ⟨fw, hfw⟩ := h_embed w hw
+
+  -- The actual F.f n is constructed similarly to fw
+  -- We need to show ‖F.f n‖ ≤ ‖fw‖ ≤ C_embed
+  sorry  -- Final step: relate F.f n to the embedded fw
+
+/-- Quadratic forms are bounded on norm-bounded sets -/
+lemma quadratic_form_bounded_on_bounded_sets (σ : ℝ) (C : ℝ) :
+    ∃ K : ℝ, ∀ f : Hσ σ, ‖f‖ ≤ C → |limiting_energy σ f| ≤ K * C^2 := by
+  -- The limiting_energy involves Qζσ which is a quadratic form
+  -- For quadratic forms Q, we have |Q(f)| ≤ K‖f‖² for some constant K
+
+  -- The constant K depends on the kernel Kζ = |ζ(1/2 + iτ)|²
+  -- By ZetaLineAPI.loc_bounded, ζ is locally bounded on any compact interval
+  -- This gives us boundedness of the quadratic form on bounded sets
+
+  -- We don't specify a concrete value as it depends on the actual zeta function
+  -- The existence follows from the general theory of continuous quadratic forms
+  sorry  -- existence of K from continuity of quadratic forms
+
+/-- The limiting_energy is non-negative for elements in our construction -/
+lemma limiting_energy_nonneg (σ : ℝ) (f : Hσ σ) :
+    0 ≤ limiting_energy σ f := by
+  -- limiting_energy is related to Qζσ which is ≥ 0 by Qζσ_pos
+  -- This follows from the definition of limiting_energy
+  sorry  -- non-negativity of limiting_energy
+
+/-- Energy values are bounded along golden test sequences -/
+lemma golden_seq_energy_bounded (σ : ℝ) (hσ : σ ∈ Set.Ioo 0 1) (F : GoldenTestSeq σ) :
+    ∃ M : ℝ, ∀ n, limiting_energy σ (F.f n) ≤ M := by
+  -- Step 1: Get norm bound
+  obtain ⟨C_norm, h_norm⟩ := golden_seq_norm_bounded σ hσ F
+
+  -- Step 2: Apply quadratic form boundedness
+  obtain ⟨K, h_quad⟩ := quadratic_form_bounded_on_bounded_sets σ C_norm
+
+  -- Step 3: Combine bounds
+  use K * C_norm^2
+  intro n
+  have h_abs : |limiting_energy σ (F.f n)| ≤ K * C_norm^2 := h_quad (F.f n) (h_norm n)
+  -- Use non-negativity to drop absolute value
+  have h_nonneg : 0 ≤ limiting_energy σ (F.f n) := limiting_energy_nonneg σ (F.f n)
+  -- For non-negative x, |x| = x, so |x| ≤ M implies x ≤ M
+  rw [abs_of_nonneg h_nonneg] at h_abs
+  exact h_abs
+
 /-- The energy functional along golden sequences is continuous and converges -/
-theorem golden_seq_energy_converges_proof (σ : ℝ) (F : GoldenTestSeq σ) :
+theorem golden_seq_energy_converges_proof (σ : ℝ) (hσ : σ ∈ Set.Ioo 0 1) (F : GoldenTestSeq σ) :
     ∃ E₀ : ℝ, Filter.Tendsto (fun n => limiting_energy σ (F.f n)) Filter.atTop (nhds E₀) := by
   -- The energy functional is continuous and the sequence is bounded, so it converges
-  -- This is proven in FunctionalContinuity.lean
-  sorry
+
+  -- Step 1: Show that the energy values are bounded (using separated lemma)
+  have h_bounded := golden_seq_energy_bounded σ hσ F
+
+  -- Step 2: Extract a convergent subsequence using completeness of ℝ
+  obtain ⟨M, hM⟩ := h_bounded
+  have h_seq_bounded : BddAbove (Set.range (fun n => limiting_energy σ (F.f n))) := by
+    use M
+    rintro y ⟨n, rfl⟩
+    exact hM n
+
+  -- Step 3: For bounded sequences in ℝ, we can find a convergent subsequence
+  -- Since we're in ℝ (complete metric space), every bounded sequence has a convergent subsequence
+  have h_complete : ∃ E₀ : ℝ, ∃ φ : ℕ → ℕ, StrictMono φ ∧
+      Filter.Tendsto (fun n => limiting_energy σ (F.f (φ n))) Filter.atTop (nhds E₀) := by
+    -- This uses Bolzano-Weierstrass theorem for sequences in ℝ
+    -- Every bounded sequence in ℝ has a convergent subsequence
+    sorry  -- h_complete: Bolzano-Weierstrass theorem application
+
+  -- Step 4: Show that the full sequence converges (not just a subsequence)
+  -- This requires additional structure, namely that the sequence is Cauchy
+  obtain ⟨E₀, φ, hφ_mono, hφ_conv⟩ := h_complete
+
+  -- For now, we claim the full sequence converges to the same limit
+  -- This would follow from the fact that the energy functional has nice properties
+  -- along prepared golden sequences (e.g., monotonicity or contractivity)
+  use E₀
+
+  -- The convergence of the full sequence follows from:
+  -- 1. The subsequence converges to E₀
+  -- 2. The energy functional is continuous (proven in energy_continuous_on_Hσ)
+  -- 3. The golden sequence has special convergence properties
+  sorry  -- Final convergence of full sequence
 
 /-- The energy functional is continuous on Hσ -/
 theorem energy_continuous_on_Hσ (σ : ℝ) : Continuous (limiting_energy σ) := by

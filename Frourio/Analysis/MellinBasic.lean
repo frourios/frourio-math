@@ -354,32 +354,6 @@ lemma map_log_restrict_Ioi_eq_withDensity_exp :
   -- Apply our helper lemma for the volume of exp(s)
   exact volume_exp_image_eq_integral hs
 
-/-- The pullback of functions from Hσ to L²(ℝ, pushforwardMeasure σ).
-    This maps f : (0,∞) → ℂ to f ∘ exp : ℝ → ℂ -/
-noncomputable def LogPull (σ : ℝ) (f : Hσ σ) : ℝ → ℂ :=
-  fun t => if 0 < Real.exp t then Hσ.toFun f (Real.exp t) else 0
-
-/-- Helper lemma: the weight function is measurable -/
-lemma weight_measurable (σ : ℝ) :
-    Measurable (fun t : ℝ => ENNReal.ofReal (Real.exp ((2 * σ) * t))) := by
-  apply Measurable.ennreal_ofReal
-  exact Real.measurable_exp.comp (measurable_const.mul measurable_id)
-
-/-- Helper lemma: LogPull preserves measurability -/
-lemma LogPull_measurable (σ : ℝ) (f : Hσ σ) : Measurable (LogPull σ f) := by
-  unfold LogPull
-  -- The function is essentially f ∘ exp since exp t > 0 always
-  simp only [Real.exp_pos, if_true]
-  exact (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
-
-/-- Isometry identity for `Hσ`: a concrete norm formula.
-This version exposes the `Hσ`-norm as an explicit weighted integral on `(0,∞)`.
-It serves as the measurable backbone for the logarithmic substitution step in plan0. -/
-theorem LogPull_isometry (σ : ℝ) (f : Hσ σ) :
-    ‖f‖^2 = (∫⁻ x in Set.Ioi 0, ‖Hσ.toFun f x‖₊ ^ 2 *
-      ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume).toReal := by
-  simpa using (Hσ_norm_squared (σ := σ) f)
-
 /-!
 ## Change of Variables Lemmas for Mellin-Plancherel
 
