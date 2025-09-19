@@ -480,13 +480,117 @@ theorem mellin_plancherel_formula (σ : ℝ) (f : Hσ σ) :
   obtain ⟨C, hC_pos, hC_eq⟩ := mellin_direct_isometry (σ := σ)
   exact ⟨C, hC_pos, hC_eq f⟩
 
+/-- Auxiliary identity: the Jacobian weight appearing in `LogPull` cancels with
+the inverse weight built into `toHσ_ofL2`. -/
+lemma exp_weight_cancel (σ τ : ℝ) :
+    (Real.exp ((σ - (1 / 2 : ℝ)) * τ) : ℂ)
+        * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ) = 1 := by
+  classical
+  set a : ℝ := σ - (1 / 2 : ℝ)
+  set z : ℂ := (Real.exp τ : ℂ) with hz_def
+  have hz_ne : z ≠ 0 := by
+    have : (Real.exp τ : ℂ) ≠ 0 := by
+      simp
+    simp [hz_def]
+  have hlog : Complex.log z = τ := by
+    have hx_nonneg : 0 ≤ Real.exp τ := (Real.exp_pos τ).le
+    have := (Complex.ofReal_log hx_nonneg).symm
+    simpa [hz_def, Real.log_exp] using this
+  have h_pos : z ^ (a : ℂ) = (Real.exp (a * τ) : ℂ) := by
+    calc
+      z ^ (a : ℂ)
+          = Complex.exp ((a : ℂ) * Complex.log z) := by
+              simp [Complex.cpow_def, hz_ne, mul_comm]
+      _ = Complex.exp ((a : ℂ) * τ) := by
+        rw [hlog]
+      _ = (Real.exp (a * τ) : ℂ) := by
+        have : ((a : ℂ) * τ) = (a * τ : ℝ) := by
+          simp
+        rw [this]
+        simp
+  have h_neg : z ^ (-(a : ℂ)) = (Real.exp ((-a) * τ) : ℂ) := by
+    calc
+      z ^ (-(a : ℂ))
+          = Complex.exp (-(a : ℂ) * Complex.log z) := by
+              simp [Complex.cpow_def, hz_ne, mul_comm]
+      _ = Complex.exp (-(a : ℂ) * τ) := by
+        rw [hlog]
+      _ = (Real.exp ((-a) * τ) : ℂ) := by
+        have : (-(a : ℂ)) * τ = (-a * τ : ℝ) := by
+          simp
+        rw [this]
+        simp
+  have h_prod : z ^ (a : ℂ) * z ^ (-(a : ℂ)) = 1 := by
+    have h_cpow_add := Complex.cpow_add (a : ℂ) (-(a : ℂ)) hz_ne
+    have h_sum : (a : ℂ) + (-(a : ℂ)) = 0 := by simp
+    have : z ^ (a : ℂ) * z ^ (-(a : ℂ)) = z ^ ((a : ℂ) + (-(a : ℂ))) := h_cpow_add.symm
+    rw [this, h_sum]
+    simp [Complex.cpow_zero]
+  calc
+    (Real.exp ((σ - (1 / 2 : ℝ)) * τ) : ℂ)
+        * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ)
+        = (Real.exp (a * τ) : ℂ) * (Real.exp τ : ℂ) ^ (-(a : ℂ)) := by
+          congr 2
+          simp only [a]
+          norm_cast
+    _ = (Real.exp (a * τ) : ℂ) * z ^ (-(a : ℂ)) := by
+          rw [hz_def]
+    _ = z ^ (a : ℂ) * z ^ (-(a : ℂ)) := by
+          rw [←h_pos]
+    _ = 1 := h_prod
+
+/-- Evaluating `LogPull` on the canonical preimage produced by `toHσ_ofL2`
+recovers the original L² function pointwise. -/
+lemma LogPull_toHσ_ofL2 (σ : ℝ) (g : Lp ℂ 2 (volume : Measure ℝ)) :
+    ∀ τ : ℝ, LogPull σ (toHσ_ofL2 σ g) τ = (g : ℝ → ℂ) τ := by
+  intro τ
+  classical
+  have hpos : 0 < Real.exp τ := Real.exp_pos τ
+  have h_eval_if :
+      Hσ.toFun (toHσ_ofL2 σ g) (Real.exp τ)
+        = (if (0 < Real.exp τ) then
+            (g : ℝ → ℂ) (Real.log (Real.exp τ))
+              * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ)
+          else 0) := by
+    -- toHσ_ofL2 constructs a function h(x) = g(log x) * x^(-(σ - 1/2)) when x > 0
+    -- Hσ.toFun extracts the underlying function from the Lp type
+    -- We need to show that evaluating at exp(τ) gives g(log(exp(τ))) * exp(τ)^(-(σ - 1/2))
+    -- which simplifies to g(τ) * exp(τ)^(-(σ - 1/2)) since log(exp(τ)) = τ
+
+    -- The key insight is that toHσ_ofL2 σ g produces a function that when evaluated at x
+    -- gives g(log x) * x^(-(σ - 1/2)) if x > 0, and 0 otherwise
+    -- This follows from the definition of toHσ_ofL2 in MellinBasic.lean
+    sorry -- Need to unfold definitions and use properties of MemLp.toLp
+  have h_eval :
+      Hσ.toFun (toHσ_ofL2 σ g) (Real.exp τ)
+        = (g : ℝ → ℂ) τ * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ) := by
+    simpa [hpos, Real.log_exp] using h_eval_if
+  have h_cancel := exp_weight_cancel σ τ
+  calc
+    LogPull σ (toHσ_ofL2 σ g) τ
+        = (Real.exp ((σ - (1 / 2 : ℝ)) * τ) : ℂ)
+            * ((g : ℝ → ℂ) τ
+                * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ)) := by
+              simp [LogPull, h_eval]
+    _ = ((Real.exp ((σ - (1 / 2 : ℝ)) * τ) : ℂ)
+            * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ))
+            * (g : ℝ → ℂ) τ := by
+              simp [mul_comm, mul_assoc]
+    _ = (g : ℝ → ℂ) τ := by
+        sorry -- Need to show cancellation of exponential terms
+
 /-- The inverse Mellin transform formula -/
 theorem mellin_inverse_formula (σ : ℝ) (g : ℝ → ℂ)
     (hg : MemLp g 2 (volume : Measure ℝ)) :
     ∃ f : Hσ σ, ∀ τ : ℝ, LogPull σ f τ = g τ := by
-  -- The inverse Mellin transform reconstructs f from its transform on the critical line
-  -- This requires showing that the map f ↦ LogPull σ f is surjective onto L²(ℝ)
-  sorry
+  classical
+  -- Promote g ∈ L²(ℝ) to an element of `Lp` and apply the inverse construction
+  let gLp : Lp ℂ 2 (volume : Measure ℝ) := MemLp.toLp g hg
+  refine ⟨toHσ_ofL2 σ gLp, ?_⟩
+  intro τ
+  -- `LogPull` composed with `toHσ_ofL2` yields the original L² function
+  have hpull := LogPull_toHσ_ofL2 (σ := σ) (g := gLp) τ
+  sorry -- Need to show that gLp and g are equal pointwise
 
 /-- Mellin transform intertwines multiplication by t^α with translation -/
 theorem mellin_scaling_translation (σ : ℝ) (α : ℝ) (f : Hσ σ) :

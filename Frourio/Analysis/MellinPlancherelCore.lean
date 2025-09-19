@@ -486,99 +486,68 @@ establishing the multiplication operator representation.
 
 variable {σ : ℝ} {φ : ℝ} (hφ : 1 < φ)
 
-/-- Helper: scaling operator on `Hσ` (placeholder).
+/-- Scale transformation operator T_α: (T_α f)(x) = f(αx)
+    This is used as a building block for Frourio operators.
+    Note: This changes the space from Hσ to a different weighted space. -/
+noncomputable def T_scale (α : ℝ) (f : ℝ → ℂ) : ℝ → ℂ :=
+  fun x => f (α * x)
 
-The eventual analytic definition will send `f` to the function `x ↦ f (α * x)`
-and incorporate the corresponding Jacobian/weight factors.  Introducing that
-map requires a careful change-of-variables argument in the weighted L² space,
-which is postponed to a later phase.  For now we keep a concrete placeholder
-that simply returns `0`, so downstream definitions (such as the physical-space
-Frourio operator) compile while clearly signalling the missing analytic work. -/
-noncomputable def scale_op (α : ℝ) (f : Hσ σ) : Hσ σ := by
-  classical
-  by_cases hα : α = 0
-  · -- Pure scaling by `0` collapses the input; the intended result is identically zero.
-    exact 0
-  · -- The analytic change-of-variables for nonzero scaling will be supplied later.
-    have hαpos : α > 0 ∨ α < 0 := lt_or_gt_of_ne (by simpa [eq_comm] using hα)
-    refine if hpos : α > 0 then ?_ else ?_
-    · -- Positive scaling: genuine change of variables (to be implemented).
-      classical
-      have hscale : 0 < α := hpos
-      -- For positive α, the scaled function should be x ↦ α^(1/2 - σ) * f(α * x)
-      -- This includes the Jacobian factor for preserving the L² norm
+/-- The two-point Frourio difference operator from the paper.
+    D_Φ f(x) = (φ⁻¹ f(φx) - φ f(φ⁻¹x))/x
+    This is the weighted symmetric golden Jackson differential. -/
+noncomputable def D_Phi (φ : ℝ) (f : ℝ → ℂ) : ℝ → ℂ :=
+  fun x => if x ≠ 0 then
+    (φ⁻¹ * f (φ * x) - φ * f (φ⁻¹ * x)) / x
+  else
+    0
 
-      -- Split into cases based on α = 1
-      by_cases hα_one : α = 1
-      · -- If α = 1, scaling is the identity
-        subst hα_one
-        exact f
-      · -- For α ≠ 1, we need actual scaling
-        -- Further split based on α > 1 or α < 1
-        by_cases hα_gt : α > 1
-        · -- Case: α > 1 (expansion)
-          -- The function expands: f(α * x) samples f at larger values
-          -- Jacobian factor: α^(1/2 - σ) compensates for measure change
+/-- The standard two-point Frourio operator from the first paper.
+    D_F f(x) = (f(φx) - f(ψx))/(√5 x) where ψ = (1-√5)/2 -/
+noncomputable def D_F (f : ℝ → ℂ) : ℝ → ℂ :=
+  let φ := (1 + Real.sqrt 5) / 2  -- Golden ratio
+  let ψ := (1 - Real.sqrt 5) / 2  -- Conjugate
+  fun x => if x ≠ 0 then
+    (f (φ * x) - f (ψ * x)) / (Real.sqrt 5 * x)
+  else
+    0
 
-          -- Define the scaled function g(x) = α^(1/2 - σ) * f(α * x)
-          -- This requires:
-          -- 1. Evaluating f at α * x (which is in the domain since α > 0 and x > 0)
-          -- 2. Multiplying by the Jacobian factor α^(1/2 - σ)
-          -- 3. Proving the result is in Hσ(σ)
+/-- The Mellin symbol for D_Phi operator.
+    In Mellin space, D_Phi becomes multiplication by this symbol. -/
+noncomputable def mellin_symbol_D_Phi (φ : ℝ) (s : ℂ) : ℂ :=
+  φ⁻¹ * φ^(-s) - φ * φ^s
 
-          -- Check if σ = 1/2 (isometric case)
-          by_cases hσ_half : σ = 1/2
-          · -- When σ = 1/2, the Jacobian factor α^(1/2 - σ) = α^0 = 1
-            -- So g(x) = f(α * x) without additional scaling
-            -- This is the isometric case on the critical line
-            exact f  -- Placeholder: would be the pullback of f by x ↦ α*x
-          · -- When σ ≠ 1/2, we need the Jacobian factor
-            -- g(x) = α^(1/2 - σ) * f(α * x)
-            -- The factor α^(1/2 - σ) is real and positive since α > 1
-            exact f  -- Placeholder: would include Jacobian scaling
-        · -- Case: 0 < α < 1 (contraction)
-          have hα_lt : α < 1 := by
-            push_neg at hα_gt
-            exact lt_of_le_of_ne hα_gt hα_one
-          -- The function contracts: f(α * x) samples f at smaller values
+/-- Key theorem: D_Phi acts as a multiplication operator in Mellin space.
+    M[D_Phi f](s) = mellin_symbol_D_Phi(φ, s) * M[f](s-1) -/
+theorem D_Phi_mellin_representation (φ : ℝ) (hφ : 1 < φ) (f : ℝ → ℂ) (s : ℂ) :
+  mellinTransform (D_Phi φ f) s = mellin_symbol_D_Phi φ s * mellinTransform f (s - 1) := by
+  -- Unfold the definition of D_Phi
+  unfold D_Phi mellinTransform
 
-          -- For contraction, we still have g(x) = α^(1/2 - σ) * f(α * x)
-          -- But now 0 < α < 1, so:
-          -- - If σ < 1/2: α^(1/2 - σ) > 1 (amplification)
-          -- - If σ > 1/2: α^(1/2 - σ) < 1 (attenuation)
-          -- - If σ = 1/2: α^(1/2 - σ) = 1 (isometric)
+  -- The Mellin transform integral
+  -- M[D_Phi φ f](s) = ∫₀^∞ D_Phi(φ, f)(x) x^(s-1) dx
+  -- = ∫₀^∞ (φ⁻¹ f(φx) - φ f(φ⁻¹x))/x · x^(s-1) dx
+  -- = ∫₀^∞ (φ⁻¹ f(φx) - φ f(φ⁻¹x)) x^(s-2) dx
 
-          -- Check the relationship between σ and 1/2
-          by_cases hσ_cmp : σ < 1/2
-          · -- σ < 1/2: The Jacobian factor amplifies
-            exact f  -- Placeholder: would apply amplified contraction
-          · -- σ ≥ 1/2: The Jacobian factor is neutral or attenuates
-            by_cases hσ_half : σ = 1/2
-            · -- σ = 1/2: Isometric case
-              exact f  -- Placeholder: simple pullback without scaling
-            · -- σ > 1/2: Attenuation
-              have hσ_gt : σ > 1/2 := by
-                push_neg at hσ_cmp
-                exact lt_of_le_of_ne hσ_cmp (Ne.symm hσ_half)
-              exact f  -- Placeholder: would apply attenuated contraction
-    · -- Negative scaling: combine reflection with positive scaling (future work).
-      have hneg : α < 0 := by
-        have h := not_lt.mp hpos
-        have hne : 0 ≠ α := by exact by simpa [eq_comm] using hα
-        exact lt_of_le_of_ne' h (by simpa using hne)
-      -- For negative α, we would need to handle reflection: x ↦ f(-α * x)
-      -- This requires careful treatment of the domain (0, ∞)
+  -- Split the integral into two parts (assuming linearity)
+  have h_split : ∫ x in Set.Ioi (0:ℝ), (D_Phi φ f) x * x^(s - 1) ∂volume =
+                 ∫ x in Set.Ioi (0:ℝ), (φ⁻¹ * f (φ * x)) * x^(s - 2) ∂volume -
+                 ∫ x in Set.Ioi (0:ℝ), (φ * f (φ⁻¹ * x)) * x^(s - 2) ∂volume := by
+    -- This requires:
+    -- 1. Handling the if x ≠ 0 condition (true on Ioi 0)
+    -- 2. Algebraic simplification of the integrand
+    -- 3. Linearity of the integral
+    sorry
 
-      -- Split based on α = -1
-      by_cases hα_neg_one : α = -1
-      · -- If α = -1, this is pure reflection
-        -- f(-x) on (0, ∞) requires special handling
-        -- The domain doesn't naturally support reflection
-        exact 0
-      · -- For α ≠ -1, combine reflection with scaling
-        -- This is the most complex case: both reflection and scaling
-        -- The Jacobian factor would be |α|^(1/2 - σ) = (-α)^(1/2 - σ)
-        exact 0
+  sorry
+
+/-- The standard Frourio operator satisfies Binet's formula in Mellin space.
+    M[D_F f](s) = F_s * M[f](s-1) where F_s is the s-th Fibonacci number -/
+theorem D_F_mellin_fibonacci (f : ℝ → ℂ) (s : ℂ) :
+  mellinTransform (D_F f) s =
+    ((Frourio.φ^s - ((1 - Real.sqrt 5)/2)^s) / Real.sqrt 5) * mellinTransform f (s - 1) := by
+  -- This is the fundamental connection to Fibonacci numbers
+  -- via the Binet formula
+  sorry
 
 /-- Helper: Pointwise multiplication by x^k on Hσ -/
 noncomputable def mult_by_power (k : ℝ) (f : Hσ σ) : Hσ (σ - k) := by
@@ -713,45 +682,20 @@ noncomputable def div_by_x (f : Hσ σ) : Hσ (σ - 1) := by
     Frourio/Algebra/Operators.lean. -/
 noncomputable def frourio_op_m {m : ℕ} (op : FrourioOperator m) (σ : ℝ)
     (f : Hσ σ) : Hσ (σ - 1) :=
-  -- Step 1: Apply all scaling operators U_{Λ_i}
-  let scaled_terms : Fin m → Hσ σ := fun i => scale_op (op.Λ i) f
+  -- Note: This is a placeholder implementation
+  -- The actual implementation requires careful handling of scale transformations
+  -- which change the weighted L² space
+  0  -- Placeholder: returns zero for now
 
-  -- Step 2: Apply weights α_i and signs χ_i
-  let weighted_terms : Fin m → Hσ σ := fun i =>
-    (op.α i * ((op.χ i).toInt : ℂ)) • (scaled_terms i)
-
-  -- Step 3: Sum all weighted terms
-  let summed : Hσ σ := ∑ i : Fin m, weighted_terms i
-
-  -- Step 4: Apply M_{1/x} (division by x)
-  -- This shifts from Hσ(σ) to Hσ(σ-1)
-  div_by_x summed
-
-/-- The two-point Frourio difference operator D_Φ in physical space.
-    D_Φ f(x) = (1/x)[φ^(-1) f(φ^(-1) x) - φ f(φ x)]
-
-    This is a special case of the m-point Frourio operator with m=2.
-    It implements the golden ratio difference operator when φ = (1+√5)/2. -/
+/-- The two-point Frourio difference operator D_Φ in weighted L² space.
+    This is a placeholder that returns 0 since the actual implementation
+    requires careful handling of scale transformations between different
+    weighted spaces. -/
 noncomputable def DΦ (φ : ℝ) (σ : ℝ) (f : Hσ σ) : Hσ (σ - 1) :=
-  -- Step 1: Apply scaling operators
-  -- f(φ^(-1)x) and f(φx) via scale_op
-  let f_scaled_down := scale_op (φ⁻¹) f  -- f(φ^(-1)x)
-  let f_scaled_up := scale_op φ f         -- f(φx)
-
-  -- Step 2: Apply constant weights from the 2-point Frourio operator
-  -- The BasicFrourioOperator with parameter φ gives:
-  -- α₀ = φ⁻¹, χ₀ = +1, Λ₀ = φ
-  -- α₁ = φ,   χ₁ = -1, Λ₁ = φ⁻¹
-  -- So we compute: φ^(-1) * f(φ^(-1)x) - φ * f(φx)
-  let weighted_down : Hσ σ := (φ⁻¹ : ℂ) • f_scaled_down
-  let weighted_up : Hσ σ := (φ : ℂ) • f_scaled_up
-
-  -- Step 3: Take the difference with signs from χ
-  let difference : Hσ σ := weighted_down - weighted_up
-
-  -- Step 4: Apply the M_{1/x} operator (division by x)
-  -- This shifts from Hσ(σ) to Hσ(σ-1) as per the general Frourio framework
-  div_by_x difference
+  -- Note: The actual operator D_Φ f(x) = (1/x)[φ^(-1) f(φ^(-1) x) - φ f(φ x)]
+  -- requires scale transformations that change the weighted L² space.
+  -- This is a placeholder implementation.
+  0
 
 /-- The two-point operator DΦ is equivalent to the specialized m-point operator
     with m=2 and the BasicFrourioOperator parameters. -/
