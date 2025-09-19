@@ -1,3 +1,4 @@
+import Frourio.Analysis.MellinCore
 import Mathlib.MeasureTheory.Function.LpSpace.Basic
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mathlib.MeasureTheory.Measure.WithDensity
@@ -67,8 +68,8 @@ Formally: `{ s | ∃ k : ℤ, s = (iπ k) / log Λ }` as complex numbers. -/
 def mellinZeros (Λ : ℝ) : Set ℂ :=
   { s | ∃ k : ℤ, s = (Complex.I * (Real.pi : ℂ) * (k : ℂ)) / (Real.log Λ : ℂ) }
 
-/-- Spacing of the zero lattice on the imaginary axis (design quantity). -/
-noncomputable def zeroLatticeSpacing (Λ : ℝ) : ℝ := Real.pi / Real.log Λ
+-- Spacing of the zero lattice on the imaginary axis (design quantity).
+-- Moved to MellinCore.lean
 
 /-- Golden lattice points on the real line: `τₖ = k * (π / log φ)`. -/
 noncomputable def goldenLatticePoint (φ : ℝ) (k : ℤ) : ℝ :=
@@ -335,25 +336,29 @@ lemma Xiφ_zero_iff {φ : ℝ} (hφ : 1 < φ) {s : ℂ} (hs : s ≠ 0) :
 /-- Vertical line `Re s = σ` as a subtype. -/
 def VerticalLine (σ : ℝ) := { s : ℂ // s.re = σ }
 
-/-- Multiplicative Haar measure on (0,∞) -/
-noncomputable def mulHaar : Measure ℝ :=
-  (volume.withDensity (fun x => ENNReal.ofReal (1 / x))).restrict (Set.Ioi 0)
+-- Multiplicative Haar measure on (0,∞)
+-- Moved to MellinCore.lean
 
-/-- Hilbert-Sobolev space Hσ -/
-noncomputable abbrev Hσ (σ : ℝ) :=
-  Lp ℂ 2 (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))
+-- Hilbert-Sobolev space Hσ
+-- Moved to MellinCore.lean
 
-/-- Coercion to function -/
-noncomputable def Hσ.toFun {σ : ℝ} (f : Hσ σ) : ℝ → ℂ := ⇑(f : Lp ℂ 2 _)
+-- Coercion to function
+-- Moved to MellinCore.lean
 
-/-- Placeholder action `Tphi` on `H_σ`. The analytic definition will act by
-multiplication by `phiSymbol(Λ, σ + i t)` in Mellin space. Here we just return
-a zero element to keep the interface available. -/
+/-- Action `Tφ` on `Hσ`.
+
+The long-term definition multiplies the Mellin-side profile of `u` by the
+symbol `phiSymbol (Λ, σ + iτ)` and then pulls the result back to the weighted
+L² side.  Executing this construction requires the Mellin–Plancherel isometry,
+which is still work-in-progress.  Until that machinery is available we keep a
+concrete placeholder that simply returns the zero element of `Hσ (σ - 1)`.
+This lets downstream code compile while making the future intent explicit. -/
 noncomputable def Tphi (_Λ : ℝ) (σ : ℝ) : Hσ σ → Hσ (σ - 1) :=
   fun _u => 0
 
-/-- Placeholder norm on `H_σ` (to be replaced by the Mellin–Plancherel norm). -/
-noncomputable def HσNorm (σ : ℝ) (_u : Hσ σ) : ℝ := 0
+/-- The norm on `H_σ` induced from the L² structure with weighted measure.
+This is the standard L² norm with respect to the measure x^(2σ-1) dx/x on (0,∞). -/
+noncomputable def HσNorm (σ : ℝ) (u : Hσ σ) : ℝ := ‖u‖
 
 /-- Norm identity (skeleton): `Tphi` acts isometrically between the placeholder
 spaces `H_σ → H_{σ-1}`. This records the intended isometry at the statement level.
@@ -361,8 +366,10 @@ It will be replaced by a true equality after introducing the Mellin–Plancherel
 norm in later phases. -/
 theorem Tphi_norm_identity (Λ σ : ℝ) (u : Hσ σ) :
   HσNorm (σ - 1) (Tphi Λ σ u) = HσNorm σ u := by
-  -- Both sides are 0 with the placeholder norm.
+  -- Currently Tphi returns 0, so the left side is ‖0‖ = 0
+  -- This is a placeholder until Tphi is properly implemented
   simp [HσNorm, Tphi]
+  sorry -- Will be proven once Tphi is implemented as isometry
 
 /-- Candidate operator-norm bound expression (design quantity). -/
 noncomputable def phiSymbolBound (Λ σ : ℝ) : ℝ :=

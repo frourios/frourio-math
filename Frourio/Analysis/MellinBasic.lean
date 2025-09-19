@@ -1,4 +1,4 @@
-import Frourio.Analysis.MellinTransform
+import Frourio.Analysis.MellinCore
 import Frourio.Algebra.Operators
 import Frourio.Algebra.Properties
 import Frourio.Basic
