@@ -33,7 +33,7 @@ Mellin trace vanishes at ζ zeros with the prescribed multiplicity. -/
 def FW_criterion (σ : ℝ) : Prop :=
   ∀ (F : GoldenTestSeq σ),
     (∀ h : ℕ, 0 ≤ Qζσ σ (F.f h)) ∧
-    (∀ h : ℕ, Qζσ σ (F.f h) = 0 → VanishAtZeros (Uσ σ (F.f h)) Mult)
+    (∀ h : ℕ, Qζσ σ (F.f h) = 0 → VanishAtZeros ((mellin_in_L2 σ (F.f h)).toLp (mellinOnCriticalLine σ (F.f h))) Mult)
 
 /-- Auxiliary: discrete–continuous consistency of Qζ along prepared golden sequences. -/
 def disc_consistency (_σ : ℝ) (_F : GoldenTestSeq _σ) : Prop := True
@@ -48,7 +48,7 @@ def off_critical_contradiction : Prop := True
 outside any fixed neighborhood of `τ₀` goes to zero. -/
 def concentrates_at (σ : ℝ) (F : GoldenTestSeq σ) (τ₀ : ℝ) : Prop :=
   ∀ ε > 0, ∃ N : ℕ, ∀ n ≥ N,
-    (∫ τ, ‖(Uσ σ (F.f n) : ℝ → ℂ) τ‖^2 ∂(volume.restrict {τ | |τ - τ₀| > ε})) < ε
+    (∫ τ, ‖(mellinOnCriticalLine σ (F.f n)) τ‖^2 ∂(volume.restrict {τ | |τ - τ₀| > ε})) < ε
 
 /-- Standard golden test sequence with δ n = 1/(n+1) -/
 structure StandardGoldenTestSeq (σ : ℝ) extends GoldenTestSeq σ where
@@ -201,24 +201,15 @@ theorem exists_golden_peak_proof (σ τ₀ : ℝ) :
 
   -- For now, since Uσ = 0 in the current implementation:
   -- The integral of ‖0‖^2 over any set is 0 < ε
-  -- Since Uσ = 0 in the current implementation, we have:
-  have h_Uσ_zero : Uσ σ (f n) = 0 := by
-    simp only [Uσ]
-    sorry  -- This follows from Uσ = 0, but the proof is complex due to the if-then-else structure
-
-  calc (∫ τ in {τ | |τ - τ₀| > ε}, ‖(Uσ σ (f n) : ℝ → ℂ) τ‖^2)
-      = ∫ τ in {τ | |τ - τ₀| > ε}, ‖(0 : ℝ → ℂ) τ‖^2 := by
-        congr 1
-        ext τ
-        rw [h_Uσ_zero]
-        sorry  -- Type coercion issue with ↑↑0
-  _   = ∫ τ in {τ | |τ - τ₀| > ε}, (0 : ℝ) := by
-        congr 1
-        ext τ
-        simp only [Pi.zero_apply, norm_zero, pow_two]
-        ring
-  _   = 0 := integral_zero _ _
-  _   < ε := hε
+  -- The mellinOnCriticalLine is the Mellin transform on the critical line
+  -- For Gaussian functions with small width, this concentrates at τ₀
+  -- The integral outside |τ - τ₀| > ε vanishes as the width δ n → 0
+  calc (∫ τ in {τ | |τ - τ₀| > ε}, ‖(mellinOnCriticalLine σ (f n)) τ‖^2)
+      ≤ 4 * Real.exp (-Real.pi * ε^2 / (δ n)^2) := by
+        -- This follows from the Gaussian tail bound for the Mellin transform
+        -- of a Gaussian with width δ n centered at τ₀
+        sorry  -- Gaussian tail bound
+  _   < ε := hTail
 
 /-- The golden sequence constructed in exists_golden_peak_proof has standard width -/
 theorem exists_golden_peak_proof_has_standard_width (σ τ₀ : ℝ) :

@@ -1184,400 +1184,196 @@ between kernels.
 
 variable {σ : ℝ} {K : ℝ → ℝ} {f : Hσ σ}
 
-/-- Pullback of the quadratic form to Hσ via the isometry Uσ.
-    Since Uσ is an isometry, this preserves all essential properties. -/
+/-- Quadratic form on Hσ defined directly via the Mellin transform.
+    This avoids dependency on the placeholder Uσ operator. -/
 noncomputable def Qσ (K : ℝ → ℝ) (f : Hσ σ) : ℝ :=
-  Qℝ K (Uσ σ f)
+  ∫ τ : ℝ, K τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume
 
 /-- Alternative notation for clarity -/
 notation "Qσ[" K "]" => Qσ K
 
 /-- Positivity on Hσ: If K ≥ 0 a.e., then Qσ[K](f) ≥ 0.
-    This follows immediately from the positivity of Qℝ and the fact that
-    Uσ is just a mapping between spaces. -/
+    This follows from the fact that we're integrating a non-negative function. -/
 theorem Qσ_pos (K : ℝ → ℝ) (hK : ∀ᵐ τ ∂volume, 0 ≤ K τ) (f : Hσ σ) :
     0 ≤ Qσ[K] f := by
   unfold Qσ
-  exact Q_pos K hK (Uσ σ f)
+  -- The integrand K τ * ‖mellinOnCriticalLine σ f τ‖^2 is non-negative a.e.
+  apply integral_nonneg_of_ae
+  -- Show that the integrand is non-negative almost everywhere
+  refine hK.mono ?_
+  intro τ hτ
+  exact mul_nonneg hτ (sq_nonneg _)
 
-/-- When K is essentially bounded, Qσ[K] f = 0 implies M_K (Uσ f) = 0 -/
-theorem Qσ_eq_zero_imp_MK_zero (K : ℝ → ℝ) (f : Hσ σ)
+/-- When K is essentially bounded and non-negative, Qσ[K] f = 0 implies
+    that K · mellinOnCriticalLine σ f = 0 almost everywhere -/
+theorem Qσ_eq_zero_imp_kernel_zero (K : ℝ → ℝ) (f : Hσ σ)
     (hK_meas : AEStronglyMeasurable (fun τ => (K τ : ℂ)) volume)
     (hK_bdd : essSup (fun x => (‖(K x : ℂ)‖₊ : ℝ≥0∞)) volume < ∞)
     (hK_nonneg : ∀ᵐ τ ∂volume, 0 ≤ K τ) :
-    Qσ[K] f = 0 → M_K (fun τ => (K τ : ℂ)) hK_meas hK_bdd (Uσ σ f) = 0 := by
+    Qσ[K] f = 0 → (∀ᵐ τ ∂volume, K τ * ‖mellinOnCriticalLine σ f τ‖^2 = 0) := by
   intro hQ0
-  classical
-  set Kc : ℝ → ℂ := fun τ => (K τ : ℂ)
-  have hKc_meas : AEStronglyMeasurable Kc volume := hK_meas
-  have hKc_bdd : essSup (fun x => (‖Kc x‖₊ : ℝ≥0∞)) volume < ∞ := by
-    simpa [Kc] using hK_bdd
-  -- Let g := Uσ f
-  set g : Lp ℂ 2 (volume : Measure ℝ) := Uσ σ f
-  -- From `Qσ[K] f = 0`, we have `∫ K · ‖g‖² = 0`.
-  have hInt0 : ∫ τ, K τ * ‖(g : ℝ → ℂ) τ‖^2 ∂volume = 0 := by
-    simpa [Qσ, Qℝ, g] using hQ0
-  -- f τ := K τ * ‖g τ‖^2 は a.e. 非負
-  have hF_nonneg : ∀ᵐ τ ∂volume, 0 ≤ K τ * ‖(g : ℝ → ℂ) τ‖^2 := by
+  -- From `Qσ[K] f = 0`, we have `∫ K · ‖mellinOnCriticalLine σ f‖² = 0`.
+  have hInt0 : ∫ τ, K τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume = 0 := by
+    simpa [Qσ] using hQ0
+  -- The integrand K τ * ‖mellinOnCriticalLine σ f τ‖^2 is a.e. non-negative
+  have hF_nonneg : ∀ᵐ τ ∂volume, 0 ≤ K τ * ‖mellinOnCriticalLine σ f τ‖^2 := by
     refine hK_nonneg.mono ?_
     intro τ hKτ
-    have hsq : 0 ≤ ‖(g : ℝ → ℂ) τ‖^2 := by
-      have := sq_nonneg (‖(g : ℝ → ℂ) τ‖); simp
-    exact mul_nonneg hKτ hsq
-  -- ∫ f = 0 から a.e. に f = 0（lintegral を経由）
-  have hF_meas : AEMeasurable (fun τ => K τ * ‖(g : ℝ → ℂ) τ‖^2) volume := by
-    -- K（実値）の a.e. 可測性は、Kc の実部が K であることから従う
+    exact mul_nonneg hKτ (sq_nonneg _)
+  -- The function is a.e. measurable
+  have hF_meas : AEMeasurable (fun τ => K τ * ‖mellinOnCriticalLine σ f τ‖^2) volume := by
+    -- K is a.e. measurable
     have hK_am : AEMeasurable K volume := by
-      have hRe : AEStronglyMeasurable (fun τ => (Kc τ).re) volume := hK_meas.re
-      simpa [Kc, Complex.ofReal_re] using hRe.aemeasurable
-    -- ‖g‖^2 の a.e. 可測性
-    have hg2_am : AEMeasurable (fun τ => ‖(g : ℝ → ℂ) τ‖^2) volume := by
-      have := (Lp.aestronglyMeasurable g).norm.aemeasurable
-      exact this.pow_const 2
-    exact hK_am.mul hg2_am
-  -- 実積分 0 から ofReal 合成の拡張積分も 0
-  have hlin0 :
-      (∫⁻ τ, ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2) ∂volume) = 0 := by
-    -- ∫ f = toReal (∫⁻ ofReal ∘ f)
-    have hF_smeas : AEStronglyMeasurable (fun τ => K τ * ‖(g : ℝ → ℂ) τ‖^2) volume :=
-      hF_meas.aestronglyMeasurable
-    have hEq :=
-      integral_eq_lintegral_of_nonneg_ae (μ := volume)
-        (f := fun τ => K τ * ‖(g : ℝ → ℂ) τ‖^2) hF_nonneg hF_smeas
-    have htoReal : ENNReal.toReal
-        (∫⁻ τ, ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2) ∂volume) = 0 := by
-      simpa [hEq] using hInt0  -- from toReal x = 0, we have x = 0 ∨ x = ∞
-    have hzero_or := (ENNReal.toReal_eq_zero_iff _).mp htoReal
-    -- show the lintegral is finite, hence not ∞
-    have hne_top :
-        (∫⁻ τ, ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2) ∂volume) ≠ ∞ := by
-      -- Define Mess := essSup ‖Kc‖₊ and use the standard a.e. bound
-      set Mess : ℝ≥0∞ := essSup (fun x => (‖Kc x‖₊ : ℝ≥0∞)) volume
-      have hM_top : Mess < ∞ := by simpa [Kc] using hKc_bdd
-      have h_bound : ∀ᵐ τ ∂volume, (‖Kc τ‖₊ : ℝ≥0∞) ≤ Mess :=
-        ae_le_essSup (fun x => (‖Kc x‖₊ : ℝ≥0∞))
-      -- pointwise bound: ofReal(K*‖g‖^2) ≤ ‖Kc‖₊ * ofReal(‖g‖^2)
-      have h_pw1 : ∀ᵐ τ ∂volume,
-          ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2)
-            ≤ (‖Kc τ‖₊ : ℝ≥0∞) * ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) := by
-        refine hK_nonneg.mono ?_
-        intro τ hKτ
-        -- use monotonicity of ofReal and |K| ≥ K when K ≥ 0 actually equality holds
-        have hk : (K τ : ℝ) ≤ ‖(Kc τ)‖ := by
-          -- K ≥ 0, and ‖Kc‖ = |K|
-          have : ‖(Kc τ)‖ = |K τ| := by simp [Kc]
-          have habs : (K τ : ℝ) ≤ |K τ| := by
-            have := le_abs_self (K τ); simp [abs_of_nonneg hKτ]
-          simpa [this] using habs
-        have : ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2)
-            ≤ ENNReal.ofReal (‖(Kc τ)‖ * ‖(g : ℝ → ℂ) τ‖^2) := by
-          exact ENNReal.ofReal_le_ofReal (mul_le_mul_of_nonneg_right hk (by
-            have := sq_nonneg (‖(g : ℝ → ℂ) τ‖); simp))
-        -- rewrite RHS as product in ℝ≥0∞
-        -- rewrite RHS into (‖Kc τ‖₊) * ofReal(‖g τ‖^2)
-        have hmul_ofReal :
-            ENNReal.ofReal (‖(Kc τ)‖ * ‖(g : ℝ → ℂ) τ‖^2)
-              = (‖Kc τ‖₊ : ℝ≥0∞) * ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) := by
-          have hpos1 : 0 ≤ ‖(Kc τ)‖ := by exact norm_nonneg _
-          have hpos2 : 0 ≤ ‖(g : ℝ → ℂ) τ‖^2 := by
-            have := sq_nonneg (‖(g : ℝ → ℂ) τ‖); simp
-          -- ofReal (a*b) = ofReal a * ofReal b under nonneg
-          -- `ENNReal.ofReal (‖Kc‖ * t) = (‖Kc‖₊) * ENNReal.ofReal t`
-          -- only the first factor needs a nonneg assumption
-          simp [ENNReal.ofReal_mul, hpos1]
-        -- conclude by rewriting the RHS via `hmul_ofReal`
-        exact (le_trans this (le_of_eq hmul_ofReal))
-      -- combine with essSup bound to get ≤ Mess * ofReal(‖g‖^2)
-      have h_pw : ∀ᵐ τ ∂volume,
-          ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2)
-            ≤ Mess * ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) := by
-        refine (h_pw1.and h_bound).mono ?_
-        intro τ h; rcases h with ⟨h1, h2⟩
-        -- upgrade the bound by multiplying on the right with the nonnegative factor
-        -- ENNReal.ofReal (‖g τ‖^2)
-        exact le_trans h1 (mul_le_mul_right' h2 (ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2)))
-      -- lintegral bound by mono_ae
-      have h_int_bound :
-          (∫⁻ τ, ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2) ∂volume)
-            ≤ Mess * (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume) := by
-        have := lintegral_mono_ae h_pw
-        -- pull out constant Mess
-        have hconst :
-          (∫⁻ τ, Mess * ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume)
-            = Mess * (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume) := by
-          -- Use a measurable representative for g
-          have hg_meas' : AEStronglyMeasurable (fun τ => (g : ℝ → ℂ) τ) volume :=
-            Lp.aestronglyMeasurable g
-          let g' : ℝ → ℂ := (hg_meas'.aemeasurable.mk (fun τ => (g : ℝ → ℂ) τ))
-          have hg'_meas : Measurable g' := hg_meas'.aemeasurable.measurable_mk
-          have hgg' : (fun τ => (g : ℝ → ℂ) τ) =ᵐ[volume] g' :=
-            hg_meas'.aemeasurable.ae_eq_mk
-          let F : ℝ → ℝ≥0∞ := fun τ => ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2)
-          let F' : ℝ → ℝ≥0∞ := fun τ => ENNReal.ofReal (‖g' τ‖^2)
-          have hF_meas : Measurable F' := by
-            have : Measurable fun τ => ‖g' τ‖ := hg'_meas.norm
-            have h_ofReal : Measurable fun τ => ENNReal.ofReal (‖g' τ‖) :=
-              ENNReal.measurable_ofReal.comp this
-            -- ofReal (‖·‖^2)
-            simpa [F', pow_two] using h_ofReal.pow_const (2 : ℕ)
-          have hF_ae : F =ᵐ[volume] F' := by
-            refine hgg'.mono ?_
-            intro τ hx
-            have hnorm : ‖(g : ℝ → ℂ) τ‖ = ‖g' τ‖ := by
-              simpa using congrArg norm hx
-            have : ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖ ^ 2)
-                = ENNReal.ofReal (‖g' τ‖ ^ 2) := by
-              simp [hnorm]
-            simpa [F, F'] using this
-          have hconst' : (∫⁻ τ, Mess * F' τ ∂volume)
-                = Mess * (∫⁻ τ, F' τ ∂volume) := by
-            simpa using lintegral_const_mul (μ := volume) (r := Mess) (f := F') (hf := hF_meas)
-          have hleft : (∫⁻ τ, Mess * F τ ∂volume) = (∫⁻ τ, Mess * F' τ ∂volume) := by
-            refine lintegral_congr_ae ?_
-            exact hF_ae.mono (fun τ hτ => by
-              simpa [F, F'] using congrArg (fun t => Mess * t) hτ)
-          have hright : (∫⁻ τ, F τ ∂volume) = (∫⁻ τ, F' τ ∂volume) := by
-            exact lintegral_congr_ae hF_ae
-          have hconst'' := hconst'
-          have hconst_trans :
-              (∫⁻ τ, Mess * F τ ∂volume)
-                = Mess * (∫⁻ τ, F τ ∂volume) := by
-            calc
-              (∫⁻ τ, Mess * F τ ∂volume) = (∫⁻ τ, Mess * F' τ ∂volume) := hleft
-              _ = Mess * (∫⁻ τ, F' τ ∂volume) := hconst''
-              _ = Mess * (∫⁻ τ, F τ ∂volume) := by
-                    have := congrArg (fun t => Mess * t) hright.symm
-                    simpa using this
-          simpa [F] using hconst_trans
-        -- Rewrite the RHS integral using `hconst` and the identity
-        -- (↑‖g τ‖₊)^2 = ENNReal.ofReal (‖g τ‖^2)
-        have hswap :
-            (∫⁻ τ, Mess * ((‖(g : ℝ → ℂ) τ‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume)
-              = (∫⁻ τ, Mess * ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume) := by
-          refine lintegral_congr_ae ?_
-          refine Filter.Eventually.of_forall (fun τ => ?_)
-          simp [pow_two, ENNReal.ofReal_mul]
-        -- pull out the constant Mess
-        have hpull :
-            (∫⁻ τ, ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2) ∂volume)
-              ≤ Mess * (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume) := by
-          -- First rewrite RHS of the previous bound using `hswap`
-          have h1 :
-              (∫⁻ τ, ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2) ∂volume)
-                ≤ (∫⁻ τ, Mess * ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume) := by
-            simpa [hswap] using this
-          -- Then pull out Mess using `hconst`
-          have h2 :
-              (∫⁻ τ, Mess * ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume)
-                = Mess * (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume) := hconst
-          exact h1.trans_eq h2
-        -- identify ∫ ofReal (‖g‖^2) with ∫ (↑‖g‖₊)^2
-        have hpowEq :
-            (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume)
-              = (∫⁻ τ, ((‖(g : ℝ → ℂ) τ‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume) := by
-          refine lintegral_congr_ae ?_
-          refine Filter.Eventually.of_forall (fun τ => ?_)
-          -- pointwise: ofReal (‖z‖^2) = (↑‖z‖₊)^2
-          have hnn : 0 ≤ ‖(g : ℝ → ℂ) τ‖ := norm_nonneg _
-          simp [pow_two, ENNReal.ofReal_mul, hnn]
-        -- keep the RHS in the ofReal form for the current goal
-        exact hpull
-      -- show RHS is finite
-      have hS_ne_top : (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume) ≠ ∞ := by
-        -- Use the L² identity to rule out ∞
-        have hIdOfReal : ‖g‖ ^ 2
-            = (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume).toReal := by
-          simpa using (Lp_norm_sq_as_lintegral (ν := volume) (f := g))
-        by_cases hzero : ‖g‖ = 0
-        · -- then g = 0 and the lintegral is 0
-          have : g = 0 := by simpa using (norm_eq_zero.mp hzero)
-          have hcoe : ((g : ℝ → ℂ)) =ᵐ[volume] 0 := by
-            simpa [this] using
-              (Lp.coeFn_zero (E := ℂ) (μ := (volume : Measure ℝ)) (p := (2 : ℝ≥0∞)))
-          have hcongr : (fun τ => ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2))
-              =ᵐ[volume] (fun _ => 0) := by
-            refine hcoe.mono ?_
-            intro τ hτ; simp [hτ]
-          have hzero_ofReal :
-              (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume) = 0 := by
-            simpa using lintegral_congr_ae hcongr
-          -- rewrite to the nnnorm-squared form and conclude
-          have hpowEq :
-              (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume)
-                = (∫⁻ τ, ((‖(g : ℝ → ℂ) τ‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume) := by
-            refine lintegral_congr_ae ?_
-            refine Filter.Eventually.of_forall (fun τ => ?_)
-            have hnn : 0 ≤ ‖(g : ℝ → ℂ) τ‖ := norm_nonneg _
-            simp [pow_two, ENNReal.ofReal_mul, hnn]
-          have hzero_nnnorm :
-              (∫⁻ τ, ((‖(g : ℝ → ℂ) τ‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume) = 0 := by
-            simpa [hpowEq] using hzero_ofReal
-          -- hence the integral is not top
-          simp [hzero_nnnorm]
-        · -- otherwise lintegral cannot be ∞ because toReal would be 0 contradicting hId
-          intro hinf
-          -- translate (∫ ofReal) = ∞ to the nnnorm-squared integral via pointwise identity
-          have hpowEq2 :
-              (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume)
-                = (∫⁻ τ, ((‖(g : ℝ → ℂ) τ‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume) := by
-            refine lintegral_congr_ae ?_
-            refine Filter.Eventually.of_forall (fun τ => ?_)
-            have hnn : 0 ≤ ‖(g : ℝ → ℂ) τ‖ := norm_nonneg _
-            simp [pow_two, ENNReal.ofReal_mul, hnn]
-          have hzero_sq : ‖g‖ ^ 2 = 0 := by
-            -- (∫ nnnorm^2).toReal = (∫ ofReal).toReal, and the latter is 0 by hinf
-            have htoEq :
-                (∫⁻ τ, ((‖(g : ℝ → ℂ) τ‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume).toReal
-                  = (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume).toReal := by
-              simp
-            have hR : (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume).toReal = 0 := by
-              -- derive by applying `toReal` to `hinf : ∫ ofReal = ⊤`
-              have := congrArg ENNReal.toReal hinf
-              simpa using this
-            have hL :
-                (∫⁻ τ, ((‖(g : ℝ → ℂ) τ‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume).toReal = 0 :=
-              htoEq.trans hR
-            simpa [hL] using hIdOfReal
-          have hgpos : 0 < ‖g‖ ^ 2 := by
-            have hgpos' : 0 < ‖g‖ := lt_of_le_of_ne (by exact norm_nonneg g) (Ne.symm hzero)
-            have : 0 < ‖g‖ * ‖g‖ := mul_pos hgpos' hgpos'
-            simpa [pow_two] using this
-          exact (ne_of_gt hgpos) hzero_sq
-      have hR_fin : Mess * (∫⁻ τ, ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) ∂volume) < ∞ := by
-        exact ENNReal.mul_lt_top (lt_of_le_of_lt le_rfl hM_top) (lt_top_iff_ne_top.mpr hS_ne_top)
-      -- conclude LHS ≠ ∞ from the bound
-      exact (ne_of_lt (lt_of_le_of_lt h_int_bound hR_fin))
-    -- resolve the right disjunct using finiteness; conclude equality to 0
-    exact Or.resolve_right hzero_or hne_top
-  -- lintegral = 0 ⇒ ofReal ∘ f = 0 a.e. ⇒ f = 0 a.e.（非負性とあわせて）
-  have hF_ae0 : ∀ᵐ τ ∂volume, K τ * ‖(g : ℝ → ℂ) τ‖^2 = 0 := by
-    have hof_meas : AEMeasurable (fun τ => ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2)) volume :=
-      ENNReal.measurable_ofReal.comp_aemeasurable hF_meas
-    have hof_eq0 : (fun τ => ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2)) =ᵐ[volume] 0 := by
-      simpa using (lintegral_eq_zero_iff' (μ := volume) (f := _ ) hof_meas).1 hlin0
-    have hboth := hF_nonneg.and hof_eq0
-    exact hboth.mono (fun τ h => by
-      rcases h with ⟨hnonnegτ, hzeroτ⟩
-      have hle : K τ * ‖(g : ℝ → ℂ) τ‖^2 ≤ 0 := by
-        simpa using (ENNReal.ofReal_eq_zero.mp (by simpa using hzeroτ))
-      exact le_antisymm hle hnonnegτ)
-  -- Therefore on the support of `Kc`, we have `‖g‖ = 0` a.e., i.e. `g = 0` a.e.
-  have h_g_ae0_on_supp : (g : ℝ → ℂ) =ᵐ[volume.restrict (supp_K Kc)] 0 := by
-    -- Use a measurable representative K' of Kc to obtain a measurable support set.
-    let K' : ℝ → ℂ := (hKc_meas.aemeasurable.mk Kc)
-    have hK'_meas : Measurable K' := hKc_meas.aemeasurable.measurable_mk
-    -- The support of the measurable representative is measurable.
-    have hS'_meas : MeasurableSet (supp_K K') := by
-      have hset : MeasurableSet ({z : ℂ | z ≠ 0}) :=
-        (isClosed_singleton : IsClosed ({0} : Set ℂ)).measurableSet.compl
-      simpa [supp_K, Set.preimage, Set.mem_setOf_eq] using hset.preimage hK'_meas
-    -- From `K * ‖g‖² = 0` a.e., on `{K ≠ 0}` and `K ≥ 0` a.e. we get `‖g‖ = 0` a.e.
-    have h_impl : ∀ᵐ τ ∂volume, τ ∈ supp_K Kc → (g : ℝ → ℂ) τ = 0 := by
-      refine (hF_ae0.and hK_nonneg).mono ?_
-      intro τ hpair hmem
-      rcases hpair with ⟨h0, hK_nonneg_τ⟩
-      have hKne : Kc τ ≠ 0 := by simpa [supp_K] using hmem
-      have hKne' : K τ ≠ 0 := by simpa [Kc, Complex.ofReal_eq_zero] using hKne
-      -- From nonneg and nonzero, get strict positivity
-      have hKpos : 0 < K τ := lt_of_le_of_ne hK_nonneg_τ (Ne.symm hKne')
-      -- Represent the lintegral integrand via ofReal multiplicativity under nonneg
-      have hrepr : ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2)
-          = ENNReal.ofReal (K τ) * ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) := by
-        have hpos1 : 0 ≤ K τ := hK_nonneg_τ
-        have hpos2 : 0 ≤ ‖(g : ℝ → ℂ) τ‖^2 := by
-          have := sq_nonneg (‖(g : ℝ → ℂ) τ‖); simp
-        simp [ENNReal.ofReal_mul, hpos1]
-      have hof0 : ENNReal.ofReal (K τ * ‖(g : ℝ → ℂ) τ‖^2) = 0 := by
-        simp [h0]
-      have hprod0 : ENNReal.ofReal (K τ) * ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) = 0 := by
-        simpa [hrepr] using hof0
-      -- Since K τ > 0, `ofReal (K τ) ≠ 0`, so the second factor must be 0
-      have hK_ofReal_ne : ENNReal.ofReal (K τ) ≠ 0 := by
-        -- `K τ > 0` implies `ofReal (K τ) > 0`, hence ≠ 0
-        have : 0 < ENNReal.ofReal (K τ) := by
-          simpa using (ENNReal.ofReal_pos.mpr hKpos)
-        exact ne_of_gt this
-      have hzeroτ : ENNReal.ofReal (‖(g : ℝ → ℂ) τ‖^2) = 0 := by
-        exact eq_zero_of_ne_zero_of_mul_left_eq_zero hK_ofReal_ne hprod0
-      -- Convert to real equality for the norm
-      have hsq_le0 : ‖(g : ℝ → ℂ) τ‖^2 ≤ 0 := (ENNReal.ofReal_eq_zero.mp hzeroτ)
-      have hsq_ge0 : 0 ≤ ‖(g : ℝ → ℂ) τ‖^2 := by
-        have := sq_nonneg (‖(g : ℝ → ℂ) τ‖); simp
-      have hsq0 : ‖(g : ℝ → ℂ) τ‖^2 = 0 := le_antisymm hsq_le0 hsq_ge0
-      have hnorm0 : ‖(g : ℝ → ℂ) τ‖ = 0 := by
-        have := sq_eq_zero_iff.mp hsq0; simpa using this
-      -- From norm zero to value zero in ℂ
-      have : (g : ℝ → ℂ) τ = 0 := by
-        simpa using (norm_eq_zero.mp hnorm0)
-      simp [this]
-    -- Move to the measurable support S' via a.e. equality of supports
-    have hKK' : Kc =ᵐ[volume] K' := hKc_meas.aemeasurable.ae_eq_mk
-    have hSS' : (supp_K Kc : Set ℝ) =ᵐ[volume] supp_K K' := by
-      refine hKK'.mono ?_
-      intro x hx
-      -- At each x, Kc x = K' x implies equivalence of (Kc x = 0) and (K' x = 0)
-      -- hence equivalence of their negations, which matches the set membership propositions.
-      have hzero : (Kc x = 0) ↔ (K' x = 0) := by simp [hx]
-      exact propext (not_congr hzero)
-    have h_restr_eq : volume.restrict (supp_K Kc) = volume.restrict (supp_K K') := by
-      simpa using Measure.restrict_congr_set (μ := volume) hSS'
-    -- Apply the implication form on S', then transfer back to S.
-    have h_on_S' : ∀ᵐ τ ∂volume, τ ∈ supp_K K' → (g : ℝ → ℂ) τ = 0 := by
-      -- from h_impl and a.e. inclusion S' ⊆ S
-      have h_sub : ∀ᵐ τ ∂volume, τ ∈ supp_K K' → τ ∈ supp_K Kc := by
-        refine hSS'.mono ?_
-        intro x hx hxS'
-        have : (x ∈ supp_K Kc) ↔ (x ∈ supp_K K') := by simpa using hx
-        exact this.mpr hxS'
-      exact (h_impl.and h_sub).mono (fun x hx hxS' => hx.1 (hx.2 hxS'))
-    have : ∀ᵐ τ ∂(volume.restrict (supp_K K')), (g : ℝ → ℂ) τ = 0 :=
-      (ae_restrict_iff' hS'_meas).2 h_on_S'
-    simpa [h_restr_eq]
-  -- Conclude via the kernel characterization
-  have hker : g ∈ ker_MK Kc hKc_meas hKc_bdd := by
-    -- use the iff: g in ker_MK ↔ g = 0 a.e. on supp_K
-    have := (ker_MK_iff_ae_zero_on_supp Kc g hKc_meas hKc_bdd).mpr
-    exact this h_g_ae0_on_supp
-  -- Translate membership in the kernel into equality `(M_K Kc) g = 0` in Lp
-  have : (M_K Kc hKc_meas hKc_bdd) g = 0 := by
-    -- `ker` of the linear map
-    simpa [ker_MK, LinearMap.mem_ker] using hker
-  simpa [g] using this
+      -- We know (K τ : ℂ) is AEStronglyMeasurable
+      -- The real part of (K τ : ℂ) is K τ
+      have : AEStronglyMeasurable (fun τ => ((K τ : ℂ)).re) volume := hK_meas.re
+      simp only [Complex.ofReal_re] at this
+      exact this.aemeasurable
+    -- ‖mellinOnCriticalLine σ f‖^2 is a.e. measurable
+    have h_mellin_meas := (mellin_in_L2 σ f).1.norm.aemeasurable
+    have h_sq_meas := h_mellin_meas.pow_const 2
+    exact hK_am.mul h_sq_meas
+  -- From the integral being 0 and the integrand being non-negative a.e.,
+  -- we conclude that the integrand must be 0 a.e.
+  classical
+  -- `‖mellinOnCriticalLine σ f τ‖ ^ 2` is integrable thanks to the L² bound
+  have h_mellin_sq_int :
+      Integrable (fun τ => ‖mellinOnCriticalLine σ f τ‖ ^ 2) volume := by
+    have hmem := mellin_in_L2 σ f
+    exact (memLp_two_iff_integrable_sq_norm hmem.1).1 hmem
+  -- Obtain an a.e. bound on K from the essential supremum
+  set Mess : ℝ≥0∞ := essSup (fun τ => (‖(K τ : ℂ)‖₊ : ℝ≥0∞)) volume
+  have hMess_lt : Mess < ∞ := hK_bdd
+  have hMess_ne : Mess ≠ ∞ := ne_of_lt hMess_lt
+  have hK_bound : ∀ᵐ τ ∂volume, ‖K τ‖ ≤ Mess.toReal := by
+    have h_le :
+        ∀ᵐ τ ∂volume, (‖(K τ : ℂ)‖₊ : ℝ≥0∞) ≤ Mess :=
+      ae_le_essSup (fun τ => (‖(K τ : ℂ)‖₊ : ℝ≥0∞))
+    refine h_le.mono ?_
+    intro τ hτ
+    have hτ' :=
+      (ENNReal.toReal_le_toReal (by simp) hMess_ne).2 hτ
+    have hτ'' : ‖(K τ : ℂ)‖ ≤ Mess.toReal := by
+      simpa [toReal_coe_nnnorm'] using hτ'
+    simpa [Complex.norm_ofReal, Real.norm_eq_abs] using hτ''
+  -- K is real-valued and inherits measurability from the complex-valued assumption
+  have hK_meas_real : AEStronglyMeasurable K volume := by
+    simpa using hK_meas.re
+  -- Hence the product is integrable by bounding K with its essential supremum
+  have hF_int :
+      Integrable (fun τ => K τ * ‖mellinOnCriticalLine σ f τ‖ ^ 2) volume := by
+    refine Integrable.bdd_mul' (μ := volume) (c := Mess.toReal)
+        h_mellin_sq_int hK_meas_real ?_
+    exact hK_bound
+  -- Finally, use the integral zero criterion for non-negative integrable functions
+  have hZero :
+      (fun τ => K τ * ‖mellinOnCriticalLine σ f τ‖ ^ 2)
+        =ᵐ[volume] (fun _ => (0 : ℝ)) := by
+    exact (MeasureTheory.integral_eq_zero_iff_of_nonneg_ae
+      (μ := volume) hF_nonneg hF_int).1 hInt0
+  exact hZero
 
-/-- The kernel of Qσ is related to the kernel of M_K through Uσ -/
+/-- The kernel of Qσ is related to the kernel of M_K through mellinOnCriticalLine -/
 lemma ker_Qσ_subset_ker_MK (K : ℝ → ℝ)
     (hK_meas : AEStronglyMeasurable (fun τ => (K τ : ℂ)) volume)
     (hK_bdd : essSup (fun x => (‖(K x : ℂ)‖₊ : ℝ≥0∞)) volume < ∞)
     (hK_nonneg : ∀ᵐ τ ∂volume, 0 ≤ K τ) :
     {f : Hσ σ | Qσ[K] f = 0} ⊆
-    {f : Hσ σ | M_K (fun τ => (K τ : ℂ)) hK_meas hK_bdd (Uσ σ f) = 0} := by
+    {f : Hσ σ | M_K (fun τ => (K τ : ℂ)) hK_meas hK_bdd
+      ((mellin_in_L2 σ f).toLp (mellinOnCriticalLine σ f)) = 0} := by
   intro f hf
-  exact Qσ_eq_zero_imp_MK_zero K f hK_meas hK_bdd hK_nonneg hf
+  classical
+  -- `gLp` is the Mellin transform viewed as an element of `Lp`
+  let gLp : Lp ℂ 2 (volume : Measure ℝ) :=
+    (mellin_in_L2 σ f).toLp (mellinOnCriticalLine σ f)
+  -- a.e. representatives for `gLp` and `M_K gLp`
+  have hg_coe : ((gLp : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+      =ᵐ[volume] mellinOnCriticalLine σ f := by
+    simpa using (MemLp.coeFn_toLp (mellin_in_L2 σ f))
+  have hMK_coe :=
+    M_K_apply_ae (fun τ => (K τ : ℂ)) hK_meas hK_bdd gLp
+  -- From the kernel condition on `Qσ` we know the squared norm vanishes a.e.
+  have hZeroSq : ∀ᵐ τ ∂volume,
+      K τ * ‖mellinOnCriticalLine σ f τ‖^2 = 0 := by
+    exact (Qσ_eq_zero_imp_kernel_zero (σ := σ) (K := K) (f := f)
+      hK_meas hK_bdd hK_nonneg) hf
+  -- Convert the squared-norm vanishing into the complex product vanishing a.e.
+  have hKg_zero :
+      ∀ᵐ τ ∂volume,
+        (K τ : ℂ) * mellinOnCriticalLine σ f τ = 0 := by
+    refine hZeroSq.mono ?_
+    intro τ hτ
+    have hcases := mul_eq_zero.mp hτ
+    rcases hcases with hKτ | hnormτ
+    · simp [hKτ]
+    · have hnorm_zero : ‖mellinOnCriticalLine σ f τ‖ = 0 := by
+        have hsq : (‖mellinOnCriticalLine σ f τ‖ : ℝ) ^ (2 : ℕ) = 0 := by
+          simpa using hnormτ
+        simpa using (pow_eq_zero hsq)
+      have hf_zero : mellinOnCriticalLine σ f τ = 0 := by
+        simpa using (norm_eq_zero.mp hnorm_zero)
+      simp [hf_zero]
+  -- The zero element of `Lp` evaluates to 0 almost everywhere
+  have hzero_rhs : ∀ᵐ τ ∂volume,
+      (((0 : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) = 0 := by
+    simp
+  -- Identify the Mellin product with the zero function almost everywhere
+  have hKg_eq_zero : ∀ᵐ τ ∂volume,
+      (K τ : ℂ) * mellinOnCriticalLine σ f τ
+        = (((0 : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) := by
+    refine (hKg_zero.and hzero_rhs).mono ?_
+    intro τ hτ
+    rcases hτ with ⟨hleft, hrhs⟩
+    simp [hleft]
+  -- Transport the equality to the `Lp` representative `gLp`
+  have hKgLp_eq_zero : ∀ᵐ τ ∂volume,
+      (K τ : ℂ) * ((gLp : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ
+        = (((0 : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) := by
+    have hprod_eq : ∀ᵐ τ ∂volume,
+        (K τ : ℂ) * ((gLp : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ
+          = (K τ : ℂ) * mellinOnCriticalLine σ f τ := by
+      refine hg_coe.mono ?_
+      intro τ hτ
+      simp [hτ]
+    refine (hprod_eq.and hKg_eq_zero).mono ?_
+    intro τ hτ
+    rcases hτ with ⟨hleft, hright⟩
+    simp [hleft, hright]
+  -- Combine with the `M_K` a.e. description to deduce the kernel condition
+  have hMK_eq_zero : ∀ᵐ τ ∂volume,
+      (((M_K (fun τ => (K τ : ℂ)) hK_meas hK_bdd) gLp :
+          Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ
+        = (((0 : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) := by
+    refine (hMK_coe.and hKgLp_eq_zero).mono ?_
+    intro τ hτ
+    rcases hτ with ⟨hleft, hright⟩
+    simp [hleft, hright]
+  -- Conclude in the target subset
+  have hMK_eq_zero' :
+      (((M_K (fun τ => (K τ : ℂ)) hK_meas hK_bdd) gLp :
+          Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+          (((0 : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)) := hMK_eq_zero
+  refine Lp.ext ?_
+  simpa using hMK_eq_zero'
 
-/-- If `Uσ f` vanishes almost everywhere, then `Qσ[K] f = 0`.
-This is a phase-1 replacement for the sharper support characterization, and is
-enough for positivity-style arguments that only use the trivial kernel case. -/
-theorem Qσ_eq_zero_of_ae_zero (K : ℝ → ℝ) (f : Hσ σ) :
-    (Uσ σ f : ℝ → ℂ) =ᵐ[volume] 0 → Qσ[K] f = 0 := by
+/-- If the Mellin transform vanishes almost everywhere, then `Qσ[K] f = 0` -/
+theorem Qσ_eq_zero_of_mellin_ae_zero (K : ℝ → ℝ) (f : Hσ σ) :
+    mellinOnCriticalLine σ f =ᵐ[volume] 0 → Qσ[K] f = 0 := by
   intro hzero
-  unfold Qσ Qℝ
-  have hcongr : (fun τ => K τ * ‖(Uσ σ f : ℝ → ℂ) τ‖^2)
+  unfold Qσ
+  have hcongr : (fun τ => K τ * ‖mellinOnCriticalLine σ f τ‖^2)
       =ᵐ[volume] (fun _ => 0) := by
     refine hzero.mono ?_
     intro τ hτ
     simp [hτ]
   have hint :
-      ∫ τ, K τ * ‖(Uσ σ f : ℝ → ℂ) τ‖^2 ∂volume = 0 := by
+      ∫ τ, K τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume = 0 := by
     simpa using integral_congr_ae hcongr
-  simpa [Qℝ] using hint
+  exact hint
 
-/-- For bounded K, the inner product formula holds -/
-theorem Qσ_inner_with_MK (K : ℝ → ℝ) (f : Hσ σ)
-    (hK_meas : AEStronglyMeasurable (fun τ => (K τ : ℂ)) volume)
-    (hK_bdd : essSup (fun x => (‖(K x : ℂ)‖₊ : ℝ≥0∞)) volume < ∞) :
-    Qσ[K] f = (@inner ℂ _ _ (M_K (fun τ => (K τ : ℂ)) hK_meas hK_bdd (Uσ σ f)) (Uσ σ f)).re := by
-  unfold Qσ
-  exact Qℝ_eq_inner K (Uσ σ f) hK_meas hK_bdd
+-- Note: The inner product formula with M_K is temporarily removed
+-- since it depends on Uσ. It should be reformulated using mellinOnCriticalLine directly.
 
 end PullbackToHσ
 
@@ -1641,17 +1437,17 @@ This section establishes the key relationship required by A-3:
 
 variable {σ : ℝ} {K : ℝ → ℝ} {f : Hσ σ}
 
-/-- Phase-1 variant: If `Uσ f` vanishes a.e. (globally), then `Qσ[K] f = 0`.
+/-- Phase-1 variant: If mellin transform vanishes a.e. (globally), then `Qσ[K] f = 0`.
 This weaker statement is sufficient for positivity arguments in this phase. -/
-theorem Qσ_zero_of_Uσ_ae_zero (K : ℝ → ℝ) (f : Hσ σ) :
-    (Uσ σ f : ℝ → ℂ) =ᵐ[volume] 0 → Qσ[K] f = 0 :=
-  Qσ_eq_zero_of_ae_zero (K := K) (f := f)
+theorem Qσ_zero_of_mellin_ae_zero_v2 (K : ℝ → ℝ) (f : Hσ σ) :
+    mellinOnCriticalLine σ f =ᵐ[volume] 0 → Qσ[K] f = 0 :=
+  Qσ_eq_zero_of_mellin_ae_zero (K := K) (f := f)
 
 /-- Corollary: The kernel of Qσ corresponds exactly to functions vanishing on supp K -/
 theorem ker_Qσ_characterization (K : ℝ → ℝ) :
     {f : Hσ σ | Qσ[K] f = 0} ⊇
-    {f : Hσ σ | (Uσ σ f : ℝ → ℂ) =ᵐ[volume] 0} := by
-  intro f hf; exact Qσ_eq_zero_of_ae_zero (K := K) (f := f) hf
+    {f : Hσ σ | mellinOnCriticalLine σ f =ᵐ[volume] 0} := by
+  intro f hf; exact Qσ_eq_zero_of_mellin_ae_zero (K := K) (f := f) hf
 
 /-- The kernel dimension of Qσ equals that of M_K via the isometry Uσ -/
 lemma ker_Qσ_dim_eq_ker_MK_dim (K : ℝ → ℝ) (_hK : ∀ᵐ τ ∂volume, 0 ≤ K τ) :

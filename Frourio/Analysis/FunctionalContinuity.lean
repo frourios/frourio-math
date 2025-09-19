@@ -186,32 +186,32 @@ lemma Qζσ_bounded (σ : ℝ) :
   -- Step 2: Use the bound to estimate the quadratic form
   use M
   intro f
-  -- The quadratic form Qζσ σ f = ∫ Kzeta(τ) * |Uσ(f)(τ)|² dτ
-  -- is bounded by M * ‖Uσ(f)‖² = M * ‖f‖² since Uσ is an isometry
+  -- The quadratic form Qζσ σ f = ∫ Kzeta(τ) * |mellinOnCriticalLine σ f(τ)|² dτ
+  -- is bounded by M * ‖f‖² using Mellin-Plancherel theorem
 
   -- Unfold the definition of Qζσ
-  unfold Qζσ Qσ Qℝ
+  unfold Qζσ Qσ
 
-  -- We have |∫ Kzeta(τ) * ‖(Uσ σ f)(τ)‖² dτ| ≤ ∫ |Kzeta(τ)| * ‖(Uσ σ f)(τ)‖² dτ
-  have h_abs : |∫ τ, Kzeta τ * ‖(Uσ σ f : ℝ → ℂ) τ‖^2 ∂volume| ≤
-                ∫ τ, |Kzeta τ| * ‖(Uσ σ f : ℝ → ℂ) τ‖^2 ∂volume := by
+  -- We have |∫ Kzeta(τ) * ‖mellinOnCriticalLine σ f τ‖² dτ| ≤ ∫ |Kzeta(τ)| * ‖mellinOnCriticalLine σ f τ‖² dτ
+  have h_abs : |∫ τ, Kzeta τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume| ≤
+                ∫ τ, |Kzeta τ| * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume := by
     -- Apply the integral absolute value inequality
     sorry
 
-  -- Use the bound on Kzeta and the fact that Uσ is an isometry
-  calc |∫ τ, Kzeta τ * ‖(Uσ σ f : ℝ → ℂ) τ‖^2 ∂volume|
-    _ ≤ ∫ τ, |Kzeta τ| * ‖(Uσ σ f : ℝ → ℂ) τ‖^2 ∂volume := h_abs
-    _ ≤ ∫ τ, M * ‖(Uσ σ f : ℝ → ℂ) τ‖^2 ∂volume := by
+  -- Use the bound on Kzeta and Mellin-Plancherel theorem
+  calc |∫ τ, Kzeta τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume|
+    _ ≤ ∫ τ, |Kzeta τ| * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume := h_abs
+    _ ≤ ∫ τ, M * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume := by
         -- Use the bound hM : ∀ᵐ τ ∂volume, |Kzeta τ| ≤ M
         sorry
-    _ = M * ∫ τ, ‖(Uσ σ f : ℝ → ℂ) τ‖^2 ∂volume := by
+    _ = M * ∫ τ, ‖mellinOnCriticalLine σ f τ‖^2 ∂volume := by
         -- Pull out the constant M
         sorry
-    _ = M * ‖Uσ σ f‖^2 := by
+    _ = M * ‖(mellin_in_L2 σ f).toLp (mellinOnCriticalLine σ f)‖^2 := by
         -- This is the definition of the L² norm
         sorry
     _ = M * ‖f‖^2 := by
-        -- Uσ is an isometry, so ‖Uσ σ f‖ = ‖f‖
+        -- Mellin-Plancherel theorem: the Mellin transform preserves L² norm
         sorry
 
 /-- Helper lemma: Bounded quadratic forms on normed spaces are continuous -/

@@ -24,7 +24,7 @@ open scoped Topology ENNReal
 namespace Complex
 
 @[simp] lemma norm_ofReal (x : ℝ) : ‖(x : ℂ)‖ = |x| := by
-  simpa using Complex.norm_real x
+  simp
 
 @[simp] lemma ennreal_norm_eq (z : ℂ) : (‖z‖ₑ : ℝ≥0∞) = (‖z‖₊ : ℝ≥0∞) := rfl
 
@@ -54,14 +54,6 @@ noncomputable def LogPull (σ : ℝ) (f : Hσ σ) : ℝ → ℂ :=
 @[simp] lemma LogPull_apply (σ : ℝ) (f : Hσ σ) (t : ℝ) :
     LogPull σ f t
       = (Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ) * Hσ.toFun f (Real.exp t) := rfl
-
-@[simp] lemma Hσ.toFun_zero_apply (σ : ℝ) (x : ℝ) :
-    Hσ.toFun (0 : Hσ σ) x = 0 := by
-  -- Hσ.toFun is just the coercion, and the coercion of 0 in Lp is 0 a.e.
-  -- For pointwise equality, we need the fact that the chosen representative
-  -- of the zero equivalence class in Lp is the zero function.
-  -- This is typically true but requires careful handling of the AEEqFun construction.
-  sorry
 
 /-- Helper lemma: the weight function is measurable -/
 lemma weight_measurable (σ : ℝ) :
@@ -190,14 +182,14 @@ private lemma LogPull_sq_integral_eq (σ : ℝ) (f : Hσ σ) :
         ENNReal.ofReal (Real.exp ((2 * σ - 1) * t))
           = ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) := by
       have : (2 * σ - 1) * t = (2 * σ - 2) * t + t := by ring
-      simpa [this]
+      simp [this]
     calc
       (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ)
           = ENNReal.ofReal (‖Hσ.toFun f (Real.exp t)‖^2)
               * ENNReal.ofReal (Real.exp ((2 * σ - 1) * t)) := h_logpull
       _ = ENNReal.ofReal (‖Hσ.toFun f (Real.exp t)‖^2)
               * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) := by
-                simpa [h_exp]
+                simp [h_exp]
       _ = g t * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) := by
                 simp [g]
   have h_lhs :
@@ -221,18 +213,18 @@ private lemma LogPull_sq_integral_eq (σ : ℝ) (f : Hσ σ) :
     have hx_ne : x ≠ 0 := ne_of_gt hxpos
     have hpow_mul : x ^ (2 * σ - 1) = x ^ (2 * σ - 2) * x := by
       have : 2 * σ - 1 = (2 * σ - 2) + 1 := by ring
-      simpa [this, Real.rpow_add hxpos, Real.rpow_one]
+      simp [this, Real.rpow_add hxpos, Real.rpow_one]
     have hpow_div : ENNReal.ofReal (x ^ (2 * σ - 2))
         = ENNReal.ofReal (x ^ (2 * σ - 1) / x) := by
       have hdiv : x ^ (2 * σ - 1) / x = x ^ (2 * σ - 2) := by
         calc
           x ^ (2 * σ - 1) / x
               = (x ^ (2 * σ - 1)) * x⁻¹ := by simp [div_eq_mul_inv]
-          _ = (x ^ (2 * σ - 2) * x) * x⁻¹ := by simpa [hpow_mul]
+          _ = (x ^ (2 * σ - 2) * x) * x⁻¹ := by simp [hpow_mul]
           _ = x ^ (2 * σ - 2) * (x * x⁻¹) := by
                 simp [mul_comm, mul_left_comm, mul_assoc]
           _ = x ^ (2 * σ - 2) := by simp [hx_ne]
-      simpa [hdiv.symm]
+      simp [hdiv.symm]
     have h_g : g (Real.log x) = ENNReal.ofReal (‖Hσ.toFun f x‖^2) := by
       simp [g, Real.exp_log hxpos]
     have h_norm_sq :
@@ -243,13 +235,13 @@ private lemma LogPull_sq_integral_eq (σ : ℝ) (f : Hσ σ) :
       g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 2))
           = ENNReal.ofReal (‖Hσ.toFun f x‖^2)
               * ENNReal.ofReal (x ^ (2 * σ - 2)) := by
-                simpa [h_g]
+                simp [h_g]
       _ = (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
               * ENNReal.ofReal (x ^ (2 * σ - 2)) := by
-                simpa [h_norm_sq]
+                simp [h_norm_sq]
       _ = (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
               * ENNReal.ofReal (x ^ (2 * σ - 1) / x) := by
-                simpa [hpow_div]
+                simp [hpow_div]
   have h_change :
       ∫⁻ x in Set.Ioi (0 : ℝ), g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume
         = ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) ∂volume := by
@@ -263,10 +255,95 @@ private lemma LogPull_sq_integral_eq (σ : ℝ) (f : Hσ σ) :
   calc
     ∫⁻ t, (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂volume
         = ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) ∂volume := h_lhs
-    _ = ∫⁻ x in Set.Ioi (0 : ℝ), g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume := h_change.symm
+    _ = ∫⁻ x in Set.Ioi (0 : ℝ), g (Real.log x) *
+        ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume := h_change.symm
     _ = ∫⁻ x in Set.Ioi (0 : ℝ),
           (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
             * ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume := h_rhs
+
+/-- When f = 0 in Hσ, the L2 integral of its squared norm is 0 -/
+lemma Hσ_zero_integral (σ : ℝ) :
+    ∫⁻ x in Set.Ioi (0 : ℝ),
+      (‖Hσ.toFun (0 : Hσ σ) x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
+        * ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume = 0 := by
+  -- The zero element in Hσ has Hσ.toFun 0 x = 0 for every x
+  -- Hence the integrand vanishes pointwise and the integral is zero
+  classical
+  -- Reuse the `Hσ_norm_squared` machinery to evaluate the zero integrand
+  set wσ : ℝ → ℝ≥0∞ := fun x => ENNReal.ofReal (x ^ (2 * σ - 1)) with hwσ
+  set μ := mulHaar.withDensity wσ with hμ
+  set g : ℝ → ℝ≥0∞ :=
+      fun x => (ENNReal.ofReal (‖Hσ.toFun (0 : Hσ σ) x‖)) ^ (2 : ℕ) with hg
+  have hwσ_meas : Measurable wσ := by
+    rw [hwσ]
+    measurability
+  have hg_meas : Measurable g := by
+    -- identical to the argument used in `Hσ_norm_squared`
+    have hsm : StronglyMeasurable fun x => Hσ.toFun (0 : Hσ σ) x := by
+      simpa using
+        (Lp.stronglyMeasurable
+          (f := ((0 : Hσ σ) : Lp ℂ 2 (mulHaar.withDensity wσ))))
+    have hfn : Measurable fun x => Hσ.toFun (0 : Hσ σ) x := hsm.measurable
+    have hnorm : Measurable fun x => ‖Hσ.toFun (0 : Hσ σ) x‖ := hfn.norm
+    have h_ofReal : Measurable fun x => ENNReal.ofReal (‖Hσ.toFun (0 : Hσ σ) x‖) :=
+      ENNReal.measurable_ofReal.comp hnorm
+    simpa [g, hg] using h_ofReal.pow_const (2 : ℕ)
+  have hzero_ae : Hσ.toFun (0 : Hσ σ) =ᵐ[μ] (0 : ℝ → ℂ) := by
+    simpa [μ, hμ, Hσ, wσ, hwσ] using
+      (Lp.coeFn_zero (E := ℂ) (μ := μ) (p := (2 : ℝ≥0∞)))
+  have hg_zero : g =ᵐ[μ] 0 :=
+    hzero_ae.mono (by intro x hx; simp [g, hx])
+  have h_int_μ : ∫⁻ x, g x ∂μ = 0 := by
+    have := lintegral_congr_ae (μ := μ) hg_zero
+    simpa [g, hg] using this
+  -- Expand the weighted measure back to the stated integral
+  have h_expand₁ :
+      (∫⁻ x, g x ∂μ)
+        = ∫⁻ x, g x * wσ x ∂mulHaar := by
+    simpa [μ, hμ] using
+      (lintegral_withDensity_expand (g := g) (wσ := wσ) hg_meas hwσ_meas)
+  have h_expand₂ :
+      (∫⁻ x, g x * wσ x ∂mulHaar)
+        = ∫⁻ x in Set.Ioi 0, (g x * wσ x) * ENNReal.ofReal (1 / x) ∂volume := by
+    simpa using
+      lintegral_mulHaar_expand (g := fun x : ℝ => g x * wσ x)
+        ((hg_meas.mul hwσ_meas))
+  have h_expand₃ :
+      (fun x : ℝ => (g x * wσ x) * ENNReal.ofReal (1 / x))
+          =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
+        (fun x : ℝ =>
+          ((‖Hσ.toFun (0 : Hσ σ) x‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+            * ENNReal.ofReal (x ^ (2 * σ - 1) / x)) := by
+    refine (ae_restrict_iff' measurableSet_Ioi).mpr ?_
+    refine Filter.Eventually.of_forall ?_
+    intro x hx
+    -- simplify the weight product on `Ioi 0`
+    have hx' := weight_product_simplify (σ := σ) x hx
+    have hx'' :
+        ENNReal.ofReal (1 / x) * wσ x
+          = ENNReal.ofReal (x ^ (2 * σ - 1) / x) := by
+      simpa [wσ, hwσ, mul_comm] using hx'
+    -- multiply both sides by the squared norm factor
+    have hx_multipled :=
+      congrArg (fun t => t * (ENNReal.ofReal (‖Hσ.toFun (0 : Hσ σ) x‖) ^ (2 : ℕ))) hx''
+    simpa [g, hg, wσ, hwσ, mul_comm, mul_left_comm, mul_assoc]
+      using hx_multipled
+  -- Put the expansions together and rewrite the lintegral in volume form
+  have h_expand :
+      ∫⁻ x, g x ∂μ
+        = ∫⁻ x in Set.Ioi (0 : ℝ),
+            ((‖Hσ.toFun (0 : Hσ σ) x‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+              * ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume := by
+    calc
+      ∫⁻ x, g x ∂μ
+          = ∫⁻ x, g x * wσ x ∂mulHaar := by simpa using h_expand₁
+      _ = ∫⁻ x in Set.Ioi 0, (g x * wσ x) * ENNReal.ofReal (1 / x) ∂volume := h_expand₂
+      _ = ∫⁻ x in Set.Ioi 0,
+            ((‖Hσ.toFun (0 : Hσ σ) x‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+              * ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume := by
+            apply lintegral_congr_ae
+            simpa using h_expand₃
+  simpa [h_expand] using h_int_μ
 
 lemma LogPull_memLp (σ : ℝ) (f : Hσ σ) :
     MemLp (LogPull σ f) 2 (volume : Measure ℝ) := by
@@ -286,14 +363,15 @@ lemma LogPull_memLp (σ : ℝ) (f : Hσ σ) :
   have hI_ne_top : I ≠ ∞ := by
     intro htop
     have hnorm_sq_zero : ‖f‖ ^ 2 = 0 := by
-      simpa [h_norm', htop, ENNReal.toReal_top]
+      simp [h_norm', htop, ENNReal.toReal_top]
     have hf_norm_zero : ‖f‖ = 0 := by
       have : ‖f‖ * ‖f‖ = 0 := by simpa [pow_two] using hnorm_sq_zero
       exact mul_self_eq_zero.mp this
     have hf_zero : f = 0 := norm_eq_zero.mp hf_norm_zero
     have hI_zero : I = 0 := by
       subst hf_zero
-      simp [hI]
+      simp only [hI]
+      exact Hσ_zero_integral σ
     exact ENNReal.zero_ne_top (by simpa [hI_zero] using htop)
   have hI_lt_top : I < ∞ := lt_of_le_of_ne le_top hI_ne_top
   have h_integral_lt_top :
@@ -310,7 +388,7 @@ lemma LogPull_memLp (σ : ℝ) (f : Hσ σ) :
     simpa [h_integral_repr] using h_integral_lt_top
   have hp_ne_zero : (2 : ℝ≥0∞) ≠ 0 := by norm_num
   have hp_ne_top : (2 : ℝ≥0∞) ≠ ∞ := by
-    simpa using (ENNReal.coe_ne_top : (2 : ℝ≥0∞) ≠ ∞)
+    simp
   have h_eLp_repr :
       eLpNorm (LogPull σ f) (2 : ℝ≥0∞) volume
         = (∫⁻ t, (‖LogPull σ f t‖ₑ : ℝ≥0∞) ^ (2 : ℝ) ∂volume) ^ (1 / (2 : ℝ)) := by
@@ -336,92 +414,51 @@ theorem mellin_in_L2 (σ : ℝ) (f : Hσ σ) :
     MemLp (mellinOnCriticalLine σ f) 2 (volume : Measure ℝ) := by
   simpa [mellinOnCriticalLine, MellinTransformAt] using LogPull_memLp (σ := σ) (f := f)
 
-/-- Uσ: The unitary map from Hσ to L²(ℝ) via Mellin transform
-    This is the main isometry establishing Mellin-Plancherel
+/-- Direct isometry theorem: The Mellin transform preserves L² norm -/
+theorem mellin_direct_isometry (σ : ℝ) :
+    ∃ C > 0, ∀ f : Hσ σ,
+      ∫ τ : ℝ, ‖mellinOnCriticalLine σ f τ‖^2 ∂volume = C * ‖f‖^2 := by
+  -- The constant is 2π for the standard normalization
+  use 2 * Real.pi
+  constructor
+  · norm_num
+    exact Real.pi_pos
+  · intro f
+    -- This follows from the relationship between LogPull and Fourier transform
+    sorry
 
-    For f ∈ Hσ, we define (Uσ f)(τ) = M[f](σ + iτ) where M is the Mellin transform.
-    This maps weighted L² functions on ℝ₊ to L² functions on ℝ via the critical line.
-
-    Note: Currently returns zero map as the full L² construction requires
-    proving that the Mellin transform is in L². This will be completed
-    when the Mellin-Plancherel theorem is fully formalized. -/
-noncomputable def Uσ (σ : ℝ) : Hσ σ →L[ℂ] Lp ℂ 2 (volume : Measure ℝ) := by
-  -- Define the linear map that sends f to its Mellin transform on the critical line
-
-  -- Check if σ = 1/2 (the critical line for RH)
-  by_cases h_critical : σ = 1/2
-  · -- Case: σ = 1/2, the Riemann critical line
-    -- This is the most important case for the RH criterion
-    subst h_critical
-
-    -- Define the map f ↦ mellinOnCriticalLine (1/2) f
-    -- We need to show this is in L²(ℝ) and is continuous
-
-    -- Use the fact that mellin_in_L2 shows membership in L²
-    -- For now, use zero map as placeholder while we set up the structure
-    exact LinearMap.mkContinuous
-      (0 : Hσ (1/2) →ₗ[ℂ] Lp ℂ 2 (volume : Measure ℝ)) 0 (by
-        intro f
-        simp)
-
-  · -- Case: σ ≠ 1/2
-    -- General σ case
-
-    -- Check if σ > 0 (needed for convergence)
-    by_cases h_pos : σ > 0
-    · -- σ > 0: The Mellin transform converges
-      -- The map f ↦ mellinOnCriticalLine σ f should work
-      -- But we need to prove continuity
-
-      -- For now, return zero map as placeholder
-      exact LinearMap.mkContinuous
-        (0 : Hσ σ →ₗ[ℂ] Lp ℂ 2 (volume : Measure ℝ)) 0 (by
-          intro f
-          simp)
-
-    · -- σ ≤ 0: May have convergence issues
-      -- The Mellin transform may not converge for all f ∈ Hσ(σ)
-      -- Return zero map for safety
-      exact LinearMap.mkContinuous
-        (0 : Hσ σ →ₗ[ℂ] Lp ℂ 2 (volume : Measure ℝ)) 0 (by
-          intro f
-          simp)
-
-/-- Interim property for the current placeholder `Uσ`.
-Since `Uσ` is currently the zero map, it is `0`-Lipschitz (nonexpansive with constant `0`).
-This serves as a temporary, truthful contract until the isometric `Uσ` is implemented. -/
-theorem Uσ_lipschitz_zero (σ : ℝ) : LipschitzWith 0 (Uσ σ) := by
-  intro f g
-  -- Both images are `0`, so the distance is `0`.
-  show edist (Uσ σ f) (Uσ σ g) ≤ (0 : ℝ≥0∞) * edist f g
-  -- Since Uσ is the zero map, both outputs are 0
-  have h1 : Uσ σ f = 0 := by sorry
-  have h2 : Uσ σ g = 0 := by sorry
-  rw [h1, h2, edist_self, zero_mul]
-
-/-- Main theorem: Mellin transform intertwines D_Φ with multiplication.
-    U_{σ-1}(D_Φ f) = M_φ(σ) · U_σ(f) -/
-theorem mellin_interp_DΦ (φ : ℝ) (_ : 1 < φ) (σ : ℝ) (f : Hσ σ) :
-    Uσ (σ - 1) (DΦ φ σ f) = Mφ φ σ (Uσ σ f) := by
-  -- With current placeholders, all operators are zero, so both sides are 0.
-  sorry
-
-/-- Uσ is an isometry (up to normalization constant) -/
-theorem Uσ_isometry_true (σ : ℝ) :
-    ∃ (C : ℝ) (hC : 0 < C), ∀ f : Hσ σ, ‖Uσ σ f‖ = C * ‖f‖ := by
+/-- Main theorem: Mellin transform intertwines D_Φ with multiplication -/
+theorem mellin_intertwines_DΦ_direct (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) (f : Hσ σ) :
+    ∀ τ : ℝ, mellinOnCriticalLine (σ - 1) (DΦ φ σ f) τ =
+             phiSymbol φ σ * mellinOnCriticalLine σ f τ := by
+  intro τ
+  -- The Frourio differential D_Φ in the time domain becomes multiplication
+  -- by phiSymbol in the frequency domain
+  -- This is the key intertwining property
   sorry
 
 /-- Mellin-Plancherel Formula: The Mellin transform preserves the L² norm
     up to a constant factor depending on σ -/
 theorem mellin_plancherel_formula (σ : ℝ) (f : Hσ σ) :
-    ∃ (g : Lp ℂ 2 (volume : Measure ℝ)),
-      (∀ τ, (g : ℝ → ℂ) τ = mellinOnCriticalLine σ f τ) ∧
-      ‖g‖ = (2 * Real.pi) * ‖f‖ := by
-  sorry
+    ∃ C > 0, ∫ τ : ℝ, ‖mellinOnCriticalLine σ f τ‖^2 ∂volume = C * ‖f‖^2 := by
+  -- The Mellin transform on the critical line σ + iτ preserves L² norm
+  -- This is the core of Mellin-Plancherel theorem
+  -- Step 1: Use the fact that mellinOnCriticalLine σ f ∈ L²(ℝ)
+  have h_L2 := mellin_in_L2 σ f
+  -- Step 2: The constant C = 2π for the standard normalization
+  use 2 * Real.pi
+  constructor
+  · norm_num
+    exact Real.pi_pos
+  · -- The actual isometry property requires proving the integral equals 2π * ‖f‖²
+    sorry
 
 /-- The inverse Mellin transform formula -/
-theorem mellin_inverse (σ : ℝ) (g : Lp ℂ 2 (volume : Measure ℝ)) :
-    ∃ f : Hσ σ, Uσ σ f = g := by
+theorem mellin_inverse_formula (σ : ℝ) (g : ℝ → ℂ)
+    (hg : MemLp g 2 (volume : Measure ℝ)) :
+    ∃ f : Hσ σ, ∀ τ : ℝ, mellinOnCriticalLine σ f τ = g τ := by
+  -- The inverse Mellin transform reconstructs f from its transform on the critical line
+  -- This requires showing that the map f ↦ mellinOnCriticalLine σ f is surjective onto L²(ℝ)
   sorry
 
 /-- Mellin transform intertwines multiplication by t^α with translation -/
@@ -432,8 +469,10 @@ theorem mellin_scaling_translation (σ : ℝ) (α : ℝ) (f : Hσ σ) :
 
 /-- Parseval's identity for Mellin transform -/
 theorem mellin_parseval (σ : ℝ) (f g : Hσ σ) :
-    ∃ (inner_prod : ℂ), inner_prod = (2 * Real.pi)⁻¹ *
+    @inner ℂ _ _ f g = (2 * Real.pi)⁻¹ *
       ∫ τ, star (mellinOnCriticalLine σ f τ) * mellinOnCriticalLine σ g τ ∂volume := by
+  -- Parseval's identity relates inner product in Hσ to integral in frequency domain
+  -- This is a consequence of the Plancherel formula
   sorry
 
 /-- Mellin convolution theorem -/
@@ -463,12 +502,6 @@ providing a complete API for the measure-theoretic foundations,
 Mellin transform isometry, and zero lattice characterization.
 -/
 
-/-- Main export: with the current placeholder `Uσ`, we register a truthful
-Lipschitz property instead of an isometry claim. This will be upgraded to an
-actual isometry once `Uσ` is implemented via Mellin–Plancherel. -/
-theorem Uσ_isometry (σ : ℝ) : LipschitzWith 0 (Uσ σ) := by
-  exact Uσ_lipschitz_zero σ
-
 /-- Tφ_on_L2: The multiplication operator on L²(ℝ) corresponding to phiSymbol.
     This represents the action τ ↦ S_{-(σ+iτ)} in frequency space. -/
 noncomputable def Tφ_on_L2 (φ : ℝ) (_ : 1 < φ) (σ : ℝ) :
@@ -476,19 +509,6 @@ noncomputable def Tφ_on_L2 (φ : ℝ) (_ : 1 < φ) (σ : ℝ) :
   -- This is the multiplication by phiSymbol φ (-(σ + i·))
   -- For consistency with Mφ, we use the negated argument
   (phiSymbol φ (-(σ : ℂ))) • (ContinuousLinearMap.id ℂ (Lp ℂ 2 (volume : Measure ℝ)))
-
-/-- The Mellin transform intertwines DΦ with the multiplication operator.
-    This is the main theorem connecting the physical and frequency domains. -/
-theorem mellin_interp_Dφ (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) (f : Hσ σ) :
-    Uσ (σ - 1) (DΦ φ σ f) = Tφ_on_L2 φ hφ σ (Uσ σ f) := by
-  -- With current placeholders, both sides are zero
-  sorry
-
-/-- Alternative formulation using Mφ for consistency -/
-theorem mellin_interp_Dφ_alt (φ : ℝ) (_ : 1 < φ) (σ : ℝ) (f : Hσ σ) :
-    Uσ (σ - 1) (DΦ φ σ f) = Mφ φ σ (Uσ σ f) := by
-  -- This relates to the previous theorem through the relationship between Tφ_on_L2 and Mφ
-  sorry
 
 end Chapter0API
 

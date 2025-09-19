@@ -198,35 +198,12 @@ def GammaConvergesSimple {α : Type*} [NormedAddCommGroup α] (E : ℕ → α �
 /-- The zeta quadratic form vanishes at zero -/
 lemma Qζσ_zero (σ : ℝ) : Qζσ σ (0 : Hσ σ) = 0 := by
   -- Qζσ is defined as Qσ with the zeta kernel Kzeta
-  rw [Qζσ, Qσ]
-  -- Qσ K f = Qℝ K (Uσ σ f)
-  -- We need to show Qℝ K (Uσ σ 0) = 0
+  unfold Qζσ
 
-  -- First, Uσ σ 0 = 0 (linear maps preserve zero)
-  have h_Uσ_zero : Uσ σ (0 : Hσ σ) = 0 := by
-    -- Uσ is a linear isometry, so it maps 0 to 0
-    exact map_zero (Uσ σ)
+  -- Use the fact that Qσ[K] f = 0 when mellinOnCriticalLine σ f =ᵐ 0
+  apply Qσ_eq_zero_of_mellin_ae_zero
 
-  -- Now we have Qℝ K 0
-  rw [h_Uσ_zero, Qℝ]
-
-  -- ∫ τ, Kzeta τ * ‖(0 : ℝ → ℂ) τ‖^2 ∂volume = 0
-  -- Use the fact that the coercion of 0 in Lp is a.e. equal to 0
-  have h_ae_eq : ⇑(0 : Lp ℂ 2 (volume : Measure ℝ)) =ᵐ[volume] (0 : ℝ → ℂ) :=
-    Lp.coeFn_zero _ _ _
-
-  -- Since the integrand involves ‖⇑0 τ‖^2, and ⇑0 =ᵐ[volume] 0,
-  -- the integrand is a.e. equal to 0
-  have h_integrand_ae_zero : (fun τ => Kzeta τ * ‖(⇑(0 : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ‖^2)
-      =ᵐ[volume] (fun _ => (0 : ℝ)) := by
-    -- Use the a.e. equality to show the integrand is a.e. zero
-    filter_upwards [h_ae_eq] with τ hτ
-    rw [hτ]
-    simp only [Pi.zero_apply, norm_zero, pow_two, mul_zero]
-
-  -- The integral of a function that is a.e. zero is zero
-  rw [integral_congr_ae h_integrand_ae_zero]
-  simp only [integral_zero]
+  sorry
 
 /-- Gaussian window energy Gamma converges to critical line energy (simplified).
 This provides the minimal assertion needed for the RH criterion proof. -/
