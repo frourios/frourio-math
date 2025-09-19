@@ -186,28 +186,28 @@ lemma Qζσ_bounded (σ : ℝ) :
   -- Step 2: Use the bound to estimate the quadratic form
   use M
   intro f
-  -- The quadratic form Qζσ σ f = ∫ Kzeta(τ) * |mellinOnCriticalLine σ f(τ)|² dτ
+  -- The quadratic form Qζσ σ f = ∫ Kzeta(τ) * |LogPull σ f(τ)|² dτ
   -- is bounded by M * ‖f‖² using Mellin-Plancherel theorem
 
   -- Unfold the definition of Qζσ
   unfold Qζσ Qσ
 
-  -- We have |∫ Kzeta(τ) * ‖mellinOnCriticalLine σ f τ‖² dτ| ≤ ∫ |Kzeta(τ)| * ‖mellinOnCriticalLine σ f τ‖² dτ
-  have h_abs : |∫ τ, Kzeta τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume| ≤
-                ∫ τ, |Kzeta τ| * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume := by
+  -- We have |∫ Kzeta(τ) * ‖LogPull σ f τ‖² dτ| ≤ ∫ |Kzeta(τ)| * ‖LogPull σ f τ‖² dτ
+  have h_abs : |∫ τ, Kzeta τ * ‖LogPull σ f τ‖^2 ∂volume| ≤
+                ∫ τ, |Kzeta τ| * ‖LogPull σ f τ‖^2 ∂volume := by
     -- Apply the integral absolute value inequality
     sorry
 
   -- Use the bound on Kzeta and Mellin-Plancherel theorem
-  calc |∫ τ, Kzeta τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume|
-    _ ≤ ∫ τ, |Kzeta τ| * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume := h_abs
-    _ ≤ ∫ τ, M * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume := by
+  calc |∫ τ, Kzeta τ * ‖LogPull σ f τ‖^2 ∂volume|
+    _ ≤ ∫ τ, |Kzeta τ| * ‖LogPull σ f τ‖^2 ∂volume := h_abs
+    _ ≤ ∫ τ, M * ‖LogPull σ f τ‖^2 ∂volume := by
         -- Use the bound hM : ∀ᵐ τ ∂volume, |Kzeta τ| ≤ M
         sorry
-    _ = M * ∫ τ, ‖mellinOnCriticalLine σ f τ‖^2 ∂volume := by
+    _ = M * ∫ τ, ‖LogPull σ f τ‖^2 ∂volume := by
         -- Pull out the constant M
         sorry
-    _ = M * ‖(mellin_in_L2 σ f).toLp (mellinOnCriticalLine σ f)‖^2 := by
+    _ = M * ‖(mellin_in_L2 σ f).toLp (LogPull σ f)‖^2 := by
         -- This is the definition of the L² norm
         sorry
     _ = M * ‖f‖^2 := by

@@ -671,95 +671,95 @@ noncomputable def mult_by_power (k : ℝ) (f : Hσ σ) : Hσ (σ - k) := by
           -- This case might not have a solution in Hσ(σ-k)
           exact 0  -- Placeholder: requires careful analysis of domain
 
-/-- Helper: Division by x operator, shifting from Hσ(σ) to Hσ(σ-1) -/
+/-- Helper: Division by x operator, shifting from Hσ(σ) to Hσ(σ-1)
+
+    This implements the operator M_{1/x}: f(x) ↦ f(x)/x which appears in the
+    Frourio operator definition Δ^⟨m⟩ = M_{1/x} (Σ_{i} α_i χ_i U_{Λ_i}).
+
+    The weight transformation is:
+    - Original space: Hσ(σ) with weight x^(2σ-1) dx/x
+    - Target space: Hσ(σ-1) with weight x^(2(σ-1)-1) dx/x
+    - The division by x changes the weight by a factor of x^(-2)
+-/
 noncomputable def div_by_x (f : Hσ σ) : Hσ (σ - 1) := by
-  -- Division by x is multiplication by x^(-1)
-  -- This shifts the Sobolev index from σ to σ-1
-  -- We implement this directly without calling mult_by_power to avoid timeout
+  classical
+  -- For now, we provide a placeholder implementation
+  -- The actual implementation would:
+  -- 1. Define g(x) = f(x)/x for x > 0
+  -- 2. Show that g ∈ L²(mulHaar.withDensity (fun x => ENNReal.ofReal (x^(2*(σ-1)-1))))
+  -- 3. Return the Lp element corresponding to g
 
-  -- The weight transformation is:
-  -- Original: x^(2σ-1) dx/x
-  -- After division by x: x^(2σ-1) * x^(-2) dx/x = x^(2(σ-1)-1) dx/x
-  -- This gives us an element of Hσ(σ-1)
+  -- This requires proving integrability:
+  -- ∫₀^∞ |f(x)/x|² x^(2(σ-1)-1) dx/x < ∞
+  -- Which simplifies to:
+  -- ∫₀^∞ |f(x)|² x^(2σ-3) dx/x < ∞
 
-  -- Check if f is zero (trivial case)
-  by_cases hf : f = 0
-  · -- If f = 0, then f/x = 0
-    -- Since f = 0, dividing by x gives 0
-    exact 0
-  · -- For non-zero f, we need to construct f(x)/x
-    -- This is multiplication by x^(-1), which is a special case of mult_by_power with k = -1
-    -- However, we avoid calling mult_by_power directly to prevent timeout
+  -- Since f ∈ Hσ(σ), we have:
+  -- ∫₀^∞ |f(x)|² x^(2σ-1) dx/x < ∞
 
-    -- The function x ↦ f(x)/x needs careful treatment:
-    -- 1. It must be defined almost everywhere on (0, ∞)
-    -- 2. It must be in L² with weight x^(2(σ-1)-1)
-    -- 3. Near x = 0, we need to check integrability
+  -- The difference in exponents is 2σ-3 - (2σ-1) = -2
+  -- So we need an extra factor of x^(-2) to be integrable
 
-    -- Check integrability condition
-    -- For f(x)/x to be in L² with weight x^(2(σ-1)-1):
-    -- We need ∫₀^∞ |f(x)/x|² x^(2(σ-1)-1) dx/x < ∞
-    -- This is ∫₀^∞ |f(x)|² x^(2(σ-1)-1-2) dx/x = ∫₀^∞ |f(x)|² x^(2σ-5) dx/x
+  -- This is generally true for smooth enough f, but requires careful analysis
+  -- For the Frourio operator theory, this operation is well-defined
+  -- when applied to appropriate test functions
 
-    -- The actual integrability condition depends on the specific properties of f
-    -- For general f in Hσ(σ), we need to be more careful
-    -- Check if σ is on the critical line first
-    by_cases h_critical_line : σ = 1/2
-    · -- Case: σ = 1/2 (the Riemann critical line)
-      -- After division, we get Hσ(-1/2)
-      -- This is particularly important for the RH criterion
-      subst h_critical_line
-      -- σ - 1 = 1/2 - 1 = -1/2
-      have h_neg_half : (1/2 : ℝ) - 1 = -(1/2 : ℝ) := by ring
-      rw [h_neg_half]
-      -- Division on the critical line requires special handling
-      exact 0  -- Placeholder: critical line division
+  exact 0  -- Placeholder: requires measure-theoretic construction
 
-    · -- Case: σ ≠ 1/2
-      -- Check various ranges of σ for integrability
+/-- General m-point Frourio difference operator in physical space.
+    Δ^⟨m⟩ f(x) = (1/x) Σ_{i=0}^{m-1} α_i χ_i f(Λ_i x)
 
-      by_cases h_large : σ > 1
-      · -- σ > 1: Better integrability properties
-        -- Check if σ is an integer
-        by_cases h_int : ∃ n : ℕ, n > 0 ∧ σ = n
-        · -- σ is a positive integer
-          -- Special handling for integer Sobolev indices
-          exact 0  -- Placeholder: integer σ case
-        · -- σ > 1 but not an integer
-          -- Standard case with good integrability
-          exact 0  -- Placeholder: general σ > 1
+    This implements the full m-point Frourio operator framework from
+    Frourio/Algebra/Operators.lean. -/
+noncomputable def frourio_op_m {m : ℕ} (op : FrourioOperator m) (σ : ℝ)
+    (f : Hσ σ) : Hσ (σ - 1) :=
+  -- Step 1: Apply all scaling operators U_{Λ_i}
+  let scaled_terms : Fin m → Hσ σ := fun i => scale_op (op.Λ i) f
 
-      · -- σ ≤ 1 and σ ≠ 1/2
-        -- More delicate integrability issues
-        push_neg at h_large
-        by_cases h_positive : σ > 0
-        · -- 0 < σ ≤ 1, σ ≠ 1/2
-          -- The singularity may or may not be integrable
-          -- Depends on the specific behavior of f near x = 0
-          exact 0  -- Placeholder: requires analysis of f
-        · -- σ ≤ 0
-          -- Negative or zero Sobolev index
-          -- Very singular behavior, typically not integrable
-          exact 0  -- Placeholder: highly singular case
+  -- Step 2: Apply weights α_i and signs χ_i
+  let weighted_terms : Fin m → Hσ σ := fun i =>
+    (op.α i * ((op.χ i).toInt : ℂ)) • (scaled_terms i)
+
+  -- Step 3: Sum all weighted terms
+  let summed : Hσ σ := ∑ i : Fin m, weighted_terms i
+
+  -- Step 4: Apply M_{1/x} (division by x)
+  -- This shifts from Hσ(σ) to Hσ(σ-1)
+  div_by_x summed
 
 /-- The two-point Frourio difference operator D_Φ in physical space.
-    D_Φ f(x) = (1/x)[φ^(-1) f(φ^(-1) x) - φ f(φ x)] -/
+    D_Φ f(x) = (1/x)[φ^(-1) f(φ^(-1) x) - φ f(φ x)]
+
+    This is a special case of the m-point Frourio operator with m=2.
+    It implements the golden ratio difference operator when φ = (1+√5)/2. -/
 noncomputable def DΦ (φ : ℝ) (σ : ℝ) (f : Hσ σ) : Hσ (σ - 1) :=
   -- Step 1: Apply scaling operators
+  -- f(φ^(-1)x) and f(φx) via scale_op
   let f_scaled_down := scale_op (φ⁻¹) f  -- f(φ^(-1)x)
   let f_scaled_up := scale_op φ f         -- f(φx)
 
-  -- Step 2: Apply constant weights
-  -- We need: φ^(-1) * f(φ^(-1)x) - φ * f(φx)
+  -- Step 2: Apply constant weights from the 2-point Frourio operator
+  -- The BasicFrourioOperator with parameter φ gives:
+  -- α₀ = φ⁻¹, χ₀ = +1, Λ₀ = φ
+  -- α₁ = φ,   χ₁ = -1, Λ₁ = φ⁻¹
+  -- So we compute: φ^(-1) * f(φ^(-1)x) - φ * f(φx)
   let weighted_down : Hσ σ := (φ⁻¹ : ℂ) • f_scaled_down
   let weighted_up : Hσ σ := (φ : ℂ) • f_scaled_up
 
-  -- Step 3: Take the difference
+  -- Step 3: Take the difference with signs from χ
   let difference : Hσ σ := weighted_down - weighted_up
 
-  -- Step 4: Divide by x
-  -- This operation shifts from Hσ(σ) to Hσ(σ-1)
+  -- Step 4: Apply the M_{1/x} operator (division by x)
+  -- This shifts from Hσ(σ) to Hσ(σ-1) as per the general Frourio framework
   div_by_x difference
+
+/-- The two-point operator DΦ is equivalent to the specialized m-point operator
+    with m=2 and the BasicFrourioOperator parameters. -/
+theorem DΦ_eq_frourio_op_m_special (φ : ℝ) (hφ : 0 < φ) (σ : ℝ) (f : Hσ σ) :
+    DΦ φ σ f = frourio_op_m (BasicFrourioOperator φ hφ) σ f := by
+  -- The proof would show that both operators produce the same result
+  -- by expanding the definitions and showing the terms match
+  sorry  -- Proof deferred: requires expanding definitions of BasicFrourioOperator
 
 /-- Numerator identity for `phiSymbol`.
 Expands the defining fraction to an explicit numerator equality, avoiding

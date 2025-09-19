@@ -34,7 +34,7 @@ with multiplicities recorded by `Mult`. This is the intended endpoint of the
 bridge; a full proof will rely on golden-lattice sampling, Γ-convergence, and
 kernel characterizations from previous chapters. -/
 theorem zero_enforces_vanishing (σ : ℝ) (f : Hσ σ) :
-    Qζσ σ f = 0 → VanishAtZeros ((mellin_in_L2 σ f).toLp (mellinOnCriticalLine σ f)) Mult := by
+    Qζσ σ f = 0 → VanishAtZeros ((mellin_in_L2 σ f).toLp (LogPull σ f)) Mult := by
   intro _h
   -- Placeholder proof; to be supplied in the next chapter.
   trivial

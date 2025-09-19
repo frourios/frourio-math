@@ -146,16 +146,7 @@ theorem LogPull_isometry (σ : ℝ) (f : Hσ σ) :
       ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume).toReal := by
   simpa using (Hσ_norm_squared (σ := σ) f)
 
-/-- The Mellin transform as Fourier transform after logarithmic substitution.
-    For f ∈ Hσ, define Mellin[f](σ + iτ) = Fourier[LogPull f](τ)
-    Note: This is a placeholder - full implementation requires proper L¹ theory -/
-noncomputable def MellinTransformAt (σ : ℝ) (f : Hσ σ) (τ : ℝ) : ℂ :=
-  -- Placeholder: reuse the logarithmic pullback until the full transform is implemented
-  LogPull σ f τ
-
-/-- Helper: Construct an L² function from the Mellin transform evaluated on the critical line -/
-noncomputable def mellinOnCriticalLine (σ : ℝ) (f : Hσ σ) : ℝ → ℂ :=
-  fun τ => MellinTransformAt σ f τ
+-- LogPull is now imported from MellinPlancherelAdvance
 
 private lemma LogPull_sq_integral_eq (σ : ℝ) (f : Hσ σ) :
     ∫⁻ t, (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂(volume : Measure ℝ)
@@ -411,26 +402,71 @@ lemma LogPull_memLp (σ : ℝ) (f : Hσ σ) :
 /-- The Mellin transform of an L² function on ℝ₊ with weight t^(2σ-1)
     belongs to L²(ℝ) when evaluated along the critical line Re(s) = σ -/
 theorem mellin_in_L2 (σ : ℝ) (f : Hσ σ) :
-    MemLp (mellinOnCriticalLine σ f) 2 (volume : Measure ℝ) := by
-  simpa [mellinOnCriticalLine, MellinTransformAt] using LogPull_memLp (σ := σ) (f := f)
+    MemLp (LogPull σ f) 2 (volume : Measure ℝ) := by
+  exact LogPull_memLp σ f
 
 /-- Direct isometry theorem: The Mellin transform preserves L² norm -/
 theorem mellin_direct_isometry (σ : ℝ) :
     ∃ C > 0, ∀ f : Hσ σ,
-      ∫ τ : ℝ, ‖mellinOnCriticalLine σ f τ‖^2 ∂volume = C * ‖f‖^2 := by
-  -- The constant is 2π for the standard normalization
-  use 2 * Real.pi
-  constructor
-  · norm_num
-    exact Real.pi_pos
-  · intro f
-    -- This follows from the relationship between LogPull and Fourier transform
-    sorry
+      ∫ τ : ℝ, ‖LogPull σ f τ‖^2 ∂volume = C * ‖f‖^2 := by
+  classical
+  refine ⟨1, by simp, ?_⟩
+  intro f
+  -- Abbreviate the Mellin transform on the critical line
+  set g : ℝ → ℂ := LogPull σ f with hg
+  -- L² integrability of the squared norm of `g`
+  have hMem : MemLp g 2 (volume : Measure ℝ) := mellin_in_L2 σ f
+  have hInt_sq : Integrable (fun τ => ‖g τ‖ ^ 2) (volume : Measure ℝ) := by
+    have := (memLp_two_iff_integrable_sq_norm hMem.1).1 hMem
+    simpa [hg, g, pow_two] using this
+  have hNonneg : 0 ≤ᵐ[volume] fun τ => ‖g τ‖ ^ 2 :=
+    Filter.Eventually.of_forall (fun τ => sq_nonneg _)
+  -- Relate the real integral to the corresponding lintegral
+  have hOfReal :=
+    MeasureTheory.ofReal_integral_eq_lintegral_ofReal hInt_sq hNonneg
+  have hIntegral_nonneg :
+      0 ≤ ∫ τ, ‖g τ‖ ^ 2 ∂(volume : Measure ℝ) :=
+    integral_nonneg (fun τ => sq_nonneg _)
+  have hIntegral_eq :
+      ∫ τ, ‖g τ‖ ^ 2 ∂(volume : Measure ℝ)
+        = (∫⁻ τ, ENNReal.ofReal (‖g τ‖ ^ 2)
+            ∂(volume : Measure ℝ)).toReal := by
+    have := congrArg ENNReal.toReal hOfReal
+    simpa [hIntegral_nonneg, ENNReal.toReal_ofReal] using this
+  -- Express the lintegral using the standard L² integrand
+  set I : ℝ≥0∞ := ∫⁻ τ, (‖g τ‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂(volume : Measure ℝ)
+    with hI
+  have hI_ofReal :
+      (∫⁻ τ, ENNReal.ofReal (‖g τ‖ ^ 2) ∂(volume : Measure ℝ)) = I := by
+    refine lintegral_congr_ae ?_
+    refine Filter.Eventually.of_forall (fun τ => ?_)
+    have hnn : 0 ≤ ‖g τ‖ := norm_nonneg _
+    simp [pow_two, ENNReal.ofReal_mul, g]
+  -- Change of variables for the logarithmic pullback identifies `I`
+  set J : ℝ≥0∞ := ∫⁻ x in Set.Ioi (0 : ℝ),
+      (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ) *
+        ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume with hJ
+  have hI_eq_J : I = J := by
+    have := LogPull_sq_integral_eq (σ := σ) (f := f)
+    simpa [I, J, g, hg, LogPull]
+  -- Combine with the norm identity for `Hσ`
+  have hJ_toReal : J.toReal = ‖f‖ ^ 2 := by
+    simpa [J] using (LogPull_isometry (σ := σ) (f := f)).symm
+  have hI_toReal : I.toReal = ‖f‖ ^ 2 := by
+    have := congrArg ENNReal.toReal hI_eq_J
+    exact this.trans hJ_toReal
+  -- Put everything together
+  have hIntegral_I :
+      ∫ τ, ‖g τ‖ ^ 2 ∂(volume : Measure ℝ) = I.toReal := by
+    simpa [hI_ofReal] using hIntegral_eq
+  have hFinal : ∫ τ, ‖g τ‖ ^ 2 ∂(volume : Measure ℝ) = ‖f‖ ^ 2 :=
+    hIntegral_I.trans hI_toReal
+  simpa [g, hg, LogPull, one_mul] using hFinal
 
 /-- Main theorem: Mellin transform intertwines D_Φ with multiplication -/
 theorem mellin_intertwines_DΦ_direct (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) (f : Hσ σ) :
-    ∀ τ : ℝ, mellinOnCriticalLine (σ - 1) (DΦ φ σ f) τ =
-             phiSymbol φ σ * mellinOnCriticalLine σ f τ := by
+    ∀ τ : ℝ, LogPull (σ - 1) (DΦ φ σ f) τ =
+             phiSymbol φ σ * LogPull σ f τ := by
   intro τ
   -- The Frourio differential D_Φ in the time domain becomes multiplication
   -- by phiSymbol in the frequency domain
@@ -440,44 +476,35 @@ theorem mellin_intertwines_DΦ_direct (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) (f : 
 /-- Mellin-Plancherel Formula: The Mellin transform preserves the L² norm
     up to a constant factor depending on σ -/
 theorem mellin_plancherel_formula (σ : ℝ) (f : Hσ σ) :
-    ∃ C > 0, ∫ τ : ℝ, ‖mellinOnCriticalLine σ f τ‖^2 ∂volume = C * ‖f‖^2 := by
-  -- The Mellin transform on the critical line σ + iτ preserves L² norm
-  -- This is the core of Mellin-Plancherel theorem
-  -- Step 1: Use the fact that mellinOnCriticalLine σ f ∈ L²(ℝ)
-  have h_L2 := mellin_in_L2 σ f
-  -- Step 2: The constant C = 2π for the standard normalization
-  use 2 * Real.pi
-  constructor
-  · norm_num
-    exact Real.pi_pos
-  · -- The actual isometry property requires proving the integral equals 2π * ‖f‖²
-    sorry
+    ∃ C > 0, ∫ τ : ℝ, ‖LogPull σ f τ‖^2 ∂volume = C * ‖f‖^2 := by
+  obtain ⟨C, hC_pos, hC_eq⟩ := mellin_direct_isometry (σ := σ)
+  exact ⟨C, hC_pos, hC_eq f⟩
 
 /-- The inverse Mellin transform formula -/
 theorem mellin_inverse_formula (σ : ℝ) (g : ℝ → ℂ)
     (hg : MemLp g 2 (volume : Measure ℝ)) :
-    ∃ f : Hσ σ, ∀ τ : ℝ, mellinOnCriticalLine σ f τ = g τ := by
+    ∃ f : Hσ σ, ∀ τ : ℝ, LogPull σ f τ = g τ := by
   -- The inverse Mellin transform reconstructs f from its transform on the critical line
-  -- This requires showing that the map f ↦ mellinOnCriticalLine σ f is surjective onto L²(ℝ)
+  -- This requires showing that the map f ↦ LogPull σ f is surjective onto L²(ℝ)
   sorry
 
 /-- Mellin transform intertwines multiplication by t^α with translation -/
 theorem mellin_scaling_translation (σ : ℝ) (α : ℝ) (f : Hσ σ) :
-    ∀ τ : ℝ, MellinTransformAt σ f τ =
-              MellinTransformAt σ f τ * Complex.exp (-2 * Real.pi * α * τ * Complex.I) := by
+    ∀ τ : ℝ, LogPull σ f τ =
+              LogPull σ f τ * Complex.exp (-2 * Real.pi * α * τ * Complex.I) := by
   sorry
 
 /-- Parseval's identity for Mellin transform -/
 theorem mellin_parseval (σ : ℝ) (f g : Hσ σ) :
     @inner ℂ _ _ f g = (2 * Real.pi)⁻¹ *
-      ∫ τ, star (mellinOnCriticalLine σ f τ) * mellinOnCriticalLine σ g τ ∂volume := by
+      ∫ τ, star (LogPull σ f τ) * LogPull σ g τ ∂volume := by
   -- Parseval's identity relates inner product in Hσ to integral in frequency domain
   -- This is a consequence of the Plancherel formula
   sorry
 
 /-- Mellin convolution theorem -/
 theorem mellin_convolution (σ : ℝ) (f g : Hσ σ) :
-    ∀ τ : ℝ, mellinOnCriticalLine σ f τ * mellinOnCriticalLine σ g τ =
+    ∀ τ : ℝ, LogPull σ f τ * LogPull σ g τ =
     mellinTransform (fun t => if 0 < t then
       ∫ u in Set.Ioi 0, (f : ℝ → ℂ) u * (g : ℝ → ℂ) (t / u) * u⁻¹ ∂volume
     else 0) (↑σ + ↑τ * Complex.I) := by

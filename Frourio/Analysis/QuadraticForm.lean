@@ -1187,7 +1187,7 @@ variable {σ : ℝ} {K : ℝ → ℝ} {f : Hσ σ}
 /-- Quadratic form on Hσ defined directly via the Mellin transform.
     This avoids dependency on the placeholder Uσ operator. -/
 noncomputable def Qσ (K : ℝ → ℝ) (f : Hσ σ) : ℝ :=
-  ∫ τ : ℝ, K τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume
+  ∫ τ : ℝ, K τ * ‖LogPull σ f τ‖^2 ∂volume
 
 /-- Alternative notation for clarity -/
 notation "Qσ[" K "]" => Qσ K
@@ -1197,7 +1197,7 @@ notation "Qσ[" K "]" => Qσ K
 theorem Qσ_pos (K : ℝ → ℝ) (hK : ∀ᵐ τ ∂volume, 0 ≤ K τ) (f : Hσ σ) :
     0 ≤ Qσ[K] f := by
   unfold Qσ
-  -- The integrand K τ * ‖mellinOnCriticalLine σ f τ‖^2 is non-negative a.e.
+  -- The integrand K τ * ‖LogPull σ f τ‖^2 is non-negative a.e.
   apply integral_nonneg_of_ae
   -- Show that the integrand is non-negative almost everywhere
   refine hK.mono ?_
@@ -1205,23 +1205,23 @@ theorem Qσ_pos (K : ℝ → ℝ) (hK : ∀ᵐ τ ∂volume, 0 ≤ K τ) (f : H�
   exact mul_nonneg hτ (sq_nonneg _)
 
 /-- When K is essentially bounded and non-negative, Qσ[K] f = 0 implies
-    that K · mellinOnCriticalLine σ f = 0 almost everywhere -/
+    that K · LogPull σ f = 0 almost everywhere -/
 theorem Qσ_eq_zero_imp_kernel_zero (K : ℝ → ℝ) (f : Hσ σ)
     (hK_meas : AEStronglyMeasurable (fun τ => (K τ : ℂ)) volume)
     (hK_bdd : essSup (fun x => (‖(K x : ℂ)‖₊ : ℝ≥0∞)) volume < ∞)
     (hK_nonneg : ∀ᵐ τ ∂volume, 0 ≤ K τ) :
-    Qσ[K] f = 0 → (∀ᵐ τ ∂volume, K τ * ‖mellinOnCriticalLine σ f τ‖^2 = 0) := by
+    Qσ[K] f = 0 → (∀ᵐ τ ∂volume, K τ * ‖LogPull σ f τ‖^2 = 0) := by
   intro hQ0
-  -- From `Qσ[K] f = 0`, we have `∫ K · ‖mellinOnCriticalLine σ f‖² = 0`.
-  have hInt0 : ∫ τ, K τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume = 0 := by
+  -- From `Qσ[K] f = 0`, we have `∫ K · ‖LogPull σ f‖² = 0`.
+  have hInt0 : ∫ τ, K τ * ‖LogPull σ f τ‖^2 ∂volume = 0 := by
     simpa [Qσ] using hQ0
-  -- The integrand K τ * ‖mellinOnCriticalLine σ f τ‖^2 is a.e. non-negative
-  have hF_nonneg : ∀ᵐ τ ∂volume, 0 ≤ K τ * ‖mellinOnCriticalLine σ f τ‖^2 := by
+  -- The integrand K τ * ‖LogPull σ f τ‖^2 is a.e. non-negative
+  have hF_nonneg : ∀ᵐ τ ∂volume, 0 ≤ K τ * ‖LogPull σ f τ‖^2 := by
     refine hK_nonneg.mono ?_
     intro τ hKτ
     exact mul_nonneg hKτ (sq_nonneg _)
   -- The function is a.e. measurable
-  have hF_meas : AEMeasurable (fun τ => K τ * ‖mellinOnCriticalLine σ f τ‖^2) volume := by
+  have hF_meas : AEMeasurable (fun τ => K τ * ‖LogPull σ f τ‖^2) volume := by
     -- K is a.e. measurable
     have hK_am : AEMeasurable K volume := by
       -- We know (K τ : ℂ) is AEStronglyMeasurable
@@ -1229,16 +1229,16 @@ theorem Qσ_eq_zero_imp_kernel_zero (K : ℝ → ℝ) (f : Hσ σ)
       have : AEStronglyMeasurable (fun τ => ((K τ : ℂ)).re) volume := hK_meas.re
       simp only [Complex.ofReal_re] at this
       exact this.aemeasurable
-    -- ‖mellinOnCriticalLine σ f‖^2 is a.e. measurable
+    -- ‖LogPull σ f‖^2 is a.e. measurable
     have h_mellin_meas := (mellin_in_L2 σ f).1.norm.aemeasurable
     have h_sq_meas := h_mellin_meas.pow_const 2
     exact hK_am.mul h_sq_meas
   -- From the integral being 0 and the integrand being non-negative a.e.,
   -- we conclude that the integrand must be 0 a.e.
   classical
-  -- `‖mellinOnCriticalLine σ f τ‖ ^ 2` is integrable thanks to the L² bound
+  -- `‖LogPull σ f τ‖ ^ 2` is integrable thanks to the L² bound
   have h_mellin_sq_int :
-      Integrable (fun τ => ‖mellinOnCriticalLine σ f τ‖ ^ 2) volume := by
+      Integrable (fun τ => ‖LogPull σ f τ‖ ^ 2) volume := by
     have hmem := mellin_in_L2 σ f
     exact (memLp_two_iff_integrable_sq_norm hmem.1).1 hmem
   -- Obtain an a.e. bound on K from the essential supremum
@@ -1261,84 +1261,85 @@ theorem Qσ_eq_zero_imp_kernel_zero (K : ℝ → ℝ) (f : Hσ σ)
     simpa using hK_meas.re
   -- Hence the product is integrable by bounding K with its essential supremum
   have hF_int :
-      Integrable (fun τ => K τ * ‖mellinOnCriticalLine σ f τ‖ ^ 2) volume := by
+      Integrable (fun τ => K τ * ‖LogPull σ f τ‖ ^ 2) volume := by
     refine Integrable.bdd_mul' (μ := volume) (c := Mess.toReal)
         h_mellin_sq_int hK_meas_real ?_
     exact hK_bound
   -- Finally, use the integral zero criterion for non-negative integrable functions
   have hZero :
-      (fun τ => K τ * ‖mellinOnCriticalLine σ f τ‖ ^ 2)
+      (fun τ => K τ * ‖LogPull σ f τ‖ ^ 2)
         =ᵐ[volume] (fun _ => (0 : ℝ)) := by
     exact (MeasureTheory.integral_eq_zero_iff_of_nonneg_ae
       (μ := volume) hF_nonneg hF_int).1 hInt0
   exact hZero
 
-/-- The kernel of Qσ is related to the kernel of M_K through mellinOnCriticalLine -/
+/-- The kernel of Qσ is related to the kernel of M_K through LogPull -/
 lemma ker_Qσ_subset_ker_MK (K : ℝ → ℝ)
     (hK_meas : AEStronglyMeasurable (fun τ => (K τ : ℂ)) volume)
     (hK_bdd : essSup (fun x => (‖(K x : ℂ)‖₊ : ℝ≥0∞)) volume < ∞)
     (hK_nonneg : ∀ᵐ τ ∂volume, 0 ≤ K τ) :
     {f : Hσ σ | Qσ[K] f = 0} ⊆
     {f : Hσ σ | M_K (fun τ => (K τ : ℂ)) hK_meas hK_bdd
-      ((mellin_in_L2 σ f).toLp (mellinOnCriticalLine σ f)) = 0} := by
+      ((mellin_in_L2 σ f).toLp (LogPull σ f)) = 0} := by
   intro f hf
   classical
   -- `gLp` is the Mellin transform viewed as an element of `Lp`
   let gLp : Lp ℂ 2 (volume : Measure ℝ) :=
-    (mellin_in_L2 σ f).toLp (mellinOnCriticalLine σ f)
+    (mellin_in_L2 σ f).toLp (LogPull σ f)
   -- a.e. representatives for `gLp` and `M_K gLp`
   have hg_coe : ((gLp : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
-      =ᵐ[volume] mellinOnCriticalLine σ f := by
+      =ᵐ[volume] LogPull σ f := by
     simpa using (MemLp.coeFn_toLp (mellin_in_L2 σ f))
   have hMK_coe :=
     M_K_apply_ae (fun τ => (K τ : ℂ)) hK_meas hK_bdd gLp
   -- From the kernel condition on `Qσ` we know the squared norm vanishes a.e.
   have hZeroSq : ∀ᵐ τ ∂volume,
-      K τ * ‖mellinOnCriticalLine σ f τ‖^2 = 0 := by
+      K τ * ‖LogPull σ f τ‖^2 = 0 := by
     exact (Qσ_eq_zero_imp_kernel_zero (σ := σ) (K := K) (f := f)
       hK_meas hK_bdd hK_nonneg) hf
   -- Convert the squared-norm vanishing into the complex product vanishing a.e.
   have hKg_zero :
       ∀ᵐ τ ∂volume,
-        (K τ : ℂ) * mellinOnCriticalLine σ f τ = 0 := by
+        (K τ : ℂ) * LogPull σ f τ = 0 := by
     refine hZeroSq.mono ?_
     intro τ hτ
     have hcases := mul_eq_zero.mp hτ
     rcases hcases with hKτ | hnormτ
     · simp [hKτ]
-    · have hnorm_zero : ‖mellinOnCriticalLine σ f τ‖ = 0 := by
-        have hsq : (‖mellinOnCriticalLine σ f τ‖ : ℝ) ^ (2 : ℕ) = 0 := by
+    · have hnorm_zero : ‖LogPull σ f τ‖ = 0 := by
+        have hsq : (‖LogPull σ f τ‖ : ℝ) ^ (2 : ℕ) = 0 := by
           simpa using hnormτ
         simpa using (pow_eq_zero hsq)
-      have hf_zero : mellinOnCriticalLine σ f τ = 0 := by
+      have hf_zero : LogPull σ f τ = 0 := by
         simpa using (norm_eq_zero.mp hnorm_zero)
-      simp [hf_zero]
+      rw [hf_zero]
+      simp
   -- The zero element of `Lp` evaluates to 0 almost everywhere
   have hzero_rhs : ∀ᵐ τ ∂volume,
       (((0 : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) = 0 := by
     simp
   -- Identify the Mellin product with the zero function almost everywhere
   have hKg_eq_zero : ∀ᵐ τ ∂volume,
-      (K τ : ℂ) * mellinOnCriticalLine σ f τ
+      (K τ : ℂ) * LogPull σ f τ
         = (((0 : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) := by
     refine (hKg_zero.and hzero_rhs).mono ?_
     intro τ hτ
     rcases hτ with ⟨hleft, hrhs⟩
-    simp [hleft]
+    rw [hleft, hrhs]
   -- Transport the equality to the `Lp` representative `gLp`
   have hKgLp_eq_zero : ∀ᵐ τ ∂volume,
       (K τ : ℂ) * ((gLp : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ
         = (((0 : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) := by
     have hprod_eq : ∀ᵐ τ ∂volume,
         (K τ : ℂ) * ((gLp : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ
-          = (K τ : ℂ) * mellinOnCriticalLine σ f τ := by
+          = (K τ : ℂ) * LogPull σ f τ := by
       refine hg_coe.mono ?_
       intro τ hτ
       simp [hτ]
     refine (hprod_eq.and hKg_eq_zero).mono ?_
     intro τ hτ
     rcases hτ with ⟨hleft, hright⟩
-    simp [hleft, hright]
+    rw [hleft, hright]
   -- Combine with the `M_K` a.e. description to deduce the kernel condition
   have hMK_eq_zero : ∀ᵐ τ ∂volume,
       (((M_K (fun τ => (K τ : ℂ)) hK_meas hK_bdd) gLp :
@@ -1347,7 +1348,8 @@ lemma ker_Qσ_subset_ker_MK (K : ℝ → ℝ)
     refine (hMK_coe.and hKgLp_eq_zero).mono ?_
     intro τ hτ
     rcases hτ with ⟨hleft, hright⟩
-    simp [hleft, hright]
+    rw [hleft]
+    exact hright
   -- Conclude in the target subset
   have hMK_eq_zero' :
       (((M_K (fun τ => (K τ : ℂ)) hK_meas hK_bdd) gLp :
@@ -1359,21 +1361,23 @@ lemma ker_Qσ_subset_ker_MK (K : ℝ → ℝ)
 
 /-- If the Mellin transform vanishes almost everywhere, then `Qσ[K] f = 0` -/
 theorem Qσ_eq_zero_of_mellin_ae_zero (K : ℝ → ℝ) (f : Hσ σ) :
-    mellinOnCriticalLine σ f =ᵐ[volume] 0 → Qσ[K] f = 0 := by
+    LogPull σ f =ᵐ[volume] 0 → Qσ[K] f = 0 := by
   intro hzero
   unfold Qσ
-  have hcongr : (fun τ => K τ * ‖mellinOnCriticalLine σ f τ‖^2)
+  have hcongr : (fun τ => K τ * ‖LogPull σ f τ‖^2)
       =ᵐ[volume] (fun _ => 0) := by
     refine hzero.mono ?_
     intro τ hτ
-    simp [hτ]
+    simp only [Pi.zero_apply] at hτ ⊢
+    rw [hτ, norm_zero, zero_pow, mul_zero]
+    norm_num
   have hint :
-      ∫ τ, K τ * ‖mellinOnCriticalLine σ f τ‖^2 ∂volume = 0 := by
+      ∫ τ, K τ * ‖LogPull σ f τ‖^2 ∂volume = 0 := by
     simpa using integral_congr_ae hcongr
   exact hint
 
 -- Note: The inner product formula with M_K is temporarily removed
--- since it depends on Uσ. It should be reformulated using mellinOnCriticalLine directly.
+-- since it depends on Uσ. It should be reformulated using LogPull directly.
 
 end PullbackToHσ
 
@@ -1440,13 +1444,13 @@ variable {σ : ℝ} {K : ℝ → ℝ} {f : Hσ σ}
 /-- Phase-1 variant: If mellin transform vanishes a.e. (globally), then `Qσ[K] f = 0`.
 This weaker statement is sufficient for positivity arguments in this phase. -/
 theorem Qσ_zero_of_mellin_ae_zero_v2 (K : ℝ → ℝ) (f : Hσ σ) :
-    mellinOnCriticalLine σ f =ᵐ[volume] 0 → Qσ[K] f = 0 :=
+    LogPull σ f =ᵐ[volume] 0 → Qσ[K] f = 0 :=
   Qσ_eq_zero_of_mellin_ae_zero (K := K) (f := f)
 
 /-- Corollary: The kernel of Qσ corresponds exactly to functions vanishing on supp K -/
 theorem ker_Qσ_characterization (K : ℝ → ℝ) :
     {f : Hσ σ | Qσ[K] f = 0} ⊇
-    {f : Hσ σ | mellinOnCriticalLine σ f =ᵐ[volume] 0} := by
+    {f : Hσ σ | LogPull σ f =ᵐ[volume] 0} := by
   intro f hf; exact Qσ_eq_zero_of_mellin_ae_zero (K := K) (f := f) hf
 
 /-- The kernel dimension of Qσ equals that of M_K via the isometry Uσ -/

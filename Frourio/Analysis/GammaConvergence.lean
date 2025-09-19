@@ -200,7 +200,7 @@ lemma Qζσ_zero (σ : ℝ) : Qζσ σ (0 : Hσ σ) = 0 := by
   -- Qζσ is defined as Qσ with the zeta kernel Kzeta
   unfold Qζσ
 
-  -- Use the fact that Qσ[K] f = 0 when mellinOnCriticalLine σ f =ᵐ 0
+  -- Use the fact that Qσ[K] f = 0 when LogPull σ f =ᵐ 0
   apply Qσ_eq_zero_of_mellin_ae_zero
 
   sorry
