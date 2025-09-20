@@ -1,10 +1,10 @@
 import Frourio.Analysis.EVI.EVICore0
 import Frourio.Analysis.EVI.EVICore1
-import Frourio.Analysis.EVI.Lebesgue.OrientedLebesgue
 import Frourio.Analysis.EVI.EVICore6Sub1
 import Frourio.Analysis.EVI.EVICore6Sub2
 import Frourio.Analysis.EVI.EVICore6Sub3
 import Frourio.Analysis.EVI.EVICore6Sub4
+import Frourio.Analysis.Lebesgue.OrientedLebesgue
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Data.Real.Basic
 import Mathlib.Topology.Basic

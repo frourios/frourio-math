@@ -1,7 +1,7 @@
 import Frourio.Analysis.EVI.EVICore0
 import Frourio.Analysis.EVI.EVICore6Sub1
 import Frourio.Analysis.EVI.EVICore6Sub2
-import Frourio.Analysis.EVI.Lebesgue.OrientedLebesgue
+import Frourio.Analysis.Lebesgue.OrientedLebesgue
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Topology.Compactness.Compact
 import Mathlib.Data.Real.Basic

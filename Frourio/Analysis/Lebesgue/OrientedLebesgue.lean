@@ -1,5 +1,5 @@
 import Frourio.Analysis.EVI.EVICore0
-import Frourio.Analysis.EVI.Lebesgue.Lebesgue
+import Frourio.Analysis.Lebesgue.Lebesgue
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Topology.Compactness.Compact
 import Mathlib.Data.Real.Basic

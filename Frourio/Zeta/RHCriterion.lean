@@ -361,9 +361,12 @@ lemma quadratic_form_bounded_on_bounded_sets (σ : ℝ) (C : ℝ) :
 /-- The limiting_energy is non-negative for elements in our construction -/
 lemma limiting_energy_nonneg (σ : ℝ) (f : Hσ σ) :
     0 ≤ limiting_energy σ f := by
-  -- limiting_energy is related to Qζσ which is ≥ 0 by Qζσ_pos
-  -- This follows from the definition of limiting_energy
-  sorry  -- non-negativity of limiting_energy
+  -- limiting_energy is defined as Qζσ in GammaConvergence.lean
+  -- unfold the definition of limiting_energy
+  unfold limiting_energy
+  -- Now we have to prove: 0 ≤ Qζσ σ f
+  -- This follows directly from the positivity theorem Qζσ_pos
+  exact Qζσ_pos σ f
 
 /-- Energy values are bounded along golden test sequences -/
 lemma golden_seq_energy_bounded (σ : ℝ) (hσ : σ ∈ Set.Ioo 0 1) (F : GoldenTestSeq σ) :
@@ -1105,12 +1108,6 @@ theorem golden_seq_energy_converges_proof (σ : ℝ) (hσ : σ ∈ Set.Ioo 0 1) 
 
   -- This is a contradiction
   linarith
-
-/-- The energy functional is continuous on Hσ -/
-theorem energy_continuous_on_Hσ (σ : ℝ) : Continuous (limiting_energy σ) := by
-  -- The continuity follows from the fact that limiting_energy is a quadratic form
-  -- on a Hilbert space. This is proven in FunctionalContinuity.lean
-  sorry
 
 /-- Predicate for Γ-convergence of a sequence of functionals to a limit functional.
 For golden sequences, we track convergence of the energy functionals. -/

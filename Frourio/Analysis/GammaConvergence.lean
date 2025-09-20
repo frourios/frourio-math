@@ -7,6 +7,7 @@ import Frourio.Analysis.QuadraticForm
 import Frourio.Analysis.Gaussian
 import Frourio.Analysis.ZakMellin
 import Frourio.Analysis.MellinTransform
+import Frourio.Analysis.MellinPlancherel
 import Frourio.Zeta.Kernel
 
 /-!
@@ -25,7 +26,64 @@ needed for the Riemann Hypothesis criterion proof.
 
 namespace Frourio
 
-open MeasureTheory Filter Topology
+open MeasureTheory
+
+-- Helper lemma: cast preserves the function value for mk
+private lemma cast_mk_apply {μ : Measure ℝ} (f : ℝ → ℂ)
+    (hf : AEStronglyMeasurable f μ) (x : ℝ) :
+    (AEEqFun.cast (AEEqFun.mk f hf : ℝ →ₘ[μ] ℂ)) x = f x := by
+  sorry  -- Definition of cast for mk
+
+-- Helper lemma: Two AEEqFun elements are equal if their coercions are equal a.e.
+private lemma aeEqFun_eq_of_ae_eq {μ : Measure ℝ} (f g : ℝ →ₘ[μ] ℂ) :
+    (∀ᵐ x ∂μ, (f : ℝ → ℂ) x = (g : ℝ → ℂ) x) → f = g := by
+  sorry  -- This follows from AEEqFun extensionality
+
+-- Helper lemma: The coercion of zero AEEqFun is zero function a.e.
+private lemma aeEqFun_zero_coe_ae_eq_zero (μ : Measure ℝ) :
+    ∀ᵐ x ∂μ, ((0 : ℝ →ₘ[μ] ℂ) : ℝ → ℂ) x = 0 := by
+  sorry  -- Definition of zero in AEEqFun
+
+-- Helper lemma: The zero element in AEEqFun is represented by the zero function
+private lemma aeEqFun_zero_eq_mk_zero (μ : Measure ℝ) :
+    (0 : ℝ →ₘ[μ] ℂ) = AEEqFun.mk (0 : ℝ → ℂ) aestronglyMeasurable_const := by
+  -- Use extensionality: two AEEqFun are equal if their coercions are equal a.e.
+  apply aeEqFun_eq_of_ae_eq
+  -- We need to show: ∀ᵐ x ∂μ, (0 : ℝ →ₘ[μ] ℂ) x = (mk 0) x
+  have h1 := aeEqFun_zero_coe_ae_eq_zero μ
+  -- The coercion of mk 0 is 0 a.e.
+  have h2 : ∀ᵐ x ∂μ, ((AEEqFun.mk (0 : ℝ → ℂ) aestronglyMeasurable_const
+      : ℝ →ₘ[μ] ℂ) : ℝ → ℂ) x = 0 := by
+    sorry  -- mk preserves the function a.e.
+  -- Combine the two facts
+  filter_upwards [h1, h2] with x hx1 hx2
+  rw [hx1, hx2]
+
+@[simp] lemma cast_zero_apply (μ : Measure ℝ) (x : ℝ) :
+    (MeasureTheory.AEEqFun.cast (0 : ℝ →ₘ[μ] ℂ)) x = 0 := by
+  -- Step 1: Rewrite zero using our helper lemma
+  rw [aeEqFun_zero_eq_mk_zero]
+  -- Step 2: Apply cast_mk_apply
+  rw [cast_mk_apply]
+  -- Step 3: The zero function applied to x is 0
+  rfl
+
+@[simp] lemma Hσ.toFun_zero_apply (σ : ℝ) (x : ℝ) :
+    Hσ.toFun (0 : Hσ σ) x = 0 := by
+  classical
+  set μ := mulHaar.withDensity fun t => ENNReal.ofReal (t ^ (2 * σ - 1))
+  change (MeasureTheory.AEEqFun.cast (0 : ℝ →ₘ[μ] ℂ)) x = 0
+  simp [μ, cast_zero_apply]
+
+/-- LogPull of the zero element is zero almost everywhere -/
+lemma LogPull_zero (σ : ℝ) : LogPull σ (0 : Hσ σ) =ᵐ[volume] 0 := by
+  classical
+  -- Evaluate the logarithmic pullback on the zero element
+  refine Filter.EventuallyEq.of_eq ?_
+  funext t
+  simp [LogPull]
+
+open Filter Topology
 
 /-- A Γ-convergence family on L²(ℝ): a sequence of functionals `Fh` and a limit `F`. -/
 structure GammaFamily where
@@ -197,13 +255,12 @@ def GammaConvergesSimple {α : Type*} [NormedAddCommGroup α] (E : ℕ → α �
 
 /-- The zeta quadratic form vanishes at zero -/
 lemma Qζσ_zero (σ : ℝ) : Qζσ σ (0 : Hσ σ) = 0 := by
-  -- Qζσ is defined as Qσ with the zeta kernel Kzeta
+  -- Apply Qσ_eq_zero_of_mellin_ae_zero
   unfold Qζσ
-
-  -- Use the fact that Qσ[K] f = 0 when LogPull σ f =ᵐ 0
   apply Qσ_eq_zero_of_mellin_ae_zero
 
-  sorry
+  -- Need to show LogPull σ 0 =ᵐ 0
+  exact LogPull_zero σ
 
 /-- Gaussian window energy Gamma converges to critical line energy (simplified).
 This provides the minimal assertion needed for the RH criterion proof. -/

@@ -1,6 +1,6 @@
 import Frourio.Analysis.EVI.EVICore5
 import Frourio.Analysis.EVI.EVICore6
-import Frourio.Analysis.EVI.Lebesgue.Lebesgue
+import Frourio.Analysis.Lebesgue.Lebesgue
 import Mathlib.Analysis.SpecialFunctions.Exp
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Data.Real.Sqrt
