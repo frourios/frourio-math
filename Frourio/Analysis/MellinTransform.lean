@@ -345,31 +345,9 @@ def VerticalLine (σ : ℝ) := { s : ℂ // s.re = σ }
 -- Coercion to function
 -- Moved to MellinCore.lean
 
-/-- Action `Tφ` on `Hσ`.
-
-The long-term definition multiplies the Mellin-side profile of `u` by the
-symbol `phiSymbol (Λ, σ + iτ)` and then pulls the result back to the weighted
-L² side.  Executing this construction requires the Mellin–Plancherel isometry,
-which is still work-in-progress.  Until that machinery is available we keep a
-concrete placeholder that simply returns the zero element of `Hσ (σ - 1)`.
-This lets downstream code compile while making the future intent explicit. -/
-noncomputable def Tphi (_Λ : ℝ) (σ : ℝ) : Hσ σ → Hσ (σ - 1) :=
-  fun _u => 0
-
 /-- The norm on `H_σ` induced from the L² structure with weighted measure.
 This is the standard L² norm with respect to the measure x^(2σ-1) dx/x on (0,∞). -/
 noncomputable def HσNorm (σ : ℝ) (u : Hσ σ) : ℝ := ‖u‖
-
-/-- Norm identity (skeleton): `Tphi` acts isometrically between the placeholder
-spaces `H_σ → H_{σ-1}`. This records the intended isometry at the statement level.
-It will be replaced by a true equality after introducing the Mellin–Plancherel
-norm in later phases. -/
-theorem Tphi_norm_identity (Λ σ : ℝ) (u : Hσ σ) :
-  HσNorm (σ - 1) (Tphi Λ σ u) = HσNorm σ u := by
-  -- Currently Tphi returns 0, so the left side is ‖0‖ = 0
-  -- This is a placeholder until Tphi is properly implemented
-  simp [HσNorm, Tphi]
-  sorry -- Will be proven once Tphi is implemented as isometry
 
 /-- Candidate operator-norm bound expression (design quantity). -/
 noncomputable def phiSymbolBound (Λ σ : ℝ) : ℝ :=
@@ -377,17 +355,6 @@ noncomputable def phiSymbolBound (Λ σ : ℝ) : ℝ :=
 
 /-- Helper: division by `x` for `ℝ → ℂ` functions. -/
 noncomputable def divByX (g : ℝ → ℂ) : ℝ → ℂ := fun x => g x / (x : ℂ)
-
-/-- Placeholder for the operator norm of `Tphi Λ` acting `H_σ → H_{σ-1}`.
-We keep it as a design quantity referencing the operator one would get
-by Mellin-side multiplication with `phiSymbol`. -/
-noncomputable def opNorm_Tphi (_Λ : ℝ) (_σ : ℝ) : ℝ := 0
-
-/-- Operator-norm bound statement for `Tphi` along the vertical line `Re s = σ`.
-Design intent: for `Λ > 1`, `‖T_{Φ,Λ}‖ ≤ phiSymbolBound Λ σ`.
-Recorded as a `Prop` inequality between a placeholder norm and the explicit RHS. -/
-def op_norm_bound (Λ σ : ℝ) : Prop :=
-  1 < Λ → opNorm_Tphi Λ σ ≤ phiSymbolBound Λ σ
 
 /-- Φ-difference operator on the physical side (placeholder). -/
 noncomputable def mellinPhiDiff (_Λ : ℝ) (f : ℝ → ℂ) : ℝ → ℂ := fun x => f x

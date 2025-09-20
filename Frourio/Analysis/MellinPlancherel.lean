@@ -1,8 +1,6 @@
 import Frourio.Analysis.MellinBasic
 import Frourio.Analysis.MellinTransform
 import Frourio.Analysis.MellinPlancherelCore
-import Frourio.Algebra.Operators
-import Frourio.Algebra.Properties
 import Frourio.Basic
 import Mathlib.MeasureTheory.Function.L2Space
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
@@ -363,7 +361,7 @@ lemma LogPull_memLp (σ : ℝ) (f : Hσ σ) :
       subst hf_zero
       simp only [hI]
       exact Hσ_zero_integral σ
-    exact ENNReal.zero_ne_top (by simpa [hI_zero] using htop)
+    exact ENNReal.zero_ne_top (by simp [hI_zero] at htop)
   have hI_lt_top : I < ∞ := lt_of_le_of_ne le_top hI_ne_top
   have h_integral_lt_top :
       (∫⁻ t, (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂volume) < ∞ := by
@@ -463,16 +461,6 @@ theorem mellin_direct_isometry (σ : ℝ) :
     hIntegral_I.trans hI_toReal
   simpa [g, hg, LogPull, one_mul] using hFinal
 
-/-- Main theorem: Mellin transform intertwines D_Φ with multiplication -/
-theorem mellin_intertwines_DΦ_direct (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) (f : Hσ σ) :
-    ∀ τ : ℝ, LogPull (σ - 1) (DΦ φ σ f) τ =
-             phiSymbol φ σ * LogPull σ f τ := by
-  intro τ
-  -- The Frourio differential D_Φ in the time domain becomes multiplication
-  -- by phiSymbol in the frequency domain
-  -- This is the key intertwining property
-  sorry
-
 /-- Mellin-Plancherel Formula: The Mellin transform preserves the L² norm
     up to a constant factor depending on σ -/
 theorem mellin_plancherel_formula (σ : ℝ) (f : Hσ σ) :
@@ -539,108 +527,6 @@ lemma exp_weight_cancel (σ τ : ℝ) :
           rw [←h_pos]
     _ = 1 := h_prod
 
-/-- Evaluating `LogPull` on the canonical preimage produced by `toHσ_ofL2`
-recovers the original L² function pointwise. -/
-lemma LogPull_toHσ_ofL2 (σ : ℝ) (g : Lp ℂ 2 (volume : Measure ℝ)) :
-    ∀ τ : ℝ, LogPull σ (toHσ_ofL2 σ g) τ = (g : ℝ → ℂ) τ := by
-  intro τ
-  classical
-  have hpos : 0 < Real.exp τ := Real.exp_pos τ
-  have h_eval_if :
-      Hσ.toFun (toHσ_ofL2 σ g) (Real.exp τ)
-        = (if (0 < Real.exp τ) then
-            (g : ℝ → ℂ) (Real.log (Real.exp τ))
-              * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ)
-          else 0) := by
-    -- toHσ_ofL2 constructs a function h(x) = g(log x) * x^(-(σ - 1/2)) when x > 0
-    -- Hσ.toFun extracts the underlying function from the Lp type
-    -- We need to show that evaluating at exp(τ) gives g(log(exp(τ))) * exp(τ)^(-(σ - 1/2))
-    -- which simplifies to g(τ) * exp(τ)^(-(σ - 1/2)) since log(exp(τ)) = τ
-
-    -- The key insight is that toHσ_ofL2 σ g produces a function that when evaluated at x
-    -- gives g(log x) * x^(-(σ - 1/2)) if x > 0, and 0 otherwise
-    -- This follows from the definition of toHσ_ofL2 in MellinBasic.lean
-    sorry -- Need to unfold definitions and use properties of MemLp.toLp
-  have h_eval :
-      Hσ.toFun (toHσ_ofL2 σ g) (Real.exp τ)
-        = (g : ℝ → ℂ) τ * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ) := by
-    simpa [hpos, Real.log_exp] using h_eval_if
-  have h_cancel := exp_weight_cancel σ τ
-  calc
-    LogPull σ (toHσ_ofL2 σ g) τ
-        = (Real.exp ((σ - (1 / 2 : ℝ)) * τ) : ℂ)
-            * ((g : ℝ → ℂ) τ
-                * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ)) := by
-              simp [LogPull, h_eval]
-    _ = ((Real.exp ((σ - (1 / 2 : ℝ)) * τ) : ℂ)
-            * (Real.exp τ : ℂ) ^ (-(σ - (1 / 2 : ℝ)) : ℂ))
-            * (g : ℝ → ℂ) τ := by
-              simp [mul_comm, mul_assoc]
-    _ = (g : ℝ → ℂ) τ := by
-        sorry -- Need to show cancellation of exponential terms
-
-/-- The inverse Mellin transform formula -/
-theorem mellin_inverse_formula (σ : ℝ) (g : ℝ → ℂ)
-    (hg : MemLp g 2 (volume : Measure ℝ)) :
-    ∃ f : Hσ σ, ∀ τ : ℝ, LogPull σ f τ = g τ := by
-  classical
-  -- Promote g ∈ L²(ℝ) to an element of `Lp` and apply the inverse construction
-  let gLp : Lp ℂ 2 (volume : Measure ℝ) := MemLp.toLp g hg
-  refine ⟨toHσ_ofL2 σ gLp, ?_⟩
-  intro τ
-  -- `LogPull` composed with `toHσ_ofL2` yields the original L² function
-  have hpull := LogPull_toHσ_ofL2 (σ := σ) (g := gLp) τ
-  sorry -- Need to show that gLp and g are equal pointwise
-
-/-- Mellin transform intertwines multiplication by t^α with translation -/
-theorem mellin_scaling_translation (σ : ℝ) (α : ℝ) (f : Hσ σ) :
-    ∀ τ : ℝ, LogPull σ f τ =
-              LogPull σ f τ * Complex.exp (-2 * Real.pi * α * τ * Complex.I) := by
-  sorry
-
-/-- Parseval's identity for Mellin transform -/
-theorem mellin_parseval (σ : ℝ) (f g : Hσ σ) :
-    @inner ℂ _ _ f g = (2 * Real.pi)⁻¹ *
-      ∫ τ, star (LogPull σ f τ) * LogPull σ g τ ∂volume := by
-  -- Parseval's identity relates inner product in Hσ to integral in frequency domain
-  -- This is a consequence of the Plancherel formula
-  sorry
-
-/-- Mellin convolution theorem -/
-theorem mellin_convolution (σ : ℝ) (f g : Hσ σ) :
-    ∀ τ : ℝ, LogPull σ f τ * LogPull σ g τ =
-    mellinTransform (fun t => if 0 < t then
-      ∫ u in Set.Ioi 0, (f : ℝ → ℂ) u * (g : ℝ → ℂ) (t / u) * u⁻¹ ∂volume
-    else 0) (↑σ + ↑τ * Complex.I) := by
-  sorry
-
-/-- The Mellin transform of a Gaussian is a Gaussian -/
-theorem mellin_gaussian (σ : ℝ) (a : ℝ) (ha : 0 < a) :
-    ∀ τ : ℝ, mellinTransform (fun t => if 0 < t then Complex.exp (-(a : ℂ) * (t : ℂ)^2) else 0)
-                              (↑σ + ↑τ * Complex.I) =
-    Complex.ofReal (Real.sqrt (Real.pi / a)) *
-      Complex.exp (-(Real.pi : ℂ)^2 * (τ : ℂ)^2 / (4 * (a : ℂ))) := by
-  sorry
-
 end MellinPlancherelTheorems
-
-section Chapter0API
-/-!
-## Step 6: Chapter 0 API Export (0章の「二点 Frourio 作用素×等長」API)
-
-This section exports the main definitions and theorems from Chapter 0,
-providing a complete API for the measure-theoretic foundations,
-Mellin transform isometry, and zero lattice characterization.
--/
-
-/-- Tφ_on_L2: The multiplication operator on L²(ℝ) corresponding to phiSymbol.
-    This represents the action τ ↦ S_{-(σ+iτ)} in frequency space. -/
-noncomputable def Tφ_on_L2 (φ : ℝ) (_ : 1 < φ) (σ : ℝ) :
-    Lp ℂ 2 (volume : Measure ℝ) →L[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  -- This is the multiplication by phiSymbol φ (-(σ + i·))
-  -- For consistency with Mφ, we use the negated argument
-  (phiSymbol φ (-(σ : ℂ))) • (ContinuousLinearMap.id ℂ (Lp ℂ 2 (volume : Measure ℝ)))
-
-end Chapter0API
 
 end Frourio

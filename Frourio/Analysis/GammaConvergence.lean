@@ -28,61 +28,6 @@ namespace Frourio
 
 open MeasureTheory
 
--- Helper lemma: cast preserves the function value for mk
-private lemma cast_mk_apply {μ : Measure ℝ} (f : ℝ → ℂ)
-    (hf : AEStronglyMeasurable f μ) (x : ℝ) :
-    (AEEqFun.cast (AEEqFun.mk f hf : ℝ →ₘ[μ] ℂ)) x = f x := by
-  sorry  -- Definition of cast for mk
-
--- Helper lemma: Two AEEqFun elements are equal if their coercions are equal a.e.
-private lemma aeEqFun_eq_of_ae_eq {μ : Measure ℝ} (f g : ℝ →ₘ[μ] ℂ) :
-    (∀ᵐ x ∂μ, (f : ℝ → ℂ) x = (g : ℝ → ℂ) x) → f = g := by
-  sorry  -- This follows from AEEqFun extensionality
-
--- Helper lemma: The coercion of zero AEEqFun is zero function a.e.
-private lemma aeEqFun_zero_coe_ae_eq_zero (μ : Measure ℝ) :
-    ∀ᵐ x ∂μ, ((0 : ℝ →ₘ[μ] ℂ) : ℝ → ℂ) x = 0 := by
-  sorry  -- Definition of zero in AEEqFun
-
--- Helper lemma: The zero element in AEEqFun is represented by the zero function
-private lemma aeEqFun_zero_eq_mk_zero (μ : Measure ℝ) :
-    (0 : ℝ →ₘ[μ] ℂ) = AEEqFun.mk (0 : ℝ → ℂ) aestronglyMeasurable_const := by
-  -- Use extensionality: two AEEqFun are equal if their coercions are equal a.e.
-  apply aeEqFun_eq_of_ae_eq
-  -- We need to show: ∀ᵐ x ∂μ, (0 : ℝ →ₘ[μ] ℂ) x = (mk 0) x
-  have h1 := aeEqFun_zero_coe_ae_eq_zero μ
-  -- The coercion of mk 0 is 0 a.e.
-  have h2 : ∀ᵐ x ∂μ, ((AEEqFun.mk (0 : ℝ → ℂ) aestronglyMeasurable_const
-      : ℝ →ₘ[μ] ℂ) : ℝ → ℂ) x = 0 := by
-    sorry  -- mk preserves the function a.e.
-  -- Combine the two facts
-  filter_upwards [h1, h2] with x hx1 hx2
-  rw [hx1, hx2]
-
-@[simp] lemma cast_zero_apply (μ : Measure ℝ) (x : ℝ) :
-    (MeasureTheory.AEEqFun.cast (0 : ℝ →ₘ[μ] ℂ)) x = 0 := by
-  -- Step 1: Rewrite zero using our helper lemma
-  rw [aeEqFun_zero_eq_mk_zero]
-  -- Step 2: Apply cast_mk_apply
-  rw [cast_mk_apply]
-  -- Step 3: The zero function applied to x is 0
-  rfl
-
-@[simp] lemma Hσ.toFun_zero_apply (σ : ℝ) (x : ℝ) :
-    Hσ.toFun (0 : Hσ σ) x = 0 := by
-  classical
-  set μ := mulHaar.withDensity fun t => ENNReal.ofReal (t ^ (2 * σ - 1))
-  change (MeasureTheory.AEEqFun.cast (0 : ℝ →ₘ[μ] ℂ)) x = 0
-  simp [μ, cast_zero_apply]
-
-/-- LogPull of the zero element is zero almost everywhere -/
-lemma LogPull_zero (σ : ℝ) : LogPull σ (0 : Hσ σ) =ᵐ[volume] 0 := by
-  classical
-  -- Evaluate the logarithmic pullback on the zero element
-  refine Filter.EventuallyEq.of_eq ?_
-  funext t
-  simp [LogPull]
-
 open Filter Topology
 
 /-- A Γ-convergence family on L²(ℝ): a sequence of functionals `Fh` and a limit `F`. -/
@@ -252,67 +197,6 @@ def GammaConvergesSimple {α : Type*} [NormedAddCommGroup α] (E : ℕ → α �
     (∀ n x, E n (xₙ n) ≤ E n x + 1/(n+1 : ℝ)) ∧  -- xₙ n is 1/n-approximate minimizer
     (Filter.Tendsto xₙ Filter.atTop (𝓝 x₀)) ∧  -- The sequence converges
     (∀ x, E_inf x₀ ≤ E_inf x)  -- The limit minimizes E_inf
-
-/-- The zeta quadratic form vanishes at zero -/
-lemma Qζσ_zero (σ : ℝ) : Qζσ σ (0 : Hσ σ) = 0 := by
-  -- Apply Qσ_eq_zero_of_mellin_ae_zero
-  unfold Qζσ
-  apply Qσ_eq_zero_of_mellin_ae_zero
-
-  -- Need to show LogPull σ 0 =ᵐ 0
-  exact LogPull_zero σ
-
-/-- Gaussian window energy Gamma converges to critical line energy (simplified).
-This provides the minimal assertion needed for the RH criterion proof. -/
-lemma gaussian_energy_gamma_converges_simple (σ : ℝ) (F : GoldenTestSeq σ) :
-    GammaConvergesSimple
-      (fun n => fun h => Qζσ σ (F.f n + h))
-      (limiting_energy σ) := by
-  -- Since GammaConvergesSimple is defined as an existential proposition,
-  -- we need to provide witnesses for xₙ and x₀
-  classical
-  use fun _n => (0 : Hσ σ)
-  use (0 : Hσ σ)
-
-  constructor
-  · intro n x
-    -- Need to prove: Qζσ σ (F.f n + 0) ≤ Qζσ σ (F.f n + x) + 1 / (n + 1)
-    -- This follows from the approximate optimality of the test sequence
-    simp only [add_zero]
-    -- Use the fundamental property that energy is bounded by the minimum plus epsilon
-    have h_pos : 0 < 1 / (n + 1 : ℝ) := by
-      apply div_pos zero_lt_one
-      exact Nat.cast_add_one_pos n
-    -- The inequality follows from the optimality properties of the golden test sequence
-    have h_bound : Qζσ σ (F.f n) ≤ Qζσ σ (F.f n + x) + 1 / (n + 1 : ℝ) := by
-      -- This is a consequence of the variational principle for the energy functional
-      -- We use the fact that F.f n is approximately optimal in the golden test sequence
-      have h_golden_opt : ∀ y : Hσ σ, Qζσ σ (F.f n) ≤ Qζσ σ y + 1 / (n + 1 : ℝ) := by
-        -- This follows from the definition and properties of GoldenTestSeq
-        intro y
-        -- Apply the golden test sequence optimality property
-        calc Qζσ σ (F.f n)
-          ≤ Qζσ σ y + F.δ n := F.variational_property n y
-          _ ≤ Qζσ σ y + 1 / (n + 1 : ℝ) := by linarith [F.hδ_bound n]
-      -- Apply this with y = F.f n + x
-      exact h_golden_opt (F.f n + x)
-    exact h_bound
-
-  constructor
-  · exact tendsto_const_nhds
-
-  · intro x
-    have hx : 0 ≤ Qζσ σ x := Qζσ_pos (σ := σ) (f := x)
-    -- The limiting energy equals the critical line energy
-    -- Need to prove: limiting_energy σ 0 ≤ limiting_energy σ x
-    -- Apply the limiting energy minimality property
-    simp only [limiting_energy]
-
-    -- Use our new lemma to establish that Qζσ σ 0 = 0
-    rw [Qζσ_zero]
-
-    -- Qζσ σ x ≥ 0 for all x by positivity
-    exact Qζσ_pos σ x
 
 end SimpleGammaConvergence
 

@@ -14,9 +14,6 @@ This file establishes the continuity properties of energy functionals
 that appear in the RH criterion and Γ-convergence theory.
 -/
 
--- Make this file work with any ZetaLineAPI instance, not just the default one
-variable [ZetaLineAPI]
-
 /-- If the norm is bounded by C, then the squared norm is bounded by C^2 -/
 lemma norm_sq_le_of_norm_le {x : ℂ} {C : ℝ} (h : ‖x‖ ≤ C) : ‖x‖ ^ 2 ≤ C ^ 2 := by
   -- Since ‖x‖ ≤ C and norms are non-negative, we can square both sides
@@ -28,6 +25,9 @@ lemma norm_sq_le_of_norm_le {x : ℂ} {C : ℝ} (h : ‖x‖ ≤ C) : ‖x‖ ^ 
     linarith
   · -- Show ‖x‖ ≤ C
     exact h
+
+-- Make this file work with any ZetaLineAPI instance, not just the default one
+variable [ZetaLineAPI]
 
 /-- For any fixed radius, there exists a bound on the zeta function -/
 lemma zeta_bounded_on_radius (R₀ : ℝ) : ∃ C₀ : ℝ,
