@@ -24,16 +24,16 @@ jobs:
           chmod +x ./lean-api.sh || true
           chmod +x ./test-api.sh || true
 
-      # - name: Generate Lean API (idempotence check)
-      #   shell: bash
-      #   run: |
-      #     ./lean-api.sh
-      #     # fail if lean-api.sh produced any changes
-      #     if [[ -n "$(git status --porcelain)" ]]; then
-      #       echo "::error ::lean-api.sh produced changes. Please run it locally and commit the result."
-      #       git --no-pager diff
-      #       exit 1
-      #     fi
+      - name: Generate Lean API (idempotence check)
+        shell: bash
+        run: |
+          ./lean-api.sh
+          # fail if lean-api.sh produced any changes
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "::error ::lean-api.sh produced changes. Please run it locally and commit the result."
+            git --no-pager diff
+            exit 1
+          fi
 
       - name: Run API tests
         shell: bash
