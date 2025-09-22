@@ -1,7 +1,4 @@
 import Frourio.Analysis.MellinCore
-import Frourio.Algebra.Operators
-import Frourio.Algebra.Properties
-import Frourio.Basic
 import Mathlib.MeasureTheory.Function.L2Space
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.L1

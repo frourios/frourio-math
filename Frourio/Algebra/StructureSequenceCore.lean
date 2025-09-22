@@ -1,4 +1,3 @@
-import Frourio.Algebra.Operators
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Exp
@@ -160,7 +159,6 @@ lemma S_ne_zero_of_pos_ne_one (Λ : ℝ) (hΛpos : 0 < Λ) (hΛne1 : Λ ≠ 1)
           simpa using (neg_lt_self_iff.mpr this)
         exact Real.exp_lt_exp.mpr this
       exact ne_of_gt (sub_pos.mpr hgt')
-  simpa [hform] 
+  simpa [hform]
 
 end Frourio
-
