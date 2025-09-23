@@ -137,6 +137,19 @@ lemma hx_id_helper (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
   -- h_eq already uses x⁻¹, which matches what we need
   exact (hL.trans h_eq).trans hR.symm
 
+/-- ENorm to NNNorm conversion for complex functions -/
+lemma enorm_to_nnnorm_lintegral (f : ℝ → ℂ) :
+    (∫⁻ t, ‖f t‖ₑ ^ (2 : ℝ)) = (∫⁻ t, ((‖f t‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
+  congr 1; funext t; norm_cast
+
+/-- ENNReal.ofReal to coe conversion for norms -/
+lemma ofReal_norm_eq_coe_nnnorm (f : ℝ → ℂ) :
+    (fun x => (ENNReal.ofReal ‖f x‖) ^ (2 : ℕ))
+      = (fun x => ((‖f x‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
+  funext x
+  rw [ENNReal.ofReal_eq_coe_nnreal (norm_nonneg _)]
+  rfl
+
 /-- Private lemma for extracting the MemLp proof needed in h_coe -/
 lemma private_hg_memLp (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
     (wσ : ℝ → ℝ≥0∞) (hwσ : wσ = fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
@@ -208,8 +221,8 @@ lemma private_hg_memLp (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
     simp only [ENNReal.toReal_ofNat, eLpNorm', one_div] at h1
     -- Swap integrands to nnnorm-form
     have : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℝ))
-        = (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
-      congr 1; funext t; norm_cast
+        = (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ))) :=
+      enorm_to_nnnorm_lintegral (fun t => (f : ℝ → ℂ) t)
     simpa [this] using h1
   -- Now transport finiteness to g via the two expansions above
   have hg_fin : (eLpNorm g 2 (mulHaar.withDensity wσ)) < ∞ := by
@@ -225,10 +238,7 @@ lemma private_hg_memLp (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
             = ∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))
                 ∂(mulHaar.withDensity wσ) := by
         have : (fun x => (ENNReal.ofReal ‖g x‖) ^ (2 : ℕ))
-            = (fun x => ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
-          funext x
-          rw [ENNReal.ofReal_eq_coe_nnreal (norm_nonneg _)]
-          rfl
+            = (fun x => ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := ofReal_norm_eq_coe_nnnorm g
         simpa using congrArg (fun φ => ∫⁻ x, φ x ∂(mulHaar.withDensity wσ)) this
       rw [eLpNorm_eq_eLpNorm' (by norm_num : (2 : ℝ≥0∞) ≠ 0)
           (by norm_num : (2 : ℝ≥0∞) ≠ ∞)]

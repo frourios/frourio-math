@@ -66,7 +66,7 @@ lemma schwartzToHσ_ae_eq {σ : ℝ} (hσ : 1 / 2 < σ) (φ : SchwartzMap ℝ �
     (schwartzToHσ hσ φ : ℝ → ℂ) =ᵐ[mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))]
       (fun x => if x > 0 then φ x else 0) := by
   -- This follows from the definition of MemLp.toLp
-  sorry -- Use MemLp.coeFn_toLp
+  exact MemLp.coeFn_toLp _
 
 /-- For any f ∈ Hσ and ε > 0, there exists a Schwartz function approximating f for σ > 1/2 -/
 lemma exists_schwartz_approximation {σ : ℝ} (hσ : 1 / 2 < σ) (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :

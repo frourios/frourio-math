@@ -2004,6 +2004,115 @@ theorem general_exponential_bound (A B ε : ℝ) (hB : 0 < B) (hε : 0 < ε) :
 end Frourio
 
 
+## ./Frourio/Analysis/FourierPlancherel.lean
+
+namespace Frourio
+
+def fourierKernel (ξ t : ℝ) : ℂ  := proven
+
+@[simp] lemma fourierKernel_zero_left (t : ℝ) : fourierKernel 0 t = 1  := proven
+
+@[simp] lemma fourierKernel_zero_right (ξ : ℝ) : fourierKernel ξ 0 = 1  := proven
+
+lemma fourierKernel_norm (ξ t : ℝ) : ‖fourierKernel ξ t‖ = 1  := proven
+
+
+lemma fourierKernel_mul_eq (ξ t : ℝ) (z : ℂ) :
+    fourierKernel ξ t * z = ((Real.fourierChar (-(t * ξ))) : Circle) • z  := proven
+
+
+lemma fourierKernel_eq_char (ξ t : ℝ) :
+    fourierKernel ξ t = ((Real.fourierChar (-(t * ξ))) : ℂ)  := proven
+
+
+lemma fourierKernel_mul_norm (ξ t : ℝ) (z : ℂ) :
+    ‖fourierKernel ξ t * z‖ = ‖z‖  := proven
+
+
+lemma fourierKernel_conj (ξ t : ℝ) :
+    conj (fourierKernel ξ t) = fourierKernel (-ξ) t  := proven
+
+lemma fourierKernel_neg (ξ t : ℝ) : fourierKernel (-ξ) t = conj (fourierKernel ξ t)  := proven
+
+
+lemma integrable_fourierKernel_mul_iff {f : ℝ → ℂ} (ξ : ℝ) :
+    Integrable (fun t => fourierKernel ξ t * f t) ↔ Integrable f  := proven
+
+
+lemma integrable_fourierKernel_mul {f : ℝ → ℂ} (ξ : ℝ) (hf : Integrable f) :
+    Integrable (fun t => fourierKernel ξ t * f t)  := proven
+
+
+lemma integrable_conj_of_integrable {α : Type*} [MeasurableSpace α]
+    {μ : Measure α} {f : α → ℂ} (hf : Integrable f μ) :
+    Integrable (fun t => conj (f t)) μ  := proven
+
+def fourierIntegral (f : ℝ → ℂ) (ξ : ℝ) : ℂ  := proven
+
+
+lemma fourierIntegral_eq_real (f : ℝ → ℂ) (ξ : ℝ) :
+    Real.fourierIntegral f ξ = fourierIntegral f ξ  := proven
+
+
+lemma norm_fourierIntegral_le (f : ℝ → ℂ) (ξ : ℝ) :
+    ‖fourierIntegral f ξ‖ ≤ ∫ t : ℝ, ‖f t‖  := proven
+
+
+lemma fourierIntegral_conj {f : ℝ → ℂ} (_hf : Integrable f) (ξ : ℝ) :
+    conj (fourierIntegral f ξ) =
+      fourierIntegral (fun t => conj (f t)) (-ξ)  := proven
+
+lemma integrand_norm_sq (ξ t : ℝ) (f : ℝ → ℂ) :
+    ‖fourierKernel ξ t * f t‖ ^ 2 = ‖f t‖ ^ 2  := proven
+
+lemma fourierIntegral_apply (f : ℝ → ℂ) (ξ : ℝ) :
+    fourierIntegral f ξ = ∫ t : ℝ, fourierKernel ξ t * f t  := proven
+
+lemma fourierIntegral_abs_le (f : ℝ → ℂ) (ξ : ℝ) :
+    ‖fourierIntegral f ξ‖ ≤ ∫ t : ℝ, ‖f t‖  := proven
+
+namespace Schwartz
+
+lemma integrable_fourierKernel_mul (f : SchwartzMap ℝ ℂ) (ξ : ℝ) :
+    Integrable (fun t : ℝ => fourierKernel ξ t * f t)  := proven
+
+lemma fourierIntegral_eq_fourierTransform (f : SchwartzMap ℝ ℂ) (ξ : ℝ) :
+    fourierIntegral (fun t : ℝ => f t) ξ =
+      (fourierTransformCLE ℝ f) ξ  := proven
+
+lemma fourierIntegral_conj_eq_neg (f : SchwartzMap ℝ ℂ) (ξ : ℝ) :
+    fourierIntegral (fun t : ℝ => conj (f t)) ξ =
+      conj (fourierIntegral (fun t : ℝ => f t) (-ξ))  := proven
+
+lemma fourierIntegral_conj_eq_neg_real (f : SchwartzMap ℝ ℂ) (ξ : ℝ) :
+    Real.fourierIntegral (fun t : ℝ => conj (f t)) ξ =
+      conj (Real.fourierIntegral (fun t : ℝ => f t) (-ξ))  := proven
+
+
+lemma integrable_fourierIntegral (f : SchwartzMap ℝ ℂ) :
+    Integrable (fun ξ : ℝ => fourierIntegral (fun t : ℝ => f t) ξ)  := proven
+
+lemma integrable_fourierIntegral_neg (f : SchwartzMap ℝ ℂ) :
+    Integrable (fun ξ : ℝ => fourierIntegral (fun t : ℝ => f t) (-ξ))  := proven
+
+lemma integrable_conj_fourierIntegral (f : SchwartzMap ℝ ℂ) :
+    Integrable (fun ξ : ℝ => conj (fourierIntegral (fun t : ℝ => f t) ξ))  := proven
+
+def conjFourierTransform (f : SchwartzMap ℝ ℂ) : ℝ → ℂ  := proven
+
+def doubleFourierTransform (f : SchwartzMap ℝ ℂ) : ℝ → ℂ  := proven
+
+lemma fourierIntegral_conj_fourierIntegral (f : SchwartzMap ℝ ℂ) :
+    doubleFourierTransform f = fun t : ℝ => conj (f t)  := proven
+
+end Schwartz
+
+lemma fourier_plancherel (f : SchwartzMap ℝ ℂ) :
+    ∫ t : ℝ, ‖f t‖ ^ 2 = ∫ ξ : ℝ, ‖fourierIntegral (fun t : ℝ => f t) ξ‖ ^ 2  := proven
+
+end Frourio
+
+
 ## ./Frourio/Analysis/FrourioFunctional.lean
 
 namespace Frourio
@@ -4202,6 +4311,147 @@ noncomputable def Hσ.toFun {σ : ℝ} (f : Hσ σ) : ℝ → ℂ  := proven
 noncomputable def zeroLatticeSpacing (Λ : ℝ) : ℝ  := proven
 
 
+## ./Frourio/Analysis/MellinParseval.lean
+
+namespace Frourio
+
+noncomputable def logMap : (Set.Ioi (0 : ℝ)) → ℝ  := proven
+
+noncomputable def expMap : ℝ → (Set.Ioi (0 : ℝ))  := proven
+
+noncomputable def logMap_measurableEquiv :
+    MeasurableEquiv (Set.Ioi (0 : ℝ)) ℝ where
+  toFun  := proven
+
+lemma mellin_kernel_transform (s : ℂ) (t : ℝ) :
+    (Real.exp t : ℂ) ^ (s - 1) = Complex.exp ((s - 1) * t)  := proven
+
+lemma mellin_change_of_variables (f : ℝ → ℂ) (s : ℂ) :
+    ∫ x in Set.Ioi (0 : ℝ), f x * x ^ (s - 1) ∂volume =
+    ∫ t : ℝ, f (Real.exp t) * (Real.exp t : ℂ) ^ (s - 1) * Real.exp t  := proven
+
+theorem mellin_to_fourier_change_of_variables
+    (f : ℝ → ℂ) (s : ℂ) :
+    mellinTransform f s = ∫ t : ℝ, f (Real.exp t) * Complex.exp (s * t)  := proven
+
+lemma exp_image_measure_integral (E : Set ℝ) (hE : MeasurableSet E) :
+    ∫⁻ x in Real.exp '' E, ENNReal.ofReal (1 / x) ∂volume =
+    ∫⁻ t in E, ENNReal.ofReal (1 / Real.exp t) * ENNReal.ofReal (Real.exp t) ∂volume  := proven
+
+lemma ennreal_div_exp_mul_exp : ∀ t : ℝ,
+    ENNReal.ofReal (1 / Real.exp t) * ENNReal.ofReal (Real.exp t) = 1  := proven
+
+lemma mulHaar_pushforward_log :
+    ∃ (c : ℝ≥0∞), c ≠ 0 ∧ c ≠ ∞ ∧
+    Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ))) = c • volume  := proven
+
+noncomputable def logPushforward (f : ℝ → ℂ) : ℝ → ℂ  := proven
+
+noncomputable def mellinWeight (σ : ℝ) : ℝ → ℝ  := proven
+
+theorem mellin_as_weighted_fourier (f : ℝ → ℂ) (σ τ : ℝ) :
+    mellinTransform f (σ + I * τ) =
+    ∫ t : ℝ, (logPushforward f) t * Complex.exp (σ * t) * Complex.exp (I * τ * t)  := proven
+
+lemma complex_polarization_identity {E : Type*} [NormedAddCommGroup E] [InnerProductSpace ℂ E]
+    (f g : E) :
+    4 * @inner ℂ _ _ f g =
+      ((‖f + g‖ ^ 2 : ℝ) : ℂ) - ((‖f - g‖ ^ 2 : ℝ) : ℂ) -
+        Complex.I * ((‖f + Complex.I • g‖ ^ 2 : ℝ) : ℂ) +
+          Complex.I * ((‖f - Complex.I • g‖ ^ 2 : ℝ) : ℂ)  := proven
+
+lemma mellin_logpull_relation (σ : ℝ) (f : Hσ σ) (τ : ℝ) :
+    mellinTransform (f : ℝ → ℂ) (σ + I * τ) =
+    ∫ t : ℝ, LogPull σ f t * Complex.exp (I * τ * t) * Complex.exp ((1/2 : ℝ) * t)  := proven
+
+lemma norm_simplification_logpull (σ : ℝ) (f : Hσ σ) :
+    ∫ t : ℝ, ‖LogPull σ f t * Complex.exp ((1/2 : ℝ) * t)‖^2 =
+    ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t  := proven
+
+lemma weighted_LogPull_integral_eq (σ : ℝ) (f : Hσ σ) :
+    ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖^2) ∂volume
+    = ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (‖f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume  := proven
+
+def has_weighted_L2_norm (σ : ℝ) (f : Hσ σ) : Prop  := proven
+
+lemma weighted_LogPull_memLp (σ : ℝ) (f : Hσ σ) (h_extra : has_weighted_L2_norm σ f) :
+    MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume  := proven
+
+lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
+    (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume) :
+    ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume =
+    (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume  := sorry
+
+lemma plancherel_constant_is_one (σ : ℝ) (f : Hσ σ) :
+    ∃ (C : ℝ), C > 0 ∧ ∫ τ : ℝ, ‖LogPull σ f τ‖^2 = C * ‖f‖^2 ∧ C = 1  := sorry
+
+lemma plancherel_constant_unique (σ : ℝ) (f : Hσ σ) (C₁ C₂ : ℝ)
+    (h₁_pos : C₁ > 0) (h₂_pos : C₂ > 0)
+    (h₁_eq : ∫ τ : ℝ, ‖LogPull σ f τ‖ ^ 2 = C₁ * ‖f‖ ^ 2)
+    (h₂_eq : ∫ τ : ℝ, ‖LogPull σ f τ‖ ^ 2 = C₂ * ‖f‖ ^ 2) :
+    C₁ = C₂  := sorry
+
+theorem mellin_parseval_formula (σ : ℝ) :
+    ∃ (C : ℝ), C > 0 ∧ ∀ (f : Hσ σ),
+    -- Additional condition: the function must be sufficiently integrable
+    ((∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume) < ⊤) →
+    ∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume =
+    ENNReal.ofReal (C * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume)  := proven
+
+lemma mellin_transform_linear (σ : ℝ) (h k : Hσ σ) (c : ℂ) (s : ℂ)
+    (hh_int : Integrable (fun t => h t * t ^ (s - 1)) (volume.restrict (Set.Ioi 0)))
+    (hk_int : Integrable (fun t => k t * t ^ (s - 1)) (volume.restrict (Set.Ioi 0))) :
+    mellinTransform ((h + c • k) : ℝ → ℂ) s =
+      mellinTransform (h : ℝ → ℂ) s + c * mellinTransform (k : ℝ → ℂ) s  := proven
+
+lemma mellin_kernel_integrable_on_critical_line (σ : ℝ) (f : Hσ σ) (τ : ℝ)
+    (hf_L2 : has_weighted_L2_norm σ f) :
+    Integrable (fun t => f t * t ^ ((σ + I * τ) - 1)) (volume.restrict (Set.Ioi 0))  := sorry
+
+lemma mellin_transform_linear_critical_line (σ : ℝ) (h k : Hσ σ) (c : ℂ) (τ : ℝ)
+    (hh_L2 : has_weighted_L2_norm σ h) (hk_L2 : has_weighted_L2_norm σ k) :
+    mellinTransform ((h + c • k) : ℝ → ℂ) (σ + I * τ) =
+      mellinTransform (h : ℝ → ℂ) (σ + I * τ) + c * mellinTransform (k : ℝ → ℂ) (σ + I * τ)  := proven
+
+lemma mellin_polarization_pointwise (F G : ℂ) :
+    ‖F + G‖ ^ 2 - ‖F - G‖ ^ 2 - Complex.I * ‖F + Complex.I * G‖ ^ 2 +
+      Complex.I * ‖F - Complex.I * G‖ ^ 2 = 4 * (starRingEnd ℂ F * G)  := sorry
+
+theorem parseval_identity_equivalence (σ : ℝ) :
+    ∃ (C : ℝ), C > 0 ∧ ∀ (f g : Hσ σ),
+    -- Additional L² conditions needed for convergence
+    has_weighted_L2_norm σ f → has_weighted_L2_norm σ g →
+    @inner ℂ _ _ f g = C * ∫ τ : ℝ,
+      starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * τ)) *
+      mellinTransform (g : ℝ → ℂ) (σ + I * τ)  := sorry
+
+theorem mellin_isometry_normalized (σ : ℝ) :
+    ∃ (C : ℝ) (U : Hσ σ →L[ℂ] Lp ℂ 2 volume),
+    C > 0 ∧ ∀ f : Hσ σ, ‖U f‖ = C * ‖f‖ ∧
+    (U f : ℝ → ℂ) = fun τ : ℝ => mellinTransform (f : ℝ → ℂ) (σ + I * ↑τ)  := sorry
+
+theorem fourier_parseval_classical (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    ∃ (c : ℝ), c > 0 ∧ ‖f‖ ^ 2 = c * ‖f‖ ^ 2  := sorry
+
+theorem mellin_fourier_parseval_connection (σ : ℝ) (f : Hσ σ) :
+    let g  := sorry
+
+theorem mellin_fourier_unitary_equivalence (σ : ℝ) :
+    ∃ (V : Hσ σ ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ)),
+    ∀ (f : Hσ σ) (τ : ℝ),
+    ∃ (c : ℂ), c ≠ 0 ∧ mellinTransform (f : ℝ → ℂ) (σ + I * τ) = c * (V f τ)  := sorry
+
+theorem mellin_convolution_parseval (σ : ℝ) (f g : Hσ σ) :
+    ∫ τ : ℝ, mellinTransform f (σ + I * τ) * mellinTransform g (1 - σ + I * τ) =
+    2 * Real.pi * ∫ x in Set.Ioi (0 : ℝ), f x * g x ∂mulHaar  := sorry
+
+theorem mellin_energy_conservation (σ : ℝ) (f : Hσ σ) :
+    ∫ x in Set.Ioi (0 : ℝ), ‖(f : ℝ → ℂ) x‖ ^ 2 * (x : ℝ) ^ (2 * σ - 1) ∂volume =
+    (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform f (σ + I * τ)‖ ^ 2  := sorry
+
+end Frourio
+
+
 ## ./Frourio/Analysis/MellinPlancherel.lean
 
 namespace Complex
@@ -4293,6 +4543,13 @@ lemma hx_id_helper (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
     (((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x) * ENNReal.ofReal (1 / x)
       = ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
           * ENNReal.ofReal (1 / x)  := proven
+
+lemma enorm_to_nnnorm_lintegral (f : ℝ → ℂ) :
+    (∫⁻ t, ‖f t‖ₑ ^ (2 : ℝ)) = (∫⁻ t, ((‖f t‖₊ : ℝ≥0∞) ^ (2 : ℕ)))  := proven
+
+lemma ofReal_norm_eq_coe_nnnorm (f : ℝ → ℂ) :
+    (fun x => (ENNReal.ofReal ‖f x‖) ^ (2 : ℕ))
+      = (fun x => ((‖f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)))  := proven
 
 lemma private_hg_memLp (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ))
     (wσ : ℝ → ℝ≥0∞) (hwσ : wσ = fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
@@ -5507,6 +5764,42 @@ theorem ker_Qσ_characterization (K : ℝ → ℝ) :
 lemma ker_Qσ_dim_eq_ker_MK_dim (K : ℝ → ℝ) (_hK : ∀ᵐ τ ∂volume, 0 ≤ K τ) :
     -- Placeholder for: dim(ker Qσ[K]) = dim(ker M_K)
     True  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/SchwartzDensity.lean
+
+namespace Frourio
+
+lemma schwartz_mem_Hσ {σ : ℝ} (hσ : 1 / 2 < σ) (f : SchwartzMap ℝ ℂ) :
+    MemLp (fun x => if x > 0 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))  := sorry
+
+noncomputable def schwartzToHσ {σ : ℝ} (hσ : 1 / 2 < σ) (f : SchwartzMap ℝ ℂ) : Hσ σ  := proven
+
+lemma schwartzToHσ_linear {σ : ℝ} (hσ : 1 / 2 < σ) :
+    ∀ (a : ℂ) (f g : SchwartzMap ℝ ℂ),
+    schwartzToHσ hσ (a • f + g) = a • schwartzToHσ hσ f + schwartzToHσ hσ g  := sorry
+
+lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
+    ∃ (k₁ k₂ : ℕ) (C : ℝ), 0 < C ∧
+    ∀ f : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ f‖ ≤ C * SchwartzMap.seminorm ℝ k₁ k₂ f  := sorry
+
+theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ : 1 / 2 < σ) :
+    DenseRange (schwartzToHσ hσ)  := sorry
+
+lemma schwartzToHσ_ae_eq {σ : ℝ} (hσ : 1 / 2 < σ) (φ : SchwartzMap ℝ ℂ) :
+    (schwartzToHσ hσ φ : ℝ → ℂ) =ᵐ[mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))]
+      (fun x => if x > 0 then φ x else 0)  := proven
+
+lemma exists_schwartz_approximation {σ : ℝ} (hσ : 1 / 2 < σ) (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :
+    ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ φ - f‖ < ε  := proven
+
+lemma schwartz_ae_dense {σ : ℝ} (hσ : 1 / 2 < σ) (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :
+    ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ φ - f‖ < ε ∧
+    (schwartzToHσ hσ φ : ℝ → ℂ) =ᵐ[mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))]
+      (fun x => if x > 0 then φ x else 0)  := proven
 
 end Frourio
 
@@ -8541,4 +8834,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 83
+Total files processed: 86
