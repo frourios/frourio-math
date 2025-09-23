@@ -949,9 +949,9 @@ lemma mollifier_extended_continuous : ∀ (δ' : ℝ) (_ : 0 < δ'),
       -- Therefore pt = -δ' or pt = δ'
       rw [Set.mem_uIcc] at hpt
       rw [Set.mem_Ioo, not_and_or] at h
-      cases' hpt with h_case1 h_case2
+      rcases hpt with h_case1 | h_case2
       · -- Case: -δ' ≤ pt ≤ δ'
-        cases' h with h_left h_right
+        rcases h with h_left | h_right
         · -- ¬(-δ' < pt), so pt ≤ -δ'
           have : pt ≤ -δ' := le_of_not_gt h_left
           exact Or.inl (le_antisymm this h_case1.1)
@@ -1040,7 +1040,7 @@ lemma integral_Ioo_eq_intervalIntegral (δ : ℝ) (hδ_pos : 0 < δ) :
               · left; exact ⟨h1, hx⟩
               · right; linarith
             · intro h
-              cases' h with h h
+              rcases h with h | h
               · exact ⟨h.1, le_of_lt h.2⟩
               · rw [h]; exact ⟨by linarith [hδ_pos], le_refl _⟩
 
@@ -1422,8 +1422,7 @@ lemma smooth_mollifier_convolution_truncated
     (φ_δ : ℝ → ℝ) (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ))
     (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ_δ)
     (hφ_supp : ∀ y, |y| > δ → φ_δ y = 0)
-    (hδ_pos : 0 < δ)
-    (hn_pos : 0 < n) :
+    (hδ_pos : 0 < δ) :
     ContDiff ℝ (⊤ : ℕ∞) (fun x => ∫ y, (φ_δ y : ℂ) *
       (if 1/n < x - y ∧ x - y < n then Lp.simpleFunc.toSimpleFunc s (x - y) else 0)) := by
   -- Define the truncated simple function explicitly
@@ -1464,7 +1463,7 @@ lemma smooth_mollifier_convolution_truncated
           have : Lp.simpleFunc.toSimpleFunc s x ∈ range_finset :=
             SimpleFunc.mem_range_self _ x
           rw [h_empty] at this
-          exact absurd this (Finset.not_mem_empty _)
+          exact absurd this (Finset.notMem_empty _)
         rw [this, norm_zero]
 
       · -- Non-empty finite range case
@@ -1488,9 +1487,9 @@ lemma smooth_mollifier_convolution_truncated
     intro x
     simp only [truncate]
     by_cases h : 1/n < x ∧ x < n
-    · simp only [truncate, h, if_true]
+    · simp only [h]
       exact le_trans (hM_s x) (le_max_left M_s 1)
-    · simp only [truncate, h, if_false, norm_zero]
+    · simp only [h, if_false, norm_zero]
       exact zero_le_one.trans (le_max_right M_s 1)
 
   -- Step 3: Show that truncate has support in (1/n, n)
@@ -1669,7 +1668,7 @@ lemma convolution_mollifier_truncated_has_compact_support
     (hφ_supp : ∀ y, |y| > δ → φ_δ y = 0)
     (hδ_pos : 0 < δ)
     (hn_pos : 0 < n)
-    (h_truncate_supp : ∀ x, x ∉ Set.Ioo (1/n : ℝ) n → truncate x = 0) :
+    (h_truncate_supp : ∀ x, x ∉ Set.Ioo (1 / n : ℝ) n → truncate x = 0) :
     ∃ R > 0, ∀ x ≥ R, (∫ y, (φ_δ y : ℂ) * truncate (x - y)) = 0 := by
   -- The support of convolution is contained in the Minkowski sum of the supports
   -- φ_δ has support in [-δ, δ] and truncate has support in [1/n, n]
@@ -1724,9 +1723,7 @@ lemma convolution_mollifier_truncated_zero_outside_support
     {δ : ℝ} {n : ℕ}
     (φ_δ : ℝ → ℝ) (truncate : ℝ → ℂ)
     (hφ_supp : ∀ y, |y| > δ → φ_δ y = 0)
-    (hδ_pos : 0 < δ)
-    (hn_pos : 0 < n)
-    (h_truncate_supp : ∀ x, x ∉ Set.Ioo (1/n : ℝ) n → truncate x = 0) :
+    (h_truncate_supp : ∀ x, x ∉ Set.Ioo (1 / n : ℝ) n → truncate x = 0) :
     ∀ x < (1/n : ℝ) - δ, (∫ y, (φ_δ y : ℂ) * truncate (x - y)) = 0 := by
   intro x hx
   classical
@@ -1767,10 +1764,8 @@ lemma convolution_vanishes_on_nonpositive
     {δ : ℝ} {n : ℕ}
     (φ_δ : ℝ → ℝ) (truncate : ℝ → ℂ)
     (hφ_supp : ∀ y, |y| > δ → φ_δ y = 0)
-    (hδ_pos : 0 < δ)
-    (hn_pos : 0 < n)
-    (hδ_small : δ ≤ 1 / n)  -- Critical condition: δ must be at most 1/n
-    (h_truncate_supp : ∀ x, x ∉ Set.Ioo (1/n : ℝ) n → truncate x = 0) :
+    (hδ_small : δ ≤ 1 / n) -- Critical condition: δ must be at most 1/n
+    (h_truncate_supp : ∀ x, x ∉ Set.Ioo (1 / n : ℝ) n → truncate x = 0) :
     ∀ x ≤ 0, (∫ y, (φ_δ y : ℂ) * truncate (x - y)) = 0 := by
   intro x hx
   -- With δ ≤ 1/n and x ≤ 0, we can show the integrand is always 0
@@ -1893,14 +1888,15 @@ lemma smooth_compact_support_memLp
     by_cases hx : x ∈ K
     · have hx_le : ‖smooth_func x‖ ≤ M := hM_bound x hx
       have h_norm_g : ‖g x‖ = M := by
-        simp [g, Set.indicator_of_mem, hx, RCLike.norm_ofReal, abs_of_nonneg hM_nonneg]
+        simp [g, Set.indicator_of_mem, hx, abs_of_nonneg hM_nonneg]
       simpa [h_norm_g]
     · have hx_zero : smooth_func x = 0 := h_zero_outside' x hx
       have h_g_zero : g x = 0 := by simp [g, Set.indicator_of_notMem, hx]
       simp [hx_zero, h_g_zero]
   exact (MemLp.of_le (hg := hg_mem) h_meas h_pointwise)
 
-/-- Smooth functions that are convolutions of mollifiers with truncated simple functions are in L² -/
+/-- Smooth functions that are convolutions of mollifiers
+  with truncated simple functions are in L² -/
 lemma smooth_mollifier_convolution_memLp
     {σ : ℝ} {δ : ℝ} {n : ℕ}
     (φ_δ : ℝ → ℝ) (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ))
@@ -1945,7 +1941,8 @@ lemma smooth_mollifier_convolution_memLp
       simp only [truncate, Set.mem_Ioo] at hz ⊢
       rw [if_neg]
       exact hz
-    exact convolution_vanishes_on_nonpositive φ_δ truncate hφ_supp hδ_pos hn_pos (le_of_lt hδ_bound) h_truncate_supp x hx
+    exact convolution_vanishes_on_nonpositive φ_δ truncate hφ_supp
+      (le_of_lt hδ_bound) h_truncate_supp x hx
 
   -- Show that smooth_func is smooth
   have h_smooth : ContDiff ℝ (⊤ : ℕ∞) smooth_func := by
@@ -1953,7 +1950,6 @@ lemma smooth_mollifier_convolution_memLp
     · exact hφ_smooth
     · exact hφ_supp
     · exact hδ_pos
-    · exact hn_pos
 
   -- Show that smooth_func is away from 0
   have h_support_away_zero : ∃ a > 0, ∀ x ∈ Set.Ioo 0 a, smooth_func x = 0 := by

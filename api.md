@@ -355,7 +355,88 @@ structure ScaleOperator where
   scale : ℝ
   scale_pos : 0 < scale := proven
 
-structure InverseMultOperator where := proven
+@[ext]
+lemma ScaleOperator.ext (U V : ScaleOperator) (h : U.scale = V.scale) : U = V  := proven
+
+noncomputable def ScaleOperator.act {α : Type*} (U : ScaleOperator) (f : ℝ → α) : ℝ → α  := proven
+
+noncomputable def ScaleOperator.comp (U V : ScaleOperator) : ScaleOperator  := proven
+
+noncomputable def ScaleOperator.inv (U : ScaleOperator) : ScaleOperator  := proven
+
+def ScaleOperator.id : ScaleOperator  := proven
+
+lemma ScaleOperator.comp_assoc (U V W : ScaleOperator) :
+    (U.comp V).comp W = U.comp (V.comp W)  := proven
+
+lemma ScaleOperator.id_comp (U : ScaleOperator) :
+    id.comp U = U  := proven
+
+lemma ScaleOperator.comp_id (U : ScaleOperator) :
+    U.comp id = U  := proven
+
+lemma ScaleOperator.inv_comp (U : ScaleOperator) :
+    U.inv.comp U = id  := proven
+
+lemma ScaleOperator.comp_inv (U : ScaleOperator) :
+    U.comp U.inv = id  := proven
+
+lemma ScaleOperator.act_comp {α : Type*} (U V : ScaleOperator) (f : ℝ → α) :
+    U.act (V.act f) = (U.comp V).act f  := proven
+
+lemma ScaleOperator.id_act {α : Type*} (f : ℝ → α) :
+    id.act f = f  := proven
+
+lemma ScaleOperator.inv_act {α : Type*} (U : ScaleOperator) (f : ℝ → α) :
+    U.inv.act (U.act f) = f  := proven
+
+lemma ScaleOperator.act_injective {α : Type*} (U : ScaleOperator) :
+    Function.Injective (U.act : (ℝ → α) → (ℝ → α))  := proven
+
+lemma ScaleOperator.act_smul (U : ScaleOperator) (c : ℂ) (f : ℝ → ℂ) :
+    U.act (fun x => c * f x) = fun x => c * U.act f x  := proven
+
+lemma ScaleOperator.act_add (U : ScaleOperator) (f g : ℝ → ℂ) :
+    U.act (fun x => f x + g x) = fun x => U.act f x + U.act g x  := proven
+
+lemma ScaleOperator.mellin_scale (U : ScaleOperator) (f : ℝ → ℂ) :
+    ∀ x > 0, U.act f x = f (U.scale * x)  := proven
+
+lemma ScaleOperator.pow_scale (U : ScaleOperator) (n : ℕ) :
+    ∃ V : ScaleOperator, V.scale = U.scale ^ n ∧
+    ∀ f : ℝ → ℂ, ∀ x : ℝ, V.act f x = f (U.scale ^ n * x)  := proven
+
+noncomputable def ScaleOperator.golden : ScaleOperator  := proven
+
+lemma ScaleOperator.golden_inv :
+    golden.inv.scale = φ⁻¹  := proven
+
+lemma ScaleOperator.comm (U V : ScaleOperator) :
+    U.comp V = V.comp U  := proven
+
+lemma ScaleOperator.square_eq_id_iff (U : ScaleOperator) :
+    U.comp U = id ↔ U.scale = 1  := proven
+
+structure InverseMultOperator where
+  /-- 原点での振る舞いを指定するフラグ（デフォルトは0） -/
+  atZero : ℂ  := proven
+
+noncomputable def InverseMultOperator.act (M : InverseMultOperator) (f : ℝ → ℂ) : ℝ → ℂ  := proven
+
+def InverseMultOperator.standard : InverseMultOperator  := proven
+
+noncomputable def InverseMultOperator.square (M : InverseMultOperator) : InverseMultOperator  := proven
+
+lemma InverseMultOperator.act_eq_div (M : InverseMultOperator) (f : ℝ → ℂ) (x : ℝ) :
+    x ≠ 0 → M.act f x = f x / x  := proven
+
+lemma InverseMultOperator.act_smul_standard (c : ℂ) (f : ℝ → ℂ) :
+    InverseMultOperator.standard.act (fun x => c * f x) =
+    fun x => c * InverseMultOperator.standard.act f x  := proven
+
+lemma InverseMultOperator.act_add_standard (f g : ℝ → ℂ) :
+    InverseMultOperator.standard.act (fun x => f x + g x) =
+    fun x => InverseMultOperator.standard.act f x + InverseMultOperator.standard.act g x  := proven
 
 structure FrourioParams (m : ℕ) where
   α : Fin m → ℂ           -- 複素係数
@@ -368,6 +449,28 @@ structure FrourioOperator (m : ℕ) extends FrourioParams m where := proven
 noncomputable def BasicFrourioOperator (a : ℝ) (ha : 0 < a) : FrourioOperator 2  := proven
 
 noncomputable def GoldenFrourioOperator : FrourioOperator 2  := proven
+
+noncomputable def FrourioOperator.act {m : ℕ} (op : FrourioOperator m) (f : ℝ → ℂ) : ℝ → ℂ  := proven
+
+noncomputable def FrourioOperator.toScaleOperator {m : ℕ}
+    (op : FrourioOperator m) (i : Fin m) : ScaleOperator  := proven
+
+noncomputable def FrourioOperator.toInverseMult {m : ℕ}
+    (_op : FrourioOperator m) : InverseMultOperator  := proven
+
+noncomputable def FrourioOperator.linearCombination {m : ℕ}
+    (op : FrourioOperator m) (f : ℝ → ℂ) : ℝ → ℂ  := proven
+
+lemma FrourioOperator.act_eq_inverseMult_linearComb {m : ℕ}
+    (op : FrourioOperator m) (f : ℝ → ℂ) (x : ℝ) (hx : x ≠ 0) :
+    op.act f x = op.linearCombination f x / x  := proven
+
+lemma InverseMultOperator.mellin_shift (M : InverseMultOperator) (f : ℝ → ℂ) :
+    ∀ x > 0, M.act f x = f x / x  := proven
+
+lemma FrourioOperator.mellin_compatible {m : ℕ} (op : FrourioOperator m) :
+    ∃ S : ℂ → ℂ, ∀ s : ℂ,
+    S s = ∑ i : Fin m, op.α i * (op.χ i).toInt * (op.Λ i : ℂ)^(-s)  := proven
 
 end Frourio
 
@@ -3532,6 +3635,219 @@ lemma suitable_window_of_gaussian {δ : ℝ} (hδ : 0 < δ) :
 
 lemma suitable_window_of_gaussian' {δ : ℝ} (hδ : 0 < δ) :
     suitable_window (Classical.choose (build_normalized_gaussian δ hδ))  := proven
+
+
+## ./Frourio/Analysis/HilbertSpace.lean
+
+namespace Frourio
+
+lemma weightedMeasure_pos_of_Ioo {σ a b : ℝ} (ha : 0 < a) (hb : a < b) :
+    0 < weightedMeasure σ (Set.Ioo a b)  := proven
+
+lemma continuous_ae_eq_const_on_pos {σ : ℝ} {f : ℝ → ℂ} {c : ℂ}
+    (hf : Continuous f)
+    (h_ae : (fun x => f x) =ᵐ[weightedMeasure σ] fun _ => c) :
+    ∀ x > 0, f x = c  := proven
+
+lemma continuous_ae_eq_on_pos {σ : ℝ} {f g : ℝ → ℂ}
+    (hf : Continuous f) (hg : Continuous g)
+    (h_ae : f =ᵐ[weightedMeasure σ] g) :
+    ∀ x > 0, f x = g x  := proven
+
+lemma coe_cast_eq {α E : Type*} {m : MeasurableSpace α} {p : ℝ≥0∞}
+    [NormedAddCommGroup E] {μ ν : Measure α} (h : μ = ν) (f : Lp E p μ) :
+    ((cast (by rw [h]) f : Lp E p ν) : α → E) =ᵐ[μ] (f : α → E)  := proven
+
+
+lemma Hσ_cast_preserves_ae {σ : ℝ} (f : ℝ → ℂ)
+    (h_L2 : MemLp f 2 (weightedMeasure σ))
+    (h_eq : weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))) :
+    let g_lp  := proven
+
+lemma cast_preserves_ae_eq {σ : ℝ}
+    (h_eq : weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))
+    (f : ℝ → ℂ)
+    (h_L2 : MemLp f 2 (weightedMeasure σ)) :
+    let g_lp  := proven
+
+noncomputable def create_mollifier (δ : ℝ) : ℝ → ℝ  := proven
+
+lemma one_le_two_pow (k : ℕ) : (1 : ℝ) ≤ 2^k  := proven
+
+lemma schwartz_map_decay_from_bounds (f : ℝ → ℂ)
+    (hf_decay : ∀ (k n : ℕ), ∃ C > 0, ∀ x : ℝ, (1 + ‖x‖)^k * ‖iteratedDeriv n f x‖ ≤ C) :
+    ∀ (p : ℕ × ℕ), ∃ C > 0, ∀ x : ℝ, (1 + ‖x‖)^p.1 * ‖iteratedDeriv p.2 f x‖ ≤ C  := proven
+
+lemma contDiff_convolution_mollifier {φ : ℝ → ℂ} {η : ℝ → ℝ}
+    (hφ : ContDiff ℝ (⊤ : ℕ∞) φ)
+    (hη_smooth : ContDiff ℝ (⊤ : ℕ∞) η)
+    (hη_supp : HasCompactSupport η) :
+    ContDiff ℝ (⊤ : ℕ∞) (fun x => ∫ y, (η y : ℂ) * φ (x - y))  := proven
+
+def SchwartzRestricted : Set (ℝ → ℂ)  := proven
+
+structure UnboundedOperatorDomain (σ : ℝ) where
+  carrier : Set (Hσ σ)
+  dense : DenseRange (fun x : carrier => (x : Hσ σ))
+  measurable : ∀ f ∈ carrier, Measurable ((f : ℝ → ℂ)) := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/HilbertSpaceCore.lean
+
+namespace Frourio
+
+noncomputable def weightFunction (σ : ℝ) : ℝ → ℝ≥0∞  := proven
+
+lemma weightFunction_measurable (σ : ℝ) : Measurable (weightFunction σ)  := proven
+
+noncomputable def weightedMeasure (σ : ℝ) : Measure ℝ  := proven
+
+
+lemma weightedMeasure_apply (σ : ℝ) (s : Set ℝ) (hs : MeasurableSet s) :
+    weightedMeasure σ s = ∫⁻ x in s ∩ Set.Ioi 0, ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume  := proven
+
+noncomputable instance Hσ.innerProductSpace (σ : ℝ) : InnerProductSpace ℂ (Hσ σ)  := proven
+
+theorem Hσ_inner_def (σ : ℝ) (f g : Hσ σ) :
+    @inner ℂ (Hσ σ) _ f g =
+    ∫ x, conj (Hσ.toFun f x) * (Hσ.toFun g x)
+      ∂(mulHaar.withDensity (fun x => ENNReal.ofReal (x^(2*σ-1))))  := proven
+
+theorem Hσ_inner_conj_symm (σ : ℝ) (f g : Hσ σ) :
+    @inner ℂ (Hσ σ) _ f g = conj (@inner ℂ (Hσ σ) _ g f)  := proven
+
+
+lemma Hσ.norm_squared (σ : ℝ) (f : Hσ σ) :
+    ‖f‖^2 = (∫⁻ x, ‖Hσ.toFun f x‖₊^2
+      ∂(mulHaar.withDensity (fun x => ENNReal.ofReal (x^(2*σ-1))))).toReal  := proven
+
+instance Hσ.completeSpace (σ : ℝ) : CompleteSpace (Hσ σ)  := proven
+
+theorem Hσ.cauchy_complete (σ : ℝ) (f : ℕ → Hσ σ) (hf : CauchySeq f) :
+    ∃ g : Hσ σ, Filter.Tendsto f Filter.atTop (𝓝 g)  := proven
+
+theorem weightedMeasure_finite_on_bounded (σ : ℝ) (a b : ℝ) (ha : 0 < a) (hb : a < b) :
+    weightedMeasure σ (Set.Ioo a b) < ∞  := proven
+
+instance mulHaar_sigmaFinite : SigmaFinite mulHaar  := proven
+
+instance weightedMeasure_sigmaFinite (σ : ℝ) : SigmaFinite (weightedMeasure σ)  := proven
+
+theorem weightedMeasure_global_infinite (σ : ℝ) :
+    weightedMeasure σ (Set.Ioi 0) = ∞  := proven
+
+
+lemma exists_simple_func_approximation {σ : ℝ} (f' : Lp ℂ 2 (weightedMeasure σ))
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ s : Lp.simpleFunc ℂ 2 (weightedMeasure σ),
+      dist (↑s : Lp ℂ 2 (weightedMeasure σ)) f' < ε  := proven
+
+lemma eLpNorm_indicator_le_simple {σ : ℝ} (f : ℝ → ℂ)
+    (S : Set ℝ) (_ : MeasurableSet S) :
+    eLpNorm (Set.indicator S f) 2 (weightedMeasure σ) ≤
+    eLpNorm f 2 (weightedMeasure σ)  := proven
+
+lemma measurable_extended_mollifier (δ : ℝ) :
+    Measurable (fun t => if t ∈ Set.Ioo (-δ) δ then Real.exp (-1 / (δ^2 - t^2)) else 0)  := proven
+
+lemma indicator_toSimpleFunc_aestrongly_measurable {σ : ℝ}
+    (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ)) (S : Set ℝ) (hS : MeasurableSet S) :
+    AEStronglyMeasurable (Set.indicator S (Lp.simpleFunc.toSimpleFunc s : ℝ → ℂ))
+    (weightedMeasure σ)  := proven
+
+lemma truncated_simple_func_mem_Lp {σ : ℝ} (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ))
+    (n : ℕ) :
+    let truncate  := proven
+
+
+lemma mollifier_extended_continuous : ∀ (δ' : ℝ) (_ : 0 < δ'),
+    ContinuousOn (fun s => if |s| < δ' then Real.exp (-1 / (δ'^2 - s^2)) else 0)
+                  (Set.uIcc (-δ') δ')  := proven
+
+lemma integral_Ioo_eq_intervalIntegral (δ : ℝ) (hδ_pos : 0 < δ) :
+    let f_extended : ℝ → ℝ  := proven
+
+lemma mollifier_normalization_positive (δ : ℝ) (hδ_pos : 0 < δ) :
+    0 < ∫ t in Set.Ioo (-δ) δ, Real.exp (-1 / (δ^2 - t^2))  := proven
+
+lemma mollifier_smooth_at_boundary : ∀ (δ : ℝ) (_ : 0 < δ),
+    let Z  := proven
+
+lemma truncated_shifted_measurable {σ : ℝ} {n : ℕ} (x : ℝ)
+    (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ)) :
+    AEStronglyMeasurable (fun y => if (1:ℝ)/n < x - y ∧ x - y < n then
+      Lp.simpleFunc.toSimpleFunc s (x - y) else 0) volume  := proven
+
+lemma convolution_smooth_of_smooth_compsupp_and_integrable
+    {φ : ℝ → ℂ} {f : ℝ → ℂ}
+    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
+    (hφ_supp : HasCompactSupport φ)
+    (hf_integrable : ∀ x : ℝ, Integrable (fun y => f (x - y)) volume) :
+    ContDiff ℝ (⊤ : ℕ∞) (fun x => ∫ y, φ y * f (x - y))  := proven
+
+lemma smooth_mollifier_convolution_truncated
+    {δ : ℝ} {n : ℕ} {σ : ℝ}
+    (φ_δ : ℝ → ℝ) (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ))
+    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ_δ)
+    (hφ_supp : ∀ y, |y| > δ → φ_δ y = 0)
+    (hδ_pos : 0 < δ) :
+    ContDiff ℝ (⊤ : ℕ∞) (fun x => ∫ y, (φ_δ y : ℂ) *
+      (if 1/n < x - y ∧ x - y < n then Lp.simpleFunc.toSimpleFunc s (x - y) else 0))  := proven
+
+lemma convolution_mollifier_truncated_has_compact_support
+    {δ : ℝ} {n : ℕ}
+    (φ_δ : ℝ → ℝ) (truncate : ℝ → ℂ)
+    (hφ_supp : ∀ y, |y| > δ → φ_δ y = 0)
+    (hδ_pos : 0 < δ)
+    (hn_pos : 0 < n)
+    (h_truncate_supp : ∀ x, x ∉ Set.Ioo (1 / n : ℝ) n → truncate x = 0) :
+    ∃ R > 0, ∀ x ≥ R, (∫ y, (φ_δ y : ℂ) * truncate (x - y)) = 0  := proven
+
+lemma convolution_mollifier_truncated_zero_outside_support
+    {δ : ℝ} {n : ℕ}
+    (φ_δ : ℝ → ℝ) (truncate : ℝ → ℂ)
+    (hφ_supp : ∀ y, |y| > δ → φ_δ y = 0)
+    (h_truncate_supp : ∀ x, x ∉ Set.Ioo (1 / n : ℝ) n → truncate x = 0) :
+    ∀ x < (1/n : ℝ) - δ, (∫ y, (φ_δ y : ℂ) * truncate (x - y)) = 0  := proven
+
+lemma smooth_convolution_measurable
+    {σ : ℝ}
+    (smooth_func : ℝ → ℂ)
+    (h_smooth : ContDiff ℝ (⊤ : ℕ∞) smooth_func) :
+    AEStronglyMeasurable smooth_func (weightedMeasure σ)  := proven
+
+lemma convolution_vanishes_on_nonpositive
+    {δ : ℝ} {n : ℕ}
+    (φ_δ : ℝ → ℝ) (truncate : ℝ → ℂ)
+    (hφ_supp : ∀ y, |y| > δ → φ_δ y = 0)
+    (hδ_small : δ ≤ 1 / n) -- Critical condition: δ must be at most 1/n
+    (h_truncate_supp : ∀ x, x ∉ Set.Ioo (1 / n : ℝ) n → truncate x = 0) :
+    ∀ x ≤ 0, (∫ y, (φ_δ y : ℂ) * truncate (x - y)) = 0  := proven
+
+lemma smooth_compact_support_memLp
+    {σ : ℝ}
+    (smooth_func : ℝ → ℂ)
+    (h_smooth : ContDiff ℝ (⊤ : ℕ∞) smooth_func)
+    (h_support : ∃ R > 0, ∀ x ≥ R, smooth_func x = 0)
+    (h_support_left : ∀ x ≤ 0, smooth_func x = 0)
+    (h_support_away_zero : ∃ a > 0, ∀ x ∈ Set.Ioo 0 a, smooth_func x = 0) :
+    MemLp smooth_func 2 (weightedMeasure σ)  := proven
+
+lemma smooth_mollifier_convolution_memLp
+    {σ : ℝ} {δ : ℝ} {n : ℕ}
+    (φ_δ : ℝ → ℝ) (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ))
+    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ_δ)
+    (hφ_supp : ∀ y, |y| > δ → φ_δ y = 0)
+    (hδ_pos : 0 < δ)
+    (hn_pos : 0 < n)
+    (hδ_bound : δ < 1 / n) :
+    MemLp (fun x => ∫ y, (φ_δ y : ℂ) *
+      (if 1/n < x - y ∧ x - y < n then Lp.simpleFunc.toSimpleFunc s (x - y) else 0))
+      2 (weightedMeasure σ)  := proven
+
+end Frourio
 
 
 ## ./Frourio/Analysis/K4mExact.lean
@@ -8225,4 +8541,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 81
+Total files processed: 83
