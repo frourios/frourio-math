@@ -10,12 +10,14 @@ import Frourio.Analysis.MellinSobolev
 import Frourio.Analysis.Slope
 import Frourio.Analysis.MinimizingMovement
 import Frourio.Analysis.DoobTransform
+import Frourio.Analysis.FourierPlancherel
 import Frourio.Analysis.GaussianFourierTransform
 import Frourio.Analysis.GaussianContourShiftReal
 import Frourio.Analysis.HilbertSpace
 import Frourio.Analysis.EntropyPackage
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.MellinPlancherel
+import Frourio.Analysis.MellinParseval
 import Frourio.Analysis.SuitableWindow
 import Frourio.Analysis.ZakMellin
 import Frourio.Analysis.GammaConvergence
