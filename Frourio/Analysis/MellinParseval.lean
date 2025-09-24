@@ -781,7 +781,8 @@ This states the Parseval-type equality for the Mellin transform.
 Note: The actual proof requires implementing the Fourier-Plancherel theorem
 for the specific weighted LogPull function. -/
 lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
-    (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume) :
+    (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume)
+    (h_integrable : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
     ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume =
     (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume := by
   -- This equality follows from:
@@ -810,10 +811,26 @@ lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
   have h_plancherel : ∫ t : ℝ, ‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖^2 ∂volume =
     (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖Frourio.fourierIntegral
       (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) τ‖^2 ∂volume := by
-    -- This follows from Frourio.fourier_plancherel but requires:
-    -- 1. Showing integrability of the weighted LogPull function
-    -- 2. Converting between different forms of the Fourier transform
-    sorry
+    -- We have h_weighted_L2 stating that the function is in L²
+    -- The Fourier-Plancherel identity for L² functions gives us the desired equality
+    -- with the standard 1/(2π) normalization factor
+    -- Use the integrability assumption from logpull_mellin_l2_relation
+    -- Apply the Fourier-Plancherel theorem for L² functions
+    -- Since we have both L² membership (h_weighted_L2) and integrability (h_integrable),
+    -- we can apply the Fourier-Plancherel identity
+
+    -- The L²-Plancherel formula states:
+    -- ∫ |f(t)|² dt = (1/(2π)) ∫ |ℱ[f](ξ)|² dξ
+    -- for functions that are both in L² and L¹
+
+    -- We construct the proof using the following facts:
+    -- 1. The function g(t) = LogPull σ f t * exp((1/2)t) is in L² (by h_weighted_L2)
+    -- 2. The function g is also integrable (by h_integrable)
+    -- 3. For such functions, Plancherel formula holds with constant 1/(2π)
+
+    -- Technical implementation: extend SchwartzMap result via density
+    -- This requires the full L² theory which is beyond SchwartzMap
+    sorry -- TODO: Implement general L² Plancherel theorem or use Mathlib's version when available
 
   rw [h_plancherel]
 
@@ -872,11 +889,17 @@ lemma plancherel_constant_unique (σ : ℝ) (f : Hσ σ) (C₁ C₂ : ℝ)
 
 /-- Explicit Mellin-Parseval formula (with necessary L² condition)
 This relates the Hσ norm to the L² norm of the Mellin transform on vertical lines.
-NOTE: The correct formulation requires relating weighted norms properly. -/
+NOTE: The correct formulation requires relating weighted norms properly.
+
+IMPORTANT: This theorem requires additional integrability condition for the weighted LogPull
+function to apply the Fourier-Plancherel theorem. This aligns with plan.md Phase 1 goals. -/
 theorem mellin_parseval_formula (σ : ℝ) :
     ∃ (C : ℝ), C > 0 ∧ ∀ (f : Hσ σ),
-    -- Additional condition: the function must be sufficiently integrable
+    -- Additional conditions for Fourier-Plancherel applicability:
+    -- 1. The weighted norm must be finite (L² condition)
     ((∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume) < ⊤) →
+    -- 2. The weighted LogPull must be integrable (for Fourier transform)
+    (Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) →
     ∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume =
     ENNReal.ofReal (C * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume) := by
   -- We need to establish this directly from the Plancherel formula in MellinPlancherel.lean
@@ -898,8 +921,8 @@ theorem mellin_parseval_formula (σ : ℝ) :
   · -- Show 1/(2π) > 0
     simp [Real.pi_pos]
 
-  · -- For all f with the additional condition, the formula holds
-    intro f h_extra
+  · -- For all f with the additional conditions, the formula holds
+    intro f h_extra h_integrable
 
     -- The proof strategy:
     -- 1. Use weighted_LogPull_integral_eq to relate the weighted L² norm of f to LogPull
@@ -971,8 +994,8 @@ theorem mellin_parseval_formula (σ : ℝ) :
           exact Real.rpow_natCast _ 2
         exact h_eq
 
-    -- Step 4: Apply logpull_mellin_l2_relation
-    have h_parseval := logpull_mellin_l2_relation σ f h_memLp
+    -- Step 4: Apply logpull_mellin_l2_relation with the integrability hypothesis
+    have h_parseval := logpull_mellin_l2_relation σ f h_memLp h_integrable
 
     -- Step 5: Connect the weighted integrals
     -- We need to show that the left-hand side equals the right-hand side
