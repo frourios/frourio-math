@@ -1495,6 +1495,142 @@ lemma eLpNorm_bound_on_tail {σ : ℝ} {k₁ : ℕ}
     exact h_bound
   exact le_trans h_sqrt h_integral_comp
 
+/-- Bound for the eLpNorm of a Schwartz function on the unit interval (0,1] -/
+lemma eLpNorm_bound_on_unit_interval {σ : ℝ}
+    (f : SchwartzMap ℝ ℂ) (M : ℝ)
+    (hM_bound : (∫⁻ x in Set.Ioc 0 1, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂mulHaar) ^
+    (1 / 2 : ℝ) ≤ ENNReal.ofReal M) :
+    eLpNorm (fun x => if x ∈ Set.Ioc 0 1 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) ≤
+    ENNReal.ofReal (SchwartzMap.seminorm ℝ 0 0 f * M) := by
+  classical
+  set μ :=
+      mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1))
+    with hμ_def
+  set g : ℝ → ℂ := fun x => if x ∈ Set.Ioc (0 : ℝ) 1 then f x else 0
+  set C : ℝ := SchwartzMap.seminorm ℝ 0 0 f with hC_def
+  have hC_nonneg : 0 ≤ C := by
+    simp [hC_def]
+  have h_eLp_sq : (eLpNorm g 2 μ) ^ (2 : ℝ) =
+      ∫⁻ x, ‖g x‖ₑ ^ (2 : ℝ) ∂μ := by
+    have h :=
+      (eLpNorm_nnreal_pow_eq_lintegral
+        (μ := μ) (f := g) (p := (2 : NNReal))
+        (by
+          exact_mod_cast (two_ne_zero : (2 : ℝ) ≠ 0)))
+    have h_coe : ((2 : NNReal) : ℝ) = (2 : ℝ) := by norm_cast
+    simpa [g, h_coe] using h
+  have h_indicator_eq :
+      (fun x : ℝ => ‖g x‖ₑ ^ (2 : ℝ)) =
+        Set.indicator (Set.Ioc (0 : ℝ) 1)
+          (fun x => ‖f x‖ₑ ^ (2 : ℝ)) := by
+    funext x
+    by_cases hx : x ∈ Set.Ioc (0 : ℝ) 1
+    · simp [g, Set.indicator_of_mem, hx]
+      have h_mem : 0 < x ∧ x ≤ 1 := by
+        rwa [Set.mem_Ioc] at hx
+      rw [if_pos h_mem]
+    · simp [g, Set.indicator_of_notMem, hx]
+      intros h1 h2
+      exfalso
+      exact hx ⟨h1, h2⟩
+  have h_integral_indicator :
+      ∫⁻ x, ‖g x‖ₑ ^ (2 : ℝ) ∂μ =
+        ∫⁻ x, Set.indicator (Set.Ioc (0 : ℝ) 1)
+          (fun x => ‖f x‖ₑ ^ (2 : ℝ)) x ∂μ := by
+    rw [h_indicator_eq, lintegral_indicator]
+    exact measurableSet_Ioc
+  have h_indicator_bound :
+      Set.indicator (Set.Ioc (0 : ℝ) 1)
+          (fun x : ℝ => ‖f x‖ₑ ^ (2 : ℝ)) ≤
+        Set.indicator (Set.Ioc (0 : ℝ) 1)
+          (fun _ : ℝ => ENNReal.ofReal (C ^ 2)) := by
+    classical
+    intro x
+    by_cases hx : x ∈ Set.Ioc (0 : ℝ) 1
+    · have h_norm : ‖f x‖ ≤ C := by
+        simpa [hC_def] using (SchwartzMap.norm_le_seminorm ℝ f x)
+      have h_sq : ‖f x‖ ^ 2 ≤ C ^ 2 := by
+        have hx_nonneg : 0 ≤ ‖f x‖ := norm_nonneg _
+        have := mul_le_mul h_norm h_norm hx_nonneg hC_nonneg
+        simpa [pow_two, mul_comm, mul_left_comm, mul_assoc] using this
+      have h_le : ENNReal.ofReal (‖f x‖ ^ 2) ≤ ENNReal.ofReal (C ^ 2) :=
+        ENNReal.ofReal_le_ofReal h_sq
+      simpa [Set.indicator_of_mem hx, pow_two, ENNReal.ofReal_mul, norm_nonneg]
+        using h_le
+    · simp [hx]
+  have h_integral_le :
+      ∫⁻ x, Set.indicator (Set.Ioc (0 : ℝ) 1)
+          (fun x => ‖f x‖ₑ ^ (2 : ℝ)) x ∂μ ≤
+        ∫⁻ x, Set.indicator (Set.Ioc (0 : ℝ) 1)
+          (fun _ : ℝ => ENNReal.ofReal (C ^ 2)) x ∂μ :=
+    lintegral_mono h_indicator_bound
+  have h_const_integral :
+      ∫⁻ x, Set.indicator (Set.Ioc (0 : ℝ) 1)
+          (fun _ : ℝ => ENNReal.ofReal (C ^ 2)) x ∂μ =
+        ENNReal.ofReal (C ^ 2) * μ (Set.Ioc (0 : ℝ) 1) := by
+    classical
+    simp [μ, measurableSet_Ioc]
+  have h_sq_le : (eLpNorm g 2 μ) ^ (2 : ℝ) ≤
+      ENNReal.ofReal (C ^ 2) * μ (Set.Ioc (0 : ℝ) 1) := by
+    calc
+      (eLpNorm g 2 μ) ^ (2 : ℝ)
+          = ∫⁻ x, ‖g x‖ₑ ^ (2 : ℝ) ∂μ := h_eLp_sq
+      _ = ∫⁻ x, Set.indicator (Set.Ioc (0 : ℝ) 1)
+              (fun x => ‖f x‖ₑ ^ (2 : ℝ)) x ∂μ := h_integral_indicator
+      _ ≤ ∫⁻ x, Set.indicator (Set.Ioc (0 : ℝ) 1)
+              (fun _ : ℝ => ENNReal.ofReal (C ^ 2)) x ∂μ := h_integral_le
+      _ = ENNReal.ofReal (C ^ 2) * μ (Set.Ioc (0 : ℝ) 1) := h_const_integral
+  have h_sqrt : eLpNorm g 2 μ ≤
+      (ENNReal.ofReal (C ^ 2) * μ (Set.Ioc (0 : ℝ) 1)) ^ (1 / 2 : ℝ) := by
+    have h := ENNReal.rpow_le_rpow h_sq_le (by positivity : 0 ≤ (1 / 2 : ℝ))
+    have h_left :
+        ((eLpNorm g 2 μ) ^ (2 : ℝ)) ^ (1 / 2 : ℝ) = eLpNorm g 2 μ := by
+      simp only [one_div]
+      rw [← ENNReal.rpow_mul, mul_inv_cancel₀ (by norm_num : (2 : ℝ) ≠ 0), ENNReal.rpow_one]
+    rw [h_left] at h
+    exact h
+  have hC_pow : ENNReal.ofReal (C ^ 2) =
+      (ENNReal.ofReal C) ^ (2 : ℝ) := by
+    have h := ENNReal.ofReal_rpow_of_nonneg (by exact hC_nonneg) (by norm_num : 0 ≤ (2 : ℝ))
+    simpa [Real.rpow_natCast] using h.symm
+  have h_factor :
+      ((ENNReal.ofReal C) ^ (2 : ℝ) * μ (Set.Ioc (0 : ℝ) 1)) ^ (1 / 2 : ℝ) =
+        ENNReal.ofReal C * (μ (Set.Ioc (0 : ℝ) 1)) ^ (1 / 2 : ℝ) := by
+    have h_mul :=
+      ENNReal.mul_rpow_of_nonneg ((ENNReal.ofReal C) ^ (2 : ℝ))
+        (μ (Set.Ioc (0 : ℝ) 1)) (by positivity : 0 ≤ (1 / 2 : ℝ))
+    have h_pow :=
+      (ENNReal.rpow_mul (ENNReal.ofReal C) (2 : ℝ) (1 / 2 : ℝ)).symm
+    have h_two_half : (2 : ℝ) * (1 / 2 : ℝ) = 1 := by norm_num
+    rw [h_mul]
+    congr 1
+    rw [h_pow, h_two_half, ENNReal.rpow_one]
+  have h_sqrt' : eLpNorm g 2 μ ≤
+      ENNReal.ofReal C * (μ (Set.Ioc (0 : ℝ) 1)) ^ (1 / 2 : ℝ) := by
+    rw [hC_pow, h_factor] at h_sqrt
+    exact h_sqrt
+  have h_measure_indicator :
+      μ (Set.Ioc (0 : ℝ) 1) =
+        ∫⁻ x in Set.Ioc 0 1, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂mulHaar := by
+    classical
+    simp [μ, measurableSet_Ioc]
+  have hM' : (μ (Set.Ioc (0 : ℝ) 1)) ^ (1 / 2 : ℝ) ≤ ENNReal.ofReal M := by
+    simpa [h_measure_indicator] using hM_bound
+  have h_final : eLpNorm g 2 μ ≤ ENNReal.ofReal C * ENNReal.ofReal M :=
+    (le_trans h_sqrt') <| mul_le_mul_left' hM' (ENNReal.ofReal C)
+  have h_mul_eq : ENNReal.ofReal C * ENNReal.ofReal M =
+      ENNReal.ofReal (C * M) := by
+    by_cases hM : 0 ≤ M
+    · simp [ENNReal.ofReal_mul, hC_nonneg]
+    · have hM_neg : M < 0 := lt_of_not_ge hM
+      have hCM_nonpos : C * M ≤ 0 :=
+        mul_nonpos_of_nonneg_of_nonpos hC_nonneg hM_neg.le
+      simp [ENNReal.ofReal_of_nonpos hM_neg.le, ENNReal.ofReal_of_nonpos hCM_nonpos]
+  have h_result : eLpNorm g 2 μ ≤ ENNReal.ofReal (C * M) := by
+    simpa [h_mul_eq] using h_final
+  simpa [g, μ, hμ_def, hC_def] using h_result
+
 end SchwartzDensity
 
 end Frourio

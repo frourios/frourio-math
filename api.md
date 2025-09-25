@@ -4377,8 +4377,29 @@ def has_weighted_L2_norm (σ : ℝ) (f : Hσ σ) : Prop  := proven
 lemma weighted_LogPull_memLp (σ : ℝ) (f : Hσ σ) (h_extra : has_weighted_L2_norm σ f) :
     MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume  := proven
 
-lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
+lemma eLpNorm_triangle_diff (f g h : ℝ → ℂ)
+    (hf : AEStronglyMeasurable f volume)
+    (hg : AEStronglyMeasurable g volume) (hh : AEStronglyMeasurable h volume) :
+    eLpNorm (f - h) 2 volume ≤ eLpNorm (f - g) 2 volume + eLpNorm (g - h) 2 volume  := proven
+
+lemma smooth_compactly_supported_dense_L2 (f_L2 : ℝ → ℂ)
+    (hf : MemLp f_L2 2 volume) (ε : ℝ) (hε_pos : ε > 0) :
+    ∃ g : ℝ → ℂ, HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧
+        eLpNorm (f_L2 - g) 2 volume < ENNReal.ofReal ε  := sorry
+
+lemma schwartz_approximates_smooth_compactly_supported (g : ℝ → ℂ)
+    (hg_compact : HasCompactSupport g) (hg_smooth : ContDiff ℝ ⊤ g) (ε : ℝ) (hε_pos : ε > 0) :
+    ∃ φ : SchwartzMap ℝ ℂ, eLpNorm (g - (φ : ℝ → ℂ)) 2 volume < ENNReal.ofReal ε  := sorry
+
+lemma schwartz_density_weighted_logpull (σ : ℝ) (f : Hσ σ)
     (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume) :
+    ∀ ε > 0, ∃ φ : SchwartzMap ℝ ℂ,
+      eLpNorm ((fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) -
+      (φ : ℝ → ℂ) t) : ℝ → ℂ) 2 volume < ENNReal.ofReal ε  := sorry
+
+lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
+    (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume)
+    (h_integrable : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
     ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume =
     (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume  := sorry
 
@@ -4393,8 +4414,11 @@ lemma plancherel_constant_unique (σ : ℝ) (f : Hσ σ) (C₁ C₂ : ℝ)
 
 theorem mellin_parseval_formula (σ : ℝ) :
     ∃ (C : ℝ), C > 0 ∧ ∀ (f : Hσ σ),
-    -- Additional condition: the function must be sufficiently integrable
+    -- Additional conditions for Fourier-Plancherel applicability:
+    -- 1. The weighted norm must be finite (L² condition)
     ((∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume) < ⊤) →
+    -- 2. The weighted LogPull must be integrable (for Fourier transform)
+    (Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) →
     ∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume =
     ENNReal.ofReal (C * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume)  := proven
 
@@ -5772,15 +5796,18 @@ end Frourio
 
 namespace Frourio
 
-lemma schwartz_mem_Hσ {σ : ℝ} (hσ : 1 / 2 < σ) (f : SchwartzMap ℝ ℂ) :
-    MemLp (fun x => if x > 0 then f x else 0) 2
+lemma eLpNorm_split_at_one {σ : ℝ} (f : SchwartzMap ℝ ℂ) :
+    eLpNorm (fun x => if x > 0 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) ≤
+    eLpNorm (fun x => if x ∈ Set.Ioc 0 1 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) +
+    eLpNorm (fun x => if x ∈ Set.Ioi 1 then f x else 0) 2
       (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))  := sorry
 
-noncomputable def schwartzToHσ {σ : ℝ} (hσ : 1 / 2 < σ) (f : SchwartzMap ℝ ℂ) : Hσ σ  := proven
-
-lemma schwartzToHσ_linear {σ : ℝ} (hσ : 1 / 2 < σ) :
-    ∀ (a : ℂ) (f g : SchwartzMap ℝ ℂ),
-    schwartzToHσ hσ (a • f + g) = a • schwartzToHσ hσ f + schwartzToHσ hσ g  := sorry
+lemma weight_function_L2_bound_unit {σ : ℝ} (hσ : 1 / 2 < σ) :
+    ∃ M : ℝ, 0 < M ∧
+    (∫⁻ x in Set.Ioc 0 1, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂mulHaar) ^
+        (1 / 2 : ℝ) ≤ ENNReal.ofReal M  := sorry
 
 lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
     ∃ (k₁ k₂ : ℕ) (C : ℝ), 0 < C ∧
@@ -5789,10 +5816,6 @@ lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
 theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ : 1 / 2 < σ) :
     DenseRange (schwartzToHσ hσ)  := sorry
 
-lemma schwartzToHσ_ae_eq {σ : ℝ} (hσ : 1 / 2 < σ) (φ : SchwartzMap ℝ ℂ) :
-    (schwartzToHσ hσ φ : ℝ → ℂ) =ᵐ[mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))]
-      (fun x => if x > 0 then φ x else 0)  := proven
-
 lemma exists_schwartz_approximation {σ : ℝ} (hσ : 1 / 2 < σ) (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :
     ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ φ - f‖ < ε  := proven
 
@@ -5800,6 +5823,59 @@ lemma schwartz_ae_dense {σ : ℝ} (hσ : 1 / 2 < σ) (f : Hσ σ) (ε : ℝ) (h
     ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ φ - f‖ < ε ∧
     (schwartzToHσ hσ φ : ℝ → ℂ) =ᵐ[mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))]
       (fun x => if x > 0 then φ x else 0)  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/SchwartzDensityCore.lean
+
+namespace Frourio
+
+lemma lintegral_union_disjoint {α : Type*} [MeasurableSpace α] (μ : Measure α)
+    {s t : Set α} (hs : MeasurableSet s) (ht : MeasurableSet t) (hst : Disjoint s t)
+    (f : α → ℝ≥0∞) (hf : Measurable f) :
+    ∫⁻ x in s ∪ t, f x ∂μ = ∫⁻ x in s, f x ∂μ + ∫⁻ x in t, f x ∂μ  := proven
+
+lemma schwartz_finite_on_unit_interval {σ : ℝ} (hσ : 1 / 2 < σ) (f : SchwartzMap ℝ ℂ) :
+    ∫⁻ x in Set.Ioc (0 : ℝ) 1, ‖f x‖ₑ ^ (2 : ℝ)
+      ∂(mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) < ∞  := proven
+
+lemma schwartz_finite_on_tail {σ : ℝ} (f : SchwartzMap ℝ ℂ) :
+    ∫⁻ x in Set.Ioi (1 : ℝ), ‖f x‖ₑ ^ (2 : ℝ)
+      ∂(mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) < ∞  := proven
+
+lemma schwartz_mem_Hσ {σ : ℝ} (hσ : 1 / 2 < σ) (f : SchwartzMap ℝ ℂ) :
+    MemLp (fun x => if x > 0 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))  := proven
+
+noncomputable def schwartzToHσ {σ : ℝ} (hσ : 1 / 2 < σ) (f : SchwartzMap ℝ ℂ) : Hσ σ  := proven
+
+lemma schwartzToHσ_linear {σ : ℝ} (hσ : 1 / 2 < σ) :
+    ∀ (a : ℂ) (f g : SchwartzMap ℝ ℂ),
+    schwartzToHσ hσ (a • f + g) = a • schwartzToHσ hσ f + schwartzToHσ hσ g  := proven
+
+lemma norm_toLp_eq_toReal_eLpNorm {σ : ℝ} (hσ : 1 / 2 < σ) (f : SchwartzMap ℝ ℂ) :
+    ‖(schwartz_mem_Hσ hσ f).toLp (fun x => if x > 0 then f x else 0)‖ =
+    ENNReal.toReal (eLpNorm (fun x => if x > 0 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))  := proven
+
+lemma schwartzToHσ_ae_eq {σ : ℝ} (hσ : 1 / 2 < σ) (φ : SchwartzMap ℝ ℂ) :
+    (schwartzToHσ hσ φ : ℝ → ℂ) =ᵐ[mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))]
+      (fun x => if x > 0 then φ x else 0)  := proven
+
+lemma eLpNorm_bound_on_tail {σ : ℝ} {k₁ : ℕ}
+    (hσk : σ + 1 / 2 ≤ (k₁ : ℝ)) (f : SchwartzMap ℝ ℂ) :
+    eLpNorm (fun x => if x ∈ Set.Ioi 1 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) ≤
+    ENNReal.ofReal (SchwartzMap.seminorm ℝ k₁ 0 f * Real.sqrt (1 / (2 * k₁ - 2 * σ)))  := proven
+
+lemma eLpNorm_bound_on_unit_interval {σ : ℝ}
+    (f : SchwartzMap ℝ ℂ) (M : ℝ)
+    (hM_bound : (∫⁻ x in Set.Ioc 0 1, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂mulHaar) ^
+    (1 / 2 : ℝ) ≤ ENNReal.ofReal M) :
+    eLpNorm (fun x => if x ∈ Set.Ioc 0 1 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) ≤
+    ENNReal.ofReal (SchwartzMap.seminorm ℝ 0 0 f * M)  := proven
 
 end Frourio
 
@@ -8834,4 +8910,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 86
+Total files processed: 87

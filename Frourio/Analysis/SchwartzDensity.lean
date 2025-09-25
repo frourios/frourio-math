@@ -31,18 +31,6 @@ namespace Frourio
 
 section SchwartzDensity
 
-/-- Bound for the eLpNorm of a Schwartz function on the unit interval (0,1] -/
-lemma eLpNorm_bound_on_unit_interval {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f : SchwartzMap ℝ ℂ) (M : ℝ)
-    (hM_bound : (∫⁻ x, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂mulHaar) ^
-    (1 / 2 : ℝ) ≤ ENNReal.ofReal M) :
-    eLpNorm (fun x => if x ∈ Set.Ioc 0 1 then f x else 0) 2
-      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) ≤
-    ENNReal.ofReal (SchwartzMap.seminorm ℝ 0 0 f * M) := by
-  -- Near 0: use boundedness from the fact that Schwartz functions are bounded
-  -- and the weight is integrable on (0,1]
-  sorry -- Use boundedness and weight integrability
-
 /-- Splitting the eLpNorm of a function on (0,∞) into (0,1] and (1,∞) parts -/
 lemma eLpNorm_split_at_one {σ : ℝ} (f : SchwartzMap ℝ ℂ) :
     eLpNorm (fun x => if x > 0 then f x else 0) 2
@@ -55,10 +43,11 @@ lemma eLpNorm_split_at_one {σ : ℝ} (f : SchwartzMap ℝ ℂ) :
   -- since (0,∞) = (0,1] ∪ (1,∞)
   sorry -- Triangle inequality for eLpNorm
 
-/-- The weight function has finite L² norm for σ > 1/2 -/
-lemma weight_function_L2_bound {σ : ℝ} (hσ : 1 / 2 < σ) :
+/-- The weight function has finite L² norm on (0,1] for σ > 1/2 -/
+lemma weight_function_L2_bound_unit {σ : ℝ} (hσ : 1 / 2 < σ) :
     ∃ M : ℝ, 0 < M ∧
-    (∫⁻ x, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂mulHaar) ^ (1/2 : ℝ) ≤ ENNReal.ofReal M := by
+    (∫⁻ x in Set.Ioc 0 1, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂mulHaar) ^
+        (1 / 2 : ℝ) ≤ ENNReal.ofReal M := by
   -- The L^2 norm of the weight function is finite for σ > 1/2
   -- This follows from the integrability of x^(2σ-1) on (0,∞) when 2σ - 1 > -1
   sorry -- Technical bound on weight function
@@ -76,7 +65,7 @@ lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
   let k₂ : ℕ := 0              -- Only need function values, not derivatives
 
   -- Define the constant C based on the weight integral bounds
-  obtain ⟨M, hM_pos, hM_bound⟩ := weight_function_L2_bound hσ
+  obtain ⟨M, hM_pos, hM_bound⟩ := weight_function_L2_bound_unit hσ
   use k₁, k₂, M + 1
   constructor
   · linarith [hM_pos]
@@ -101,7 +90,7 @@ lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
     have h_split := @eLpNorm_split_at_one σ f
 
     -- Bound each part using Schwartz properties
-    have h_bound1 := eLpNorm_bound_on_unit_interval hσ f M hM_bound
+    have h_bound1 := eLpNorm_bound_on_unit_interval f M hM_bound
 
     have h_k₁_large : σ + 1 / 2 ≤ (k₁ : ℝ) := by
       have h_aux : (4 * σ + 2 : ℝ) < (k₁ : ℝ) + 1 := by

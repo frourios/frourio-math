@@ -5,6 +5,8 @@ import Frourio.Analysis.HilbertSpaceCore
 import Mathlib.Analysis.Fourier.FourierTransform
 import Mathlib.Analysis.Fourier.PoissonSummation
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
+import Mathlib.Topology.MetricSpace.Basic
+import Mathlib.Analysis.NormedSpace.Real
 
 /-!
 # Mellin-Parseval Identity and its Relation to Fourier-Parseval
@@ -808,31 +810,60 @@ lemma smooth_compactly_supported_dense_L2 (f_L2 : ℝ → ℂ)
     have h_f_toLp : f_L2 =ᵐ[volume] (hf.toLp f_L2 : Lp ℂ 2 volume) := (MemLp.coeFn_toLp hf).symm
 
     have h_simple_approx : ∃ s_func : ℝ → ℂ,
-        (∃ s_lp : Lp.simpleFunc ℂ 2 volume, s_func = Lp.simpleFunc.toSimpleFunc s_lp) ∧
+        (HasCompactSupport s_func ∧
+         (∃ s_simple : SimpleFunc ℝ ℂ, HasCompactSupport s_simple ∧ s_func = s_simple) ∧
+         MemLp s_func 2 volume) ∧
         eLpNorm (f_L2 - s_func) 2 volume < ENNReal.ofReal (ε / 4) := by
-      -- Use density of simple functions in L²(ℝ) adapted from exists_simple_func_approximation
-      -- Step 1: Use the density embedding for simple functions
-      have dense_simple := Lp.simpleFunc.isDenseEmbedding (p := 2)
-        (μ := (volume : Measure ℝ)) (E := ℂ) (by norm_num : (2 : ℝ≥0∞) ≠ ⊤)
-      have : DenseRange ((↑) : Lp.simpleFunc ℂ 2 (volume : Measure ℝ) →
-        Lp ℂ 2 (volume : Measure ℝ)) := dense_simple.toIsDenseInducing.dense
+      -- Use proper approximation: first truncate f_L2 to compact support,
+      -- then approximate by simple functions with compact support
+      -- This is the standard approach for L²(ℝ) approximation
 
-      -- Step 2: Get the simple function approximation
-      have h_pos : (0 : ℝ) < ε / 4 := by linarith
-      have h_approx := this.exists_dist_lt (hf.toLp f_L2) h_pos
-      obtain ⟨s_lp, hs_dist⟩ := h_approx
+      -- Step 1: Find a large enough radius R such that truncation error is small
+      have h_eps8_pos : (0 : ℝ) < ε / 8 := by linarith
+      have h_trunc : ∃ R : ℝ, R > 0 ∧
+        eLpNorm (f_L2 - fun x => if ‖x‖ ≤ R then f_L2 x else 0) 2 volume < ENNReal.ofReal (ε / 8) := by
+        -- Use the fact that L² functions have finite L² norm, so they decay at infinity
+        -- This follows from the dominated convergence theorem
+        -- The key idea: ∫_{|x|>R} |f(x)|² dx → 0 as R → ∞
+        sorry -- Use truncation approximation for L² functions
 
-      -- Step 3: Extract the function and convert distance to eLpNorm
-      let s_func := Lp.simpleFunc.toSimpleFunc s_lp
-      use s_func
-      constructor
-      · exact ⟨s_lp, rfl⟩
-      · -- Convert dist bound to eLpNorm bound using the relationship between Lp and functions
-        have h_eq : f_L2 =ᵐ[volume] (hf.toLp f_L2 : Lp ℂ 2 volume) := (MemLp.coeFn_toLp hf).symm
-        -- Use the fact that s_lp coerces to s_func almost everywhere
-        sorry -- Convert distance bound to eLpNorm bound
+      obtain ⟨R, hR_pos, h_trunc_bound⟩ := h_trunc
 
-    obtain ⟨s, ⟨s_lp, hs_eq⟩, hs_close⟩ := h_simple_approx
+      -- Step 2: Define the truncated function
+      let f_trunc : ℝ → ℂ := fun x => if ‖x‖ ≤ R then f_L2 x else 0
+
+      -- Step 3: Show f_trunc has compact support and is in L²
+      have h_trunc_compact : HasCompactSupport f_trunc := by
+        -- Use HasCompactSupport.intro: if f is zero outside a compact set K, then HasCompactSupport f
+        apply HasCompactSupport.intro (ProperSpace.isCompact_closedBall (0 : ℝ) R)
+        intro x hx
+        simp only [f_trunc]
+        simp only [Metric.mem_closedBall, dist_zero_right] at hx
+        -- Goal: (if ‖x‖ ≤ R then f_L2 x else 0) = 0
+        -- We have hx : ¬‖x‖ ≤ R, so the if condition is false
+        rw [if_neg hx]
+
+      have h_trunc_memLp : MemLp f_trunc 2 volume := by
+        -- Since f_trunc is bounded by f_L2 and has compact support, it's in L²
+        -- This follows from the fact that truncation preserves L² membership
+        sorry -- Use proper truncation lemma for MemLp
+
+      -- Step 4: Approximate f_trunc by simple functions
+      have h_simple_approx_trunc : ∃ s_simple : SimpleFunc ℝ ℂ,
+        HasCompactSupport s_simple ∧
+        eLpNorm (fun x => f_trunc x - s_simple x) 2 volume < ENNReal.ofReal (ε / 8) := by
+        -- Use the standard simple function approximation theorem for functions with compact support
+        -- This follows from the fact that SimpleFunc is dense in L² with compact support
+        sorry -- Use simple function approximation for compactly supported L² functions
+
+      obtain ⟨s_simple, hs_simple_compact, hs_simple_bound⟩ := h_simple_approx_trunc
+
+      -- Step 5: Combine the approximations using triangle inequality
+      -- Use simple functions with the required properties
+      sorry
+
+    obtain ⟨s, ⟨⟨hs_compact, hs_simple, hs_memLp⟩, hs_close⟩⟩ := h_simple_approx
+    obtain ⟨s_simple_func, hs_simple_compact, hs_simple_eq⟩ := hs_simple
 
     -- Step 2: Approximate the simple function by continuous compactly supported
     have h_cont_approx : ∃ g_cont : ℝ → ℂ, HasCompactSupport g_cont ∧ Continuous g_cont ∧
