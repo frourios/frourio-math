@@ -1,4 +1,5 @@
 import Frourio.Analysis.FourierPlancherel
+import Frourio.Analysis.SchwartzDensity
 import Frourio.Analysis.MellinPlancherel
 import Frourio.Analysis.HilbertSpaceCore
 import Mathlib.Analysis.Fourier.FourierTransform
@@ -63,8 +64,6 @@ noncomputable def logMap_measurableEquiv :
   measurable_invFun := by
     -- expMap is the function that takes t to (exp(t), proof that exp(t) > 0)
     unfold expMap
-    -- We need to show that the function constructing elements of Set.Ioi (0 : ℝ) is measurable
-    -- This involves showing that exp is measurable and the subtype constructor preserves measurability
     have h_exp_measurable : Measurable Real.exp := Real.measurable_exp
     -- For a subtype with a measurable predicate, the constructor is measurable
     -- when the underlying function is measurable
@@ -268,10 +267,6 @@ lemma mulHaar_pushforward_log :
     have h_restrict : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by
       -- Unfold the definition of mulHaar
       unfold mulHaar
-      -- mulHaar = (volume.withDensity (fun x => ENNReal.ofReal (1 / x))).restrict (Set.Ioi 0)
-      -- So mulHaar.restrict (Set.Ioi 0) =
-      --   ((volume.withDensity (fun x => ENNReal.ofReal (1 / x))).restrict (Set.Ioi 0)).restrict (Set.Ioi 0)
-      -- = (volume.withDensity (fun x => ENNReal.ofReal (1 / x))).restrict (Set.Ioi 0) by idempotence
       rw [Measure.restrict_restrict (measurableSet_Ioi)]
       simp
 
@@ -329,8 +324,6 @@ lemma mulHaar_pushforward_log :
       exact Real.measurable_log hE
 
     rw [Measure.restrict_apply hE_preimage_measurable]
-
-    -- Now we have: (volume.withDensity (fun x => ENNReal.ofReal (1/x))) (Real.log ⁻¹' E ∩ Set.Ioi 0) = volume E
     rw [h_preimage_eq_image]
 
     -- We need to show:
@@ -776,6 +769,206 @@ lemma weighted_LogPull_memLp (σ : ℝ) (f : Hσ σ) (h_extra : has_weighted_L2_
 
     exact ENNReal.rpow_lt_top_of_nonneg h_exponent_nonneg h_base_ne_top
 
+/-- Triangle inequality for eLpNorm differences -/
+lemma eLpNorm_triangle_diff (f g h : ℝ → ℂ)
+    (hf : AEStronglyMeasurable f volume)
+    (hg : AEStronglyMeasurable g volume) (hh : AEStronglyMeasurable h volume) :
+    eLpNorm (f - h) 2 volume ≤ eLpNorm (f - g) 2 volume + eLpNorm (g - h) 2 volume := by
+  -- Rewrite f - h as (f - g) + (g - h)
+  have h_eq : f - h = (f - g) + (g - h) := by
+    ext x
+    simp [Pi.sub_apply, Pi.add_apply]
+  rw [h_eq]
+  -- Apply triangle inequality for addition
+  exact eLpNorm_add_le (hf.sub hg) (hg.sub hh) (by norm_num : (1 : ℝ≥0∞) ≤ 2)
+
+/-- Smooth compactly supported functions are dense in L²(ℝ) -/
+lemma smooth_compactly_supported_dense_L2 (f_L2 : ℝ → ℂ)
+    (hf : MemLp f_L2 2 volume) (ε : ℝ) (hε_pos : ε > 0) :
+    ∃ g : ℝ → ℂ, HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧
+        eLpNorm (f_L2 - g) 2 volume < ENNReal.ofReal ε := by
+  -- This uses the standard density result for L² spaces
+  -- The proof goes: L² → continuous compactly supported → smooth compactly supported
+
+  -- Step 1: Use that continuous compactly supported functions are dense in L²(ℝ)
+  -- This is available in mathlib as ContinuousMapDense or similar
+  have h_cont_dense : ∃ g_cont : ℝ → ℂ, HasCompactSupport g_cont ∧ Continuous g_cont ∧
+      eLpNorm (f_L2 - g_cont) 2 volume < ENNReal.ofReal (ε / 2) := by
+    -- Use the density of continuous compactly supported functions in L²
+    -- This follows from the standard approximation theory in measure theory
+    -- We use the fact that continuous compactly supported functions are dense in L²(ℝ)
+
+    -- This is a standard result in functional analysis
+    -- In mathlib, this would be available as part of the ContinuousMapDense API
+    -- The key theorem is that C_c(ℝ) is dense in L²(ℝ)
+
+    -- Step 1: Use simple functions to approximate
+    -- We need to work with the Lp space structure since f_L2 is in MemLp
+    -- First convert f_L2 to Lp space element
+    have h_f_toLp : f_L2 =ᵐ[volume] (hf.toLp f_L2 : Lp ℂ 2 volume) := (MemLp.coeFn_toLp hf).symm
+
+    have h_simple_approx : ∃ s_func : ℝ → ℂ,
+        (∃ s_lp : Lp.simpleFunc ℂ 2 volume, s_func = Lp.simpleFunc.toSimpleFunc s_lp) ∧
+        eLpNorm (f_L2 - s_func) 2 volume < ENNReal.ofReal (ε / 4) := by
+      -- Use density of simple functions in L²(ℝ) adapted from exists_simple_func_approximation
+      -- Step 1: Use the density embedding for simple functions
+      have dense_simple := Lp.simpleFunc.isDenseEmbedding (p := 2)
+        (μ := (volume : Measure ℝ)) (E := ℂ) (by norm_num : (2 : ℝ≥0∞) ≠ ⊤)
+      have : DenseRange ((↑) : Lp.simpleFunc ℂ 2 (volume : Measure ℝ) →
+        Lp ℂ 2 (volume : Measure ℝ)) := dense_simple.toIsDenseInducing.dense
+
+      -- Step 2: Get the simple function approximation
+      have h_pos : (0 : ℝ) < ε / 4 := by linarith
+      have h_approx := this.exists_dist_lt (hf.toLp f_L2) h_pos
+      obtain ⟨s_lp, hs_dist⟩ := h_approx
+
+      -- Step 3: Extract the function and convert distance to eLpNorm
+      let s_func := Lp.simpleFunc.toSimpleFunc s_lp
+      use s_func
+      constructor
+      · exact ⟨s_lp, rfl⟩
+      · -- Convert dist bound to eLpNorm bound using the relationship between Lp and functions
+        have h_eq : f_L2 =ᵐ[volume] (hf.toLp f_L2 : Lp ℂ 2 volume) := (MemLp.coeFn_toLp hf).symm
+        -- Use the fact that s_lp coerces to s_func almost everywhere
+        sorry -- Convert distance bound to eLpNorm bound
+
+    obtain ⟨s, ⟨s_lp, hs_eq⟩, hs_close⟩ := h_simple_approx
+
+    -- Step 2: Approximate the simple function by continuous compactly supported
+    have h_cont_approx : ∃ g_cont : ℝ → ℂ, HasCompactSupport g_cont ∧ Continuous g_cont ∧
+        eLpNorm (s - g_cont) 2 volume < ENNReal.ofReal (ε / 4) := by
+      -- Any simple function can be approximated by continuous compactly supported functions
+      -- using mollification and cutoff techniques
+      sorry -- Approximate simple function by continuous compactly supported
+
+    obtain ⟨g_cont, hg_cont_compact, hg_cont_continuous, hg_cont_approx⟩ := h_cont_approx
+
+    -- Step 3: Combine the approximations
+    use g_cont
+    constructor
+    · exact hg_cont_compact
+    constructor
+    · exact hg_cont_continuous
+    · -- Triangle inequality: ‖f_L2 - g_cont‖ ≤ ‖f_L2 - s‖ + ‖s - g_cont‖
+      -- First convert the distance bound to eLpNorm bound
+      have hs_elpnorm : eLpNorm (f_L2 - s) 2 volume < ENNReal.ofReal (ε / 4) := by
+        -- Use the relationship between dist and eLpNorm for Lp spaces
+        -- and the fact that s = toSimpleFunc s_lp where s_lp approximates toLp f_L2
+        sorry -- Convert dist bound to eLpNorm bound
+
+      calc eLpNorm (f_L2 - g_cont) 2 volume
+        ≤ eLpNorm (f_L2 - s) 2 volume + eLpNorm (s - g_cont) 2 volume := by
+            -- Apply triangle inequality (need measurability)
+            sorry -- Apply triangle inequality for eLpNorm with measurability
+        _ < ENNReal.ofReal (ε / 4) + ENNReal.ofReal (ε / 4) :=
+          ENNReal.add_lt_add hs_elpnorm hg_cont_approx
+        _ = ENNReal.ofReal (ε / 2) := by
+          rw [← ENNReal.ofReal_add (by linarith : 0 ≤ ε / 4) (by linarith : 0 ≤ ε / 4)]
+          congr 1
+          linarith
+
+  obtain ⟨g_cont, hg_cont_compact, hg_cont_continuous, hg_cont_close⟩ := h_cont_dense
+
+  -- Step 2: Mollify to get a smooth compactly supported function
+  -- Any continuous compactly supported function can be mollified to get C^∞
+  have h_smooth_mollify : ∃ g : ℝ → ℂ, HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧
+      eLpNorm (g_cont - g) 2 volume < ENNReal.ofReal (ε / 2) := by
+    -- Use mollification with a smooth bump function
+    -- This is available in mathlib's BumpFunction theory
+    sorry -- Apply mollification to get smooth approximation
+
+  obtain ⟨g, hg_compact, hg_smooth, hg_mollify_close⟩ := h_smooth_mollify
+
+  -- Step 3: Combine using triangle inequality
+  use g
+  constructor
+  · exact hg_compact
+  constructor
+  · exact hg_smooth
+  · -- Apply triangle inequality: ‖f_L2 - g‖ ≤ ‖f_L2 - g_cont‖ + ‖g_cont - g‖
+    -- First establish measurability
+    have hf_meas : AEStronglyMeasurable f_L2 volume := hf.aestronglyMeasurable
+    have hg_cont_meas : AEStronglyMeasurable g_cont volume := by
+      exact Continuous.aestronglyMeasurable hg_cont_continuous
+    have hg_meas : AEStronglyMeasurable g volume := by
+      sorry -- Smooth functions are strongly measurable
+    calc eLpNorm (f_L2 - g) 2 volume
+      ≤ eLpNorm (f_L2 - g_cont) 2 volume + eLpNorm (g_cont - g) 2 volume :=
+          eLpNorm_triangle_diff f_L2 g_cont g hf_meas hg_cont_meas hg_meas
+      _ < ENNReal.ofReal (ε / 2) + ENNReal.ofReal (ε / 2) :=
+          ENNReal.add_lt_add hg_cont_close hg_mollify_close
+      _ = ENNReal.ofReal ε := by
+          rw [← ENNReal.ofReal_add (by linarith : 0 ≤ ε / 2) (by linarith : 0 ≤ ε / 2)]
+          congr 1
+          linarith
+
+/-- Smooth compactly supported functions can be approximated by Schwartz functions in L²(ℝ) -/
+lemma schwartz_approximates_smooth_compactly_supported (g : ℝ → ℂ)
+    (hg_compact : HasCompactSupport g) (hg_smooth : ContDiff ℝ ⊤ g) (ε : ℝ) (hε_pos : ε > 0) :
+    ∃ φ : SchwartzMap ℝ ℂ, eLpNorm (g - (φ : ℝ → ℂ)) 2 volume < ENNReal.ofReal ε := by
+  -- For compactly supported smooth functions, we can construct a Schwartz function
+  -- that agrees on the support and decays rapidly outside
+  -- This uses the fact that any smooth compactly supported function can be extended
+  -- to a Schwartz function by multiplying with a suitable cutoff function
+  sorry -- Construct Schwartz extension of compactly supported smooth function
+
+/-- Schwartz functions are dense in L² for the weighted LogPull function -/
+lemma schwartz_density_weighted_logpull (σ : ℝ) (f : Hσ σ)
+    (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume) :
+    ∀ ε > 0, ∃ φ : SchwartzMap ℝ ℂ,
+      eLpNorm ((fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) -
+      (φ : ℝ → ℂ) t) : ℝ → ℂ) 2 volume < ENNReal.ofReal ε := by
+  -- This requires the density theorem for Schwartz functions in L²(ℝ)
+  -- The function g(t) = LogPull σ f t * exp(t/2) is in L²(ℝ) by h_weighted_L2
+  intro ε hε
+  -- Apply the density of Schwartz functions in L²(ℝ)
+  -- Since Schwartz functions are dense in L²(ℝ), and our function is in L²(ℝ),
+  -- we can find a Schwartz function φ that approximates it arbitrarily well
+  -- Use the fact that Schwartz functions are dense in L²(ℝ)
+  -- This is a standard result from functional analysis
+  have h_schwartz_dense : ∀ (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume) (ε : ℝ) (hε_pos : ε > 0),
+    ∃ φ : SchwartzMap ℝ ℂ, eLpNorm (f_L2 - (φ : ℝ → ℂ)) 2 volume < ENNReal.ofReal ε := by
+    intro f_L2 hf ε hε_pos
+    -- Use the standard density theorem:
+    -- 1. Compactly supported smooth functions are dense in L²(ℝ)
+    -- 2. Every compactly supported smooth function can be approximated by Schwartz functions
+    -- Since f_L2 ∈ L²(ℝ), we can find a compactly supported smooth g with ‖f_L2 - g‖_L² < ε/2
+    -- Then find a Schwartz φ with ‖g - φ‖_L² < ε/2, giving ‖f_L2 - φ‖_L² < ε by triangle inequality
+
+    -- Step 1: Use density of compactly supported smooth functions in L²(ℝ)
+    have hε_div_pos : 0 < ε / 2 := by linarith
+    obtain ⟨g, hg_compact, hg_smooth, hg_close⟩ :=
+      smooth_compactly_supported_dense_L2 f_L2 hf (ε / 2) hε_div_pos
+
+    -- Step 2: Approximate the smooth compactly supported function by a Schwartz function
+    obtain ⟨φ, hφ_approx⟩ :=
+      schwartz_approximates_smooth_compactly_supported g hg_compact hg_smooth (ε / 2) hε_div_pos
+    use φ
+
+    -- Step 3: Apply triangle inequality and combine the bounds
+    -- Establish measurability assumptions
+    have hf_L2_meas : AEStronglyMeasurable f_L2 volume := hf.aestronglyMeasurable
+    have hg_meas : AEStronglyMeasurable g volume := by
+      sorry -- Smooth compactly supported functions are measurable
+    have hφ_meas : AEStronglyMeasurable (φ : ℝ → ℂ) volume := by
+      sorry -- Schwartz functions are measurable
+    calc eLpNorm (f_L2 - (φ : ℝ → ℂ)) 2 volume
+      ≤ eLpNorm (f_L2 - g) 2 volume + eLpNorm (g - (φ : ℝ → ℂ)) 2 volume :=
+          eLpNorm_triangle_diff f_L2 g (φ : ℝ → ℂ) hf_L2_meas hg_meas hφ_meas
+      _ < ENNReal.ofReal (ε / 2) + ENNReal.ofReal (ε / 2) :=
+          ENNReal.add_lt_add hg_close hφ_approx
+      _ = ENNReal.ofReal ε := by
+          rw [← ENNReal.ofReal_add (by linarith : 0 ≤ ε / 2) (by linarith : 0 ≤ ε / 2)]
+          congr 1
+          linarith
+
+  -- Apply this with our original function directly
+  obtain ⟨φ, hφ⟩ := h_schwartz_dense (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))
+    h_weighted_L2 ε hε
+  use φ
+  -- The result is already in the correct form
+  exact hφ
+
 /-- Connection between LogPull L² norm and Mellin transform L² norm
 This states the Parseval-type equality for the Mellin transform.
 Note: The actual proof requires implementing the Fourier-Plancherel theorem
@@ -828,9 +1021,83 @@ lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
     -- 2. The function g is also integrable (by h_integrable)
     -- 3. For such functions, Plancherel formula holds with constant 1/(2π)
 
-    -- Technical implementation: extend SchwartzMap result via density
-    -- This requires the full L² theory which is beyond SchwartzMap
-    sorry -- TODO: Implement general L² Plancherel theorem or use Mathlib's version when available
+    -- We use a density argument with Schwartz functions
+
+    -- Define the function g for clarity
+    let g := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)
+
+    -- The key steps:
+    -- 1. g is in L² (given by h_weighted_L2) and L¹ (given by h_integrable)
+    -- 2. Schwartz functions are dense in L² ∩ L¹
+    -- 3. For Schwartz functions φ, we have the Plancherel formula with constant 1/(2π)
+    --    from FourierPlancherel.fourier_plancherel (with appropriate normalization)
+    -- 4. The Fourier transform extends continuously from Schwartz to L²
+
+    -- We approximate g by Schwartz functions φₙ in L²
+    -- Since the Fourier transform is an L² isometry (up to constant),
+    -- we have ‖ℱ[g - φₙ]‖_L² → 0 as n → ∞
+    -- Combined with fourier_plancherel for each φₙ, this gives the result
+
+    -- The normalized Plancherel formula for L² functions:
+    -- ∫ |f|² = (1/(2π)) ∫ |ℱ[f]|²
+
+    -- Step 1: For any ε > 0, find a Schwartz function φ such that ‖g - φ‖_L² < ε
+    -- This uses the density of Schwartz functions in L²
+
+    -- Step 2: Apply Plancherel for the Schwartz function φ
+    -- We have: ∫ |φ|² = (1/(2π)) ∫ |ℱ[φ]|²
+
+    -- Step 3: Use continuity to pass to the limit
+    -- Since the Fourier transform is continuous on L² (as an isometry up to constant),
+    -- and g is approximated by φ in L², we get the result for g
+
+    -- The formal implementation:
+    have h_density : ∀ ε > 0, ∃ φ : SchwartzMap ℝ ℂ,
+        eLpNorm ((g - (φ : ℝ → ℂ)) : ℝ → ℂ) 2 volume < ENNReal.ofReal ε := by
+      -- Use the extracted lemma
+      have h_density_lemma := schwartz_density_weighted_logpull σ f h_weighted_L2
+      intro ε hε
+      obtain ⟨φ, hφ⟩ := h_density_lemma ε hε
+      use φ
+      -- Need to show that the subtraction is the same
+      have h_eq : (g - (φ : ℝ → ℂ)) =
+        (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) - (φ : ℝ → ℂ) t) := by
+        rfl
+      rw [h_eq]
+      exact hφ
+
+    have h_plancherel_schwartz : ∀ φ : SchwartzMap ℝ ℂ,
+        ∫ t : ℝ, ‖φ t‖^2 ∂volume =
+        (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖Frourio.fourierIntegral (φ : ℝ → ℂ) τ‖^2 ∂volume := by
+      intro φ
+      -- This is the normalized version of fourier_plancherel
+      have h := Frourio.fourier_plancherel φ
+      -- The fourier_plancherel theorem gives us the equality without normalization
+      -- We need to check if the normalization is already included
+      convert h using 2
+      -- The normalization factor 1/(2π) should be present
+      sorry -- Verify normalization constant
+
+    -- Now use continuity and density to extend to g
+    -- The strategy: show that both sides are continuous in L² norm
+
+    -- For the limit, we use:
+    -- 1. If φₙ → g in L², then ∫ |φₙ|² → ∫ |g|²
+    -- 2. The Fourier transform is continuous on L², so ℱ[φₙ] → ℱ[g] in L²
+    -- 3. Therefore ∫ |ℱ[φₙ]|² → ∫ |ℱ[g]|²
+
+    -- Take a sequence of Schwartz functions approximating g
+    choose φₙ hφₙ using fun (n : ℕ) => h_density (1/((n:ℝ)+1))
+      (by simp; exact Nat.cast_add_one_pos n)
+
+    -- Apply Plancherel for each φₙ
+    have h_φₙ_plancherel : ∀ n, ∫ t : ℝ, ‖φₙ n t‖^2 ∂volume =
+        (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖Frourio.fourierIntegral (φₙ n : ℝ → ℂ) τ‖^2 ∂volume :=
+      fun n => h_plancherel_schwartz (φₙ n)
+
+    -- The limiting process requires showing:
+    -- lim (∫ |φₙ|²) = ∫ |g|² and lim (∫ |ℱ[φₙ]|²) = ∫ |ℱ[g]|²
+    sorry -- Complete limit calculation
 
   rw [h_plancherel]
 
@@ -838,25 +1105,54 @@ lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
   congr 1
 
   -- We need to prove that for each τ, the Fourier integral equals the Mellin transform
-  have h_eq : ∀ τ : ℝ, ‖Frourio.fourierIntegral
-      (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) τ‖^2 =
-      ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 := by
-    intro τ
-    congr 1
+  -- Actually, we need to match up the normalization conventions correctly
 
-    -- By mellin_logpull_relation, we have:
-    -- mellinTransform (f : ℝ → ℂ) (σ + I * τ) =
-    -- ∫ t : ℝ, LogPull σ f t * Complex.exp (I * τ * t) * Complex.exp ((1/2 : ℝ) * t)
+  -- The key insight: the integral should be over ‖mellinTransform f (σ + I * (2π * τ))‖^2
+  -- because the Fourier kernel uses exp(-2πitτ) while Mellin uses exp(itτ)
 
-    -- This relationship needs to account for the Fourier kernel normalization
-    -- The Fourier integral uses the kernel e^(-2πitξ) in FourierPlancherel.lean
-    -- while mellin_logpull_relation uses e^(itτ)
+  have h_eq : ∫ τ : ℝ, ‖Frourio.fourierIntegral
+      (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) τ‖^2 ∂volume =
+      ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * (2 * π * τ))‖^2 ∂volume := by
+    -- The relationship is:
+    -- fourierIntegral g τ = ∫ exp(-2πitτ) g(t) dt
+    -- mellinTransform f (σ + I*ω) = ∫ LogPull σ f t * exp(Iωt) * exp(t/2) dt
+    -- So: fourierIntegral g τ = mellinTransform f (σ + I*(2πτ))
 
-    -- The conversion between these two conventions involves a factor of 2π in the argument
-    sorry
+    -- Apply the change of variables ω = 2πτ in the Mellin integral
+    -- This gives dω = 2π dτ, so we get the factor 1/(2π) we need
 
-  -- Apply the equality for all τ
-  simp_rw [h_eq]
+    sorry -- Implement the change of variables and verify the equality
+
+  -- Now we have:
+  -- (1/(2π)) ∫ τ, ‖fourierIntegral g τ‖^2 dτ = (1/(2π)) ∫ τ, ‖mellinTransform f (σ + I*2πτ)‖^2 dτ
+
+  rw [h_eq]
+
+  -- Apply change of variables: let ω = 2πτ, then dω = 2π dτ, so dτ = dω/(2π)
+
+  -- Apply change of variables ω = 2πτ to relate the integrals
+  -- This uses the substitution theorem: ∫ g(aτ) dτ = (1/|a|) ∫ g(ω) dω
+
+  have h_change_var : ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * (2 * π * τ))‖^2 ∂volume =
+      (1 / (2 * π)) * ∫ ω : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * ω)‖^2 ∂volume := by
+    -- This follows from the change of variables formula
+    -- The substitution ω = 2πτ gives dω = 2π dτ, so dτ = dω/(2π)
+    -- Therefore: ∫ g(2πτ) dτ = (1/(2π)) ∫ g(ω) dω
+    sorry -- Apply integral_comp_mul_left with proper setup
+
+  rw [h_change_var]
+
+  -- Now we have: (1/(2π)) * (1/(2π)) ∫ ω, ‖mellinTransform f (σ + I*ω)‖^2 dω
+  -- This should equal (1/(2π)) ∫ τ, ‖mellinTransform f (σ + I*τ)‖^2 dτ
+
+  -- The key insight: after the change of variables, we get the correct normalization
+  -- We need: ∫ τ, ‖mellinTransform f (σ + I*τ)‖^2 dτ
+  -- But we have: (1/(2π)) * (1/(2π)) ∫ ω, ‖mellinTransform f (σ + I*ω)‖^2 dω
+
+  -- Actually, we need to be more careful. The change of variables should give us
+  -- exactly what we want. Let me reconsider the approach.
+
+  sorry -- Need to fix the normalization issue
 
 /-- The Plancherel constant for our normalization is 1 -/
 lemma plancherel_constant_is_one (σ : ℝ) (f : Hσ σ) :
