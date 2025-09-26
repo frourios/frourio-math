@@ -1,5 +1,5 @@
 import Frourio.Analysis.FourierPlancherel
-import Frourio.Analysis.SchwartzDensity
+import Frourio.Analysis.SchwartzDensity.SchwartzDensity
 import Frourio.Analysis.MellinPlancherel
 import Frourio.Analysis.HilbertSpaceCore
 import Mathlib.Analysis.Fourier.FourierTransform

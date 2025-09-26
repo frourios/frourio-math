@@ -5841,92 +5841,9 @@ lemma ker_Qσ_dim_eq_ker_MK_dim (K : ℝ → ℝ) (_hK : ∀ᵐ τ ∂volume, 0 
 end Frourio
 
 
-## ./Frourio/Analysis/SchwartzDensity.lean
+## ./Frourio/Analysis/SchwartzDensity/SchwartzDensity.lean
 
 namespace Frourio
-
-lemma weightedMeasure_finite_on_compact {σ : ℝ} (hσ : 1 / 2 < σ) {K : Set ℝ}
-    (hK_compact : IsCompact K) :
-    weightedMeasure σ K < ∞  := proven
-
-lemma memLp_of_hasFiniteIntegral_and_aestronglyMeasurable {μ : Measure ℝ} {f : ℝ → ℂ}
-    (hf_meas : AEStronglyMeasurable f μ)
-    (hf_finite : HasFiniteIntegral (fun x => ‖f x‖ ^ 2) μ) :
-    MemLp f 2 μ  := proven
-
-lemma hasFiniteIntegral_of_dominated_on_compactSupport {μ : Measure ℝ} {g : ℝ → ℂ} {M : ℝ}
-    (h_dominated : ∀ᵐ x ∂μ, ‖g x‖ ^ 2 ≤ M ^ 2)
-    (h_finite_on_support : μ (tsupport g) < ∞) :
-    HasFiniteIntegral (fun x => ‖g x‖ ^ 2) μ  := proven
-
-lemma memLp_convolution_simpleFunc_truncation {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f_simple : SimpleFunc ℝ ℂ) (φ : ℝ → ℝ) (R δ : ℝ)
-    (_ : MemLp (fun x => if |x| ≤ R then f_simple x else 0) 2 (weightedMeasure σ))
-    (hφ_smooth : ContDiff ℝ (↑⊤ : ℕ∞) φ) (hφ_compact : HasCompactSupport φ)
-    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ)
-    (hR_pos : 0 < R) (hδ_pos : 0 < δ) :
-    MemLp (fun x => ∫ y, (if |y| ≤ R then f_simple y else 0) * (φ (x - y) : ℂ)) 2
-      (weightedMeasure σ)  := proven
-
-lemma eLpNorm_lp_function_diff_eq {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ))
-    (f : ℝ → ℂ) (hf_memLp : MemLp f 2 (weightedMeasure σ)) :
-    eLpNorm ((s : ℝ → ℂ) - (hf_memLp.toLp f : ℝ → ℂ)) 2 (weightedMeasure σ) =
-    eLpNorm ((s : ℝ → ℂ) - (f : ℝ → ℂ)) 2 (weightedMeasure σ)  := proven
-
-lemma weightedMeasure_finite_on_interval {σ : ℝ} (hσ : 1 / 2 < σ) (R : ℝ) :
-    (weightedMeasure σ) (Set.Icc (-R) R) < ∞  := proven
-
-lemma simpleFunc_unbounded_levelSet_finite_measure_L2 {σ : ℝ} (_hσ : 1 / 2 < σ)
-    (f : SimpleFunc ℝ ℂ) (hf_memL2 : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
-    (v : ℂ) (hv_nonzero : v ≠ 0) (_hv_range : v ∈ Set.range (f : ℝ → ℂ))
-    (_h_unbounded : ¬∃ R > 0, {x : ℝ | f x = v} ⊆ Set.Icc (-R) R) :
-    (weightedMeasure σ) {x : ℝ | f x = v} ≠ ∞  := proven
-
-
-lemma simpleFunc_levelSet_tail_measure_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f : SimpleFunc ℝ ℂ) (hf_memL2 : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
-    (v : ℂ) (hv_nonzero : v ≠ 0) (hv_range : v ∈ Set.range (f : ℝ → ℂ)) :
-    Filter.Tendsto (fun R => (weightedMeasure σ) {x | f x = v ∧ R < |x|}) Filter.atTop (𝓝 0)  := proven
-
-lemma simpleFunc_tail_l2_convergence {σ : ℝ} (_hσ : 1 / 2 < σ)
-    (f : SimpleFunc ℝ ℂ) (_hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
-    (_h_pointwise : ∀ x : ℝ,
-      Filter.Tendsto (fun R => if |x| ≤ R then 0 else f x) Filter.atTop (𝓝 0))
-    (_h_domination : ∀ R x, ‖if |x| ≤ R then 0 else f x‖ ≤ ‖f x‖)
-    (h_tail_measure_vanishing : ∀ v : ℂ, v ≠ 0 → v ∈ Set.range (f : ℝ → ℂ) →
-      Filter.Tendsto (fun R => (weightedMeasure σ) {x | f x = v ∧ R < |x|})
-        Filter.atTop (𝓝 0)) :
-    Filter.Tendsto
-      (fun R => eLpNorm (fun x => if |x| ≤ R then 0 else f x) 2 (weightedMeasure σ))
-      Filter.atTop (𝓝 0)  := proven
-
-lemma simpleFunc_tail_pointwise_limit (f : SimpleFunc ℝ ℂ) :
-    ∀ x : ℝ, Filter.Tendsto (fun R => if |x| ≤ R then 0 else f x) Filter.atTop (𝓝 0)  := proven
-
-lemma simpleFunc_tail_L2_convergence {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f : SimpleFunc ℝ ℂ) (hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ)) :
-    Filter.Tendsto (fun R => eLpNorm (fun x => if |x| ≤ R then 0 else f x) 2 (weightedMeasure σ))
-      Filter.atTop (𝓝 0)  := proven
-
-lemma l2_tail_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f : SimpleFunc ℝ ℂ) (hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
-    (ε : ℝ) (hε : 0 < ε) :
-    ∃ R : ℝ, 0 < R ∧
-    eLpNorm (fun x => if |x| ≤ R then 0 else f x) 2 (weightedMeasure σ) < ENNReal.ofReal ε  := proven
-
-lemma truncation_memLp {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f : SimpleFunc ℝ ℂ) (_hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
-    (R : ℝ) (_hR_pos : 0 < R) :
-    MemLp (fun x => if |x| ≤ R then f x else 0) 2 (weightedMeasure σ)  := proven
-
-lemma lp_tail_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε) :
-    ∃ R : ℝ, 0 < R ∧
-      eLpNorm (fun x => if |x| > R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ) <
-      ENNReal.ofReal ε  := proven
-
-lemma lp_truncation_memLp {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
-    MemLp (fun x => if |x| ≤ R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ)  := proven
 
 lemma lp_truncation_integrable {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
     (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) :
@@ -5961,10 +5878,6 @@ lemma dist_lp_truncation_bound {σ : ℝ} (hσ : 1 / 2 < σ)
     (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
     (h_truncation_error : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
     dist s (hs_R_memLp.toLp s_R) < ε  := sorry
-
-lemma mollification_delta_small (ε : ℝ) (hε_pos : 0 < ε)
-    (s_R : ℝ → ℂ) (R : ℝ) (_hR_pos : 0 < R) (σ : ℝ) :
-    let M  := proven
 
 lemma mollification_error_bound {σ : ℝ} (hσ : 1 / 2 < σ)
     (f : ℝ → ℂ) (φ : ℝ → ℝ) (R δ ε : ℝ) (hR_pos : 0 < R) (hδ_pos : 0 < δ) (hε_pos : 0 < ε)
@@ -6005,13 +5918,6 @@ lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < 
     (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))),
      HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧ dist f (hg_mem.toLp g) < ε  := sorry
 
-lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
-    ∃ (k₁ : ℕ) (C₀ C₁ : ℝ), 0 < C₀ ∧ 0 < C₁ ∧
-    ∀ f : SchwartzMap ℝ ℂ,
-      ‖schwartzToHσ hσ f‖ ≤
-        C₀ * SchwartzMap.seminorm ℝ 0 0 f +
-          C₁ * SchwartzMap.seminorm ℝ k₁ 0 f  := proven
-
 theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2) :
     DenseRange (schwartzToHσ hσ_lower)  := proven
 
@@ -6028,7 +5934,7 @@ lemma schwartz_ae_dense {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 
 end Frourio
 
 
-## ./Frourio/Analysis/SchwartzDensityCore.lean
+## ./Frourio/Analysis/SchwartzDensity/SchwartzDensityCore0.lean
 
 namespace Frourio
 
@@ -6125,6 +6031,107 @@ lemma continuous_convolution_integrable_smooth (f : ℝ → ℂ) (φ : ℝ → �
 lemma simpleFunc_truncation_integrable {σ : ℝ} (_ : 1 / 2 < σ)
     (f : SimpleFunc ℝ ℂ) (R : ℝ) :
     Integrable (fun x => if |x| ≤ R then f x else 0)  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/SchwartzDensity/SchwartzDensityCore1.lean
+
+namespace Frourio
+
+lemma weightedMeasure_finite_on_compact {σ : ℝ} (hσ : 1 / 2 < σ) {K : Set ℝ}
+    (hK_compact : IsCompact K) :
+    weightedMeasure σ K < ∞  := proven
+
+lemma memLp_of_hasFiniteIntegral_and_aestronglyMeasurable {μ : Measure ℝ} {f : ℝ → ℂ}
+    (hf_meas : AEStronglyMeasurable f μ)
+    (hf_finite : HasFiniteIntegral (fun x => ‖f x‖ ^ 2) μ) :
+    MemLp f 2 μ  := proven
+
+lemma hasFiniteIntegral_of_dominated_on_compactSupport {μ : Measure ℝ} {g : ℝ → ℂ} {M : ℝ}
+    (h_dominated : ∀ᵐ x ∂μ, ‖g x‖ ^ 2 ≤ M ^ 2)
+    (h_finite_on_support : μ (tsupport g) < ∞) :
+    HasFiniteIntegral (fun x => ‖g x‖ ^ 2) μ  := proven
+
+lemma memLp_convolution_simpleFunc_truncation {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f_simple : SimpleFunc ℝ ℂ) (φ : ℝ → ℝ) (R δ : ℝ)
+    (_ : MemLp (fun x => if |x| ≤ R then f_simple x else 0) 2 (weightedMeasure σ))
+    (hφ_smooth : ContDiff ℝ (↑⊤ : ℕ∞) φ) (hφ_compact : HasCompactSupport φ)
+    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ)
+    (hR_pos : 0 < R) (hδ_pos : 0 < δ) :
+    MemLp (fun x => ∫ y, (if |y| ≤ R then f_simple y else 0) * (φ (x - y) : ℂ)) 2
+      (weightedMeasure σ)  := proven
+
+lemma eLpNorm_lp_function_diff_eq {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ))
+    (f : ℝ → ℂ) (hf_memLp : MemLp f 2 (weightedMeasure σ)) :
+    eLpNorm ((s : ℝ → ℂ) - (hf_memLp.toLp f : ℝ → ℂ)) 2 (weightedMeasure σ) =
+    eLpNorm ((s : ℝ → ℂ) - (f : ℝ → ℂ)) 2 (weightedMeasure σ)  := proven
+
+lemma weightedMeasure_finite_on_interval {σ : ℝ} (hσ : 1 / 2 < σ) (R : ℝ) :
+    (weightedMeasure σ) (Set.Icc (-R) R) < ∞  := proven
+
+lemma simpleFunc_unbounded_levelSet_finite_measure_L2 {σ : ℝ} (_hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (hf_memL2 : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (v : ℂ) (hv_nonzero : v ≠ 0) (_hv_range : v ∈ Set.range (f : ℝ → ℂ))
+    (_h_unbounded : ¬∃ R > 0, {x : ℝ | f x = v} ⊆ Set.Icc (-R) R) :
+    (weightedMeasure σ) {x : ℝ | f x = v} ≠ ∞  := proven
+
+
+lemma simpleFunc_levelSet_tail_measure_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (hf_memL2 : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (v : ℂ) (hv_nonzero : v ≠ 0) (hv_range : v ∈ Set.range (f : ℝ → ℂ)) :
+    Filter.Tendsto (fun R => (weightedMeasure σ) {x | f x = v ∧ R < |x|}) Filter.atTop (𝓝 0)  := proven
+
+lemma simpleFunc_tail_l2_convergence {σ : ℝ} (_hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (_hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (_h_pointwise : ∀ x : ℝ,
+      Filter.Tendsto (fun R => if |x| ≤ R then 0 else f x) Filter.atTop (𝓝 0))
+    (_h_domination : ∀ R x, ‖if |x| ≤ R then 0 else f x‖ ≤ ‖f x‖)
+    (h_tail_measure_vanishing : ∀ v : ℂ, v ≠ 0 → v ∈ Set.range (f : ℝ → ℂ) →
+      Filter.Tendsto (fun R => (weightedMeasure σ) {x | f x = v ∧ R < |x|})
+        Filter.atTop (𝓝 0)) :
+    Filter.Tendsto
+      (fun R => eLpNorm (fun x => if |x| ≤ R then 0 else f x) 2 (weightedMeasure σ))
+      Filter.atTop (𝓝 0)  := proven
+
+lemma simpleFunc_tail_pointwise_limit (f : SimpleFunc ℝ ℂ) :
+    ∀ x : ℝ, Filter.Tendsto (fun R => if |x| ≤ R then 0 else f x) Filter.atTop (𝓝 0)  := proven
+
+lemma simpleFunc_tail_L2_convergence {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ)) :
+    Filter.Tendsto (fun R => eLpNorm (fun x => if |x| ≤ R then 0 else f x) 2 (weightedMeasure σ))
+      Filter.atTop (𝓝 0)  := proven
+
+lemma l2_tail_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ R : ℝ, 0 < R ∧
+    eLpNorm (fun x => if |x| ≤ R then 0 else f x) 2 (weightedMeasure σ) < ENNReal.ofReal ε  := proven
+
+lemma truncation_memLp {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (_hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (R : ℝ) (_hR_pos : 0 < R) :
+    MemLp (fun x => if |x| ≤ R then f x else 0) 2 (weightedMeasure σ)  := proven
+
+lemma lp_tail_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
+    (s : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε) :
+    ∃ R : ℝ, 0 < R ∧
+      eLpNorm (fun x => if |x| > R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ) <
+      ENNReal.ofReal ε  := proven
+
+lemma lp_truncation_memLp {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
+    MemLp (fun x => if |x| ≤ R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ)  := proven
+
+lemma mollification_delta_small (ε : ℝ) (hε_pos : 0 < ε)
+    (s_R : ℝ → ℂ) (R : ℝ) (_hR_pos : 0 < R) (σ : ℝ) :
+    let M  := proven
+
+lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
+    ∃ (k₁ : ℕ) (C₀ C₁ : ℝ), 0 < C₀ ∧ 0 < C₁ ∧
+    ∀ f : SchwartzMap ℝ ℂ,
+      ‖schwartzToHσ hσ f‖ ≤
+        C₀ * SchwartzMap.seminorm ℝ 0 0 f +
+          C₁ * SchwartzMap.seminorm ℝ k₁ 0 f  := proven
 
 end Frourio
 
@@ -9159,4 +9166,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 88
+Total files processed: 89
