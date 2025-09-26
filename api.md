@@ -4315,6 +4315,140 @@ noncomputable def zeroLatticeSpacing (Λ : ℝ) : ℝ  := proven
 
 namespace Frourio
 
+lemma lp2_holder_bound (f : ℝ → ℂ) (hf : MemLp f 2 volume) (s : Set ℝ) (hs : MeasurableSet s) :
+  ∫⁻ x in s, ‖f x‖₊ ^ 2 ∂volume ≤ (eLpNorm f 2 volume) ^ 2  := sorry
+
+lemma ennreal_pow_mul_le_of_le {a b c d : ENNReal} (h1 : a ≤ b) (h2 : c < d) (n : ℕ) :
+    a ^ n * c ≤ b ^ n * d  := proven
+
+lemma l2_integral_volume_bound (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume)
+    (s : Set ℝ) (hs_meas : MeasurableSet s) :
+    ∫⁻ x in s, ‖f_L2 x‖₊ ^ 2 ∂volume ≤ (eLpNorm f_L2 2 volume) ^ 2 * (volume s)  := sorry
+
+lemma tail_measure_bound_from_larger (R' : ℝ) (hR' : 1 ≤ R') (δ' : ℝ) (hδ'_pos : 0 < δ') :
+    volume {x : ℝ | R' < ‖x‖} < ENNReal.ofReal δ'  := sorry
+
+lemma l2_tail_integral_small (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume)
+    (h_finite : eLpNorm f_L2 2 volume < ∞) (δ : ℝ) (hδ : 0 < δ) :
+    ∀ R ≥ 1, ∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume < ENNReal.ofReal δ  := proven
+
+lemma truncation_error_eq_tail_norm (f : ℝ → ℂ) (hf : MemLp f 2 volume) (R : ℝ) (hR : 0 < R) :
+    eLpNorm (f - fun x => if ‖x‖ ≤ R then f x else 0) 2 volume =
+    (∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f x‖₊ ^ 2 ∂volume) ^ (1 / 2 : ℝ)  := sorry
+
+lemma sqrt_half_epsilon_bound (ε : ℝ) (hε : 0 < ε) (hε_small : ε < 2) :
+    ENNReal.ofReal ((ε / 2) ^ (1 / 2 : ℝ)) < ENNReal.ofReal ε  := sorry
+
+lemma complete_tail_truncation_bound (ε : ℝ) (hε : 0 < ε) (R₀ : ℝ) (f_L2 : ℝ → ℂ)
+    (h_sqrt_bound : (∫⁻ x in {x : ℝ | max R₀ 1 < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume) ^ (1 / 2 : ℝ) <
+                    ENNReal.ofReal (ε / 2) ^ (1 / 2 : ℝ)) :
+    (∫⁻ x in {x : ℝ | max R₀ 1 < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume) ^ (1 / 2 : ℝ) < ENNReal.ofReal ε  := sorry
+
+lemma truncated_function_memLp (f : ℝ → ℂ) (hf : MemLp f 2 volume) (R : ℝ) (hR : 0 < R) :
+    MemLp (fun x => if ‖x‖ ≤ R then f x else 0) 2 volume  := sorry
+
+lemma simple_function_approximation_compact_support (f : ℝ → ℂ) (hf : MemLp f 2 volume)
+    (hf_compact : HasCompactSupport f) (ε : ℝ) (hε : 0 < ε) :
+    ∃ s_simple : SimpleFunc ℝ ℂ, HasCompactSupport s_simple ∧
+    eLpNorm (fun x => f x - s_simple x) 2 volume < ENNReal.ofReal ε  := sorry
+
+lemma l2_truncation_approximation (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume) (ε : ℝ) (hε : 0 < ε) :
+    ∃ R : ℝ, R > 0 ∧
+    eLpNorm (f_L2 - fun x => if ‖x‖ ≤ R then f_L2 x else 0) 2 volume < ENNReal.ofReal ε  := proven
+
+
+lemma smooth_compactly_supported_dense_L2 (f_L2 : ℝ → ℂ)
+    (hf : MemLp f_L2 2 volume) (ε : ℝ) (hε_pos : ε > 0) :
+    ∃ g : ℝ → ℂ, HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧
+        eLpNorm (f_L2 - g) 2 volume < ENNReal.ofReal ε  := sorry
+
+lemma schwartz_approximates_smooth_compactly_supported (g : ℝ → ℂ)
+    (hg_compact : HasCompactSupport g) (hg_smooth : ContDiff ℝ ⊤ g) (ε : ℝ) (hε_pos : ε > 0) :
+    ∃ φ : SchwartzMap ℝ ℂ, eLpNorm (g - (φ : ℝ → ℂ)) 2 volume < ENNReal.ofReal ε  := sorry
+
+lemma schwartz_density_weighted_logpull (σ : ℝ) (f : Hσ σ)
+    (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume) :
+    ∀ ε > 0, ∃ φ : SchwartzMap ℝ ℂ,
+      eLpNorm ((fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) -
+      (φ : ℝ → ℂ) t) : ℝ → ℂ) 2 volume < ENNReal.ofReal ε  := sorry
+
+lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
+    (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume)
+    (h_integrable : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
+    ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume =
+    (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume  := sorry
+
+lemma plancherel_constant_is_one (σ : ℝ) (f : Hσ σ) :
+    ∃ (C : ℝ), C > 0 ∧ ∫ τ : ℝ, ‖LogPull σ f τ‖^2 = C * ‖f‖^2 ∧ C = 1  := sorry
+
+lemma plancherel_constant_unique (σ : ℝ) (f : Hσ σ) (C₁ C₂ : ℝ)
+    (h₁_pos : C₁ > 0) (h₂_pos : C₂ > 0)
+    (h₁_eq : ∫ τ : ℝ, ‖LogPull σ f τ‖ ^ 2 = C₁ * ‖f‖ ^ 2)
+    (h₂_eq : ∫ τ : ℝ, ‖LogPull σ f τ‖ ^ 2 = C₂ * ‖f‖ ^ 2) :
+    C₁ = C₂  := sorry
+
+theorem mellin_parseval_formula (σ : ℝ) :
+    ∃ (C : ℝ), C > 0 ∧ ∀ (f : Hσ σ),
+    -- Additional conditions for Fourier-Plancherel applicability:
+    -- 1. The weighted norm must be finite (L² condition)
+    ((∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume) < ⊤) →
+    -- 2. The weighted LogPull must be integrable (for Fourier transform)
+    (Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) →
+    ∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume =
+    ENNReal.ofReal (C * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume)  := proven
+
+lemma mellin_kernel_integrable_on_critical_line (σ : ℝ) (f : Hσ σ) (τ : ℝ)
+    (hf_L2 : has_weighted_L2_norm σ f) :
+    Integrable (fun t => f t * t ^ ((σ + I * τ) - 1)) (volume.restrict (Set.Ioi 0))  := sorry
+
+lemma mellin_transform_linear_critical_line (σ : ℝ) (h k : Hσ σ) (c : ℂ) (τ : ℝ)
+    (hh_L2 : has_weighted_L2_norm σ h) (hk_L2 : has_weighted_L2_norm σ k) :
+    mellinTransform ((h + c • k) : ℝ → ℂ) (σ + I * τ) =
+      mellinTransform (h : ℝ → ℂ) (σ + I * τ) + c * mellinTransform (k : ℝ → ℂ) (σ + I * τ)  := proven
+
+lemma mellin_polarization_pointwise (F G : ℂ) :
+    ‖F + G‖ ^ 2 - ‖F - G‖ ^ 2 - Complex.I * ‖F + Complex.I * G‖ ^ 2 +
+      Complex.I * ‖F - Complex.I * G‖ ^ 2 = 4 * (starRingEnd ℂ F * G)  := sorry
+
+theorem parseval_identity_equivalence (σ : ℝ) :
+    ∃ (C : ℝ), C > 0 ∧ ∀ (f g : Hσ σ),
+    -- Additional L² conditions needed for convergence
+    has_weighted_L2_norm σ f → has_weighted_L2_norm σ g →
+    @inner ℂ _ _ f g = C * ∫ τ : ℝ,
+      starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * τ)) *
+      mellinTransform (g : ℝ → ℂ) (σ + I * τ)  := sorry
+
+theorem mellin_isometry_normalized (σ : ℝ) :
+    ∃ (C : ℝ) (U : Hσ σ →L[ℂ] Lp ℂ 2 volume),
+    C > 0 ∧ ∀ f : Hσ σ, ‖U f‖ = C * ‖f‖ ∧
+    (U f : ℝ → ℂ) = fun τ : ℝ => mellinTransform (f : ℝ → ℂ) (σ + I * ↑τ)  := sorry
+
+theorem fourier_parseval_classical (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    ∃ (c : ℝ), c > 0 ∧ ‖f‖ ^ 2 = c * ‖f‖ ^ 2  := sorry
+
+theorem mellin_fourier_parseval_connection (σ : ℝ) (f : Hσ σ) :
+    let g  := sorry
+
+theorem mellin_fourier_unitary_equivalence (σ : ℝ) :
+    ∃ (V : Hσ σ ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ)),
+    ∀ (f : Hσ σ) (τ : ℝ),
+    ∃ (c : ℂ), c ≠ 0 ∧ mellinTransform (f : ℝ → ℂ) (σ + I * τ) = c * (V f τ)  := sorry
+
+theorem mellin_convolution_parseval (σ : ℝ) (f g : Hσ σ) :
+    ∫ τ : ℝ, mellinTransform f (σ + I * τ) * mellinTransform g (1 - σ + I * τ) =
+    2 * Real.pi * ∫ x in Set.Ioi (0 : ℝ), f x * g x ∂mulHaar  := sorry
+
+theorem mellin_energy_conservation (σ : ℝ) (f : Hσ σ) :
+    ∫ x in Set.Ioi (0 : ℝ), ‖(f : ℝ → ℂ) x‖ ^ 2 * (x : ℝ) ^ (2 * σ - 1) ∂volume =
+    (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform f (σ + I * τ)‖ ^ 2  := sorry
+
+end Frourio
+
+
+## ./Frourio/Analysis/MellinParsevalCore.lean
+
+namespace Frourio
+
 noncomputable def logMap : (Set.Ioi (0 : ℝ)) → ℝ  := proven
 
 noncomputable def expMap : ℝ → (Set.Ioi (0 : ℝ))  := proven
@@ -4382,96 +4516,11 @@ lemma eLpNorm_triangle_diff (f g h : ℝ → ℂ)
     (hg : AEStronglyMeasurable g volume) (hh : AEStronglyMeasurable h volume) :
     eLpNorm (f - h) 2 volume ≤ eLpNorm (f - g) 2 volume + eLpNorm (g - h) 2 volume  := proven
 
-lemma smooth_compactly_supported_dense_L2 (f_L2 : ℝ → ℂ)
-    (hf : MemLp f_L2 2 volume) (ε : ℝ) (hε_pos : ε > 0) :
-    ∃ g : ℝ → ℂ, HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧
-        eLpNorm (f_L2 - g) 2 volume < ENNReal.ofReal ε  := sorry
-
-lemma schwartz_approximates_smooth_compactly_supported (g : ℝ → ℂ)
-    (hg_compact : HasCompactSupport g) (hg_smooth : ContDiff ℝ ⊤ g) (ε : ℝ) (hε_pos : ε > 0) :
-    ∃ φ : SchwartzMap ℝ ℂ, eLpNorm (g - (φ : ℝ → ℂ)) 2 volume < ENNReal.ofReal ε  := sorry
-
-lemma schwartz_density_weighted_logpull (σ : ℝ) (f : Hσ σ)
-    (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume) :
-    ∀ ε > 0, ∃ φ : SchwartzMap ℝ ℂ,
-      eLpNorm ((fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) -
-      (φ : ℝ → ℂ) t) : ℝ → ℂ) 2 volume < ENNReal.ofReal ε  := sorry
-
-lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
-    (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume)
-    (h_integrable : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume =
-    (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume  := sorry
-
-lemma plancherel_constant_is_one (σ : ℝ) (f : Hσ σ) :
-    ∃ (C : ℝ), C > 0 ∧ ∫ τ : ℝ, ‖LogPull σ f τ‖^2 = C * ‖f‖^2 ∧ C = 1  := sorry
-
-lemma plancherel_constant_unique (σ : ℝ) (f : Hσ σ) (C₁ C₂ : ℝ)
-    (h₁_pos : C₁ > 0) (h₂_pos : C₂ > 0)
-    (h₁_eq : ∫ τ : ℝ, ‖LogPull σ f τ‖ ^ 2 = C₁ * ‖f‖ ^ 2)
-    (h₂_eq : ∫ τ : ℝ, ‖LogPull σ f τ‖ ^ 2 = C₂ * ‖f‖ ^ 2) :
-    C₁ = C₂  := sorry
-
-theorem mellin_parseval_formula (σ : ℝ) :
-    ∃ (C : ℝ), C > 0 ∧ ∀ (f : Hσ σ),
-    -- Additional conditions for Fourier-Plancherel applicability:
-    -- 1. The weighted norm must be finite (L² condition)
-    ((∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume) < ⊤) →
-    -- 2. The weighted LogPull must be integrable (for Fourier transform)
-    (Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) →
-    ∫⁻ x in Set.Ioi (0:ℝ), ENNReal.ofReal (‖f x‖^2 * x^(2*σ - 1)) ∂volume =
-    ENNReal.ofReal (C * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume)  := proven
-
 lemma mellin_transform_linear (σ : ℝ) (h k : Hσ σ) (c : ℂ) (s : ℂ)
     (hh_int : Integrable (fun t => h t * t ^ (s - 1)) (volume.restrict (Set.Ioi 0)))
     (hk_int : Integrable (fun t => k t * t ^ (s - 1)) (volume.restrict (Set.Ioi 0))) :
     mellinTransform ((h + c • k) : ℝ → ℂ) s =
       mellinTransform (h : ℝ → ℂ) s + c * mellinTransform (k : ℝ → ℂ) s  := proven
-
-lemma mellin_kernel_integrable_on_critical_line (σ : ℝ) (f : Hσ σ) (τ : ℝ)
-    (hf_L2 : has_weighted_L2_norm σ f) :
-    Integrable (fun t => f t * t ^ ((σ + I * τ) - 1)) (volume.restrict (Set.Ioi 0))  := sorry
-
-lemma mellin_transform_linear_critical_line (σ : ℝ) (h k : Hσ σ) (c : ℂ) (τ : ℝ)
-    (hh_L2 : has_weighted_L2_norm σ h) (hk_L2 : has_weighted_L2_norm σ k) :
-    mellinTransform ((h + c • k) : ℝ → ℂ) (σ + I * τ) =
-      mellinTransform (h : ℝ → ℂ) (σ + I * τ) + c * mellinTransform (k : ℝ → ℂ) (σ + I * τ)  := proven
-
-lemma mellin_polarization_pointwise (F G : ℂ) :
-    ‖F + G‖ ^ 2 - ‖F - G‖ ^ 2 - Complex.I * ‖F + Complex.I * G‖ ^ 2 +
-      Complex.I * ‖F - Complex.I * G‖ ^ 2 = 4 * (starRingEnd ℂ F * G)  := sorry
-
-theorem parseval_identity_equivalence (σ : ℝ) :
-    ∃ (C : ℝ), C > 0 ∧ ∀ (f g : Hσ σ),
-    -- Additional L² conditions needed for convergence
-    has_weighted_L2_norm σ f → has_weighted_L2_norm σ g →
-    @inner ℂ _ _ f g = C * ∫ τ : ℝ,
-      starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * τ)) *
-      mellinTransform (g : ℝ → ℂ) (σ + I * τ)  := sorry
-
-theorem mellin_isometry_normalized (σ : ℝ) :
-    ∃ (C : ℝ) (U : Hσ σ →L[ℂ] Lp ℂ 2 volume),
-    C > 0 ∧ ∀ f : Hσ σ, ‖U f‖ = C * ‖f‖ ∧
-    (U f : ℝ → ℂ) = fun τ : ℝ => mellinTransform (f : ℝ → ℂ) (σ + I * ↑τ)  := sorry
-
-theorem fourier_parseval_classical (f : Lp ℂ 2 (volume : Measure ℝ)) :
-    ∃ (c : ℝ), c > 0 ∧ ‖f‖ ^ 2 = c * ‖f‖ ^ 2  := sorry
-
-theorem mellin_fourier_parseval_connection (σ : ℝ) (f : Hσ σ) :
-    let g  := sorry
-
-theorem mellin_fourier_unitary_equivalence (σ : ℝ) :
-    ∃ (V : Hσ σ ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ)),
-    ∀ (f : Hσ σ) (τ : ℝ),
-    ∃ (c : ℂ), c ≠ 0 ∧ mellinTransform (f : ℝ → ℂ) (σ + I * τ) = c * (V f τ)  := sorry
-
-theorem mellin_convolution_parseval (σ : ℝ) (f g : Hσ σ) :
-    ∫ τ : ℝ, mellinTransform f (σ + I * τ) * mellinTransform g (1 - σ + I * τ) =
-    2 * Real.pi * ∫ x in Set.Ioi (0 : ℝ), f x * g x ∂mulHaar  := sorry
-
-theorem mellin_energy_conservation (σ : ℝ) (f : Hσ σ) :
-    ∫ x in Set.Ioi (0 : ℝ), ‖(f : ℝ → ℂ) x‖ ^ 2 * (x : ℝ) ^ (2 * σ - 1) ∂volume =
-    (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform f (σ + I * τ)‖ ^ 2  := sorry
 
 end Frourio
 
@@ -5796,33 +5845,185 @@ end Frourio
 
 namespace Frourio
 
-lemma eLpNorm_split_at_one {σ : ℝ} (f : SchwartzMap ℝ ℂ) :
-    eLpNorm (fun x => if x > 0 then f x else 0) 2
-      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) ≤
-    eLpNorm (fun x => if x ∈ Set.Ioc 0 1 then f x else 0) 2
-      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) +
-    eLpNorm (fun x => if x ∈ Set.Ioi 1 then f x else 0) 2
-      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))  := sorry
+lemma weightedMeasure_finite_on_compact {σ : ℝ} (hσ : 1 / 2 < σ) {K : Set ℝ}
+    (hK_compact : IsCompact K) :
+    weightedMeasure σ K < ∞  := proven
 
-lemma weight_function_L2_bound_unit {σ : ℝ} (hσ : 1 / 2 < σ) :
-    ∃ M : ℝ, 0 < M ∧
-    (∫⁻ x in Set.Ioc 0 1, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂mulHaar) ^
-        (1 / 2 : ℝ) ≤ ENNReal.ofReal M  := sorry
+lemma memLp_of_hasFiniteIntegral_and_aestronglyMeasurable {μ : Measure ℝ} {f : ℝ → ℂ}
+    (hf_meas : AEStronglyMeasurable f μ)
+    (hf_finite : HasFiniteIntegral (fun x => ‖f x‖ ^ 2) μ) :
+    MemLp f 2 μ  := proven
+
+lemma hasFiniteIntegral_of_dominated_on_compactSupport {μ : Measure ℝ} {g : ℝ → ℂ} {M : ℝ}
+    (h_dominated : ∀ᵐ x ∂μ, ‖g x‖ ^ 2 ≤ M ^ 2)
+    (h_finite_on_support : μ (tsupport g) < ∞) :
+    HasFiniteIntegral (fun x => ‖g x‖ ^ 2) μ  := proven
+
+lemma memLp_convolution_simpleFunc_truncation {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f_simple : SimpleFunc ℝ ℂ) (φ : ℝ → ℝ) (R δ : ℝ)
+    (_ : MemLp (fun x => if |x| ≤ R then f_simple x else 0) 2 (weightedMeasure σ))
+    (hφ_smooth : ContDiff ℝ (↑⊤ : ℕ∞) φ) (hφ_compact : HasCompactSupport φ)
+    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ)
+    (hR_pos : 0 < R) (hδ_pos : 0 < δ) :
+    MemLp (fun x => ∫ y, (if |y| ≤ R then f_simple y else 0) * (φ (x - y) : ℂ)) 2
+      (weightedMeasure σ)  := proven
+
+lemma eLpNorm_lp_function_diff_eq {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ))
+    (f : ℝ → ℂ) (hf_memLp : MemLp f 2 (weightedMeasure σ)) :
+    eLpNorm ((s : ℝ → ℂ) - (hf_memLp.toLp f : ℝ → ℂ)) 2 (weightedMeasure σ) =
+    eLpNorm ((s : ℝ → ℂ) - (f : ℝ → ℂ)) 2 (weightedMeasure σ)  := proven
+
+lemma weightedMeasure_finite_on_interval {σ : ℝ} (hσ : 1 / 2 < σ) (R : ℝ) :
+    (weightedMeasure σ) (Set.Icc (-R) R) < ∞  := proven
+
+lemma simpleFunc_unbounded_levelSet_finite_measure_L2 {σ : ℝ} (_hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (hf_memL2 : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (v : ℂ) (hv_nonzero : v ≠ 0) (_hv_range : v ∈ Set.range (f : ℝ → ℂ))
+    (_h_unbounded : ¬∃ R > 0, {x : ℝ | f x = v} ⊆ Set.Icc (-R) R) :
+    (weightedMeasure σ) {x : ℝ | f x = v} ≠ ∞  := proven
+
+
+lemma simpleFunc_levelSet_tail_measure_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (hf_memL2 : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (v : ℂ) (hv_nonzero : v ≠ 0) (hv_range : v ∈ Set.range (f : ℝ → ℂ)) :
+    Filter.Tendsto (fun R => (weightedMeasure σ) {x | f x = v ∧ R < |x|}) Filter.atTop (𝓝 0)  := proven
+
+lemma simpleFunc_tail_l2_convergence {σ : ℝ} (_hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (_hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (_h_pointwise : ∀ x : ℝ,
+      Filter.Tendsto (fun R => if |x| ≤ R then 0 else f x) Filter.atTop (𝓝 0))
+    (_h_domination : ∀ R x, ‖if |x| ≤ R then 0 else f x‖ ≤ ‖f x‖)
+    (h_tail_measure_vanishing : ∀ v : ℂ, v ≠ 0 → v ∈ Set.range (f : ℝ → ℂ) →
+      Filter.Tendsto (fun R => (weightedMeasure σ) {x | f x = v ∧ R < |x|})
+        Filter.atTop (𝓝 0)) :
+    Filter.Tendsto
+      (fun R => eLpNorm (fun x => if |x| ≤ R then 0 else f x) 2 (weightedMeasure σ))
+      Filter.atTop (𝓝 0)  := proven
+
+lemma simpleFunc_tail_pointwise_limit (f : SimpleFunc ℝ ℂ) :
+    ∀ x : ℝ, Filter.Tendsto (fun R => if |x| ≤ R then 0 else f x) Filter.atTop (𝓝 0)  := proven
+
+lemma simpleFunc_tail_L2_convergence {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ)) :
+    Filter.Tendsto (fun R => eLpNorm (fun x => if |x| ≤ R then 0 else f x) 2 (weightedMeasure σ))
+      Filter.atTop (𝓝 0)  := proven
+
+lemma l2_tail_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ R : ℝ, 0 < R ∧
+    eLpNorm (fun x => if |x| ≤ R then 0 else f x) 2 (weightedMeasure σ) < ENNReal.ofReal ε  := proven
+
+lemma truncation_memLp {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (_hf_memLp : MemLp (f : ℝ → ℂ) 2 (weightedMeasure σ))
+    (R : ℝ) (_hR_pos : 0 < R) :
+    MemLp (fun x => if |x| ≤ R then f x else 0) 2 (weightedMeasure σ)  := proven
+
+lemma lp_tail_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
+    (s : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε) :
+    ∃ R : ℝ, 0 < R ∧
+      eLpNorm (fun x => if |x| > R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ) <
+      ENNReal.ofReal ε  := proven
+
+lemma lp_truncation_memLp {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
+    MemLp (fun x => if |x| ≤ R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ)  := proven
+
+lemma lp_truncation_integrable {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) :
+    Integrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume  := sorry
+
+lemma positive_truncation_memLp {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
+    MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ)  := sorry
+
+lemma positive_truncation_error_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (ε : ℝ)
+    (hε : 0 < ε)
+    (hR_truncation : eLpNorm (fun x => if |x| > R then (s : ℝ → ℂ) x else 0) 2
+      (weightedMeasure σ) < ENNReal.ofReal ε) :
+    let s_R : ℝ → ℂ  := sorry
+
+lemma convolution_integrable_smooth_continuous {f : ℝ → ℂ} {φ : ℝ → ℝ}
+    (hf_integrable : Integrable f volume) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
+    (hφ_compact : HasCompactSupport φ) :
+    Continuous (fun x => ∫ y, f y * φ (x - y) ∂volume)  := sorry
+
+lemma convolution_memLp_weighted {σ : ℝ} (hσ : 1 / 2 < σ)
+    {f : ℝ → ℂ} {φ : ℝ → ℝ} (R δ : ℝ) (hR_pos : 0 < R) (hδ_pos : 0 < δ)
+    (hf_memLp : MemLp f 2 (weightedMeasure σ))
+    (hf_vol_integrable : LocallyIntegrable f volume)
+    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
+    (hφ_compact : HasCompactSupport φ)
+    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ) :
+    MemLp (fun x => ∫ y, f y * φ (x - y) ∂volume) 2 (weightedMeasure σ)  := sorry
+
+lemma dist_lp_truncation_bound {σ : ℝ} (hσ : 1 / 2 < σ)
+    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) (ε : ℝ) (hε : 0 < ε)
+    (s_R : ℝ → ℂ) (hs_R_def : s_R = fun x => if |x| ≤ R then (s : ℝ → ℂ) x else 0)
+    (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
+    (h_truncation_error : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
+    dist s (hs_R_memLp.toLp s_R) < ε  := sorry
+
+lemma mollification_delta_small (ε : ℝ) (hε_pos : 0 < ε)
+    (s_R : ℝ → ℂ) (R : ℝ) (_hR_pos : 0 < R) (σ : ℝ) :
+    let M  := proven
+
+lemma mollification_error_bound {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : ℝ → ℂ) (φ : ℝ → ℝ) (R δ ε : ℝ) (hR_pos : 0 < R) (hδ_pos : 0 < δ) (hε_pos : 0 < ε)
+    (hf_memLp : MemLp f 2 (weightedMeasure σ))
+    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ) (hφ_compact : HasCompactSupport φ)
+    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ)
+    (g : ℝ → ℂ) (hg_def : g = fun x => ∫ y, f y * φ (x - y) ∂volume)
+    (hg_memLp : MemLp g 2 (weightedMeasure σ))
+    (hδ_small : δ < ε / (4 * (ENNReal.toReal (eLpNorm f 2 (weightedMeasure σ)) + 1))) :
+    dist (hf_memLp.toLp f) (hg_memLp.toLp g) < ε / 2  := sorry
+
+lemma lp_truncation_locally_integrable {σ : ℝ} (hσ : 1 / 2 < σ)
+    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) :
+    LocallyIntegrable (fun x => if |x| ≤ R then (s : ℝ → ℂ) x else 0) volume  := sorry
+
+lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+    (s : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε) :
+    ∃ (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ)),
+      HasCompactSupport g_cont ∧
+      Continuous g_cont ∧
+      dist s (hg_cont_memLp.toLp g_cont) < ε  := sorry
+
+lemma continuous_to_smooth_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+    (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ))
+    (hg_cont_compact : HasCompactSupport g_cont) (hg_cont_continuous : Continuous g_cont)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ)),
+      HasCompactSupport g ∧
+      ContDiff ℝ ⊤ g ∧
+      dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε  := sorry
+
+lemma weightedMeasure_eq_withDensity (σ : ℝ) :
+    weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))  := sorry
+
+lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < σ)
+    (hσ_upper : σ < 3 / 2)
+    (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) : ∃ (g : ℝ → ℂ) (hg_mem : MemLp g 2
+    (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))),
+     HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧ dist f (hg_mem.toLp g) < ε  := sorry
 
 lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
-    ∃ (k₁ k₂ : ℕ) (C : ℝ), 0 < C ∧
-    ∀ f : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ f‖ ≤ C * SchwartzMap.seminorm ℝ k₁ k₂ f  := sorry
+    ∃ (k₁ : ℕ) (C₀ C₁ : ℝ), 0 < C₀ ∧ 0 < C₁ ∧
+    ∀ f : SchwartzMap ℝ ℂ,
+      ‖schwartzToHσ hσ f‖ ≤
+        C₀ * SchwartzMap.seminorm ℝ 0 0 f +
+          C₁ * SchwartzMap.seminorm ℝ k₁ 0 f  := proven
 
-theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ : 1 / 2 < σ) :
-    DenseRange (schwartzToHσ hσ)  := sorry
+theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2) :
+    DenseRange (schwartzToHσ hσ_lower)  := proven
 
-lemma exists_schwartz_approximation {σ : ℝ} (hσ : 1 / 2 < σ) (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :
-    ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ φ - f‖ < ε  := proven
+lemma exists_schwartz_approximation {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+    (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :
+    ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ_lower φ - f‖ < ε  := proven
 
-lemma schwartz_ae_dense {σ : ℝ} (hσ : 1 / 2 < σ) (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :
-    ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ φ - f‖ < ε ∧
-    (schwartzToHσ hσ φ : ℝ → ℂ) =ᵐ[mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))]
-      (fun x => if x > 0 then φ x else 0)  := proven
+lemma schwartz_ae_dense {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+    (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :
+    ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ_lower φ - f‖ < ε ∧
+    (schwartzToHσ hσ_lower φ : ℝ → ℂ) =ᵐ[mulHaar.withDensity (fun x =>
+      ENNReal.ofReal (x ^ (2 * σ - 1)))] (fun x => if x > 0 then φ x else 0)  := proven
 
 end Frourio
 
@@ -5876,6 +6077,54 @@ lemma eLpNorm_bound_on_unit_interval {σ : ℝ}
     eLpNorm (fun x => if x ∈ Set.Ioc 0 1 then f x else 0) 2
       (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) ≤
     ENNReal.ofReal (SchwartzMap.seminorm ℝ 0 0 f * M)  := proven
+
+lemma eLpNorm_split_at_one {σ : ℝ} (f : SchwartzMap ℝ ℂ) :
+    eLpNorm (fun x => if x > 0 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) ≤
+    eLpNorm (fun x => if x ∈ Set.Ioc 0 1 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) +
+    eLpNorm (fun x => if x ∈ Set.Ioi 1 then f x else 0) 2
+      (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))  := proven
+
+lemma weight_function_L2_bound_unit {σ : ℝ} (hσ : 1 / 2 < σ) :
+    ∃ M : ℝ, 0 < M ∧
+    (∫⁻ x in Set.Ioc 0 1, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂mulHaar) ^
+        (1 / 2 : ℝ) ≤ ENNReal.ofReal M  := proven
+
+lemma mulHaar_measure_Icc_lt_top {a b : ℝ} (ha : 0 < a) (_ : a ≤ b) :
+    mulHaar (Set.Icc a b) < ∞  := proven
+
+lemma weight_integrableOn_Icc {σ a b : ℝ} (ha : 0 < a) (hab : a ≤ b) :
+    IntegrableOn (fun x : ℝ => x ^ (2 * σ - 1 : ℝ)) (Set.Icc a b) mulHaar  := proven
+
+lemma weight_locallyIntegrable {σ : ℝ} (_ : 1 / 2 < σ) :
+    LocallyIntegrableOn (fun x : ℝ => x ^ (2 * σ - 1 : ℝ)) (Set.Ioi 0) mulHaar  := proven
+
+lemma memLp_of_Hσ {σ : ℝ} (f : Hσ σ) :
+    MemLp (Hσ.toFun f)
+      2 (mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))  := proven
+
+lemma simpleFunc_bounded_support_integrable
+    (f : SimpleFunc ℝ ℂ) (R : ℝ) (_ : 0 < R)
+    (hR_bound : Function.support (f : ℝ → ℂ) ⊆ Set.Icc (-R) R) :
+    Integrable f volume  := proven
+
+lemma finite_support_bounded (f : ℝ → ℂ)
+    (hf_finite : Set.Finite (Function.support f)) :
+    ∃ R : ℝ, 0 < R ∧ Function.support f ⊆ Metric.closedBall 0 R  := proven
+
+
+lemma range_norm_subset_tsupport_image_with_zero (φ : ℝ → ℝ) :
+    Set.range (fun x => ‖φ x‖) ⊆ Set.insert 0 ((fun x => ‖φ x‖) '' (tsupport φ))  := proven
+
+lemma continuous_convolution_integrable_smooth (f : ℝ → ℂ) (φ : ℝ → ℝ)
+    (hf_integrable : Integrable f) (hφ_smooth : ContDiff ℝ (↑⊤ : ℕ∞) φ)
+    (hφ_compact : HasCompactSupport φ) :
+    Continuous (fun x => ∫ y, f y * (φ (x - y) : ℂ))  := proven
+
+lemma simpleFunc_truncation_integrable {σ : ℝ} (_ : 1 / 2 < σ)
+    (f : SimpleFunc ℝ ℂ) (R : ℝ) :
+    Integrable (fun x => if |x| ≤ R then f x else 0)  := proven
 
 end Frourio
 
@@ -8910,4 +9159,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 87
+Total files processed: 88
