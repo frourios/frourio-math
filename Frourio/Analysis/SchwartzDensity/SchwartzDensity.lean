@@ -12,6 +12,7 @@ import Mathlib.Analysis.Distribution.SchwartzSpace
 import Mathlib.MeasureTheory.Function.SimpleFuncDenseLp
 import Mathlib.MeasureTheory.Function.ContinuousMapDense
 import Mathlib.Analysis.Calculus.BumpFunction.FiniteDimension
+import Mathlib.Analysis.Calculus.BumpFunction.SmoothApprox
 import Mathlib.Algebra.Order.Floor.Semiring
 import Mathlib.Analysis.Convolution
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
@@ -27,450 +28,648 @@ import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.Analysis.Normed.Group.Bounded
 import Mathlib.Order.Filter.Basic
 
-open MeasureTheory Measure Real Complex SchwartzMap intervalIntegral
+open MeasureTheory Measure Real Complex SchwartzMap intervalIntegral Set
 open scoped ENNReal Topology ComplexConjugate
 
 namespace Frourio
 
 section SchwartzDensity
 
-/-- Standard mollification error for L² functions with weighted measure -/
-lemma standard_mollification_l2_error {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f : ℝ → ℂ) (hf_memLp : MemLp f 2 (weightedMeasure σ))
-    (φ : ℝ → ℝ) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
-    (hφ_compact : HasCompactSupport φ)
-    (hφ_nonneg : ∀ x, 0 ≤ φ x)
-    (hφ_integral : ∫ x, φ x ∂volume = 1)
-    (δ ε : ℝ) (hδ_pos : 0 < δ) (hε_pos : 0 < ε) :
-    let φδ := fun x => (1 / δ) * φ (x / δ)
-    let g := fun x => ∫ y, f y * φδ (x - y) ∂volume
-    ∀ hg_memLp : MemLp g 2 (weightedMeasure σ),
-    δ < ε / (4 * (ENNReal.toReal (eLpNorm f 2 (weightedMeasure σ)) + 1)) →
-    dist (hf_memLp.toLp f) (hg_memLp.toLp g) < ε := by
-  sorry -- Standard mollification approximation theorem
+/-- L² functions can be approximated by continuous
+  compactly supported functions in weighted L² spaces -/
+lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ)
+    (f : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε) :
+    ∃ (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ)),
+      HasCompactSupport g_cont ∧
+      Continuous g_cont ∧
+      dist f (hg_cont_memLp.toLp g_cont) < ε := by
+  classical
+  haveI : Fact (1 / 2 < σ) := ⟨hσ_lower⟩
+  let μ := weightedMeasure σ
+  have hf_mem : MemLp (fun x : ℝ => (f : ℝ → ℂ) x) 2 μ := Lp.memLp f
+  have hε_half : 0 < ε / 2 := half_pos hε
+  obtain ⟨R, hR_pos, f_R, hf_R_memLp, hf_R_compact, h_trunc⟩ :=
+    truncation_approximation hσ_lower (fun x : ℝ => (f : ℝ → ℂ) x) hf_mem ε hε
+  have h_two_ne_top : (2 : ℝ≥0∞) ≠ ∞ := by simp
+  have hε_ofReal_ne : ENNReal.ofReal (ε / 2) ≠ 0 := by
+    simp [ENNReal.ofReal_eq_zero, not_le, hε_half]
+  obtain ⟨g_cont, hg_compact, hg_bound, hg_continuous, hg_memLp⟩ :=
+    MeasureTheory.MemLp.exists_hasCompactSupport_eLpNorm_sub_le
+      (μ := μ) (p := (2 : ℝ≥0∞)) (f := f_R) h_two_ne_top hf_R_memLp
+      (ε := ENNReal.ofReal (ε / 2)) hε_ofReal_ne
+  let fR_Lp := hf_R_memLp.toLp f_R
+  let g_Lp := hg_memLp.toLp g_cont
+  have hf_toLp :
+      hf_mem.toLp (fun x : ℝ => (f : ℝ → ℂ) x) = f := by
+    apply Lp.ext
+    simp
+  have hf_diff_mem :
+      MemLp (fun x : ℝ => (f : ℝ → ℂ) x - f_R x) 2 μ := hf_mem.sub hf_R_memLp
+  have h_dist_trunc_lt : dist f fR_Lp < ε / 2 := by
+    have hcalc :
+        (hf_mem.sub hf_R_memLp).toLp
+            (fun x : ℝ => (f : ℝ → ℂ) x - f_R x)
+          = f - fR_Lp := by
+      simpa [hf_toLp, fR_Lp] using MemLp.toLp_sub hf_mem hf_R_memLp
+    have hnorm_eq :
+        ‖f - fR_Lp‖
+          = ENNReal.toReal
+              (eLpNorm (fun x : ℝ => (f : ℝ → ℂ) x - f_R x) 2 μ) := by
+      simpa [dist_eq_norm, fR_Lp, hcalc] using
+        (Lp.norm_toLp (μ := μ)
+          (f := fun x : ℝ => (f : ℝ → ℂ) x - f_R x) hf_diff_mem)
+    have hfinite :
+        eLpNorm (fun x : ℝ => (f : ℝ → ℂ) x - f_R x) 2 μ ≠ ∞ := hf_diff_mem.2.ne
+    have htoReal_lt :
+        ENNReal.toReal (eLpNorm (fun x : ℝ => (f : ℝ → ℂ) x - f_R x) 2 μ)
+          < ε / 2 := by
+      have := (ENNReal.toReal_lt_toReal hfinite (by simp)).2 h_trunc
+      simpa [ENNReal.toReal_ofReal (le_of_lt hε_half)] using this
+    simpa [dist_eq_norm, hnorm_eq] using htoReal_lt
+  have hg_diff_mem : MemLp (fun x : ℝ => f_R x - g_cont x) 2 μ :=
+    hf_R_memLp.sub hg_memLp
+  have h_dist_cont_le : dist fR_Lp g_Lp ≤ ε / 2 := by
+    have hcalc :
+        (hf_R_memLp.sub hg_memLp).toLp (fun x : ℝ => f_R x - g_cont x)
+          = fR_Lp - g_Lp := by
+      simpa [fR_Lp, g_Lp] using MemLp.toLp_sub hf_R_memLp hg_memLp
+    have hnorm_eq :
+        ‖fR_Lp - g_Lp‖
+          = ENNReal.toReal (eLpNorm (fun x : ℝ => f_R x - g_cont x) 2 μ) := by
+      simpa [dist_eq_norm, fR_Lp, g_Lp, hcalc] using
+        (Lp.norm_toLp (μ := μ)
+          (f := fun x : ℝ => f_R x - g_cont x) hg_diff_mem)
+    have hfinite :
+        eLpNorm (fun x : ℝ => f_R x - g_cont x) 2 μ ≠ ∞ := hg_diff_mem.2.ne
+    have htoReal_le :
+        ENNReal.toReal (eLpNorm (fun x : ℝ => f_R x - g_cont x) 2 μ)
+          ≤ ε / 2 := by
+      have := (ENNReal.toReal_le_toReal hfinite (by simp)).2 hg_bound
+      simpa [ENNReal.toReal_ofReal (le_of_lt hε_half)] using this
+    simpa [dist_eq_norm, hnorm_eq] using htoReal_le
+  refine ⟨g_cont, hg_memLp, hg_compact, hg_continuous, ?_⟩
+  have hsum_lt :
+      dist f fR_Lp + dist fR_Lp (hg_memLp.toLp g_cont) < ε := by
+    have h_add := add_lt_add_of_lt_of_le h_dist_trunc_lt h_dist_cont_le
+    have hsum : ε / 2 + ε / 2 = ε := by ring
+    simpa [g_Lp, add_comm, add_left_comm, add_assoc, hsum] using h_add
+  refine lt_of_le_of_lt ?_ hsum_lt
+  simpa using dist_triangle f fR_Lp (hg_memLp.toLp g_cont)
 
-/-- Truncated functions from L²(weightedMeasure σ) are locally integrable with respect to volume -/
-lemma s_R_locally_integrable_volume {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R)
-    (hs_R_memLp : MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) 2
-      (weightedMeasure σ)) :
-    LocallyIntegrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume := by
-  -- s_R has support on (0,R] and is in L²(weightedMeasure σ), so locally integrable
-  sorry
+/-- Given a function with compact support on `ℝ`, there exists a radius `R > 0` such that the
+topological support is contained in the closed ball of radius `R`. -/
+lemma HasCompactSupport.exists_radius_closedBall {f : ℝ → ℂ}
+    (hf : HasCompactSupport f) : ∃ R : ℝ, 0 < R ∧ tsupport f ⊆ Metric.closedBall 0 R := by
+  classical
+  have hK_compact : IsCompact (tsupport f) := hf
+  by_cases hK_empty : tsupport f = (∅ : Set ℝ)
+  · refine ⟨1, zero_lt_one, ?_⟩
+    simp [hK_empty]
+  · have hK_nonempty : (tsupport f).Nonempty :=
+      Set.nonempty_iff_ne_empty.mpr hK_empty
+    obtain ⟨x₀, hx₀, hx₀_max⟩ :=
+      hK_compact.exists_isMaxOn hK_nonempty
+        ((continuous_norm : Continuous fun x : ℝ => ‖x‖).continuousOn)
+    have hx0_pos : 0 < ‖x₀‖ + 1 := by
+      have hx0_nonneg : 0 ≤ ‖x₀‖ := norm_nonneg _
+      exact add_pos_of_nonneg_of_pos hx0_nonneg zero_lt_one
+    refine ⟨‖x₀‖ + 1, hx0_pos, ?_⟩
+    intro x hx
+    have hx_le : ‖x‖ ≤ ‖x₀‖ := hx₀_max hx
+    have hx_le' : ‖x‖ ≤ ‖x₀‖ + 1 := le_trans hx_le (by linarith)
+    simpa [Metric.mem_closedBall, Real.dist_eq, sub_eq_add_neg] using hx_le'
 
-/-- Convert eLpNorm bound to Lp distance bound for truncation error -/
-lemma truncation_error_dist_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ))
-    (s_R : ℝ → ℂ) (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
-    (ε : ℝ) (hε : 0 < ε)
-    (h_norm_bound : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
-    dist s (hs_R_memLp.toLp s_R) < ε := by
-  -- The distance in Lp space equals the L² norm of the difference
-  -- dist s (hs_R_memLp.toLp s_R) = ‖s - hs_R_memLp.toLp s_R‖
-  -- Since toLp s_R represents s_R as an Lp element with the same function a.e.,
-  -- this equals eLpNorm ((s : ℝ → ℂ) - s_R) converted to real
-  sorry
+/-- A continuous function with compact support on `ℝ` is uniformly continuous. -/
+lemma Continuous.uniformContinuous_of_hasCompactSupport {f : ℝ → ℂ}
+    (hf : Continuous f) (hf_support : HasCompactSupport f) : UniformContinuous f := by
+  classical
+  obtain ⟨R, hR_pos, hR_subset⟩ := HasCompactSupport.exists_radius_closedBall hf_support
+  let B := Metric.closedBall (0 : ℝ) (R + 1)
+  have hf_zero : ∀ {x : ℝ}, R < ‖x‖ → f x = 0 := by
+    intro x hx
+    have hx_not : x ∉ tsupport f := by
+      intro hx_mem
+      have hx_le : ‖x‖ ≤ R := by
+        simpa [Metric.mem_closedBall, Real.dist_eq, sub_eq_add_neg] using hR_subset hx_mem
+      exact (not_le_of_gt hx) hx_le
+    simpa using image_eq_zero_of_notMem_tsupport hx_not
+  have hf_cont_on_ball : ContinuousOn f B := by
+    intro x hx
+    have hx_cont : ContinuousAt f x := hf.continuousAt
+    exact hx_cont.continuousWithinAt
+  have hB_compact : IsCompact B := by
+    simpa [B] using (isCompact_closedBall (0 : ℝ) (R + 1))
+  have hf_uc_on : UniformContinuousOn f B :=
+    hB_compact.uniformContinuousOn_of_continuous hf_cont_on_ball
+  refine Metric.uniformContinuous_iff.2 ?_
+  intro ε hε
+  obtain ⟨δ₀, hδ₀_pos, hδ₀⟩ := Metric.uniformContinuousOn_iff.mp hf_uc_on ε hε
+  refine ⟨min δ₀ 1, lt_min hδ₀_pos zero_lt_one, ?_⟩
+  intro x y hxy
+  have outside_case :
+      ∀ {a b : ℝ}, a ∉ B → dist a b < min δ₀ 1 → dist (f a) (f b) < ε := by
+    intro a b ha_out hdist
+    have ha_norm_gt : R + 1 < ‖a‖ := by
+      have ha_dist_gt : R + 1 < dist a 0 := lt_of_not_ge
+        (by simpa [B, Metric.mem_closedBall, Real.dist_eq, sub_eq_add_neg] using ha_out)
+      simpa [Real.dist_eq, sub_eq_add_neg] using ha_dist_gt
+    have ha_gt : R < ‖a‖ :=
+      lt_of_le_of_lt (by linarith : R ≤ R + 1) ha_norm_gt
+    have ha_zero : f a = 0 := hf_zero ha_gt
+    have hdist_lt_one : dist a b < 1 := lt_of_lt_of_le hdist (min_le_right _ _)
+    have hdist_le_one : dist a b ≤ 1 := le_of_lt hdist_lt_one
+    have ha_minus_one_gt : R < ‖a‖ - 1 := by linarith [ha_norm_gt]
+    have ha_minus_ge : ‖a‖ - 1 ≤ ‖a‖ - dist a b :=
+      sub_le_sub_left hdist_le_one ‖a‖
+    have ha_minus_gt : R < ‖a‖ - dist a b :=
+      lt_of_lt_of_le ha_minus_one_gt ha_minus_ge
+    have htriangle : ‖a‖ ≤ dist a b + ‖b‖ := by
+      have h := dist_triangle a b 0
+      simpa [Real.dist_eq, sub_eq_add_neg, add_comm] using h
+    have ha_minus_le_norm_b : ‖a‖ - dist a b ≤ ‖b‖ := by
+      linarith
+    have hb_gt : R < ‖b‖ := lt_of_lt_of_le ha_minus_gt ha_minus_le_norm_b
+    have hb_zero : f b = 0 := hf_zero hb_gt
+    simpa [ha_zero, hb_zero] using hε
+  by_cases hx_mem : x ∈ B
+  · by_cases hy_mem : y ∈ B
+    · have hdist_lt_δ : dist x y < δ₀ := lt_of_lt_of_le hxy (min_le_left _ _)
+      exact hδ₀ x hx_mem y hy_mem hdist_lt_δ
+    · have hy_not : y ∉ B := hy_mem
+      have hdist_yx : dist y x < min δ₀ 1 := by simpa [dist_comm] using hxy
+      have hy_case := outside_case hy_not hdist_yx
+      simpa [dist_comm] using hy_case
+  · have hx_not : x ∉ B := hx_mem
+    exact outside_case hx_not hxy
 
-/-- Distance equivalence under measure isometry for Lp spaces -/
+/-- A smooth cut-off function that equals `1` on the closed ball of radius `R` and whose
+support is contained in the closed ball of radius `R + 1`. -/
+lemma exists_smooth_cutoff_closedBall (R : ℝ) (hR : 0 < R) :
+    ∃ χ : ℝ → ℝ,
+      HasCompactSupport χ ∧
+      ContDiff ℝ (⊤ : ℕ∞) χ ∧
+      (∀ x ∈ Metric.closedBall (0 : ℝ) R, χ x = 1) ∧
+      tsupport χ = Metric.closedBall (0 : ℝ) (R + 1) := by
+  classical
+  let χ_bump : ContDiffBump (0 : ℝ) :=
+    ⟨R, R + 1, hR, by linarith⟩
+  refine ⟨(fun x : ℝ => χ_bump x), ?_, ?_, ?_, ?_⟩
+  · simpa using χ_bump.hasCompactSupport
+  · have h_smooth : ContDiff ℝ (⊤ : ℕ∞) (fun x : ℝ => χ_bump x) := by
+      simpa using (χ_bump.contDiff (n := (⊤ : ℕ∞)))
+    change ContDiff ℝ (⊤ : ℕ∞) (fun x : ℝ => χ_bump x)
+    exact h_smooth
+  · intro x hx
+    have hx' : x ∈ Metric.closedBall (0 : ℝ) χ_bump.rIn := by
+      simpa using hx
+    exact χ_bump.one_of_mem_closedBall hx'
+  · simpa using χ_bump.tsupport_eq
+
+/-- If two functions coincide outside a measurable set of finite measure and are uniformly
+close on that set, then their L²-distance with respect to the weighted measure is controlled by
+the uniform bound and the measure of the set. -/
+lemma lp_dist_le_of_uniform_bound_on_set {μ : Measure ℝ} {f g : ℝ → ℂ}
+    (hf : MemLp f 2 μ) (hg : MemLp g 2 μ) {K : Set ℝ} (hK_meas : MeasurableSet K)
+    (hK_fin : μ K < ∞) (h_eq : ∀ x, x ∉ K → f x = g x)
+    {C : ℝ} (hC_nonneg : 0 ≤ C) (h_bound : ∀ x ∈ K, ‖f x - g x‖ ≤ C) :
+    dist (hf.toLp f) (hg.toLp g) ≤ C * Real.sqrt ((μ K).toReal) := by
+  classical
+  set h := fun x : ℝ => f x - g x
+  have h_mem : MemLp h 2 μ := hf.sub hg
+  have h_dist_eq :
+      dist (hf.toLp f) (hg.toLp g) = ENNReal.toReal (eLpNorm h 2 μ) := by
+    have hcalc : hf.toLp f - hg.toLp g = h_mem.toLp h := by
+      simpa [h] using (MemLp.toLp_sub hf hg).symm
+    have hnorm : ‖h_mem.toLp h‖ = ENNReal.toReal (eLpNorm h 2 μ) := by
+      simp
+    calc
+      dist (hf.toLp f) (hg.toLp g)
+          = ‖hf.toLp f - hg.toLp g‖ := by simp [dist_eq_norm]
+      _ = ‖h_mem.toLp h‖ := by simp [hcalc]
+      _ = ENNReal.toReal (eLpNorm h 2 μ) := hnorm
+  have h_indicator : h =ᵐ[μ] K.indicator h :=
+    Filter.Eventually.of_forall fun x => by
+      by_cases hx : x ∈ K
+      · simp [h, hx]
+      · have hx_eq : f x = g x := h_eq x hx
+        simp [h, hx, hx_eq]
+  have h_eLp_restrict : eLpNorm h 2 μ = eLpNorm h 2 (μ.restrict K) := by
+    have h_norm_indicator :
+        ∀ᵐ x ∂μ, ‖h x‖ = ‖K.indicator h x‖ :=
+      h_indicator.mono fun x hx => by simp [h, hx]
+    have := eLpNorm_congr_norm_ae (μ := μ) (p := (2 : ℝ≥0∞)) h_norm_indicator
+    simpa [eLpNorm_indicator_eq_eLpNorm_restrict (μ := μ) (s := K) (f := h) hK_meas]
+      using this
+  have h_bound_all : ∀ x, ‖h x‖ ≤ C := by
+    intro x
+    by_cases hx : x ∈ K
+    · exact h_bound x hx
+    · have hx_eq : h x = 0 := by
+        simp [h, h_eq x hx]
+      simp [hx_eq, hC_nonneg]
+  have h_bound_restrict : ∀ᵐ x ∂μ.restrict K, ‖h x‖ ≤ C :=
+    (ae_of_all _ h_bound_all)
+  have h_eLp_bound :
+      eLpNorm h 2 (μ.restrict K)
+        ≤ μ.restrict K Set.univ ^ (1 / ((2 : ℝ≥0∞).toReal)) * ENNReal.ofReal C := by
+    simpa [one_div] using
+      (eLpNorm_le_of_ae_bound (μ := μ.restrict K) (p := (2 : ℝ≥0∞))
+        (f := h) h_bound_restrict)
+  have h_restrict_univ : μ.restrict K Set.univ = μ K := by
+    simp [Measure.restrict_apply]
+  have h_mu_pow : μ.restrict K Set.univ ^ (1 / ((2 : ℝ≥0∞).toReal))
+      = (μ K) ^ (1 / 2 : ℝ) := by
+    simp [h_restrict_univ]
+  have h_eLp_bound' : eLpNorm h 2 μ ≤ (μ K) ^ (1 / 2 : ℝ) * ENNReal.ofReal C := by
+    simpa [h_eLp_restrict, h_mu_pow]
+      using h_eLp_bound
+  have hμ_ne_top : μ K ≠ ∞ := ne_of_lt hK_fin
+  have h_pow_ne_top : (μ K) ^ (1 / 2 : ℝ) ≠ ∞ :=
+    ENNReal.rpow_ne_top_of_nonneg (by norm_num) hμ_ne_top
+  have h_rhs_ne_top : (μ K) ^ (1 / 2 : ℝ) * ENNReal.ofReal C ≠ ∞ :=
+    ENNReal.mul_ne_top h_pow_ne_top (by simp)
+  have h_eLp_fin : eLpNorm h 2 μ ≠ ∞ :=
+    (ne_of_lt h_mem.2)
+  have h_toReal_le :
+      ENNReal.toReal (eLpNorm h 2 μ)
+        ≤ ENNReal.toReal ((μ K) ^ (1 / 2 : ℝ) * ENNReal.ofReal C) := by
+    exact (ENNReal.toReal_le_toReal h_eLp_fin h_rhs_ne_top).2 h_eLp_bound'
+  have h_toReal_mul :
+      ENNReal.toReal ((μ K) ^ (1 / 2 : ℝ) * ENNReal.ofReal C)
+        = Real.sqrt ((μ K).toReal) * C := by
+    have h_pow_sqrt : ENNReal.toReal ((μ K) ^ (1 / 2 : ℝ))
+        = Real.sqrt ((μ K).toReal) := by
+      have h₁ := (ENNReal.toReal_rpow (μ K) (1 / 2 : ℝ)).symm
+      have h₂ := (Real.sqrt_eq_rpow ((μ K).toReal)).symm
+      simpa using h₁.trans h₂
+    have h_toReal_C : ENNReal.toReal (ENNReal.ofReal C) = C :=
+      ENNReal.toReal_ofReal hC_nonneg
+    calc
+      ENNReal.toReal ((μ K) ^ (1 / 2 : ℝ) * ENNReal.ofReal C)
+          = ENNReal.toReal ((μ K) ^ (1 / 2 : ℝ)) *
+              ENNReal.toReal (ENNReal.ofReal C) := by
+            simp [ENNReal.toReal_mul]
+      _ = Real.sqrt ((μ K).toReal) *
+              ENNReal.toReal (ENNReal.ofReal C) := by
+            rw [h_pow_sqrt]
+      _ = Real.sqrt ((μ K).toReal) * C := by
+            rw [h_toReal_C]
+  have h_norm_le :
+      ENNReal.toReal (eLpNorm h 2 μ)
+        ≤ Real.sqrt ((μ K).toReal) * C := by
+    calc
+      ENNReal.toReal (eLpNorm h 2 μ)
+          ≤ ENNReal.toReal ((μ K) ^ (1 / 2 : ℝ) * ENNReal.ofReal C) := h_toReal_le
+      _ = Real.sqrt ((μ K).toReal) * C := h_toReal_mul
+  have h_dist_le :
+      dist (hf.toLp f) (hg.toLp g)
+        ≤ Real.sqrt ((μ K).toReal) * C := by
+    simpa [h_dist_eq] using h_norm_le
+  have h_final :
+      dist (hf.toLp f) (hg.toLp g)
+        ≤ C * Real.sqrt ((μ K).toReal) := by
+    calc
+      dist (hf.toLp f) (hg.toLp g)
+            ≤ Real.sqrt ((μ K).toReal) * C := h_dist_le
+      _ = C * Real.sqrt ((μ K).toReal) := by exact (mul_comm _ _)
+  exact h_final
+
+/-- Continuous compactly supported functions can be approximated
+  by smooth compactly supported functions -/
+lemma continuous_to_smooth_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ)
+    (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ))
+    (hg_cont_compact : HasCompactSupport g_cont) (hg_cont_continuous : Continuous g_cont)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ)),
+      HasCompactSupport g ∧
+      ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g ∧
+      dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε := by
+  classical
+  haveI : Fact (1 / 2 < σ) := ⟨hσ_lower⟩
+  set μ := weightedMeasure σ
+  obtain ⟨R, hR_pos, hR_subset⟩ :=
+    HasCompactSupport.exists_radius_closedBall hg_cont_compact
+  set B : Set ℝ := Metric.closedBall (0 : ℝ) (R + 1)
+  have hB_meas : MeasurableSet B := by
+    simpa [B] using
+      (measurableSet_closedBall :
+        MeasurableSet (Metric.closedBall (0 : ℝ) (R + 1)))
+  have hB_compact : IsCompact B := by
+    simpa [B] using isCompact_closedBall (0 : ℝ) (R + 1)
+  have hμ_Ioc_zero_one := weightedMeasure_Ioc_zero_one_lt_top (σ := σ) hσ_lower
+  have hμ_Ioc_one_R : μ (Set.Ioc (1 : ℝ) (R + 1)) < ∞ := by
+    have h_subset : Set.Ioc (1 : ℝ) (R + 1) ⊆ Set.Ioo (1 : ℝ) (R + 2) := by
+      intro x hx; exact ⟨hx.1, lt_of_le_of_lt hx.2 (by linarith)⟩
+    have h_fin :=
+      weightedMeasure_finite_on_bounded (σ := σ) (a := 1) (b := R + 2)
+        zero_lt_one (by linarith [hR_pos])
+    exact lt_of_le_of_lt (measure_mono h_subset) h_fin
+  have h_subset_union :
+      Set.Ioc (0 : ℝ) (R + 1)
+        ⊆ Set.Ioc (0 : ℝ) 1 ∪ Set.Ioc (1 : ℝ) (R + 1) := by
+    intro x hx
+    by_cases hx_le : x ≤ 1
+    · exact Or.inl ⟨hx.1, hx_le⟩
+    · exact Or.inr ⟨lt_of_not_ge hx_le, hx.2⟩
+  have hμ_Ioc_lt_top : μ (Set.Ioc (0 : ℝ) (R + 1)) < ∞ := by
+    have h_le :=
+      (measure_mono h_subset_union).trans
+        (measure_union_le (μ := μ)
+          (s := Set.Ioc (0 : ℝ) 1) (t := Set.Ioc (1 : ℝ) (R + 1)))
+    exact lt_of_le_of_lt h_le (ENNReal.add_lt_top.mpr ⟨hμ_Ioc_zero_one, hμ_Ioc_one_R⟩)
+  have hμ_B_eq : μ B = μ (B ∩ Set.Ioi (0 : ℝ)) := by
+    have h₁ := weightedMeasure_apply σ B hB_meas
+    have h₂ :=
+      weightedMeasure_apply σ (B ∩ Set.Ioi (0 : ℝ))
+        (hB_meas.inter measurableSet_Ioi)
+    have h_inter :
+        B ∩ Set.Ioi (0 : ℝ) ∩ Set.Ioi (0 : ℝ)
+          = B ∩ Set.Ioi (0 : ℝ) := by
+      ext x; constructor <;> intro hx
+      · rcases hx with ⟨hx₁, _hx₂⟩
+        rcases hx₁ with ⟨hxB, hx_pos⟩
+        exact ⟨hxB, hx_pos⟩
+      · rcases hx with ⟨hxB, hx_pos⟩
+        exact ⟨⟨hxB, hx_pos⟩, hx_pos⟩
+    have h₁' :
+        μ B = ∫⁻ x in B ∩ Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume := by
+      simpa [μ] using h₁
+    have h₂' :
+        μ (B ∩ Set.Ioi (0 : ℝ)) =
+          ∫⁻ x in B ∩ Set.Ioi (0 : ℝ),
+            ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume := by
+      simpa [μ, h_inter, Set.inter_assoc, Set.inter_left_comm,
+        Set.inter_right_comm] using h₂
+    exact h₁'.trans h₂'.symm
+  have h_subset_B : B ∩ Set.Ioi (0 : ℝ) ⊆ Set.Ioc (0 : ℝ) (R + 1) := by
+    intro x hx
+    rcases hx with ⟨hx_ball, hx_pos⟩
+    have hx_dist : dist x 0 ≤ R + 1 := Metric.mem_closedBall.mp hx_ball
+    have hx_nonneg : 0 ≤ x := le_of_lt hx_pos
+    have hx_abs : |x| = x := abs_of_nonneg hx_nonneg
+    have hx_abs_le : |x| ≤ R + 1 := by
+      simpa [Real.dist_eq, sub_eq_add_neg] using hx_dist
+    have hx_le : x ≤ R + 1 := by simpa [hx_abs] using hx_abs_le
+    exact ⟨hx_pos, hx_le⟩
+  have hμ_B_lt_top : μ B < ∞ := by
+    refine lt_of_le_of_lt ?_ hμ_Ioc_lt_top
+    have h_le := measure_mono (μ := μ) h_subset_B
+    simpa [hμ_B_eq] using h_le
+  have hμ_B_ne_top : μ B ≠ ∞ := (ne_of_lt hμ_B_lt_top)
+  set δ := ε / (Real.sqrt ((μ B).toReal) + 1) with hδ_def
+  have h_den_pos : 0 < Real.sqrt ((μ B).toReal) + 1 :=
+    add_pos_of_nonneg_of_pos (Real.sqrt_nonneg _) one_pos
+  have hδ_pos : 0 < δ := by
+    have hε_pos : 0 < ε := hε
+    simp [δ, hε_pos, h_den_pos]
+  have hδ_nonneg : 0 ≤ δ := le_of_lt hδ_pos
+  have hg_uniform : UniformContinuous g_cont :=
+    Continuous.uniformContinuous_of_hasCompactSupport hg_cont_continuous hg_cont_compact
+  obtain ⟨g₀, hg₀_smooth, hg₀_close⟩ :=
+    hg_uniform.exists_contDiff_dist_le hδ_pos
+  have hg₀_smooth' : ContDiff ℝ (⊤ : ℕ∞) g₀ := by
+    simpa using hg₀_smooth
+  let χ_bump : ContDiffBump (0 : ℝ) := ⟨R, R + 1, hR_pos, by linarith⟩
+  let χ : ℝ → ℝ := fun x => χ_bump x
+  have hχ_support : HasCompactSupport χ := by
+    simpa [χ] using χ_bump.hasCompactSupport
+  have hχ_smooth : ContDiff ℝ (⊤ : ℕ∞) χ := by
+    simpa [χ] using (χ_bump.contDiff (n := (⊤ : ℕ∞)))
+  have hχ_one : ∀ x ∈ Metric.closedBall (0 : ℝ) R, χ x = 1 := by
+    intro x hx; simpa [χ] using χ_bump.one_of_mem_closedBall hx
+  have hχ_tsupport : tsupport χ = B := by
+    simpa [χ, B] using χ_bump.tsupport_eq
+  have hχ_nonneg : ∀ x, 0 ≤ χ x := by
+    intro x; simpa [χ] using χ_bump.nonneg' x
+  have hχ_le_one : ∀ x, χ x ≤ 1 := by
+    intro x; simpa [χ] using χ_bump.le_one
+  let g : ℝ → ℂ := fun x => χ x • g₀ x
+  have hg_contDiff : ContDiff ℝ (⊤ : ℕ∞) g := by
+    simpa [g] using hχ_smooth.smul hg₀_smooth'
+  have hχ_zero_outside : ∀ {x : ℝ}, x ∉ B → χ x = 0 := by
+    intro x hx
+    have hx_not : x ∉ tsupport χ := by simpa [hχ_tsupport] using hx
+    exact image_eq_zero_of_notMem_tsupport hx_not
+  have hg_zero_outside : ∀ {x : ℝ}, x ∉ B → g x = 0 := by
+    intro x hx; simp [g, hχ_zero_outside hx]
+  have hg_support : HasCompactSupport g := by
+    refine HasCompactSupport.intro hB_compact ?_
+    intro x hx; exact hg_zero_outside hx
+  have hg_continuous : Continuous g := hg_contDiff.continuous
+  have hg_cont_zero : ∀ {x : ℝ}, R < ‖x‖ → g_cont x = 0 := by
+    intro x hx
+    have hx_not : x ∉ tsupport g_cont := by
+      intro hx_mem
+      have hx_dist : dist x 0 ≤ R := Metric.mem_closedBall.mp (hR_subset hx_mem)
+      have hx_abs_le : |x| ≤ R := by
+        simpa [Real.dist_eq, sub_eq_add_neg] using hx_dist
+      have hx_norm_le : ‖x‖ ≤ R := by simpa [Real.norm_eq_abs] using hx_abs_le
+      exact (not_le_of_gt hx) hx_norm_le
+    exact image_eq_zero_of_notMem_tsupport hx_not
+  have hg_eq_outside : ∀ {x : ℝ}, x ∉ B → g_cont x = g x := by
+    intro x hx
+    have hx_norm : R + 1 < ‖x‖ := by
+      have := Metric.mem_closedBall.not.1 hx
+      simpa [B, Real.dist_eq, sub_eq_add_neg] using this
+    have hx_gt : R < ‖x‖ :=
+      (lt_trans (lt_add_of_pos_right R (by exact zero_lt_one)) hx_norm)
+    have hg_cont_zero' : g_cont x = 0 := hg_cont_zero hx_gt
+    have hg_zero' : g x = 0 := by
+      have hx_not : x ∉ B := hx
+      exact hg_zero_outside hx_not
+    simp [hg_cont_zero', hg_zero']
+  have h_bound_on_B : ∀ x ∈ B, ‖g x - g_cont x‖ ≤ δ := by
+    intro x hxB
+    have hx_dist : dist x 0 ≤ R + 1 := Metric.mem_closedBall.mp hxB
+    have hx_norm : ‖x‖ ≤ R + 1 := by
+      simpa [Real.dist_eq, sub_eq_add_neg] using hx_dist
+    by_cases hx_inner : ‖x‖ ≤ R
+    · have hx_ball : x ∈ Metric.closedBall (0 : ℝ) R := by
+        simpa [Real.dist_eq, sub_eq_add_neg] using hx_inner
+      have hχ_one' : χ x = 1 := hχ_one x hx_ball
+      have hdiff_lt : ‖g₀ x - g_cont x‖ < δ := by
+        simpa [dist_eq_norm, g] using hg₀_close x
+      have : g x - g_cont x = g₀ x - g_cont x := by
+        simp [g, hχ_one']
+      simpa [this] using (le_of_lt hdiff_lt)
+    · have hx_gt : R < ‖x‖ := lt_of_not_ge hx_inner
+      have hg_cont_zero' : g_cont x = 0 := hg_cont_zero hx_gt
+      have h_norm_lt : ‖g₀ x‖ < δ := by
+        simpa [dist_eq_norm, hg_cont_zero'] using hg₀_close x
+      have hχ_le' : χ x ≤ 1 := hχ_le_one x
+      have hχ_nn' : 0 ≤ χ x := hχ_nonneg x
+      have : ‖g x - g_cont x‖ = χ x * ‖g₀ x‖ := by
+        simp [g, hg_cont_zero', Real.norm_eq_abs, abs_of_nonneg hχ_nn']
+      have hχ_mul_le : χ x * ‖g₀ x‖ ≤ 1 * δ := by
+        have h_norm_le : ‖g₀ x‖ ≤ δ := le_of_lt h_norm_lt
+        have hχ_mul_le' : χ x * ‖g₀ x‖ ≤ χ x * δ :=
+          mul_le_mul_of_nonneg_left h_norm_le hχ_nn'
+        have hχδ_le : χ x * δ ≤ 1 * δ :=
+          mul_le_mul_of_nonneg_right hχ_le' hδ_nonneg
+        exact hχ_mul_le'.trans hχδ_le
+      simpa [this] using hχ_mul_le.trans_eq (by simp)
+  have h_diff_zero_outside : ∀ x, x ∉ B → g x - g_cont x = 0 := by
+    intro x hx
+    have hg0 := hg_eq_outside hx
+    simp [hg0]
+  have hC_nonneg : 0 ≤ δ := hδ_nonneg
+  set diff := fun x : ℝ => g x - g_cont x with hdiff_def
+  have hdiff_meas : AEStronglyMeasurable diff μ :=
+    (hg_continuous.aestronglyMeasurable.sub hg_cont_continuous.aestronglyMeasurable)
+  have h_indicator_mem :
+      MemLp (Set.indicator B fun _ : ℝ => (1 : ℂ)) 2 μ :=
+    memLp_indicator_const 2 hB_meas (1 : ℂ) (Or.inr hμ_B_ne_top)
+  have hdiff_bound_indicator :
+      ∀ᵐ x ∂μ, ‖diff x‖ ≤ δ * ‖(Set.indicator B fun _ : ℝ => (1 : ℂ)) x‖ := by
+    refine Filter.Eventually.of_forall ?_
+    intro x
+    by_cases hxB : x ∈ B
+    · have hχ : (Set.indicator B (fun _ : ℝ => (1 : ℂ)) x) = 1 :=
+        Set.indicator_of_mem hxB _
+      have hdiff_le := h_bound_on_B x hxB
+      have : ‖diff x‖ ≤ δ := by simpa [diff, hdiff_def] using hdiff_le
+      simpa [hχ, diff, hdiff_def] using this
+    · have hχ : (Set.indicator B (fun _ : ℝ => (1 : ℂ)) x) = 0 :=
+        Set.indicator_of_notMem hxB _
+      have hzero : diff x = 0 := by
+        simpa [diff, hdiff_def] using h_diff_zero_outside x hxB
+      simp [hχ, hzero]
+  have hdiff_mem : MemLp diff 2 μ :=
+    MemLp.of_le_mul h_indicator_mem hdiff_meas hdiff_bound_indicator
+  have hg_memLp : MemLp g 2 μ := by
+    have hsum := hdiff_mem.add hg_cont_memLp
+    have hsum_fun : diff + g_cont = g := by
+      funext x
+      simp [Pi.add_apply, diff, g, sub_eq_add_neg]
+    simpa [hsum_fun] using hsum
+  have h_dist_le :=
+    lp_dist_le_of_uniform_bound_on_set (μ := μ) (K := B) (C := δ)
+      hg_cont_memLp hg_memLp hB_meas hμ_B_lt_top
+      (by
+        intro x hx
+        simpa using hg_eq_outside (x := x) hx)
+      hC_nonneg
+      (by
+        intro x hx
+        simpa [norm_sub_rev] using h_bound_on_B x hx)
+  have h_ratio_lt_one :
+      Real.sqrt ((μ B).toReal) / (Real.sqrt ((μ B).toReal) + 1) < 1 :=
+    (div_lt_one₀ h_den_pos).2 (by linarith)
+  have h_mul_lt : δ * Real.sqrt ((μ B).toReal) < ε := by
+    have hε_pos : 0 < ε := hε
+    have := mul_lt_mul_of_pos_left h_ratio_lt_one hε_pos
+    have h_eq : ε * (Real.sqrt ((μ B).toReal) / (Real.sqrt ((μ B).toReal) + 1))
+        = δ * Real.sqrt ((μ B).toReal) := by
+      set a := Real.sqrt ((μ B).toReal)
+      set d := a + 1
+      have : ε * (a / d) = a * (ε / d) := by
+        simp [a, d, div_eq_mul_inv, mul_left_comm]
+      simp [δ, a, d, div_eq_mul_inv, mul_comm, mul_left_comm]
+    simpa [h_eq, mul_comm] using this
+  have h_dist_lt :
+      dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε :=
+    lt_of_le_of_lt h_dist_le h_mul_lt
+  refine ⟨g, hg_memLp, hg_support, ?_, h_dist_lt⟩
+  simpa using hg_contDiff
+
+/-- Norm equality for Lp elements under measure change -/
+lemma lp_norm_eq_under_measure_change {σ : ℝ} (f : ℝ → ℂ) (g : ℝ → ℂ)
+    (hf_weightedMeasure : MemLp f 2 (weightedMeasure σ))
+    (hg_memLp : MemLp g 2 (weightedMeasure σ))
+    (μ : Measure ℝ)
+    (h_measure_eq : weightedMeasure σ = μ)
+    (hf_memLp_μ : MemLp f 2 μ)
+    (hg_memLp_μ : MemLp g 2 μ) :
+    ‖hf_weightedMeasure.toLp f - hg_memLp.toLp g‖ =
+    ‖hf_memLp_μ.toLp f - hg_memLp_μ.toLp g‖ := by
+  subst h_measure_eq
+  rfl
+
+/-- Distance equivalence under measure equality for Lp spaces -/
 lemma lp_dist_measure_equiv {σ : ℝ} (f : Hσ σ) (g : ℝ → ℂ)
     (f_Lp : Lp ℂ 2 (weightedMeasure σ))
     (hf_weightedMeasure : MemLp (Hσ.toFun f) 2 (weightedMeasure σ))
     (hf_Lp_eq : f_Lp = hf_weightedMeasure.toLp (Hσ.toFun f))
     (hg_memLp : MemLp g 2 (weightedMeasure σ))
-    (hg_memLp_converted : MemLp g 2 (mulHaar.withDensity (fun x =>
-      ENNReal.ofReal (x ^ (2 * σ - 1))))) :
-    dist f (hg_memLp_converted.toLp g) = dist f_Lp (hg_memLp.toLp g) := by
-  -- This equality holds because:
-  -- 1. f and f_Lp represent the same element (f_Lp = toLp f)
-  -- 2. hg_memLp_converted.toLp g and hg_memLp.toLp g represent the same element
-  -- 3. The measure equivalence preserves distances
-  -- The key insight is that we're computing distances in equivalent Lp spaces
-  -- f : Hσ σ, and f_Lp = toLp (Hσ.toFun f) : Lp ℂ 2 (weightedMeasure σ)
-  -- hg_memLp_converted corresponds to the same function g under measure equivalence
-  sorry
+    (h_measure_eq : weightedMeasure σ =
+        mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :
+    dist f (MemLp.toLp g (by rw [← h_measure_eq]; exact hg_memLp)) =
+    dist f_Lp (hg_memLp.toLp g) := by
+  classical
+  subst hf_Lp_eq
+  set μ := mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1)) with hμ
+  have h_measure_eq' : weightedMeasure σ = μ := by
+    simpa [μ, hμ] using h_measure_eq
+  have hf_memLp : MemLp (Hσ.toFun f) 2 μ := by
+    simpa [μ, h_measure_eq'] using hf_weightedMeasure
+  have hf_toLp_eq : hf_memLp.toLp (Hσ.toFun f) = f := by
+    apply Lp.ext
+    refine (MemLp.coeFn_toLp hf_memLp).trans ?_
+    simp [μ, Hσ.toFun]
+  have hg_memLp' : MemLp g 2 μ := by
+    simpa [μ, h_measure_eq'] using hg_memLp
+  have h_left :
+      ‖f - MemLp.toLp g (by simpa [μ, h_measure_eq'] using hg_memLp)‖ =
+        ‖hf_memLp.toLp (Hσ.toFun f) - hg_memLp'.toLp g‖ := by
+    simp [hf_toLp_eq, μ]
+  have h_right :
+      ‖hf_weightedMeasure.toLp (Hσ.toFun f) - MemLp.toLp g hg_memLp‖ =
+        ‖hf_memLp.toLp (Hσ.toFun f) - hg_memLp'.toLp g‖ :=
+    lp_norm_eq_under_measure_change (Hσ.toFun f)
+      g hf_weightedMeasure hg_memLp μ h_measure_eq' hf_memLp hg_memLp'
+  exact h_left.trans h_right.symm
 
 /-- Triangle inequality chain for Lp approximation sequence -/
 lemma lp_approximation_triangle_chain {σ : ℝ}
     (f_Lp : Lp ℂ 2 (weightedMeasure σ))
     (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ))
     (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ))
-    (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ))
-    (ε : ℝ) (hε : 0 < ε)
+    (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ)) (ε : ℝ)
     (hs_close : dist f_Lp (↑s) < ε / 2)
     (hg_cont_close : dist (↑s) (hg_cont_memLp.toLp g_cont) < ε / 4)
     (hg_mollify_close : dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε / 4) :
     dist f_Lp (hg_memLp.toLp g) < ε := by
-  -- The approximation chain works as follows:
-  -- f_Lp --[ε/2]-- s --[ε/4]-- g_cont --[ε/4]-- g
-  -- where each arrow represents a distance bound
-  -- The mathematical proof uses two applications of triangle inequality:
-  -- Step 1: dist f_Lp g ≤ dist f_Lp s + dist s g
-  -- Step 2: dist s g ≤ dist s g_cont + dist g_cont g
-  -- Combined: dist f_Lp g ≤ dist f_Lp s + dist s g_cont + dist g_cont g
-  -- Apply the bounds: ε/2 + ε/4 + ε/4 = ε
-  sorry
-
-/-- Truncated L² functions are integrable with respect to volume measure -/
-lemma truncated_lp_integrable {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) :
-    Integrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume := by
-  -- The truncated function has support in (0,R] which has finite measure
-  -- Since s ∈ L²(weighted), on bounded sets it's integrable by Hölder's inequality
-  sorry
-
-/-- L² functions can be approximated by continuous
-  compactly supported functions in weighted L² spaces -/
-lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε) :
-    ∃ (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ)),
-      HasCompactSupport g_cont ∧
-      Continuous g_cont ∧
-      dist s (hg_cont_memLp.toLp g_cont) < ε := by
-  -- CORRECTED PROOF STRATEGY:
-  -- Step 1: Extract s as an L² function directly (no SimpleFunc conversion)
-  -- Step 2: Truncate this L² function to bounded support
-  -- Step 3: Mollify to get continuous compactly supported function
-  -- Step 4: Control error through: ‖s - g‖ ≤ ‖s - s_R‖ + ‖s_R - g‖
-
-  have hs_memLp : MemLp s 2 (weightedMeasure σ) := Lp.memLp s
-  have h_two_ne_top : (2 : ENNReal) ≠ ∞ := by norm_num
-
-  -- Step 1: Choose R large enough that truncation error is < ε/2
-  -- For any L² function, ∫_{|x|>R} |s|² → 0 as R → ∞ (tail vanishing)
-  obtain ⟨R, hR_pos, hR_truncation⟩ : ∃ R : ℝ, 0 < R ∧
-      eLpNorm (fun x => if |x| > R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ) <
-      ENNReal.ofReal (ε / 2) :=
-    lp_tail_vanishing hσ_lower s (ε / 2) (by linarith : 0 < ε / 2)
-
-  -- Define the truncated function s_R directly from s
-  let s_R : ℝ → ℂ := fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0
-
-  -- s_R has bounded support by construction (only positive values)
-  have hs_R_support : Function.support s_R ⊆ Set.Ioc 0 R := by
-    intro x hx
-    simp only [s_R, Function.mem_support] at hx
-    -- hx : (if 0 < x ∧ x ≤ R then s x else 0) ≠ 0
-    -- This means 0 < x ∧ x ≤ R and s x ≠ 0
-    by_cases h : 0 < x ∧ x ≤ R
-    · -- If 0 < x ∧ x ≤ R, then x ∈ (0, R]
-      exact ⟨h.1, h.2⟩
-    · -- If ¬(0 < x ∧ x ≤ R), then s_R x = 0, contradicting hx
-      simp only [h, if_false] at hx
-      exact absurd rfl hx
-
-  -- s_R is in L² since it's a truncation of an L² function
-  have hs_R_memLp : MemLp s_R 2 (weightedMeasure σ) := by
-    unfold s_R
-    exact positive_truncation_memLp s R
-
-  -- The truncation error is controlled
-  have h_truncation_error :
-      eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal (ε / 2) := by
-    exact positive_truncation_error_bound s R (ε / 2) hR_truncation
-
-  -- Choose mollification parameter δ small enough
-  -- Use L² norm of s_R since s_R ∈ L²(weightedMeasure σ)
-  let δ : ℝ := min (ε / (8 * (ENNReal.toReal (eLpNorm s_R 2
-    (weightedMeasure σ)) + 1))) (1 / (2 * (R + 1)))
-  have hδ_pos : 0 < δ := by
-    -- δ = min(a, b) > 0 iff a > 0 and b > 0
-    apply lt_min
-    · -- Show 0 < ε / (8 * (ENNReal.toReal (eLpNorm s_R 2 (weightedMeasure σ)) + 1))
-      apply div_pos hε
-      -- Show 0 < 8 * ((eLpNorm s_R 2 (weightedMeasure σ)).toReal + 1)
-      apply mul_pos
-      · norm_num
-      · -- Show 0 < (eLpNorm s_R 2 (weightedMeasure σ)).toReal + 1
-        -- Since ENNReal.toReal _ ≥ 0 and 1 > 0, we have toReal _ + 1 ≥ 1 > 0
-        have h_nonneg : 0 ≤ ENNReal.toReal (eLpNorm s_R 2 (weightedMeasure σ)) :=
-          ENNReal.toReal_nonneg
-        linarith
-    · -- Show 0 < 1 / (2 * (R + 1))
-      apply div_pos
-      · norm_num
-      · -- Show 0 < 2 * (R + 1)
-        apply mul_pos
-        · norm_num
-        · linarith [hR_pos]  -- Since R > 0, we have R + 1 > 1 > 0
-
-  -- Construct a proper mollifier as an approximation identity
-  -- Step 1: Get a base smooth function with support in [-1, 1]
-  have h_ball_nhds_unit : Metric.ball (0:ℝ) 1 ∈ 𝓝 (0:ℝ) := Metric.ball_mem_nhds _ zero_lt_one
-  obtain ⟨φ₀, hφ₀_tsupport, hφ₀_compact, hφ₀_smooth, hφ₀_range, hφ₀_at_zero⟩ :=
-    exists_smooth_tsupport_subset h_ball_nhds_unit
-
-  -- Step 2: Normalize φ₀ to have integral 1
-  have hφ₀_integrable : Integrable φ₀ := by
-    exact Continuous.integrable_of_hasCompactSupport hφ₀_smooth.continuous hφ₀_compact
-
-  have hφ₀_pos_integral : 0 < ∫ x, φ₀ x ∂volume := by
-    -- φ₀(0) = 1 and φ₀ ≥ 0, so the integral is positive
-    sorry -- This follows from continuity at 0 and non-negativity
-
-  let φ_normalized := fun x => φ₀ x / (∫ y, φ₀ y ∂volume)
-
-  have hφ_normalized_integral : ∫ x, φ_normalized x ∂volume = 1 := by
-    -- By construction, φ_normalized = φ₀ / (∫ φ₀)
-    -- So ∫ φ_normalized = ∫ (φ₀ / (∫ φ₀)) = (∫ φ₀) / (∫ φ₀) = 1
-    sorry -- Direct calculation using linearity of integration
-
-  -- Step 3: Scale to get φδ with support in [-δ, δ]
-  let φδ := fun x => (1 / δ) * φ_normalized (x / δ)
-
-  have hφδ_smooth : ContDiff ℝ (⊤ : ℕ∞) φδ := by
-    -- Composition and scaling preserve smoothness
-    sorry -- Technical but standard
-
-  have hφδ_compact : HasCompactSupport φδ := by
-    -- Scaling preserves compact support
-    sorry -- Technical but standard
-
-  have hφδ_support : Function.support φδ ⊆ Set.Icc (-δ) δ := by
-    -- φδ(x) = (1/δ) * φ_normalized(x/δ)
-    -- support(φδ) = {x : φδ(x) ≠ 0} = {x : φ_normalized(x/δ) ≠ 0} = δ * support(φ_normalized)
-    -- Since support(φ_normalized) ⊆ [-1, 1], we have support(φδ) ⊆ [-δ, δ]
-    sorry -- Technical but standard scaling argument
-
-  have hφδ_nonneg : ∀ x, 0 ≤ φδ x := by
-    intro x
-    simp [φδ, φ_normalized]
-    apply mul_nonneg
-    · -- 0 ≤ 1/δ since 0 < δ
-      rw [inv_nonneg]
-      exact hδ_pos.le
-    · apply div_nonneg
-      · have := hφ₀_range (Set.mem_range_self (x / δ))
-        exact this.1
-      · exact le_of_lt hφ₀_pos_integral
-
-  have hφδ_integral : ∫ x, φδ x ∂volume = 1 := by
-    -- Change of variables: ∫ (1/δ) * φ_normalized(x/δ) dx = ∫ φ_normalized(y) dy = 1
-    sorry -- Standard change of variables formula
-
-  -- Define the mollified function g := s_R * φδ (convolution)
-  let g : ℝ → ℂ := fun x => ∫ y, s_R y * φδ (x - y) ∂volume
-
-  -- g is continuous because it's a convolution of L¹ function with smooth function
-  have hg_continuous : Continuous g := by
-    -- g(x) = ∫ s_R(y) * φδ(x - y) dy is a convolution of s_R with φδ
-    -- Use the fact that convolution of integrable s_R with continuous bounded φδ is continuous
-    have hφδ_bdd : BddAbove (Set.range fun x => ‖φδ x‖) := by
-      -- φδ has compact support, so it's bounded on ℝ
-      -- Since φδ = 0 outside tsupport φδ, we only need boundedness on tsupport φδ
-      have h_image := hφδ_compact.image hφδ_smooth.continuous
-      have h_norm_image := h_image.image continuous_norm
-      -- Since φδ has compact support, the range of ‖φδ‖ is bounded
-      -- Use the fact that continuous functions on compact sets are bounded
-      have h_continuous_norm : Continuous (fun x => ‖φδ x‖) :=
-        continuous_norm.comp hφδ_smooth.continuous
-      have h_tsupport_compact : IsCompact (tsupport φδ) := by
-        rw [HasCompactSupport] at hφδ_compact
-        exact hφδ_compact
-      have h_image_compact : IsCompact ((fun x => ‖φδ x‖) '' (tsupport φδ)) :=
-        h_tsupport_compact.image h_continuous_norm
-      -- Since φδ has compact support and is continuous, it's bounded
-      -- The range of ‖φδ‖ is contained in [0, M] for some M
-      have h_bdd_on_tsupport : BddAbove ((fun x => ‖φδ x‖) '' (tsupport φδ)) :=
-        h_image_compact.isBounded.bddAbove
-      have h_range_subset := range_norm_subset_tsupport_image_with_zero φδ
-      -- Since inserting 0 doesn't affect boundedness above, we can still conclude
-      have h_bdd_with_zero : BddAbove (Set.insert 0 ((fun x => ‖φδ x‖) '' (tsupport φδ))) :=
-        h_bdd_on_tsupport.insert 0
-      exact BddAbove.mono h_range_subset h_bdd_with_zero
-    -- s_R is integrable because it's a truncation of an L² function
-    have hs_R_integrable : Integrable s_R :=
-      truncated_lp_integrable hσ_lower hσ_upper s R hR_pos
-    -- φδ is smooth with compact support, hence integrable
-    have hφδ_integrable : Integrable φδ := by
-      -- Use the fact that continuous functions with compact support are integrable
-      exact Continuous.integrable_of_hasCompactSupport hφδ_smooth.continuous hφδ_compact
-    -- Apply convolution continuity theorem
-    -- Since φδ has compact support, we can use compact support convolution continuity
-    have hs_R_locally_integrable : LocallyIntegrable s_R := by
-      -- Integrable functions are locally integrable
-      exact Integrable.locallyIntegrable hs_R_integrable
-    -- The convolution is continuous
-    -- Use our convolution continuity lemma
-    exact convolution_integrable_smooth_continuous hs_R_integrable hφδ_smooth hφδ_compact
-
-  -- g has compact support: support contained in support(f) + support(φδ)
-  have hg_support : Function.support g ⊆ Set.Icc (-(R + δ)) (R + δ) := by
-    intro x hx
-    simp [g] at hx ⊢
-    by_contra h
-    -- h : x ∉ Set.Icc (-(R + δ)) (R + δ)
-    -- But since simp already expanded it, h is ¬(-(R + δ) ≤ x ∧ x ≤ R + δ)
-    -- This means x < -(R + δ) ∨ R + δ < x
-    rw [not_and_or] at h
-    simp only [not_le] at h
-    -- If x is outside this interval, then for any y in support(f),
-    -- x - y is outside support(φδ), so φδ(x - y) = 0
-    have h_integral_zero : ∫ y, s_R y * φδ (x - y) ∂volume = 0 := by
-      rw [integral_eq_zero_of_ae]
-      filter_upwards with y
-      by_cases hy : s_R y = 0
-      · simp [hy]
-      · -- y ∈ support(s_R), so |y| ≤ R
-        have hy_support : y ∈ Function.support s_R := by
-          exact Function.mem_support.mpr hy
-        have hy_bound : |y| ≤ R := by
-          have := hs_R_support hy_support
-          -- Since y ∈ Set.Ioc 0 R, we have 0 < y ≤ R, so |y| = y ≤ R
-          have hy_pos : 0 < y := this.1
-          have hy_le : y ≤ R := this.2
-          rw [abs_of_pos hy_pos]
-          exact hy_le
-        -- If |x| > R + δ, then |x - y| > δ, so φδ(x - y) = 0
-        have h_diff_large : δ < |x - y| := by
-          cases h with
-          | inl h =>
-            -- Case: x + R < -δ, which means x < -(R + δ)
-            have hx_neg : x < -(R + δ) := by linarith [h]
-            -- Since |y| ≤ R, we have y ≥ -R, so x - y ≤ x - (-R) = x + R < -(R + δ) + R = -δ
-            have h_bound : x - y < -δ := by
-              calc x - y
-                ≤ x + R := by
-                    have : -R ≤ y := (abs_le.mp hy_bound).1
-                    linarith [this]
-                _ < -(R + δ) + R := by linarith [hx_neg]
-                _ = -δ := by ring
-            -- Since x - y < -δ < 0, we have |x - y| = -(x - y) > δ
-            have h_abs : |x - y| = -(x - y) := abs_of_neg (by linarith [h_bound, hδ_pos])
-            rw [h_abs]
-            linarith [h_bound]
-          | inr h =>
-            -- Case: R + δ < x
-            have hx_pos : R + δ < x := h
-            -- Since |y| ≤ R, we have y ≤ R, so x - y ≥ x - R > (R + δ) - R = δ
-            have h_bound : δ < x - y := by
-              calc δ
-                = (R + δ) - R := by ring
-                _ < x - R := by linarith [hx_pos]
-                _ ≤ x - y := by
-                    have : y ≤ R := (abs_le.mp hy_bound).2
-                    linarith [this]
-            -- Since x - y > δ > 0, we have |x - y| = x - y > δ
-            have h_pos : 0 < x - y := by linarith [h_bound, hδ_pos]
-            rw [abs_of_pos h_pos]
-            exact h_bound
-        -- Since δ < |x - y|, we have |x - y| > δ, so x - y ∉ [-δ, δ]
-        -- This means x - y ∉ support φδ, so φδ(x - y) = 0
-        have hφδ_zero : φδ (x - y) = 0 := by
-          apply Function.notMem_support.mp
-          intro h_in_support
-          -- hφδ_support says support φδ ⊆ [-δ, δ], so if x - y ∈ support φδ, then |x - y| ≤ δ
-          have h_mem_interval := hφδ_support h_in_support
-          simp only [Set.mem_Icc] at h_mem_interval
-          have : |x - y| ≤ δ := abs_le.mpr h_mem_interval
-          -- But we proved δ < |x - y|, contradiction
-          linarith [h_diff_large, this]
-        simp [hφδ_zero]
-    exact hx h_integral_zero
-
-  have hg_compactSupport : HasCompactSupport g := by
-    -- Use the definition: HasCompactSupport g ↔ IsCompact (tsupport g)
-    rw [HasCompactSupport]
-    -- tsupport g = closure (support g), and support g ⊆ Set.Icc (-(R + δ)) (R + δ)
-    simp only [tsupport]
-    -- closure (support g) ⊆ closure (Set.Icc (-(R + δ)) (R + δ)) = Set.Icc (-(R + δ)) (R + δ)
-    apply IsCompact.of_isClosed_subset isCompact_Icc isClosed_closure
-    exact closure_minimal hg_support isClosed_Icc
-
-  -- Show g ∈ L² with the weighted measure
-  have hs_R_vol_integrable : LocallyIntegrable s_R volume :=
-    s_R_locally_integrable_volume hσ_lower hσ_upper s R hR_pos hs_R_memLp
-  have hs_R_support' : Function.support s_R ⊆ Set.Icc (-R) R := by
-    calc Function.support s_R
-      ⊆ Set.Ioc 0 R := hs_R_support
-      _ ⊆ Set.Icc 0 R := Set.Ioc_subset_Icc_self
-      _ ⊆ Set.Icc (-R) R := by
-        intro x hx
-        simp at hx ⊢
-        exact ⟨le_trans (neg_nonpos_of_nonneg (le_of_lt hR_pos)) hx.1, hx.2⟩
-  have hg_memLp : MemLp g 2 (weightedMeasure σ) :=
-    convolution_memLp_weighted hσ_lower R δ hR_pos hδ_pos hs_R_support' hs_R_memLp
-    hs_R_vol_integrable hφδ_smooth hφδ_compact hφδ_support
-
-  use g, hg_memLp
-  refine ⟨hg_compactSupport, hg_continuous, ?_⟩
-
-  -- Show the distance bound using triangle inequality:
-  -- dist s g ≤ dist s s_R + dist s_R g < ε/2 + ε/2 = ε
-  calc dist s (hg_memLp.toLp g)
-    _ ≤ dist s (hs_R_memLp.toLp s_R) + dist (hs_R_memLp.toLp s_R) (hg_memLp.toLp g) :=
-      dist_triangle s (hs_R_memLp.toLp s_R) (hg_memLp.toLp g)
-    _ < ε / 2 + ε / 2 := by
-      apply add_lt_add
-      · -- First term: dist s s_R < ε/2 (from truncation error)
-        -- Use the fact that truncation error is controlled
-        -- Use h_truncation_error directly since the distance bounds are equivalent
-        exact truncation_error_dist_bound s s_R hs_R_memLp (ε / 2) (by linarith : 0 < ε / 2)
-          h_truncation_error
-      · -- Second term: dist s_R g < ε/2 (mollification error)
-        -- Apply the standard mollification error bound
-        -- We need to build the proper mollifier from our normalized φδ
-        -- First, we need to construct the base mollifier with support in [-1, 1]
-        let φ_base := φ_normalized  -- Already normalized with integral = 1
-        have hφ_base_smooth : ContDiff ℝ (⊤ : ℕ∞) φ_base := by
-          sorry -- φ_normalized inherits smoothness from φ₀
-        have hφ_base_compact : HasCompactSupport φ_base := by
-          sorry -- φ_normalized has same support as φ₀
-        have hφ_base_nonneg : ∀ x, 0 ≤ φ_base x := by
-          intro x
-          simp [φ_base, φ_normalized]
-          apply div_nonneg
-          · have := hφ₀_range (Set.mem_range_self x)
-            exact this.1
-          · exact le_of_lt hφ₀_pos_integral
-        have hφ_base_integral : ∫ x, φ_base x ∂volume = 1 := hφ_normalized_integral
-
-        -- Now apply the standard mollification error
-        have h_error := standard_mollification_l2_error hσ_lower s_R hs_R_memLp
-          φ_base hφ_base_smooth hφ_base_compact hφ_base_nonneg hφ_base_integral
-          δ (ε/2) hδ_pos (by linarith : 0 < ε/2)
-
-        -- The mollified function matches our g
-        have hg_eq : g = fun x => ∫ y, s_R y * ((1/δ) * φ_base ((x - y)/δ)) ∂volume := by
-          sorry -- Definitional equality after unfolding
-
-        -- Apply the error bound
-        have hδ_small' : δ < (ε/2) / (4 * (ENNReal.toReal
-          (eLpNorm s_R 2 (weightedMeasure σ)) + 1)) := by
-          sorry -- This needs to be proven from our choice of δ
-
-        exact h_error hg_memLp hδ_small'
-    _ = ε := by ring
-
-/-- Continuous compactly supported functions can be approximated
-  by smooth compactly supported functions -/
-lemma continuous_to_smooth_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
-    (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ))
-    (hg_cont_compact : HasCompactSupport g_cont) (hg_cont_continuous : Continuous g_cont)
-    (ε : ℝ) (hε : 0 < ε) :
-    ∃ (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ)),
-      HasCompactSupport g ∧
-      ContDiff ℝ ⊤ g ∧
-      dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε := by
-  -- Use mollification to convert continuous compactly supported → smooth compactly supported
-  -- This is the standard mollification procedure using smooth bump functions
-  -- Create a mollified version of g_cont using convolution with a smooth kernel
-  -- The mollification preserves compact support and creates smoothness
-  -- Apply mollification to get smooth compactly supported approximation with consistent measures
-  sorry
-
-/-- The weighted measure is equivalent to withDensity measure -/
-lemma weightedMeasure_eq_withDensity (σ : ℝ) :
-    weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) := by
-  -- This follows from the definition of weightedMeasure and weightFunction
-  -- Note: this equality holds because the weight function is zero for x ≤ 0
-  -- and the measure integration is restricted to positive reals
-  sorry
+  have h_triangle :
+      dist f_Lp (hg_memLp.toLp g)
+        ≤ dist f_Lp (↑s) +
+            dist (↑s) (hg_cont_memLp.toLp g_cont) +
+              dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) := by
+    calc
+      dist f_Lp (hg_memLp.toLp g)
+          ≤ dist f_Lp (↑s) + dist (↑s) (hg_memLp.toLp g) :=
+            dist_triangle _ _ _
+      _ ≤
+          dist f_Lp (↑s) +
+              (dist (↑s) (hg_cont_memLp.toLp g_cont) +
+                dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g)) := by
+            have h₂ :=
+              dist_triangle (↑s) (hg_cont_memLp.toLp g_cont)
+                (hg_memLp.toLp g)
+            simpa [add_comm, add_left_comm, add_assoc] using
+              add_le_add_left h₂ (dist f_Lp (↑s))
+      _ =
+          dist f_Lp (↑s) + dist (↑s) (hg_cont_memLp.toLp g_cont) +
+              dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) := by
+            simp [add_assoc]
+  have hsum₀ :
+      dist f_Lp (↑s) + dist (↑s) (hg_cont_memLp.toLp g_cont)
+          < ε / 2 + ε / 4 := add_lt_add hs_close hg_cont_close
+  have h_sum_lt :
+      dist f_Lp (↑s) + dist (↑s) (hg_cont_memLp.toLp g_cont) +
+          dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε := by
+    have h := add_lt_add hsum₀ hg_mollify_close
+    have h_eps : ε / 2 + (ε / 4 + ε / 4) = ε := by ring
+    simpa [add_comm, add_left_comm, add_assoc, h_eps] using h
+  exact lt_of_le_of_lt h_triangle h_sum_lt
 
 /-- Smooth compactly supported functions are dense in weighted L² spaces for σ > 1/2 -/
 lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < σ)
-    (hσ_upper : σ < 3 / 2)
+    (_hσ_upper : σ < 3 / 2)
     (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) : ∃ (g : ℝ → ℂ) (hg_mem : MemLp g 2
     (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))),
-     HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧ dist f (hg_mem.toLp g) < ε := by
+     HasCompactSupport g ∧ ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g ∧
+     dist f (hg_mem.toLp g) < ε := by
   -- Use the density of smooth compactly supported functions in weighted L² spaces
   -- Use the fact that for σ > 1/2, the weight function x^(2σ-1) is locally integrable
   have h_weight_integrable := weight_locallyIntegrable hσ_lower
@@ -492,12 +691,12 @@ lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < 
   -- Get simple function approximation from HilbertSpaceCore
   obtain ⟨s, hs_close⟩ := exists_simple_func_approximation f_Lp (ε / 2) (half_pos hε)
 
-  have h_continuous_approx := lp_to_continuous_approx hσ_lower hσ_upper s (ε / 4) (by linarith)
+  have h_continuous_approx := lp_to_continuous_approx hσ_lower s (ε / 4) (by linarith)
 
   obtain ⟨g_cont, hg_cont_memLp, hg_cont_compact,
     hg_cont_continuous, hg_cont_close⟩ := h_continuous_approx
 
-  have h_smooth_approx := continuous_to_smooth_approx hσ_lower hσ_upper g_cont hg_cont_memLp
+  have h_smooth_approx := continuous_to_smooth_approx hσ_lower g_cont hg_cont_memLp
       hg_cont_compact hg_cont_continuous (ε / 4) (by linarith)
 
   obtain ⟨g, hg_memLp, hg_compact, hg_smooth, hg_mollify_close⟩ := h_smooth_approx
@@ -536,16 +735,12 @@ lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < 
       -- 4. dist(g_cont, g) < ε/4 (given)
       -- 5. Triangle inequality: dist(f, g) ≤ sum of intermediate distances
 
-      -- Apply measure equivalence to work in the same space
-      have h_measure_eq := h_measure_equiv_final
-
       -- The key insight: we can work directly with the distances in weightedMeasure space
       -- and use the fact that hg_memLp_converted corresponds to hg_memLp under measure equivalence
-
       -- Since f_Lp was constructed from f and hg_memLp_converted from hg_memLp,
       -- the distance should be equivalent to working in the original space
       have h_dist_equiv : dist f (hg_memLp_converted.toLp g) = dist f_Lp (hg_memLp.toLp g) :=
-        lp_dist_measure_equiv f g f_Lp hf_weightedMeasure rfl hg_memLp hg_memLp_converted
+        lp_dist_measure_equiv f g f_Lp hf_weightedMeasure rfl hg_memLp h_measure_equiv_final
 
       rw [h_dist_equiv]
 
@@ -553,14 +748,14 @@ lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < 
       -- The key insight is we have bounds:
       -- dist f_Lp s < ε/2, dist s g_cont < ε/4, dist g_cont g < ε/4
       have h_triangle_chain : dist f_Lp (hg_memLp.toLp g) < ε :=
-        lp_approximation_triangle_chain f_Lp s g_cont hg_cont_memLp g hg_memLp ε hε
+        lp_approximation_triangle_chain f_Lp s g_cont hg_cont_memLp g hg_memLp ε
           hs_close' hg_cont_close hg_mollify_close
       exact h_triangle_chain
 
     exact h_approx_bound
 
 /-- Schwartz functions are dense in Hσ for σ > 1/2 -/
-theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2) :
+lemma schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2) :
     DenseRange (schwartzToHσ hσ_lower) := by
   -- Use the characterization: a subspace is dense iff its closure equals the whole space
   rw [denseRange_iff_closure_range]
@@ -626,7 +821,8 @@ theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : �
           (continuous_norm : Continuous fun x : ℝ => ‖x‖).pow _
         have h_iter_cont :
             Continuous fun x : ℝ => iteratedFDeriv ℝ n g x :=
-          (hg_smooth.continuous_iteratedFDeriv (m := n) (hm := by simp))
+          (hg_smooth.continuous_iteratedFDeriv (m := n)
+            (hm := by exact_mod_cast (le_top : (n : ℕ∞) ≤ (⊤ : ℕ∞))))
         exact h_pow_cont.mul (h_iter_cont.norm)
       -- The image of h on K is compact, hence admits a greatest element
       have h_image_compact : IsCompact (h '' K) := hK_compact.image h_cont
@@ -649,11 +845,7 @@ theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : �
         simpa [h] using hx_le
 
   -- Construct the Schwartz function from g
-  -- Note: SchwartzMap requires ContDiff ℝ (↑⊤) but we have ContDiff ℝ ⊤
-  -- These are the same, but we need to handle the type difference
-  have hg_smooth' : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g :=
-    hg_smooth.of_le (by simp)
-  let φ : SchwartzMap ℝ ℂ := ⟨g, hg_smooth', hg_schwartz⟩
+  let φ : SchwartzMap ℝ ℂ := ⟨g, hg_smooth, hg_schwartz⟩
 
   -- Step 3: Show that schwartzToHσ hσ_lower φ approximates f
   -- We need to show ∃ y ∈ Set.range (schwartzToHσ hσ_lower), dist f y < ε

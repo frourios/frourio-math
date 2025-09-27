@@ -3840,6 +3840,14 @@ theorem Hσ.cauchy_complete (σ : ℝ) (f : ℕ → Hσ σ) (hf : CauchySeq f) :
 theorem weightedMeasure_finite_on_bounded (σ : ℝ) (a b : ℝ) (ha : 0 < a) (hb : a < b) :
     weightedMeasure σ (Set.Ioo a b) < ∞  := proven
 
+
+lemma weightedMeasure_Ioc_zero_one_lt_top {σ : ℝ} (hσ : 1 / 2 < σ) :
+    weightedMeasure σ (Set.Ioc (0 : ℝ) 1) < ∞  := proven
+
+
+instance weightedMeasure_isLocallyFinite (σ : ℝ) [Fact (1 / 2 < σ)] :
+    IsLocallyFiniteMeasure (weightedMeasure σ)  := proven
+
 instance mulHaar_sigmaFinite : SigmaFinite mulHaar  := proven
 
 instance weightedMeasure_sigmaFinite (σ : ℝ) : SigmaFinite (weightedMeasure σ)  := proven
@@ -5844,77 +5852,79 @@ end Frourio
 
 namespace Frourio
 
-lemma standard_mollification_l2_error {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f : ℝ → ℂ) (hf_memLp : MemLp f 2 (weightedMeasure σ))
-    (φ : ℝ → ℝ) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
-    (hφ_compact : HasCompactSupport φ)
-    (hφ_nonneg : ∀ x, 0 ≤ φ x)
-    (hφ_integral : ∫ x, φ x ∂volume = 1)
-    (δ ε : ℝ) (hδ_pos : 0 < δ) (hε_pos : 0 < ε) :
-    let φδ  := sorry
+lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ)
+    (f : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε) :
+    ∃ (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ)),
+      HasCompactSupport g_cont ∧
+      Continuous g_cont ∧
+      dist f (hg_cont_memLp.toLp g_cont) < ε  := proven
 
-lemma s_R_locally_integrable_volume {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R)
-    (hs_R_memLp : MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) 2
-      (weightedMeasure σ)) :
-    LocallyIntegrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume  := sorry
+lemma HasCompactSupport.exists_radius_closedBall {f : ℝ → ℂ}
+    (hf : HasCompactSupport f) : ∃ R : ℝ, 0 < R ∧ tsupport f ⊆ Metric.closedBall 0 R  := proven
 
-lemma truncation_error_dist_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ))
-    (s_R : ℝ → ℂ) (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
-    (ε : ℝ) (hε : 0 < ε)
-    (h_norm_bound : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
-    dist s (hs_R_memLp.toLp s_R) < ε  := sorry
+lemma Continuous.uniformContinuous_of_hasCompactSupport {f : ℝ → ℂ}
+    (hf : Continuous f) (hf_support : HasCompactSupport f) : UniformContinuous f  := proven
+
+lemma exists_smooth_cutoff_closedBall (R : ℝ) (hR : 0 < R) :
+    ∃ χ : ℝ → ℝ,
+      HasCompactSupport χ ∧
+      ContDiff ℝ (⊤ : ℕ∞) χ ∧
+      (∀ x ∈ Metric.closedBall (0 : ℝ) R, χ x = 1) ∧
+      tsupport χ = Metric.closedBall (0 : ℝ) (R + 1)  := proven
+
+lemma lp_dist_le_of_uniform_bound_on_set {μ : Measure ℝ} {f g : ℝ → ℂ}
+    (hf : MemLp f 2 μ) (hg : MemLp g 2 μ) {K : Set ℝ} (hK_meas : MeasurableSet K)
+    (hK_fin : μ K < ∞) (h_eq : ∀ x, x ∉ K → f x = g x)
+    {C : ℝ} (hC_nonneg : 0 ≤ C) (h_bound : ∀ x ∈ K, ‖f x - g x‖ ≤ C) :
+    dist (hf.toLp f) (hg.toLp g) ≤ C * Real.sqrt ((μ K).toReal)  := proven
+
+lemma continuous_to_smooth_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ)
+    (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ))
+    (hg_cont_compact : HasCompactSupport g_cont) (hg_cont_continuous : Continuous g_cont)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ)),
+      HasCompactSupport g ∧
+      ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g ∧
+      dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε  := proven
+
+lemma lp_norm_eq_under_measure_change {σ : ℝ} (f : ℝ → ℂ) (g : ℝ → ℂ)
+    (hf_weightedMeasure : MemLp f 2 (weightedMeasure σ))
+    (hg_memLp : MemLp g 2 (weightedMeasure σ))
+    (μ : Measure ℝ)
+    (h_measure_eq : weightedMeasure σ = μ)
+    (hf_memLp_μ : MemLp f 2 μ)
+    (hg_memLp_μ : MemLp g 2 μ) :
+    ‖hf_weightedMeasure.toLp f - hg_memLp.toLp g‖ =
+    ‖hf_memLp_μ.toLp f - hg_memLp_μ.toLp g‖  := proven
 
 lemma lp_dist_measure_equiv {σ : ℝ} (f : Hσ σ) (g : ℝ → ℂ)
     (f_Lp : Lp ℂ 2 (weightedMeasure σ))
     (hf_weightedMeasure : MemLp (Hσ.toFun f) 2 (weightedMeasure σ))
     (hf_Lp_eq : f_Lp = hf_weightedMeasure.toLp (Hσ.toFun f))
     (hg_memLp : MemLp g 2 (weightedMeasure σ))
-    (hg_memLp_converted : MemLp g 2 (mulHaar.withDensity (fun x =>
-      ENNReal.ofReal (x ^ (2 * σ - 1))))) :
-    dist f (hg_memLp_converted.toLp g) = dist f_Lp (hg_memLp.toLp g)  := sorry
+    (h_measure_eq : weightedMeasure σ =
+        mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :
+    dist f (MemLp.toLp g (by rw [← h_measure_eq]; exact hg_memLp)) =
+    dist f_Lp (hg_memLp.toLp g)  := proven
 
 lemma lp_approximation_triangle_chain {σ : ℝ}
     (f_Lp : Lp ℂ 2 (weightedMeasure σ))
     (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ))
     (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ))
-    (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ))
-    (ε : ℝ) (hε : 0 < ε)
+    (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ)) (ε : ℝ)
     (hs_close : dist f_Lp (↑s) < ε / 2)
     (hg_cont_close : dist (↑s) (hg_cont_memLp.toLp g_cont) < ε / 4)
     (hg_mollify_close : dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε / 4) :
-    dist f_Lp (hg_memLp.toLp g) < ε  := sorry
-
-lemma truncated_lp_integrable {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) :
-    Integrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume  := sorry
-
-lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε) :
-    ∃ (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ)),
-      HasCompactSupport g_cont ∧
-      Continuous g_cont ∧
-      dist s (hg_cont_memLp.toLp g_cont) < ε  := sorry
-
-lemma continuous_to_smooth_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
-    (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ))
-    (hg_cont_compact : HasCompactSupport g_cont) (hg_cont_continuous : Continuous g_cont)
-    (ε : ℝ) (hε : 0 < ε) :
-    ∃ (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ)),
-      HasCompactSupport g ∧
-      ContDiff ℝ ⊤ g ∧
-      dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε  := sorry
-
-lemma weightedMeasure_eq_withDensity (σ : ℝ) :
-    weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))  := sorry
+    dist f_Lp (hg_memLp.toLp g) < ε  := proven
 
 lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < σ)
-    (hσ_upper : σ < 3 / 2)
+    (_hσ_upper : σ < 3 / 2)
     (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) : ∃ (g : ℝ → ℂ) (hg_mem : MemLp g 2
     (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))),
-     HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧ dist f (hg_mem.toLp g) < ε  := proven
+     HasCompactSupport g ∧ ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g ∧
+     dist f (hg_mem.toLp g) < ε  := proven
 
-theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2) :
+lemma schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2) :
     DenseRange (schwartzToHσ hσ_lower)  := proven
 
 lemma exists_schwartz_approximation {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
@@ -6185,6 +6195,16 @@ lemma dist_lp_truncation_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (�
     (s_R : ℝ → ℂ) (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
     (h_truncation_error : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
     dist s (hs_R_memLp.toLp s_R) < ε  := proven
+
+lemma truncation_approximation {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : ℝ → ℂ) (hf_memLp : MemLp f 2 (weightedMeasure σ))
+    (ε : ℝ) (hε_pos : 0 < ε) :
+    ∃ (R : ℝ) (_ : 0 < R) (f_R : ℝ → ℂ) (_ : MemLp f_R 2 (weightedMeasure σ)),
+      HasCompactSupport f_R ∧
+      eLpNorm (f - f_R) 2 (weightedMeasure σ) < ENNReal.ofReal (ε / 2)  := proven
+
+lemma weightedMeasure_eq_withDensity (σ : ℝ) :
+    weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))  := proven
 
 end Frourio
 

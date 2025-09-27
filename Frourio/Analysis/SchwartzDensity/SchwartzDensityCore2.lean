@@ -904,6 +904,113 @@ lemma dist_lp_truncation_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (�
   -- Conclude the desired distance estimate.
   simpa [h_dist_repr] using h_toReal_lt
 
+/-- Truncation approximation: Any L² function can be approximated
+    by compactly supported functions -/
+lemma truncation_approximation {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : ℝ → ℂ) (hf_memLp : MemLp f 2 (weightedMeasure σ))
+    (ε : ℝ) (hε_pos : 0 < ε) :
+    ∃ (R : ℝ) (_ : 0 < R) (f_R : ℝ → ℂ) (_ : MemLp f_R 2 (weightedMeasure σ)),
+      HasCompactSupport f_R ∧
+      eLpNorm (f - f_R) 2 (weightedMeasure σ) < ENNReal.ofReal (ε / 2) := by
+  -- Use the tail vanishing property of L² functions
+  -- For L² functions on weighted measure, the tail ∫_{|x|>R} |f|² → 0 as R → ∞
+  obtain ⟨R, hR_pos, hR_truncation⟩ : ∃ R : ℝ, 0 < R ∧
+      eLpNorm (fun x => if |x| > R then f x else 0) 2 (weightedMeasure σ) <
+      ENNReal.ofReal (ε / 2) := by
+    -- This uses the fact that L² functions have vanishing tails
+    classical
+    obtain ⟨R₀, hR₀_pos, hR₀_truncation⟩ :=
+      lp_tail_vanishing hσ (hf_memLp.toLp f) (ε / 2) (by linarith : 0 < ε / 2)
+    refine ⟨R₀, hR₀_pos, ?_⟩
+    have h_ae_eq :
+        (fun x : ℝ => if |x| > R₀ then (hf_memLp.toLp f : ℝ → ℂ) x else 0)
+          =ᵐ[weightedMeasure σ]
+        (fun x : ℝ => if |x| > R₀ then f x else 0) := by
+      have h_coe := MemLp.coeFn_toLp hf_memLp
+      filter_upwards [h_coe] with x hx
+      by_cases h : |x| > R₀
+      · have hx' : (hf_memLp.toLp f : ℝ → ℂ) x = f x := hx
+        simp [h, hx']
+      · have hx' : (hf_memLp.toLp f : ℝ → ℂ) x = f x := hx
+        simp [h]
+    have h_eq :
+        eLpNorm (fun x : ℝ => if |x| > R₀ then (hf_memLp.toLp f : ℝ → ℂ) x else 0) 2
+            (weightedMeasure σ) =
+        eLpNorm (fun x : ℝ => if |x| > R₀ then f x else 0) 2 (weightedMeasure σ) :=
+      eLpNorm_congr_ae (μ := weightedMeasure σ) (p := (2 : ℝ≥0∞)) h_ae_eq
+    simpa [h_eq] using hR₀_truncation
+
+  -- Define the truncated function
+  let f_R : ℝ → ℂ := fun x => if |x| ≤ R then f x else 0
+
+  -- Show f_R has compact support
+  have hf_R_compact : HasCompactSupport f_R := by
+    rw [HasCompactSupport]
+    have h_support : Function.support f_R ⊆ Set.Icc (-R) R := by
+      intro x hx
+      simp [f_R, Function.mem_support] at hx
+      by_cases h : |x| ≤ R
+      · exact abs_le.mp h
+      · simp [h] at hx
+    apply IsCompact.of_isClosed_subset isCompact_Icc isClosed_closure
+    exact closure_minimal h_support isClosed_Icc
+
+  -- Show f_R is in L²
+  have hf_R_memLp : MemLp f_R 2 (weightedMeasure σ) := by
+    -- f_R is a truncation of an L² function, hence also in L²
+    classical
+    have h_meas : MeasurableSet {x : ℝ | |x| ≤ R} := by
+      have h_closed : IsClosed {x : ℝ | |x| ≤ R} := by
+        simpa [Set.preimage, Set.mem_setOf_eq]
+          using (isClosed_Iic.preimage continuous_abs)
+      exact h_closed.measurableSet
+    have h_indicator_eq :
+        f_R = Set.indicator {x : ℝ | |x| ≤ R} f := by
+      funext x
+      by_cases hx : |x| ≤ R
+      · simp [f_R, Set.indicator, Set.mem_setOf_eq, hx]
+      · simp [f_R, Set.indicator, Set.mem_setOf_eq, hx]
+    have hf_indicator :
+        MemLp (Set.indicator {x : ℝ | |x| ≤ R} f) 2 (weightedMeasure σ) :=
+      MemLp.indicator (μ := weightedMeasure σ) (p := (2 : ℝ≥0∞))
+        (s := {x : ℝ | |x| ≤ R}) (f := f) h_meas hf_memLp
+    simpa [f_R, h_indicator_eq.symm]
+      using hf_indicator -- Truncation preserves L² membership
+
+  -- Show the approximation error
+  have h_error : eLpNorm (f - f_R) 2 (weightedMeasure σ) < ENNReal.ofReal (ε / 2) := by
+    -- f - f_R = (function that is f outside [-R,R] and 0 inside)
+    have h_eq : f - f_R = fun x => if |x| > R then f x else 0 := by
+      funext x
+      simp [f_R]
+      by_cases h : |x| ≤ R
+      · simp [h]
+      · simp [h, lt_of_not_ge h]
+    rw [h_eq]
+    exact hR_truncation
+
+  exact ⟨R, hR_pos, f_R, hf_R_memLp, hf_R_compact, h_error⟩
+
+/-- The weighted measure is equivalent to withDensity measure -/
+lemma weightedMeasure_eq_withDensity (σ : ℝ) :
+    weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) := by
+  classical
+  have h :
+      weightFunction σ =ᵐ[mulHaar]
+        fun x => ENNReal.ofReal (x ^ (2 * σ - 1)) := by
+    change
+        weightFunction σ
+            =ᵐ[(volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)).restrict
+                (Set.Ioi (0 : ℝ))]
+          fun x => ENNReal.ofReal (x ^ (2 * σ - 1))
+    refine
+      (ae_restrict_iff' (measurableSet_Ioi : MeasurableSet (Set.Ioi (0 : ℝ)))).2 ?_
+    apply Filter.Eventually.of_forall
+    intro x hx
+    have hx_pos : 0 < x := by simpa [Set.mem_Ioi] using hx
+    simp [weightFunction, hx_pos]
+  simpa [weightedMeasure] using (withDensity_congr_ae h)
+
 end SchwartzDensity
 
 end Frourio
