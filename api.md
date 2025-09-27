@@ -4323,14 +4323,15 @@ lemma ennreal_pow_mul_le_of_le {a b c d : ENNReal} (h1 : a ≤ b) (h2 : c < d) (
 
 lemma l2_integral_volume_bound (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume)
     (s : Set ℝ) (hs_meas : MeasurableSet s) :
-    ∫⁻ x in s, ‖f_L2 x‖₊ ^ 2 ∂volume ≤ (eLpNorm f_L2 2 volume) ^ 2 * (volume s)  := sorry
+    ∫⁻ x in s, ‖f_L2 x‖₊ ^ 2 ∂volume ≤ (eLpNorm f_L2 2 volume) ^ 2  := sorry
 
-lemma tail_measure_bound_from_larger (R' : ℝ) (hR' : 1 ≤ R') (δ' : ℝ) (hδ'_pos : 0 < δ') :
-    volume {x : ℝ | R' < ‖x‖} < ENNReal.ofReal δ'  := sorry
+lemma l2_tail_integral_exists (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume)
+    (h_finite : eLpNorm f_L2 2 volume < ∞) (δ : ℝ) (hδ : 0 < δ) :
+    ∃ R₀ : ℝ, 1 < R₀ ∧ ∀ R ≥ R₀, ∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume < ENNReal.ofReal δ  := sorry
 
 lemma l2_tail_integral_small (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume)
     (h_finite : eLpNorm f_L2 2 volume < ∞) (δ : ℝ) (hδ : 0 < δ) :
-    ∀ R ≥ 1, ∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume < ENNReal.ofReal δ  := proven
+    ∀ R ≥ 1, ∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume < ENNReal.ofReal δ  := sorry
 
 lemma truncation_error_eq_tail_norm (f : ℝ → ℂ) (hf : MemLp f 2 volume) (R : ℝ) (hR : 0 < R) :
     eLpNorm (f - fun x => if ‖x‖ ≤ R then f x else 0) 2 volume =
@@ -4423,9 +4424,6 @@ theorem mellin_isometry_normalized (σ : ℝ) :
     C > 0 ∧ ∀ f : Hσ σ, ‖U f‖ = C * ‖f‖ ∧
     (U f : ℝ → ℂ) = fun τ : ℝ => mellinTransform (f : ℝ → ℂ) (σ + I * ↑τ)  := sorry
 
-theorem fourier_parseval_classical (f : Lp ℂ 2 (volume : Measure ℝ)) :
-    ∃ (c : ℝ), c > 0 ∧ ‖f‖ ^ 2 = c * ‖f‖ ^ 2  := sorry
-
 theorem mellin_fourier_parseval_connection (σ : ℝ) (f : Hσ σ) :
     let g  := sorry
 
@@ -4435,8 +4433,9 @@ theorem mellin_fourier_unitary_equivalence (σ : ℝ) :
     ∃ (c : ℂ), c ≠ 0 ∧ mellinTransform (f : ℝ → ℂ) (σ + I * τ) = c * (V f τ)  := sorry
 
 theorem mellin_convolution_parseval (σ : ℝ) (f g : Hσ σ) :
-    ∫ τ : ℝ, mellinTransform f (σ + I * τ) * mellinTransform g (1 - σ + I * τ) =
-    2 * Real.pi * ∫ x in Set.Ioi (0 : ℝ), f x * g x ∂mulHaar  := sorry
+    ∫ τ : ℝ, mellinTransform f (σ + I * τ) * starRingEnd ℂ (mellinTransform g (σ + I * τ)) =
+    (2 * Real.pi) * ∫ x in Set.Ioi (0 : ℝ), (f x) *
+    starRingEnd ℂ (g x) * (x : ℂ) ^ (2 * σ - 1 : ℂ) ∂volume  := sorry
 
 theorem mellin_energy_conservation (σ : ℝ) (f : Hσ σ) :
     ∫ x in Set.Ioi (0 : ℝ), ‖(f : ℝ → ℂ) x‖ ^ 2 * (x : ℝ) ^ (2 * σ - 1) ∂volume =
@@ -5845,53 +5844,50 @@ end Frourio
 
 namespace Frourio
 
-lemma lp_truncation_integrable {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) :
-    Integrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume  := sorry
-
-lemma positive_truncation_memLp {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
-    MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ)  := sorry
-
-lemma positive_truncation_error_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (ε : ℝ)
-    (hε : 0 < ε)
-    (hR_truncation : eLpNorm (fun x => if |x| > R then (s : ℝ → ℂ) x else 0) 2
-      (weightedMeasure σ) < ENNReal.ofReal ε) :
-    let s_R : ℝ → ℂ  := sorry
-
-lemma convolution_integrable_smooth_continuous {f : ℝ → ℂ} {φ : ℝ → ℝ}
-    (hf_integrable : Integrable f volume) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
-    (hφ_compact : HasCompactSupport φ) :
-    Continuous (fun x => ∫ y, f y * φ (x - y) ∂volume)  := sorry
-
-lemma convolution_memLp_weighted {σ : ℝ} (hσ : 1 / 2 < σ)
-    {f : ℝ → ℂ} {φ : ℝ → ℝ} (R δ : ℝ) (hR_pos : 0 < R) (hδ_pos : 0 < δ)
-    (hf_memLp : MemLp f 2 (weightedMeasure σ))
-    (hf_vol_integrable : LocallyIntegrable f volume)
-    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
+lemma standard_mollification_l2_error {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : ℝ → ℂ) (hf_memLp : MemLp f 2 (weightedMeasure σ))
+    (φ : ℝ → ℝ) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
     (hφ_compact : HasCompactSupport φ)
-    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ) :
-    MemLp (fun x => ∫ y, f y * φ (x - y) ∂volume) 2 (weightedMeasure σ)  := sorry
+    (hφ_nonneg : ∀ x, 0 ≤ φ x)
+    (hφ_integral : ∫ x, φ x ∂volume = 1)
+    (δ ε : ℝ) (hδ_pos : 0 < δ) (hε_pos : 0 < ε) :
+    let φδ  := sorry
 
-lemma dist_lp_truncation_bound {σ : ℝ} (hσ : 1 / 2 < σ)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) (ε : ℝ) (hε : 0 < ε)
-    (s_R : ℝ → ℂ) (hs_R_def : s_R = fun x => if |x| ≤ R then (s : ℝ → ℂ) x else 0)
-    (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
-    (h_truncation_error : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
+lemma s_R_locally_integrable_volume {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R)
+    (hs_R_memLp : MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) 2
+      (weightedMeasure σ)) :
+    LocallyIntegrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume  := sorry
+
+lemma truncation_error_dist_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ))
+    (s_R : ℝ → ℂ) (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
+    (ε : ℝ) (hε : 0 < ε)
+    (h_norm_bound : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
     dist s (hs_R_memLp.toLp s_R) < ε  := sorry
 
-lemma mollification_error_bound {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f : ℝ → ℂ) (φ : ℝ → ℝ) (R δ ε : ℝ) (hR_pos : 0 < R) (hδ_pos : 0 < δ) (hε_pos : 0 < ε)
-    (hf_memLp : MemLp f 2 (weightedMeasure σ))
-    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ) (hφ_compact : HasCompactSupport φ)
-    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ)
-    (g : ℝ → ℂ) (hg_def : g = fun x => ∫ y, f y * φ (x - y) ∂volume)
+lemma lp_dist_measure_equiv {σ : ℝ} (f : Hσ σ) (g : ℝ → ℂ)
+    (f_Lp : Lp ℂ 2 (weightedMeasure σ))
+    (hf_weightedMeasure : MemLp (Hσ.toFun f) 2 (weightedMeasure σ))
+    (hf_Lp_eq : f_Lp = hf_weightedMeasure.toLp (Hσ.toFun f))
     (hg_memLp : MemLp g 2 (weightedMeasure σ))
-    (hδ_small : δ < ε / (4 * (ENNReal.toReal (eLpNorm f 2 (weightedMeasure σ)) + 1))) :
-    dist (hf_memLp.toLp f) (hg_memLp.toLp g) < ε / 2  := sorry
+    (hg_memLp_converted : MemLp g 2 (mulHaar.withDensity (fun x =>
+      ENNReal.ofReal (x ^ (2 * σ - 1))))) :
+    dist f (hg_memLp_converted.toLp g) = dist f_Lp (hg_memLp.toLp g)  := sorry
 
-lemma lp_truncation_locally_integrable {σ : ℝ} (hσ : 1 / 2 < σ)
+lemma lp_approximation_triangle_chain {σ : ℝ}
+    (f_Lp : Lp ℂ 2 (weightedMeasure σ))
+    (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ))
+    (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ))
+    (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ))
+    (ε : ℝ) (hε : 0 < ε)
+    (hs_close : dist f_Lp (↑s) < ε / 2)
+    (hg_cont_close : dist (↑s) (hg_cont_memLp.toLp g_cont) < ε / 4)
+    (hg_mollify_close : dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε / 4) :
+    dist f_Lp (hg_memLp.toLp g) < ε  := sorry
+
+lemma truncated_lp_integrable {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
     (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) :
-    LocallyIntegrable (fun x => if |x| ≤ R then (s : ℝ → ℂ) x else 0) volume  := sorry
+    Integrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume  := sorry
 
 lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
     (s : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε) :
@@ -5916,7 +5912,7 @@ lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < 
     (hσ_upper : σ < 3 / 2)
     (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) : ∃ (g : ℝ → ℂ) (hg_mem : MemLp g 2
     (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))),
-     HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧ dist f (hg_mem.toLp g) < ε  := sorry
+     HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧ dist f (hg_mem.toLp g) < ε  := proven
 
 theorem schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2) :
     DenseRange (schwartzToHσ hσ_lower)  := proven
@@ -6132,6 +6128,63 @@ lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
       ‖schwartzToHσ hσ f‖ ≤
         C₀ * SchwartzMap.seminorm ℝ 0 0 f +
           C₁ * SchwartzMap.seminorm ℝ k₁ 0 f  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/SchwartzDensity/SchwartzDensityCore2.lean
+
+namespace Frourio
+
+lemma lp_restricted_aestronglyMeasurable {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
+    AEStronglyMeasurable (s : ℝ → ℂ) (volume.restrict (Set.Ioc 0 R))  := proven
+
+lemma withDensity_mul_indicator (σ : ℝ) :
+    (volume.withDensity fun x : ℝ => ENNReal.ofReal x⁻¹).withDensity
+        ((Set.Ioi (0 : ℝ)).indicator (weightFunction σ))
+      = volume.withDensity
+          (fun x : ℝ => ENNReal.ofReal x⁻¹ *
+            (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x)  := proven
+
+lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
+    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (p : ℝ≥0∞) (hp : p = 2) :
+    MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0)
+    p (volume.restrict (Set.Ioc 0 R))  := proven
+
+lemma integrable_on_truncated_function {f : ℝ → ℂ} {R : ℝ} {p : ℝ≥0∞}
+    (h_memLp : MemLp f p (volume.restrict (Set.Ioc 0 R))) (hp : 1 ≤ p) :
+    IntegrableOn f (Set.Ioc 0 R) volume  := proven
+
+lemma lp_truncation_integrable {σ : ℝ} (hσ_upper : σ ≤ 1) (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
+    Integrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume  := proven
+
+lemma positive_truncation_memLp {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
+    MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ)  := proven
+
+lemma positive_truncation_error_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (ε : ℝ)
+    (hR_truncation : eLpNorm (fun x => if |x| > R then (s : ℝ → ℂ) x else 0) 2
+      (weightedMeasure σ) < ENNReal.ofReal ε) :
+    let s_R : ℝ → ℂ  := proven
+
+lemma convolution_integrable_smooth_continuous {f : ℝ → ℂ} {φ : ℝ → ℝ}
+    (hf_integrable : Integrable f volume) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
+    (hφ_compact : HasCompactSupport φ) :
+    Continuous (fun x => ∫ y, f y * φ (x - y) ∂volume)  := proven
+
+lemma convolution_memLp_weighted {σ : ℝ} (hσ : 1 / 2 < σ)
+    {f : ℝ → ℂ} {φ : ℝ → ℝ} (R δ : ℝ) (hR_pos : 0 < R) (hδ_pos : 0 < δ)
+    (hf_support : Function.support f ⊆ Set.Icc (-R) R)
+    (_hf_memLp : MemLp f 2 (weightedMeasure σ))
+    (hf_vol_integrable : LocallyIntegrable f volume)
+    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
+    (hφ_compact : HasCompactSupport φ)
+    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ) :
+    MemLp (fun x => ∫ y, f y * φ (x - y) ∂volume) 2 (weightedMeasure σ)  := proven
+
+lemma dist_lp_truncation_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (ε : ℝ) (hε : 0 < ε)
+    (s_R : ℝ → ℂ) (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
+    (h_truncation_error : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
+    dist s (hs_R_memLp.toLp s_R) < ε  := proven
 
 end Frourio
 
@@ -9166,4 +9219,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 89
+Total files processed: 90

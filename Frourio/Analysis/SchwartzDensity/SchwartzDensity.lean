@@ -1,6 +1,7 @@
+import Frourio.Analysis.Gaussian
 import Frourio.Analysis.MellinBasic
 import Frourio.Analysis.HilbertSpaceCore
-import Frourio.Analysis.SchwartzDensity.SchwartzDensityCore1
+import Frourio.Analysis.SchwartzDensity.SchwartzDensityCore2
 import Mathlib.MeasureTheory.Function.L2Space
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
@@ -33,115 +34,88 @@ namespace Frourio
 
 section SchwartzDensity
 
-/-- Truncated Lp functions are integrable with respect to volume measure -/
-lemma lp_truncation_integrable {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+/-- Standard mollification error for L² functions with weighted measure -/
+lemma standard_mollification_l2_error {σ : ℝ} (hσ : 1 / 2 < σ)
+    (f : ℝ → ℂ) (hf_memLp : MemLp f 2 (weightedMeasure σ))
+    (φ : ℝ → ℝ) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
+    (hφ_compact : HasCompactSupport φ)
+    (hφ_nonneg : ∀ x, 0 ≤ φ x)
+    (hφ_integral : ∫ x, φ x ∂volume = 1)
+    (δ ε : ℝ) (hδ_pos : 0 < δ) (hε_pos : 0 < ε) :
+    let φδ := fun x => (1 / δ) * φ (x / δ)
+    let g := fun x => ∫ y, f y * φδ (x - y) ∂volume
+    ∀ hg_memLp : MemLp g 2 (weightedMeasure σ),
+    δ < ε / (4 * (ENNReal.toReal (eLpNorm f 2 (weightedMeasure σ)) + 1)) →
+    dist (hf_memLp.toLp f) (hg_memLp.toLp g) < ε := by
+  sorry -- Standard mollification approximation theorem
+
+/-- Truncated functions from L²(weightedMeasure σ) are locally integrable with respect to volume -/
+lemma s_R_locally_integrable_volume {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R)
+    (hs_R_memLp : MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) 2
+      (weightedMeasure σ)) :
+    LocallyIntegrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume := by
+  -- s_R has support on (0,R] and is in L²(weightedMeasure σ), so locally integrable
+  sorry
+
+/-- Convert eLpNorm bound to Lp distance bound for truncation error -/
+lemma truncation_error_dist_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ))
+    (s_R : ℝ → ℂ) (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
+    (ε : ℝ) (hε : 0 < ε)
+    (h_norm_bound : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
+    dist s (hs_R_memLp.toLp s_R) < ε := by
+  -- The distance in Lp space equals the L² norm of the difference
+  -- dist s (hs_R_memLp.toLp s_R) = ‖s - hs_R_memLp.toLp s_R‖
+  -- Since toLp s_R represents s_R as an Lp element with the same function a.e.,
+  -- this equals eLpNorm ((s : ℝ → ℂ) - s_R) converted to real
+  sorry
+
+/-- Distance equivalence under measure isometry for Lp spaces -/
+lemma lp_dist_measure_equiv {σ : ℝ} (f : Hσ σ) (g : ℝ → ℂ)
+    (f_Lp : Lp ℂ 2 (weightedMeasure σ))
+    (hf_weightedMeasure : MemLp (Hσ.toFun f) 2 (weightedMeasure σ))
+    (hf_Lp_eq : f_Lp = hf_weightedMeasure.toLp (Hσ.toFun f))
+    (hg_memLp : MemLp g 2 (weightedMeasure σ))
+    (hg_memLp_converted : MemLp g 2 (mulHaar.withDensity (fun x =>
+      ENNReal.ofReal (x ^ (2 * σ - 1))))) :
+    dist f (hg_memLp_converted.toLp g) = dist f_Lp (hg_memLp.toLp g) := by
+  -- This equality holds because:
+  -- 1. f and f_Lp represent the same element (f_Lp = toLp f)
+  -- 2. hg_memLp_converted.toLp g and hg_memLp.toLp g represent the same element
+  -- 3. The measure equivalence preserves distances
+  -- The key insight is that we're computing distances in equivalent Lp spaces
+  -- f : Hσ σ, and f_Lp = toLp (Hσ.toFun f) : Lp ℂ 2 (weightedMeasure σ)
+  -- hg_memLp_converted corresponds to the same function g under measure equivalence
+  sorry
+
+/-- Triangle inequality chain for Lp approximation sequence -/
+lemma lp_approximation_triangle_chain {σ : ℝ}
+    (f_Lp : Lp ℂ 2 (weightedMeasure σ))
+    (s : Lp.simpleFunc ℂ 2 (weightedMeasure σ))
+    (g_cont : ℝ → ℂ) (hg_cont_memLp : MemLp g_cont 2 (weightedMeasure σ))
+    (g : ℝ → ℂ) (hg_memLp : MemLp g 2 (weightedMeasure σ))
+    (ε : ℝ) (hε : 0 < ε)
+    (hs_close : dist f_Lp (↑s) < ε / 2)
+    (hg_cont_close : dist (↑s) (hg_cont_memLp.toLp g_cont) < ε / 4)
+    (hg_mollify_close : dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε / 4) :
+    dist f_Lp (hg_memLp.toLp g) < ε := by
+  -- The approximation chain works as follows:
+  -- f_Lp --[ε/2]-- s --[ε/4]-- g_cont --[ε/4]-- g
+  -- where each arrow represents a distance bound
+  -- The mathematical proof uses two applications of triangle inequality:
+  -- Step 1: dist f_Lp g ≤ dist f_Lp s + dist s g
+  -- Step 2: dist s g ≤ dist s g_cont + dist g_cont g
+  -- Combined: dist f_Lp g ≤ dist f_Lp s + dist s g_cont + dist g_cont g
+  -- Apply the bounds: ε/2 + ε/4 + ε/4 = ε
+  sorry
+
+/-- Truncated L² functions are integrable with respect to volume measure -/
+lemma truncated_lp_integrable {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
     (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) :
     Integrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume := by
-  -- For σ ∈ (1/2, 3/2), Cauchy-Schwarz gives integrability of truncations on (0,R]
-  -- Key insight: ∫_{(0,R]} |s(x)| dx ≤
-  --   (∫ |s(x)|² x^{2σ-1} dx/x)^{1/2} (∫_{(0,R]} x^{1-2σ} dx)^{1/2}
-  -- The first factor is finite since s ∈ L²(weightedMeasure σ)
-  -- The second factor ∫_{(0,R]} x^{1-2σ} dx is finite when 1-2σ > -1, i.e., σ < 1
-  -- But we need σ > 1/2 for the weighted measure, so we restrict to σ < 3/2 for safety
-  -- Without σ < 3/2, counterexamples exist (e.g., s(x) = 1/x for x > 0)
+  -- The truncated function has support in (0,R] which has finite measure
+  -- Since s ∈ L²(weighted), on bounded sets it's integrable by Hölder's inequality
   sorry
-
-/-- Positive truncation of Lp function is also in Lp for weighted measure -/
-lemma positive_truncation_memLp {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
-    MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) 2 (weightedMeasure σ) := by
-  -- Since the positive truncation only differs from the original truncation on non-positive reals,
-  -- and weightedMeasure σ vanishes there, they are equivalent in L²
-  sorry
-
-/-- Error bound for positive truncation vs tail truncation -/
-lemma positive_truncation_error_bound {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (ε : ℝ)
-    (hε : 0 < ε)
-    (hR_truncation : eLpNorm (fun x => if |x| > R then (s : ℝ → ℂ) x else 0) 2
-      (weightedMeasure σ) < ENNReal.ofReal ε) :
-    let s_R : ℝ → ℂ := fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0
-    eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε := by
-  -- Since s_R only differs from the original truncation on non-positive reals,
-  -- and weightedMeasure σ vanishes there, the L² norms are equal
-  -- This follows because weightedMeasure σ has support only on (0,∞)
-  sorry
-
-/-- Convolution of integrable function with smooth compact support function is continuous -/
-lemma convolution_integrable_smooth_continuous {f : ℝ → ℂ} {φ : ℝ → ℝ}
-    (hf_integrable : Integrable f volume) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
-    (hφ_compact : HasCompactSupport φ) :
-    Continuous (fun x => ∫ y, f y * φ (x - y) ∂volume) := by
-  -- Standard convolution continuity theorem
-  -- For integrable f and smooth compact φ, the convolution f * φ is continuous
-  -- This follows from the dominated convergence theorem:
-  -- As h → 0, (f * φ)(x + h) - (f * φ)(x) = ∫ f(y) * [φ(x + h - y) - φ(x - y)] dy
-  -- Since φ is smooth and has compact support, φ(x + h - y) - φ(x - y) → 0 uniformly
-  -- And |f(y) * [φ(x + h - y) - φ(x - y)]| ≤ 2|f(y)| sup|φ| which is integrable
-  -- By dominated convergence, the convolution is continuous
-  sorry -- Standard convolution continuity result
-
-/-- Volume convolution with smooth compact kernel preserves L² membership in weighted spaces -/
-lemma convolution_memLp_weighted {σ : ℝ} (hσ : 1 / 2 < σ)
-    {f : ℝ → ℂ} {φ : ℝ → ℝ} (R δ : ℝ) (hR_pos : 0 < R) (hδ_pos : 0 < δ)
-    (hf_memLp : MemLp f 2 (weightedMeasure σ))
-    (hf_vol_integrable : LocallyIntegrable f volume)
-    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ)
-    (hφ_compact : HasCompactSupport φ)
-    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ) :
-    MemLp (fun x => ∫ y, f y * φ (x - y) ∂volume) 2 (weightedMeasure σ) := by
-  -- Convolution of L² function with smooth compact kernel preserves L² membership
-  -- This follows from Young's convolution inequality:
-  -- For f ∈ L²(μ) and φ ∈ L¹ ∩ L∞ with compact support, f * φ ∈ L²(μ)
-  -- In our case, φ is smooth and compactly supported, so φ ∈ L¹ ∩ L∞
-  -- The weighted measure weightedMeasure σ has polynomial growth, so the convolution
-  -- preserves L² integrability with appropriate bounds
-  -- Key insight: |f * φ|(x) ≤ ‖φ‖_∞ ∫ |f(y)| dy over compact support of φ
-  sorry -- Standard Young's inequality for weighted L² spaces
-
-/-- Distance bound from truncation error for Lp elements -/
-lemma dist_lp_truncation_bound {σ : ℝ} (hσ : 1 / 2 < σ)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) (ε : ℝ) (hε : 0 < ε)
-    (s_R : ℝ → ℂ) (hs_R_def : s_R = fun x => if |x| ≤ R then (s : ℝ → ℂ) x else 0)
-    (hs_R_memLp : MemLp s_R 2 (weightedMeasure σ))
-    (h_truncation_error : eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε) :
-    dist s (hs_R_memLp.toLp s_R) < ε := by
-  -- The distance between Lp elements equals the L² norm of their function difference
-  -- dist s (hs_R_memLp.toLp s_R) = ‖s - hs_R_memLp.toLp s_R‖_L²
-  -- Since hs_R_memLp.toLp s_R represents s_R as an Lp element,
-  -- we have ‖s - hs_R_memLp.toLp s_R‖_L² = ‖(s : ℝ → ℂ) - s_R‖_L²
-  -- By assumption, eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal ε
-  -- Converting to real gives the desired bound
-  sorry -- Standard conversion from eLpNorm bound to Lp distance
-
-/-- Mollification error bound for L² functions with weighted measure -/
-lemma mollification_error_bound {σ : ℝ} (hσ : 1 / 2 < σ)
-    (f : ℝ → ℂ) (φ : ℝ → ℝ) (R δ ε : ℝ) (hR_pos : 0 < R) (hδ_pos : 0 < δ) (hε_pos : 0 < ε)
-    (hf_memLp : MemLp f 2 (weightedMeasure σ))
-    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ) (hφ_compact : HasCompactSupport φ)
-    (hφ_support : Function.support φ ⊆ Set.Icc (-δ) δ)
-    (g : ℝ → ℂ) (hg_def : g = fun x => ∫ y, f y * φ (x - y) ∂volume)
-    (hg_memLp : MemLp g 2 (weightedMeasure σ))
-    (hδ_small : δ < ε / (4 * (ENNReal.toReal (eLpNorm f 2 (weightedMeasure σ)) + 1))) :
-    dist (hf_memLp.toLp f) (hg_memLp.toLp g) < ε / 2 := by
-  -- Mollification error bound using continuity and smoothness of the kernel
-  -- For small δ, the convolution g = f * φ approximates f well in L² norm
-  -- This follows from standard mollification theory:
-  -- As δ → 0, φ_δ(x) = (1/δ) φ(x/δ) approaches the Dirac delta
-  -- So f * φ_δ → f in L² as δ → 0
-  -- For finite δ, the error is controlled by δ and the smoothness of φ
-  -- In weighted L² spaces, the polynomial weight doesn't affect the local approximation
-  sorry -- Standard mollification approximation bound in weighted L² spaces
-
-/-- Truncated Lp functions are locally integrable with respect to volume measure -/
-lemma lp_truncation_locally_integrable {σ : ℝ} (hσ : 1 / 2 < σ)
-    (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (hR_pos : 0 < R) :
-    LocallyIntegrable (fun x => if |x| ≤ R then (s : ℝ → ℂ) x else 0) volume := by
-  -- The truncated function has compact support (bounded by R)
-  -- and comes from an L² function in weighted measure
-  -- Functions with compact support are locally integrable w.r.t. volume measure
-  -- This follows because on any bounded set, the truncated function is bounded
-  -- and measurable (as it comes from L² function), hence locally integrable
-  -- Key insight: compact support + measurability → local integrability
-  sorry -- Standard result: compact support functions are locally integrable
 
 /-- L² functions can be approximated by continuous
   compactly supported functions in weighted L² spaces -/
@@ -191,7 +165,7 @@ lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : �
   -- The truncation error is controlled
   have h_truncation_error :
       eLpNorm ((s : ℝ → ℂ) - s_R) 2 (weightedMeasure σ) < ENNReal.ofReal (ε / 2) := by
-    exact positive_truncation_error_bound s R (ε / 2) (by linarith : 0 < ε / 2) hR_truncation
+    exact positive_truncation_error_bound s R (ε / 2) hR_truncation
 
   -- Choose mollification parameter δ small enough
   -- Use L² norm of s_R since s_R ∈ L²(weightedMeasure σ)
@@ -218,29 +192,59 @@ lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : �
         · norm_num
         · linarith [hR_pos]  -- Since R > 0, we have R + 1 > 1 > 0
 
-  -- Construct mollifier φδ with support in [-δ, δ]
-  -- Use exists_smooth_tsupport_subset to get a smooth compactly supported function
-  have h_ball_nhds : Metric.ball (0:ℝ) δ ∈ 𝓝 (0:ℝ) := Metric.ball_mem_nhds _ hδ_pos
-  obtain ⟨φδ, hφδ_tsupport, hφδ_compact, hφδ_smooth, hφδ_range, hφδ_at_zero⟩ :=
-    exists_smooth_tsupport_subset h_ball_nhds
+  -- Construct a proper mollifier as an approximation identity
+  -- Step 1: Get a base smooth function with support in [-1, 1]
+  have h_ball_nhds_unit : Metric.ball (0:ℝ) 1 ∈ 𝓝 (0:ℝ) := Metric.ball_mem_nhds _ zero_lt_one
+  obtain ⟨φ₀, hφ₀_tsupport, hφ₀_compact, hφ₀_smooth, hφ₀_range, hφ₀_at_zero⟩ :=
+    exists_smooth_tsupport_subset h_ball_nhds_unit
 
-  -- φδ has the required properties but we need to normalize it for integration
-  -- For now, use this as our mollifier (normalization can be added later)
+  -- Step 2: Normalize φ₀ to have integral 1
+  have hφ₀_integrable : Integrable φ₀ := by
+    exact Continuous.integrable_of_hasCompactSupport hφ₀_smooth.continuous hφ₀_compact
+
+  have hφ₀_pos_integral : 0 < ∫ x, φ₀ x ∂volume := by
+    -- φ₀(0) = 1 and φ₀ ≥ 0, so the integral is positive
+    sorry -- This follows from continuity at 0 and non-negativity
+
+  let φ_normalized := fun x => φ₀ x / (∫ y, φ₀ y ∂volume)
+
+  have hφ_normalized_integral : ∫ x, φ_normalized x ∂volume = 1 := by
+    -- By construction, φ_normalized = φ₀ / (∫ φ₀)
+    -- So ∫ φ_normalized = ∫ (φ₀ / (∫ φ₀)) = (∫ φ₀) / (∫ φ₀) = 1
+    sorry -- Direct calculation using linearity of integration
+
+  -- Step 3: Scale to get φδ with support in [-δ, δ]
+  let φδ := fun x => (1 / δ) * φ_normalized (x / δ)
+
+  have hφδ_smooth : ContDiff ℝ (⊤ : ℕ∞) φδ := by
+    -- Composition and scaling preserve smoothness
+    sorry -- Technical but standard
+
+  have hφδ_compact : HasCompactSupport φδ := by
+    -- Scaling preserves compact support
+    sorry -- Technical but standard
+
   have hφδ_support : Function.support φδ ⊆ Set.Icc (-δ) δ := by
-    have h_subset : tsupport φδ ⊆ Metric.ball 0 δ := hφδ_tsupport
-    have h_ball_subset : Metric.ball 0 δ ⊆ Set.Ioo (-δ) δ := by
-      intro x hx
-      simp [Metric.mem_ball, dist_zero_right] at hx
-      exact abs_lt.mp hx
-    intro x hx
-    have h_mem := h_subset (subset_tsupport φδ hx)
-    have h_in_interval := h_ball_subset h_mem
-    exact ⟨le_of_lt h_in_interval.1, le_of_lt h_in_interval.2⟩
+    -- φδ(x) = (1/δ) * φ_normalized(x/δ)
+    -- support(φδ) = {x : φδ(x) ≠ 0} = {x : φ_normalized(x/δ) ≠ 0} = δ * support(φ_normalized)
+    -- Since support(φ_normalized) ⊆ [-1, 1], we have support(φδ) ⊆ [-δ, δ]
+    sorry -- Technical but standard scaling argument
 
   have hφδ_nonneg : ∀ x, 0 ≤ φδ x := by
     intro x
-    have := hφδ_range (Set.mem_range_self x)
-    exact this.1
+    simp [φδ, φ_normalized]
+    apply mul_nonneg
+    · -- 0 ≤ 1/δ since 0 < δ
+      rw [inv_nonneg]
+      exact hδ_pos.le
+    · apply div_nonneg
+      · have := hφ₀_range (Set.mem_range_self (x / δ))
+        exact this.1
+      · exact le_of_lt hφ₀_pos_integral
+
+  have hφδ_integral : ∫ x, φδ x ∂volume = 1 := by
+    -- Change of variables: ∫ (1/δ) * φ_normalized(x/δ) dx = ∫ φ_normalized(y) dy = 1
+    sorry -- Standard change of variables formula
 
   -- Define the mollified function g := s_R * φδ (convolution)
   let g : ℝ → ℂ := fun x => ∫ y, s_R y * φδ (x - y) ∂volume
@@ -274,7 +278,7 @@ lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : �
       exact BddAbove.mono h_range_subset h_bdd_with_zero
     -- s_R is integrable because it's a truncation of an L² function
     have hs_R_integrable : Integrable s_R :=
-      lp_truncation_integrable hσ_lower hσ_upper s R hR_pos
+      truncated_lp_integrable hσ_lower hσ_upper s R hR_pos
     -- φδ is smooth with compact support, hence integrable
     have hφδ_integrable : Integrable φδ := by
       -- Use the fact that continuous functions with compact support are integrable
@@ -372,11 +376,18 @@ lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : �
     exact closure_minimal hg_support isClosed_Icc
 
   -- Show g ∈ L² with the weighted measure
-  have hs_R_vol_integrable : LocallyIntegrable s_R volume := by
-    -- s_R has support on (0,R] and is in L²(weightedMeasure σ), so locally integrable
-    sorry
+  have hs_R_vol_integrable : LocallyIntegrable s_R volume :=
+    s_R_locally_integrable_volume hσ_lower hσ_upper s R hR_pos hs_R_memLp
+  have hs_R_support' : Function.support s_R ⊆ Set.Icc (-R) R := by
+    calc Function.support s_R
+      ⊆ Set.Ioc 0 R := hs_R_support
+      _ ⊆ Set.Icc 0 R := Set.Ioc_subset_Icc_self
+      _ ⊆ Set.Icc (-R) R := by
+        intro x hx
+        simp at hx ⊢
+        exact ⟨le_trans (neg_nonpos_of_nonneg (le_of_lt hR_pos)) hx.1, hx.2⟩
   have hg_memLp : MemLp g 2 (weightedMeasure σ) :=
-    convolution_memLp_weighted hσ_lower R δ hR_pos hδ_pos hs_R_memLp
+    convolution_memLp_weighted hσ_lower R δ hR_pos hδ_pos hs_R_support' hs_R_memLp
     hs_R_vol_integrable hφδ_smooth hφδ_compact hφδ_support
 
   use g, hg_memLp
@@ -392,13 +403,41 @@ lemma lp_to_continuous_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : �
       · -- First term: dist s s_R < ε/2 (from truncation error)
         -- Use the fact that truncation error is controlled
         -- Use h_truncation_error directly since the distance bounds are equivalent
-        sorry
+        exact truncation_error_dist_bound s s_R hs_R_memLp (ε / 2) (by linarith : 0 < ε / 2)
+          h_truncation_error
       · -- Second term: dist s_R g < ε/2 (mollification error)
-        -- This follows from the fact that g is a mollification of s_R with small δ
-        have hδ_small : δ < ε / (4 * (ENNReal.toReal (eLpNorm s_R 2 (weightedMeasure σ)) + 1)) :=
-          mollification_delta_small ε hε s_R R hR_pos σ
-        exact mollification_error_bound hσ_lower s_R φδ R δ ε hR_pos hδ_pos hε
-          hs_R_memLp hφδ_smooth hφδ_compact hφδ_support g rfl hg_memLp hδ_small
+        -- Apply the standard mollification error bound
+        -- We need to build the proper mollifier from our normalized φδ
+        -- First, we need to construct the base mollifier with support in [-1, 1]
+        let φ_base := φ_normalized  -- Already normalized with integral = 1
+        have hφ_base_smooth : ContDiff ℝ (⊤ : ℕ∞) φ_base := by
+          sorry -- φ_normalized inherits smoothness from φ₀
+        have hφ_base_compact : HasCompactSupport φ_base := by
+          sorry -- φ_normalized has same support as φ₀
+        have hφ_base_nonneg : ∀ x, 0 ≤ φ_base x := by
+          intro x
+          simp [φ_base, φ_normalized]
+          apply div_nonneg
+          · have := hφ₀_range (Set.mem_range_self x)
+            exact this.1
+          · exact le_of_lt hφ₀_pos_integral
+        have hφ_base_integral : ∫ x, φ_base x ∂volume = 1 := hφ_normalized_integral
+
+        -- Now apply the standard mollification error
+        have h_error := standard_mollification_l2_error hσ_lower s_R hs_R_memLp
+          φ_base hφ_base_smooth hφ_base_compact hφ_base_nonneg hφ_base_integral
+          δ (ε/2) hδ_pos (by linarith : 0 < ε/2)
+
+        -- The mollified function matches our g
+        have hg_eq : g = fun x => ∫ y, s_R y * ((1/δ) * φ_base ((x - y)/δ)) ∂volume := by
+          sorry -- Definitional equality after unfolding
+
+        -- Apply the error bound
+        have hδ_small' : δ < (ε/2) / (4 * (ENNReal.toReal
+          (eLpNorm s_R 2 (weightedMeasure σ)) + 1)) := by
+          sorry -- This needs to be proven from our choice of δ
+
+        exact h_error hg_memLp hδ_small'
     _ = ε := by ring
 
 /-- Continuous compactly supported functions can be approximated
@@ -505,49 +544,17 @@ lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < 
 
       -- Since f_Lp was constructed from f and hg_memLp_converted from hg_memLp,
       -- the distance should be equivalent to working in the original space
-      have h_dist_equiv : dist f (hg_memLp_converted.toLp g) = dist f_Lp (hg_memLp.toLp g) := by
-        -- This equality holds because:
-        -- 1. f and f_Lp represent the same element (f_Lp = toLp f)
-        -- 2. hg_memLp_converted.toLp g and hg_memLp.toLp g represent the same element
-        -- 3. The measure equivalence preserves distances
-
-        -- The key insight is that we're computing distances in equivalent Lp spaces
-        -- f : Hσ σ, and f_Lp = toLp (Hσ.toFun f) : Lp ℂ 2 (weightedMeasure σ)
-        -- hg_memLp_converted corresponds to the same function g under measure equivalence
-
-        -- Use measure equivalence to relate the distances
-        -- Since h_measure_equiv_final : weightedMeasure σ = mulHaar.withDensity ...,
-        -- the Lp spaces are isometric under this equivalence
-
-        -- The technical proof would use measure_theory_lemmas for Lp isometry
-        -- under measure equivalence, but this requires intricate type conversions
-        sorry
+      have h_dist_equiv : dist f (hg_memLp_converted.toLp g) = dist f_Lp (hg_memLp.toLp g) :=
+        lp_dist_measure_equiv f g f_Lp hf_weightedMeasure rfl hg_memLp hg_memLp_converted
 
       rw [h_dist_equiv]
 
       -- Apply triangle inequality in the weightedMeasure space: f_Lp → s → g_cont → g
       -- The key insight is we have bounds:
       -- dist f_Lp s < ε/2, dist s g_cont < ε/4, dist g_cont g < ε/4
-      have h_triangle_chain : dist f_Lp (hg_memLp.toLp g) < ε := by
-        -- The approximation chain works as follows:
-        -- f_Lp --[ε/2]-- s --[ε/4]-- g_cont --[ε/4]-- g
-        -- where each arrow represents a distance bound
-
-        -- We have the following bounds available:
-        -- 1. hs_close' : dist f_Lp (↑s) < ε / 2
-        -- 2. hg_cont_close : dist (↑s) (hg_cont_memLp.toLp g_cont) < ε / 4
-        -- 3. hg_mollify_close : dist (hg_cont_memLp.toLp g_cont) (hg_memLp.toLp g) < ε / 4
-
-        -- The mathematical proof uses two applications of triangle inequality:
-        -- Step 1: dist f_Lp g ≤ dist f_Lp s + dist s g
-        -- Step 2: dist s g ≤ dist s g_cont + dist g_cont g
-        -- Combined: dist f_Lp g ≤ dist f_Lp s + dist s g_cont + dist g_cont g
-
-        -- The type-matching challenge is that s has type Lp.simpleFunc while others have type Lp
-        -- This requires careful coercion handling: ↑s converts Lp.simpleFunc to Lp
-
-        -- Apply the bounds: ε/2 + ε/4 + ε/4 = ε
-        sorry
+      have h_triangle_chain : dist f_Lp (hg_memLp.toLp g) < ε :=
+        lp_approximation_triangle_chain f_Lp s g_cont hg_cont_memLp g hg_memLp ε hε
+          hs_close' hg_cont_close hg_mollify_close
       exact h_triangle_chain
 
     exact h_approx_bound
