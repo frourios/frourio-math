@@ -18,10 +18,12 @@ import Frourio.Analysis.EntropyPackage
 import Frourio.Analysis.FrourioFunctional
 import Frourio.Analysis.MellinPlancherel
 import Frourio.Analysis.MellinParseval
+import Frourio.Analysis.OperatorNorm
 import Frourio.Analysis.SuitableWindow
 import Frourio.Analysis.ZakMellin
 import Frourio.Analysis.GammaConvergence
 import Frourio.Analysis.Windows
+import Frourio.Analysis.ZeroSpacing
 import Frourio.Zeta.Interfaces
 import Frourio.Zeta.Kernel
 import Frourio.Zeta.GoldenSampling

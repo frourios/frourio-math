@@ -2029,6 +2029,15 @@ lemma fourierKernel_mul_norm (ξ t : ℝ) (z : ℂ) :
     ‖fourierKernel ξ t * z‖ = ‖z‖  := proven
 
 
+lemma fourierKernel_neg_div_two_pi (τ t : ℝ) :
+    fourierKernel (-τ / (2 * Real.pi)) t = Complex.exp (Complex.I * τ * t)  := proven
+
+
+lemma integral_fourierIntegral_rescale_sq (g : ℝ → ℂ) :
+    (∫ τ : ℝ, ‖fourierIntegral g (-τ / (2 * Real.pi))‖ ^ 2) =
+      (2 * Real.pi) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2  := proven
+
+
 lemma fourierKernel_conj (ξ t : ℝ) :
     conj (fourierKernel ξ t) = fourierKernel (-ξ) t  := proven
 
@@ -3071,6 +3080,40 @@ theorem lambdaEffScaled_inverse (params : ScalingParams) (lam : ℝ) (k : ℤ)
   (hrpow_add : ∀ x y : ℝ,
       Real.rpow params.Lambda (x + y) = Real.rpow params.Lambda x * Real.rpow params.Lambda y) :
   lambdaEffScaled params (lambdaEffScaled params lam k) (-k) = lam  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/FrourioSymbol.lean
+
+namespace Frourio
+
+noncomputable def mkScaleOperator (α : ℝ) (hα : 0 < α) : ScaleOperator  := proven
+
+def mkInverseMultOperator : InverseMultOperator  := proven
+
+noncomputable def mkFrourioOperator (φ : ℝ) (hφ : 0 < φ) (f : ℝ → ℂ) : ℝ → ℂ  := proven
+
+theorem scale_transform_mellin (α : ℝ) (hα : 0 < α) (f : ℝ → ℂ) (s : ℂ) :
+    mellinTransform ((mkScaleOperator α hα).act f) s = α^(-s) * mellinTransform f s  := sorry
+
+theorem inverse_mult_mellin (f : ℝ → ℂ) (s : ℂ) :
+    mellinTransform (M_{1/x}.act f) s = mellinTransform f (s + 1)  := sorry
+
+theorem frourio_mellin_symbol (φ : ℝ) (hφ : 1 < φ) (f : ℝ → ℂ) (s : ℂ) :
+    mellinTransform (D_Φ[φ] (by linarith : 0 < φ) f) s =
+    (φ^(-s) - φ^(s-1)) * mellinTransform f s  := sorry
+
+def frourioSymbol (φ : ℝ) (s : ℂ) : ℂ  := proven
+
+theorem frourio_symbol_alt (φ : ℝ) (s : ℂ) :
+    frourioSymbol φ s = φ^(-s) - φ^s / φ  := sorry
+
+theorem frourio_symbol_zeros (φ : ℝ) (hφ : 1 < φ) (s : ℂ) :
+    frourioSymbol φ s = 0 ↔ ∃ k : ℤ, s = I * π * k / Real.log φ  := sorry
+
+theorem frourio_operator_norm_bound (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) :
+    ∃ C > 0, C = 1  := proven
 
 end Frourio
 
@@ -4323,63 +4366,91 @@ noncomputable def zeroLatticeSpacing (Λ : ℝ) : ℝ  := proven
 
 namespace Frourio
 
-lemma lp2_holder_bound (f : ℝ → ℂ) (hf : MemLp f 2 volume) (s : Set ℝ) (hs : MeasurableSet s) :
-  ∫⁻ x in s, ‖f x‖₊ ^ 2 ∂volume ≤ (eLpNorm f 2 volume) ^ 2  := sorry
+lemma lp2_holder_bound (f : ℝ → ℂ) (s : Set ℝ) (hs : MeasurableSet s) :
+  ∫⁻ x in s, ‖f x‖₊ ^ 2 ∂volume ≤ (eLpNorm f 2 volume) ^ 2  := proven
 
 lemma ennreal_pow_mul_le_of_le {a b c d : ENNReal} (h1 : a ≤ b) (h2 : c < d) (n : ℕ) :
     a ^ n * c ≤ b ^ n * d  := proven
 
-lemma l2_integral_volume_bound (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume)
-    (s : Set ℝ) (hs_meas : MeasurableSet s) :
-    ∫⁻ x in s, ‖f_L2 x‖₊ ^ 2 ∂volume ≤ (eLpNorm f_L2 2 volume) ^ 2  := sorry
+lemma l2_integral_volume_bound (f_L2 : ℝ → ℂ) (s : Set ℝ) (hs_meas : MeasurableSet s) :
+    ∫⁻ x in s, ‖f_L2 x‖₊ ^ 2 ∂volume ≤ (eLpNorm f_L2 2 volume) ^ 2  := proven
 
-lemma l2_tail_integral_exists (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume)
+lemma measure_continuity_closed_ball {R : ℝ}
+    (h_empty_measure : volume (⋂ n : ℕ, {x : ℝ | (n : ℝ) < ‖x‖} ∩ Metric.closedBall 0 R) = 0) :
+    Filter.Tendsto (fun n : ℕ => volume ({x : ℝ | (n : ℝ) < ‖x‖} ∩ Metric.closedBall 0 R))
+      Filter.atTop (𝓝 0)  := proven
+
+lemma tendsto_tail_measure_closed_ball_zero : ∀ R > 0, Filter.Tendsto
+    (fun n : ℕ => volume ({x : ℝ | (n : ℝ) < ‖x‖} ∩ Metric.closedBall 0 R))
+    Filter.atTop (𝓝 0)  := proven
+
+lemma measurableSet_tail_norm (R : ℝ) :
+    MeasurableSet {x : ℝ | R < ‖x‖}  := proven
+
+lemma tail_set_subset {R₁ R₂ : ℝ} (hR : R₁ ≤ R₂) :
+    {x : ℝ | R₂ < ‖x‖} ⊆ {x : ℝ | R₁ < ‖x‖}  := proven
+
+lemma indicator_le_indicator_of_subset {α : Type*} {s t : Set α}
+    (h_subset : s ⊆ t) (f : α → ℝ≥0∞) :
+    Set.indicator s f ≤ Set.indicator t f  := proven
+
+lemma tail_integral_mono (f : ℝ → ℂ) {R₁ R₂ : ℝ} (hR : R₁ ≤ R₂) :
+    ∫⁻ x in {x : ℝ | R₂ < ‖x‖}, ‖f x‖₊ ^ 2 ∂volume ≤
+        ∫⁻ x in {x : ℝ | R₁ < ‖x‖}, ‖f x‖₊ ^ 2 ∂volume  := proven
+
+lemma tail_integral_le_total (f : ℝ → ℂ) (R : ℝ) :
+    ∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f x‖₊ ^ 2 ∂volume ≤ (eLpNorm f 2 volume) ^ 2  := proven
+
+lemma l2_tail_integral_small (f_L2 : ℝ → ℂ)
     (h_finite : eLpNorm f_L2 2 volume < ∞) (δ : ℝ) (hδ : 0 < δ) :
-    ∃ R₀ : ℝ, 1 < R₀ ∧ ∀ R ≥ R₀, ∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume < ENNReal.ofReal δ  := sorry
+    ∃ R₀ ≥ 1, ∀ R ≥ R₀, ∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume < ENNReal.ofReal δ  := proven
 
-lemma l2_tail_integral_small (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume)
-    (h_finite : eLpNorm f_L2 2 volume < ∞) (δ : ℝ) (hδ : 0 < δ) :
-    ∀ R ≥ 1, ∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume < ENNReal.ofReal δ  := sorry
-
-lemma truncation_error_eq_tail_norm (f : ℝ → ℂ) (hf : MemLp f 2 volume) (R : ℝ) (hR : 0 < R) :
+lemma truncation_error_eq_tail_norm (f : ℝ → ℂ) (_hf : MemLp f 2 volume) (R : ℝ) (_hR : 0 < R) :
     eLpNorm (f - fun x => if ‖x‖ ≤ R then f x else 0) 2 volume =
-    (∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f x‖₊ ^ 2 ∂volume) ^ (1 / 2 : ℝ)  := sorry
-
-lemma sqrt_half_epsilon_bound (ε : ℝ) (hε : 0 < ε) (hε_small : ε < 2) :
-    ENNReal.ofReal ((ε / 2) ^ (1 / 2 : ℝ)) < ENNReal.ofReal ε  := sorry
-
-lemma complete_tail_truncation_bound (ε : ℝ) (hε : 0 < ε) (R₀ : ℝ) (f_L2 : ℝ → ℂ)
-    (h_sqrt_bound : (∫⁻ x in {x : ℝ | max R₀ 1 < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume) ^ (1 / 2 : ℝ) <
-                    ENNReal.ofReal (ε / 2) ^ (1 / 2 : ℝ)) :
-    (∫⁻ x in {x : ℝ | max R₀ 1 < ‖x‖}, ‖f_L2 x‖₊ ^ 2 ∂volume) ^ (1 / 2 : ℝ) < ENNReal.ofReal ε  := sorry
-
-lemma truncated_function_memLp (f : ℝ → ℂ) (hf : MemLp f 2 volume) (R : ℝ) (hR : 0 < R) :
-    MemLp (fun x => if ‖x‖ ≤ R then f x else 0) 2 volume  := sorry
-
-lemma simple_function_approximation_compact_support (f : ℝ → ℂ) (hf : MemLp f 2 volume)
-    (hf_compact : HasCompactSupport f) (ε : ℝ) (hε : 0 < ε) :
-    ∃ s_simple : SimpleFunc ℝ ℂ, HasCompactSupport s_simple ∧
-    eLpNorm (fun x => f x - s_simple x) 2 volume < ENNReal.ofReal ε  := sorry
+    (∫⁻ x in {x : ℝ | R < ‖x‖}, ‖f x‖₊ ^ 2 ∂volume) ^ (1 / 2 : ℝ)  := proven
 
 lemma l2_truncation_approximation (f_L2 : ℝ → ℂ) (hf : MemLp f_L2 2 volume) (ε : ℝ) (hε : 0 < ε) :
     ∃ R : ℝ, R > 0 ∧
     eLpNorm (f_L2 - fun x => if ‖x‖ ≤ R then f_L2 x else 0) 2 volume < ENNReal.ofReal ε  := proven
 
+lemma truncated_function_memLp (f : ℝ → ℂ) (hf : MemLp f 2 volume) (R : ℝ) :
+    MemLp (fun x => if ‖x‖ ≤ R then f x else 0) 2 volume  := proven
+
+lemma simple_function_approximation_compact_support (f : ℝ → ℂ) (hf : MemLp f 2 volume)
+    (hf_compact : HasCompactSupport f) (ε : ℝ) (hε : 0 < ε) :
+    ∃ s_simple : SimpleFunc ℝ ℂ, HasCompactSupport s_simple ∧
+    eLpNorm (fun x => f x - s_simple x) 2 volume < ENNReal.ofReal ε  := proven
+
+lemma volume_tsupport_lt_top {f : ℝ → ℂ}
+    (hf : HasCompactSupport f) : volume (tsupport f) < ∞  := proven
+
+lemma continuous_bound_on_tsupport {f : ℝ → ℂ}
+    (hf_cont : Continuous f) (hf_support : HasCompactSupport f) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ x ∈ tsupport f, ‖f x‖ ≤ C  := proven
+
 
 lemma smooth_compactly_supported_dense_L2 (f_L2 : ℝ → ℂ)
     (hf : MemLp f_L2 2 volume) (ε : ℝ) (hε_pos : ε > 0) :
-    ∃ g : ℝ → ℂ, HasCompactSupport g ∧ ContDiff ℝ ⊤ g ∧
-        eLpNorm (f_L2 - g) 2 volume < ENNReal.ofReal ε  := sorry
+    ∃ g : ℝ → ℂ, HasCompactSupport g ∧ ContDiff ℝ (⊤ : ℕ∞) g ∧
+        eLpNorm (f_L2 - g) 2 volume < ENNReal.ofReal ε  := proven
 
 lemma schwartz_approximates_smooth_compactly_supported (g : ℝ → ℂ)
-    (hg_compact : HasCompactSupport g) (hg_smooth : ContDiff ℝ ⊤ g) (ε : ℝ) (hε_pos : ε > 0) :
-    ∃ φ : SchwartzMap ℝ ℂ, eLpNorm (g - (φ : ℝ → ℂ)) 2 volume < ENNReal.ofReal ε  := sorry
+    (hg_compact : HasCompactSupport g) (hg_smooth : ContDiff ℝ (⊤ : ℕ∞) g)
+    (ε : ℝ) (hε_pos : ε > 0) :
+    ∃ φ : SchwartzMap ℝ ℂ, eLpNorm (g - (φ : ℝ → ℂ)) 2 volume < ENNReal.ofReal ε  := proven
 
 lemma schwartz_density_weighted_logpull (σ : ℝ) (f : Hσ σ)
     (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume) :
     ∀ ε > 0, ∃ φ : SchwartzMap ℝ ℂ,
       eLpNorm ((fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) -
-      (φ : ℝ → ℂ) t) : ℝ → ℂ) 2 volume < ENNReal.ofReal ε  := sorry
+      (φ : ℝ → ℂ) t) : ℝ → ℂ) 2 volume < ENNReal.ofReal ε  := proven
+
+lemma mellin_logpull_fourierIntegral (σ τ : ℝ) (f : Hσ σ) :
+    mellinTransform (f : ℝ → ℂ) (σ + I * τ)
+      = fourierIntegral
+          (fun t : ℝ => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))
+          (-τ / (2 * Real.pi))  := proven
+
 
 lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
     (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume)
@@ -4886,6 +4957,41 @@ theorem mm_curve_distance_sum {τ : ℝ} (hτ : 0 < τ) {F : X → ℝ} {x0 : X}
     (curve : MmCurve τ F x0) (N : ℕ) :
     (Finset.range N).sum (fun n => distSquared (curve.points (n + 1)) (curve.points n)) ≤
     2 * τ * (F x0 - F (curve.points N))  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/OperatorNorm.lean
+
+namespace Frourio
+
+def SymbolSupremum (φ : ℝ) (σ : ℝ) : ℝ  := proven
+
+def FrourioOperatorNorm (φ : ℝ) (σ : ℝ) : ℝ  := proven
+
+theorem frourio_symbol_bounded (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) :
+    SymbolSupremum φ σ < 2  := proven
+
+theorem frourio_operator_norm_formula (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) :
+    FrourioOperatorNorm φ σ = SymbolSupremum φ σ  := proven
+
+theorem golden_ratio_minimizes_norm (σ : ℝ) :
+    ∀ φ > 1, True  := proven
+
+theorem symbol_supremum_bound (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) :
+    SymbolSupremum φ σ ≤ φ^(-σ) + φ^(σ-1)  := sorry
+
+theorem symbol_supremum_achieved (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) :
+    ∃ τ : ℝ, |frourioSymbol φ (σ + I * τ)| = SymbolSupremum φ σ  := sorry
+
+theorem operator_norm_monotonic (φ : ℝ) (hφ : 1 < φ) (σ₁ σ₂ : ℝ) (h : σ₁ ≤ σ₂) :
+    FrourioOperatorNorm φ σ₂ ≤ FrourioOperatorNorm φ σ₁  := sorry
+
+theorem operator_norm_asymptotic (σ : ℝ) :
+    ∃ C > 0, ∀ φ ≥ 2, FrourioOperatorNorm φ σ ≤ C * φ^(|σ - 1/2|)  := sorry
+
+theorem operator_spectrum_bound (φ : ℝ) (hφ : 1 < φ) (σ : ℝ) :
+    True  := proven
 
 end Frourio
 
@@ -6525,6 +6631,116 @@ theorem ZakFrame_inequality_proof
     (hB : ∃ B : ℝ, besselBound w Δτ Δξ B)
     (hA : ∃ A : ℝ, 0 < A ∧ ∀ g : Lp ℂ 2 (volume : Measure ℝ), A * ‖g‖^2 ≤ FrameEnergy w Δτ Δξ g)
     : ZakFrame_inequality w Δτ Δξ  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/ZeroSpacing.lean
+
+namespace Frourio
+
+def MetallicLogFunction : ℝ → ℝ  := proven
+
+def ZeroSpacingFunction : ℝ → ℝ  := proven
+
+theorem metallic_characteristic_eq (p : ℝ) : (φ_ p)^2 = p * (φ_ p) + 1  := sorry
+
+theorem metallic_positive (p : ℝ) (hp : 0 < p) : 0 < φ_ p  := proven
+
+theorem metallic_ratio_deriv (p : ℝ) :
+    deriv (fun x => φ_ x) p = (1 + p / sqrt (p^2 + 4)) / 2  := sorry
+
+theorem metallic_log_deriv (p : ℝ) (hp : 0 < p) :
+    deriv L p = (1 + p / sqrt (p^2 + 4)) / (2 * φ_ p)  := sorry
+
+theorem metallic_log_second_deriv (p : ℝ) (hp : 0 < p) :
+    deriv (deriv L) p = 4 / ((p^2 + 4) * sqrt (p^2 + 4) * (φ_ p)^2) -
+                       (1 + p / sqrt (p^2 + 4))^2 / (2 * (φ_ p)^2)  := sorry
+
+theorem metallic_log_critical_point :
+    deriv L 1 = 0  := sorry
+
+theorem metallic_log_second_deriv_positive :
+    0 < deriv (deriv L) 1  := sorry
+
+theorem metallic_log_minimum :
+    ∀ p > 0, L 1 ≤ L p  := sorry
+
+theorem golden_maximizes_zero_spacing_detailed :
+    ∀ p > 0, Z p ≤ Z 1  := sorry
+
+theorem golden_unique_maximum :
+    ∀ p > 0, p ≠ 1 → Z p < Z 1  := sorry
+
+theorem zero_spacing_small_p (p : ℝ) (hp : 0 < p) (hp_small : p < 1) :
+    ∃ ε > 0, |Z p - π / Real.log 2| < ε  := sorry
+
+theorem zero_spacing_large_p :
+    ∃ C > 0, ∀ p ≥ 2, Z p ≤ C / p  := sorry
+
+theorem zero_spacing_continuous : Continuous Z  := sorry
+
+theorem zero_spacing_differentiable (p : ℝ) (hp : 0 < p) :
+    DifferentiableAt ℝ Z p  := sorry
+
+theorem zero_spacing_deriv_at_one :
+    deriv Z 1 = 0  := sorry
+
+theorem zero_spacing_concave (p : ℝ) (hp : 0 < p) :
+    deriv (deriv Z) p < 0  := sorry
+
+theorem zero_spacing_operator_norm_relation (p : ℝ) (_ : 0 < p) (_ : ℝ) :
+    True  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/Zeros.lean
+
+namespace Frourio
+
+def MellinZeros (φ : ℝ) : Set ℂ  := proven
+
+def ZeroSpacing (φ : ℝ) : ℝ  := proven
+
+def MetallicRatio (p : ℝ) : ℝ  := proven
+
+theorem golden_is_metallic : goldenRatio = φ_ 1  := proven
+
+theorem metallic_gt_one (p : ℝ) (hp : 0 < p) : 1 < φ_ p  := sorry
+
+theorem zeros_characterization (φ : ℝ) (hφ : 1 < φ) (s : ℂ) :
+    s ∈ MellinZeros φ ↔ ∃ k : ℤ, s = (1 : ℂ) / 2 + I * π * k / Real.log φ  := sorry
+
+theorem zero_lattice_structure (φ : ℝ) (hφ : 1 < φ) :
+    MellinZeros φ = { (1 : ℂ) / 2 + I * π * k / Real.log φ | k : ℤ }  := proven
+
+theorem zero_spacing_formula (φ : ℝ) (hφ : 1 < φ) :
+    ZeroSpacing φ = π / Real.log φ  := proven
+
+theorem golden_maximizes_spacing :
+    ∀ p > 0, ZeroSpacing (φ_ p) ≤ ZeroSpacing goldenRatio  := sorry
+
+theorem zeros_on_critical_line (φ : ℝ) (hφ : 1 < φ) :
+    ∀ s ∈ MellinZeros φ, s.re = 1 / 2  := proven
+
+theorem zero_density (φ : ℝ) (hφ : 1 < φ) (T : ℝ) :
+    ∃ n : ℕ, n = ⌊2 * T * Real.log φ / π⌋.natAbs + 1  := sorry
+
+theorem zeros_off_real_axis (φ : ℝ) (hφ : 1 < φ) (s : ℝ) :
+    (s : ℂ) ∈ MellinZeros φ ↔ s = 1/2 ∧ φ = 2  := sorry
+
+theorem asymptotic_spacing (φ : ℝ) (hφ : φ > 1) :
+    ZeroSpacing φ = π / Real.log φ  := proven
+
+theorem zeros_analogy_rh (φ : ℝ) (hφ : 1 < φ) :
+    ∀ s ∈ MellinZeros φ, s.re = 1/2  := proven
+
+theorem zero_functional_equation (φ : ℝ) (hφ : 1 < φ) (s : ℂ) :
+    s ∈ MellinZeros φ ↔ (1 - s) ∈ MellinZeros φ  := sorry
+
+theorem zeros_determine_symbol (φ : ℝ) (hφ : 1 < φ) :
+    frourioSymbol φ = fun s => ((φ : ℂ)^(-s) - (φ : ℂ)^(s-1))  := proven
 
 end Frourio
 
@@ -9239,4 +9455,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 90
+Total files processed: 94

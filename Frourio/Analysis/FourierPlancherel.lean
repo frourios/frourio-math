@@ -55,6 +55,49 @@ lemma fourierKernel_mul_norm (ξ t : ℝ) (z : ℂ) :
     ‖fourierKernel ξ t * z‖ = ‖z‖ := by
   simp [fourierKernel_norm ξ t]
 
+lemma fourierKernel_neg_div_two_pi (τ t : ℝ) :
+    fourierKernel (-τ / (2 * Real.pi)) t = Complex.exp (Complex.I * τ * t) := by
+  have hpi : (2 * Real.pi) ≠ 0 := by
+    have : (2 : ℝ) ≠ 0 := by norm_num
+    exact mul_ne_zero this Real.pi_ne_zero
+  have hscale :
+      -(2 * Real.pi * (-τ / (2 * Real.pi)) * t) = τ * t := by
+    simp [div_eq_mul_inv, mul_comm, mul_left_comm]
+  have hmul : Complex.ofReal (τ * t) * Complex.I = Complex.I * τ * t := by
+    simp [Complex.ofReal_mul, mul_comm, mul_left_comm]
+  simp only [fourierKernel, hscale]
+  rw [hmul]
+
+lemma integral_fourierIntegral_rescale_sq (g : ℝ → ℂ) :
+    (∫ τ : ℝ, ‖fourierIntegral g (-τ / (2 * Real.pi))‖ ^ 2) =
+      (2 * Real.pi) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 := by
+  have h :=
+    (Measure.integral_comp_mul_left
+        (a := -1 / (2 * Real.pi))
+        (g := fun ξ : ℝ => ‖fourierIntegral g ξ‖ ^ 2))
+  have h_inv : (-1 / (2 * Real.pi))⁻¹ = -(2 * Real.pi) := by
+    have : (2 * Real.pi) ≠ 0 := by
+      have : (2 : ℝ) ≠ 0 := by norm_num
+      exact mul_ne_zero this Real.pi_ne_zero
+    simp [div_eq_mul_inv, mul_comm, mul_left_comm]
+  have h_abs : |(-1 / (2 * Real.pi))⁻¹| = 2 * Real.pi := by
+    have hpos : 0 ≤ 2 * Real.pi := by
+      have : 0 ≤ (2 : ℝ) := by norm_num
+      exact mul_nonneg this Real.pi_pos.le
+    simp [h_inv, abs_neg, abs_of_nonneg hpos]
+  have h_smul :
+      (|(-1 / (2 * Real.pi))⁻¹| : ℝ)
+        • ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 =
+          (2 * Real.pi) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 := by
+    rw [smul_eq_mul, h_abs]
+  have h_simplified :
+      (∫ τ : ℝ, ‖fourierIntegral g ((-1) / (2 * Real.pi) * τ)‖ ^ 2)
+        = (2 * Real.pi) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 := by
+    rw [← h_smul]
+    exact h
+  simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
+    using h_simplified
+
 lemma fourierKernel_conj (ξ t : ℝ) :
     conj (fourierKernel ξ t) = fourierKernel (-ξ) t := by
   classical
