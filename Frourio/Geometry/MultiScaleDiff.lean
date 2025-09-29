@@ -559,7 +559,8 @@ theorem spectralSymbol_derivative_bound {m : PNat} (cfg : MultiScaleConfig m)
                 ≤ |cfg.α i| * cfg.τ i * 1 := by
             exact mul_le_mul_of_nonneg_left h2 hnonneg
           have hτabs : |cfg.τ i| = cfg.τ i := by simpa using (abs_of_pos hτi)
-          simpa [h1, hτabs] using this
+          rw [h1]
+          simpa using this
     _ = spectralSymbolDerivativeBound cfg := by
           simp [spectralSymbolDerivativeBound]
 

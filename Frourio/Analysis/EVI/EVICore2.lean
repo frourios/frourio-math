@@ -6,7 +6,6 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Topology.Basic
 import Mathlib.Topology.Order.DenselyOrdered
 import Mathlib.Order.LiminfLimsup
-import Mathlib.Topology.Order.LiminfLimsup
 import Mathlib.Topology.Algebra.Order.LiminfLimsup
 import Mathlib.Topology.Instances.EReal.Lemmas
 import Mathlib.Tactic

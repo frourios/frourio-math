@@ -253,13 +253,15 @@ lemma contDiff_convolution_mollifier {φ : ℝ → ℂ} {η : ℝ → ℝ}
     have h_eq : tsupport (fun y => (η y : ℂ)) = tsupport η := by
       -- tsupport f = closure (support f)
       simp only [tsupport]
-      -- We need to show closure (support (fun y => (η y : ℂ))) = closure (support η)
-      congr 1
       -- Now show support (fun y => (η y : ℂ)) = support η
       ext y
-      simp only [Function.mem_support]
-      -- (η y : ℂ) ≠ 0 ↔ η y ≠ 0
-      norm_cast
+      -- y ∈ closure (support (fun y => (η y : ℂ))) ↔ y ∈ closure (support η)
+      -- This follows because support (fun y => (η y : ℂ)) = support η
+      have h_supp_eq : Function.support (fun y => (η y : ℂ)) = Function.support η := by
+        ext z
+        rw [Function.mem_support, Function.mem_support]
+        rw [Complex.ofReal_ne_zero]
+      rw [h_supp_eq]
     rw [h_eq]
     exact hη_supp
   -- Now we can apply the convolution smoothness theorem

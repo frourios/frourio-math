@@ -9,7 +9,6 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Topology.Basic
 import Mathlib.Topology.Order.DenselyOrdered
 import Mathlib.Order.LiminfLimsup
-import Mathlib.Topology.Order.LiminfLimsup
 import Mathlib.Topology.Algebra.Order.LiminfLimsup
 import Mathlib.Topology.Instances.EReal.Lemmas
 import Mathlib.Topology.UniformSpace.Compact
@@ -258,8 +257,11 @@ lemma limit_epsilon_to_zero (f g c : ℝ) (hc : 0 ≤ c) (h : ∀ ε > 0, f ≤ 
     have := h ε hε_pos
     -- We have f ≤ g + (f - g)/(2c) * c = g + (f - g)/2
     -- So 2f ≤ 2g + (f - g) = f + g, hence f ≤ g
-    simp [ε] at this
-    field_simp at this
+    have : f ≤ g + (f - g) / (2 * c) * c := this
+    have : f ≤ g + (f - g) / 2 := by
+      convert this using 2
+      field_simp
+      ring
     linarith
 
 lemma shifted_function_nonincreasing_with_usc

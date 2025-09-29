@@ -1,7 +1,6 @@
 import Frourio.Analysis.EVI.EVICore0
 import Mathlib.Topology.Instances.EReal.Lemmas
 import Mathlib.Order.LiminfLimsup
-import Mathlib.Topology.Order.LiminfLimsup
 import Mathlib.Topology.Algebra.Order.LiminfLimsup
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Order.Filter.Basic

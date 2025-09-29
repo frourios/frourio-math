@@ -151,14 +151,37 @@ theorem higher_leibniz_two (Λ : ℝ) (f g : ℝ → ℝ) :
   simp [phiDiffIter, phiDiff_add, phiDiff_leibniz]
 
 /-- Φ差分のスケール不変性 -/
-theorem phiDiff_scale_invariant (Λ : ℝ) (hΛ : 1 < Λ) (c : ℝ) (hc : c ≠ 0)
-    (f : ℝ → ℝ) :
+theorem phiDiff_scale_invariant (Λ : ℝ) (c : ℝ) (hc : c ≠ 0) (f : ℝ → ℝ) :
     phiDiff Λ (fun x => f (c * x)) = fun x => c * phiDiff Λ f (c * x) := by
   ext x
-  simp [phiDiff]
+  unfold phiDiff
   by_cases hx : x = 0
-  · subst hx; simp
-  · field_simp [hx, hc]
+  · subst hx
+    simp
+  · set d := Λ - 1 / Λ with hd
+    have hx1 : c * (Λ * x) = Λ * (c * x) := by
+      simp [mul_comm, mul_left_comm, mul_assoc]
+    have hx2 : c * (x / Λ) = (c * x) / Λ := by
+      simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
+    have hnum : f (c * (Λ * x)) - f (c * (x / Λ))
+        = f (Λ * (c * x)) - f ((c * x) / Λ) := by
+      simp [hx1, hx2]
+    have hfrac : 1 / (x * d) = c / ((c * x) * d) := by
+      have h : c / (c * (x * d)) = 1 / (x * d) := by
+        simpa using mul_div_mul_left (a := (1 : ℝ)) (b := x * d) (c := c) hc
+      have : 1 / (x * d) = c / (c * (x * d)) := h.symm
+      simpa [mul_comm, mul_left_comm, mul_assoc] using this
+    calc
+      (f (c * (Λ * x)) - f (c * (x / Λ))) / (x * d)
+          = (f (Λ * (c * x)) - f ((c * x) / Λ)) / (x * d) := by
+              simp [hnum]
+      _ = (f (Λ * (c * x)) - f ((c * x) / Λ)) * (1 / (x * d)) := by
+              simp [div_eq_mul_inv]
+      _ = (f (Λ * (c * x)) - f ((c * x) / Λ))
+              * (c / ((c * x) * d)) := by
+              simp [hfrac]
+      _ = c * ((f (Λ * (c * x)) - f ((c * x) / Λ)) / ((c * x) * d)) := by
+              simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
 
 /-- Φ系での単項式作用：D_Φ[x^{n+1}] = [n+1]_Φ · x^n
     ここで [m]_Φ = S Λ m / S Λ 1 -/
@@ -166,10 +189,18 @@ theorem phi_monomial_action (Λ : ℝ) (n : ℕ) (x : ℝ) (hx : x ≠ 0) :
     phiDiff Λ (fun y => y ^ (n + 1)) x =
       ((Λ ^ (n + 1) - 1 / Λ ^ (n + 1)) / (Λ - 1 / Λ)) * x ^ n := by
   -- 展開して x を約分
-  simp [phiDiff, mul_pow, div_pow, one_div]  -- 分子の冪をばらす
-  -- 分数式の整理（x ≠ 0）
-  field_simp [hx]
-  ring
+  simp only [phiDiff, mul_pow, div_pow, inv_eq_one_div]
+  -- x^(n+1)を因数分解
+  have : (Λ ^ (n + 1) * x ^ (n + 1) - x ^ (n + 1) / Λ ^ (n + 1)) / (x * (Λ - 1 / Λ))
+       = (Λ ^ (n + 1) - 1 / Λ ^ (n + 1)) / (Λ - 1 / Λ) * x ^ n := by
+    calc (Λ ^ (n + 1) * x ^ (n + 1) - x ^ (n + 1) / Λ ^ (n + 1)) / (x * (Λ - 1 / Λ))
+        = (x ^ (n + 1) * (Λ ^ (n + 1) - 1 / Λ ^ (n + 1))) / (x * (Λ - 1 / Λ)) := by ring
+    _   = (x * x ^ n * (Λ ^ (n + 1) - 1 / Λ ^ (n + 1))) / (x * (Λ - 1 / Λ)) := by
+          rw [pow_succ']
+    _   = (x ^ n * (Λ ^ (n + 1) - 1 / Λ ^ (n + 1))) / (Λ - 1 / Λ) := by
+          rw [mul_assoc x, mul_div_mul_left _ _ hx]
+    _   = (Λ ^ (n + 1) - 1 / Λ ^ (n + 1)) / (Λ - 1 / Λ) * x ^ n := by ring
+  exact this
 
 /-- 追加: Λ = 1 のとき S Λ n = 0 -/
 theorem S_at_one (n : ℤ) : S 1 n = 0 := by

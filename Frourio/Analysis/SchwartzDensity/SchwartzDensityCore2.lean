@@ -34,6 +34,16 @@ namespace Frourio
 
 section SchwartzDensity
 
+/-- Helper identity converting the squared extended norm to an `ENNReal.ofReal` quadratic. -/
+@[simp] lemma ennorm_sq_eq_ofReal_norm_sq (z : ℂ) :
+    ‖z‖ₑ ^ 2 = ENNReal.ofReal (‖z‖ ^ 2) := by
+  have hz : 0 ≤ ‖z‖ := norm_nonneg _
+  simp [pow_two, ENNReal.ofReal_mul, hz]
+
+@[simp] lemma norm_norm_sq (z : ℂ) : ‖‖z‖ ^ 2‖ = ‖z‖ ^ 2 := by
+  have hz : 0 ≤ ‖z‖ ^ 2 := sq_nonneg _
+  simp [Real.norm_eq_abs, abs_of_nonneg hz]
+
 /-- Helper lemma: Lp function restricted to a set is AE strongly measurable -/
 lemma lp_restricted_aestronglyMeasurable {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
     AEStronglyMeasurable (s : ℝ → ℂ) (volume.restrict (Set.Ioc 0 R)) := by
@@ -223,21 +233,25 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
           (hr := ENNReal.ofReal_ne_top))
     have h_rewrite :
         ∫⁻ x, ‖f x‖ₑ ^ 2 ∂μ = ∫⁻ x, Set.indicator S g x ∂volume := by
-      simpa [h_norm_sq, h_lhs]
+      simp [h_norm_sq, h_lhs]
     have h_le_const :
-        ∫⁻ x, ‖f x‖ₑ ^ 2 ∂μ ≤
+        ∫⁻ x, ENNReal.ofReal (‖f x‖ ^ 2) ∂μ ≤
           ∫⁻ x, ENNReal.ofReal (R ^ (2 - 2 * σ)) * Set.indicator S w x ∂volume := by
-      simpa [h_rewrite] using h_indicator_bound'
+      simpa [h_lhs] using h_indicator_bound'
     have h_le_mul :
-        ∫⁻ x, ‖f x‖ₑ ^ 2 ∂μ ≤
+        ∫⁻ x, ENNReal.ofReal (‖f x‖ ^ 2) ∂μ ≤
           ENNReal.ofReal (R ^ (2 - 2 * σ)) * ∫⁻ x, Set.indicator S w x ∂volume := by
       simpa [h_const_mul] using h_le_const
+    have h_le_final' :
+        ∫⁻ x, ‖f x‖ₑ ^ 2 ∂μ ≤
+          ENNReal.ofReal (R ^ (2 - 2 * σ)) * ∫⁻ x, Set.indicator S w x ∂volume := by
+      simpa [h_norm_sq] using h_le_mul
     have h_le_final :
         ∫⁻ x, ‖f x‖ₑ ^ 2 ∂μ ≤
           ENNReal.ofReal (R ^ (2 - 2 * σ)) *
             ∫⁻ x, ENNReal.ofReal
                 (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)) ∂μ := by
-      simpa [h_rhs.symm] using h_le_mul
+      simpa [h_rhs.symm] using h_le_final'
     exact h_le_final
   -- Show that the weighted integral on the right-hand side is finite.
   have h_weight_integral_lt :
@@ -962,7 +976,7 @@ lemma truncation_approximation {σ : ℝ} (hσ : 1 / 2 < σ)
     have h_meas : MeasurableSet {x : ℝ | |x| ≤ R} := by
       have h_closed : IsClosed {x : ℝ | |x| ≤ R} := by
         simpa [Set.preimage, Set.mem_setOf_eq]
-          using (isClosed_Iic.preimage continuous_abs)
+          using (isClosed_Iic.preimage continuous_norm)
       exact h_closed.measurableSet
     have h_indicator_eq :
         f_R = Set.indicator {x : ℝ | |x| ≤ R} f := by

@@ -1,7 +1,7 @@
 # Lean API
 
 ## ./lean-toolchain
-leanprover/lean4:v4.23.0-rc2
+leanprover/lean4:v4.21.0
 
 
 ## ./Frourio.lean
@@ -616,8 +616,7 @@ theorem higher_leibniz_two (Λ : ℝ) (f g : ℝ → ℝ) :
             + (g ((Λ * x) / Λ) * phiDiff Λ (phiDiff Λ f) x
                 + phiDiff Λ f (x / Λ) * phiDiff Λ (fun t => g (t / Λ)) x)  := proven
 
-theorem phiDiff_scale_invariant (Λ : ℝ) (hΛ : 1 < Λ) (c : ℝ) (hc : c ≠ 0)
-    (f : ℝ → ℝ) :
+theorem phiDiff_scale_invariant (Λ : ℝ) (c : ℝ) (hc : c ≠ 0) (f : ℝ → ℝ) :
     phiDiff Λ (fun x => f (c * x)) = fun x => c * phiDiff Λ f (c * x)  := proven
 
 theorem phi_monomial_action (Λ : ℝ) (n : ℕ) (x : ℝ) (hx : x ≠ 0) :
@@ -3569,6 +3568,10 @@ lemma integral_indicator_const_mul (S : Set ℝ) (c : ℝ) (f : ℝ → ℝ) :
     ∫ t, Set.indicator S (fun t => c * f t) t =
     c * ∫ t, Set.indicator S f t  := proven
 
+lemma two_le_four_pi : 2 ≤ 4 * Real.pi  := proven
+
+lemma pi_lt_four : Real.pi < 4  := proven
+
 lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
     ∃ w : Lp ℂ 2 (volume : Measure ℝ),
       ‖w‖ = 1 ∧
@@ -3925,11 +3928,11 @@ lemma complete_square_simplify {δ : ℝ} (hδ : 0 < δ) (ξ t : ℝ) :
     -↑π / ↑δ^2 * (↑t + I * ↑δ^2 * ↑ξ)^2 + ↑π / ↑δ^2 * (-1) * (↑δ^2)^2 * ↑ξ^2 =
     -↑π / ↑δ^2 * (↑t + I * ↑δ^2 * ↑ξ)^2 - ↑π * ↑δ^2 * ↑ξ^2  := proven
 
-lemma complex_gaussian_contour_shift {δ : ℝ} (hδ : 0 < δ) (ξ : ℝ) :
-    ∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * (↑a + I * ↑δ^2 * ↑ξ)^2) =
-    ∫ s : ℝ, Complex.exp (-↑π / ↑δ^2 * ↑s^2)  := proven
+lemma gaussian_exponent_complete_square {δ : ℝ} (hδ : 0 < δ) (ξ t : ℝ) :
+    -↑π / ↑δ^2 * ↑t^2 - 2 * ↑π * I * ↑ξ * ↑t =
+    -↑π / ↑δ^2 * (↑t + I * ↑δ^2 * ↑ξ)^2 - ↑π * ↑δ^2 * ↑ξ^2  := proven
 
-lemma gaussian_contour_shift {δ : ℝ} (hδ : 0 < δ) (ξ : ℝ) :
+lemma complex_gaussian_contour_shift {δ : ℝ} (hδ : 0 < δ) (ξ : ℝ) :
     ∫ a : ℝ, Complex.exp (-↑π / ↑δ^2 * (↑a + I * ↑δ^2 * ↑ξ)^2) =
     ∫ s : ℝ, Complex.exp (-↑π / ↑δ^2 * ↑s^2)  := proven
 
@@ -4776,6 +4779,9 @@ lemma weighted_LogPull_integral_eq (σ : ℝ) (f : Hσ σ) :
     = ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (‖f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume  := proven
 
 def has_weighted_L2_norm (σ : ℝ) (f : Hσ σ) : Prop  := proven
+
+lemma ennorm_sq_rpow (z : ℂ) :
+    (‖z‖ₑ : ℝ≥0∞) ^ (2 : ℝ) = ENNReal.ofReal (‖z‖ ^ 2)  := proven
 
 lemma weighted_LogPull_memLp (σ : ℝ) (f : Hσ σ) (h_extra : has_weighted_L2_norm σ f) :
     MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume  := proven
@@ -6442,6 +6448,11 @@ end Frourio
 ## ./Frourio/Analysis/SchwartzDensity/SchwartzDensityCore2.lean
 
 namespace Frourio
+
+@[simp] lemma ennorm_sq_eq_ofReal_norm_sq (z : ℂ) :
+    ‖z‖ₑ ^ 2 = ENNReal.ofReal (‖z‖ ^ 2)  := proven
+
+@[simp] lemma norm_norm_sq (z : ℂ) : ‖‖z‖ ^ 2‖ = ‖z‖ ^ 2  := proven
 
 lemma lp_restricted_aestronglyMeasurable {σ : ℝ} (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
     AEStronglyMeasurable (s : ℝ → ℂ) (volume.restrict (Set.Ioc 0 R))  := proven

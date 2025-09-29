@@ -3,7 +3,6 @@ import Mathlib.MeasureTheory.Function.LpSpace.Basic
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mathlib.MeasureTheory.Measure.WithDensity
 import Mathlib.Analysis.SpecialFunctions.Complex.Log
-import Mathlib.Analysis.Complex.Trigonometric
 import Mathlib.Algebra.GroupWithZero.Basic
 import Mathlib.Algebra.BigOperators.Group.Finset.Defs
 import Mathlib.Tactic
@@ -19,7 +18,6 @@ namespace Frourio
 
 -- Suppress non-critical linter suggestions to keep CI output clean for P2.
 set_option linter.unnecessarySimpa false
-set_option linter.unusedSimpArgs false
 set_option linter.unusedTactic false
 set_option linter.style.longLine false
 set_option linter.unreachableTactic false

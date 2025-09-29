@@ -499,6 +499,7 @@ theorem horizontal_contour_shift {f : ℂ → ℂ} {y₁ y₂ : ℝ}
           have hfactor : const * δ = ε / 2 := by
             rw [hδ]
             field_simp
+            ring
           calc const * Real.exp (-B * R^2)
             _ ≤ const * (δ * Real.exp (-1)) := mul_le_mul_of_nonneg_left h_exp_le hconst_nonneg
             _ = (const * δ) * Real.exp (-1) := by ring

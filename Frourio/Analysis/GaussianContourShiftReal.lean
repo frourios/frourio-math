@@ -140,6 +140,7 @@ lemma young_inequality_for_products (a b c : ℝ) (ε : ℝ) (hε : 0 < ε) :
     rw [h1, h2] at h
     have h3 : 2 * (Real.sqrt ε' * |u|) * (|v| / Real.sqrt ε') = 2 * |u| * |v| := by
       field_simp [Real.sq_sqrt (le_of_lt hε')]
+      ring
     rw [h3] at h
     -- From 0 ≤ ε' * u^2 - 2 * |u| * |v| + v^2 / ε'
     have h4 : 2 * |u| * |v| ≤ ε' * u^2 + v^2 / ε' := by linarith
@@ -371,6 +372,7 @@ lemma sq_exceeds_threshold (a_re : ℝ) (ha : 0 < a_re) (sign : ℝ) (hsign : si
       _ = 4 * (-b * 4 / a_re) := by
         have hsign_pos : 0 < |sign|^2 := sq_pos_iff.mpr (abs_pos.mpr hsign).ne'
         field_simp [ne_of_gt hsign_pos]
+        ring
       _ = -16 * b / a_re := by ring
       _ > -4 * b / a_re := by
         -- Since b < 0, we have -b > 0
@@ -394,6 +396,7 @@ lemma gaussian_bound_rearrange (a_re : ℝ) (ha : 0 < a_re) (b : ℝ) (x : ℝ)
   -- Simplify the right side
   have h2 : a_re * (-4 * b / a_re) = -4 * b := by
     field_simp
+    ring
   rw [h2] at h1
   -- Divide both sides by 4:
   have h3 : a_re * x^2 / 4 > -4 * b / 4 := by

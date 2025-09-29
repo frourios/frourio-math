@@ -53,10 +53,7 @@ lemma smooth_compactly_supported_dense_L2 (f_L2 : ℝ → ℂ)
   have hR_nonneg : 0 ≤ R := le_of_lt hR_pos
   let S : Set ℝ := Metric.closedBall (0 : ℝ) (R + 2)
   have hS_meas : MeasurableSet S := measurableSet_closedBall
-  have hS_lt_top : volume S < ∞ := by
-    simpa [S] using
-      (MeasureTheory.measure_closedBall_lt_top (μ := volume)
-        (x := (0 : ℝ)) (r := R + 2))
+  have hS_lt_top : volume S < ∞ := by simp [S]
   set μS : ℝ := (volume S).toReal with hμS_def
   have hμS_nonneg : 0 ≤ μS := by simp [μS]
   let M : ℝ := Real.sqrt μS
@@ -191,7 +188,7 @@ lemma smooth_compactly_supported_dense_L2 (f_L2 : ℝ → ℂ)
       have hpow_eq :
           (‖g₀ x - g x‖₊ : ℝ≥0∞) ^ 2
             = ENNReal.ofReal (‖g₀ x - g x‖ ^ 2) := by
-        simp [pow_two]
+        simp [pow_two, ENNReal.coe_mul, ENNReal.ofReal_mul, hnorm_nonneg]
       have hpow_bound :
           (‖g₀ x - g x‖₊ : ℝ≥0∞) ^ 2
             ≤ ENNReal.ofReal (δ ^ 2) := by

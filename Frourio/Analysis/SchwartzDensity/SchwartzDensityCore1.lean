@@ -221,7 +221,7 @@ lemma hasFiniteIntegral_of_dominated_on_compactSupport {μ : Measure ℝ} {g : �
   have h_bound : ∀ᵐ x ∂μ.restrict s, ‖‖g x‖ ^ 2‖ ≤ M ^ 2 :=
     h_dominated_restrict.mono fun x hx => by simpa [h_abs_eq x] using hx
   have h_restrict : HasFiniteIntegral (fun x => ‖g x‖ ^ 2) (μ.restrict s) :=
-    HasFiniteIntegral.restrict_of_bounded (μ := μ) (s := s)
+    hasFiniteIntegral_restrict_of_bounded (μ := μ) (s := s)
       (f := fun x => ‖g x‖ ^ 2) (C := M ^ 2) h_finite_on_support h_bound
   -- Relate the integral over `μ` to the integral over `μ.restrict s` via the indicator of `s`.
   have h_indicator_eq :
@@ -248,7 +248,9 @@ lemma hasFiniteIntegral_of_dominated_on_compactSupport {μ : Measure ℝ} {g : �
   have h_sq_eq :
       (fun x => ENNReal.ofReal (‖g x‖ ^ 2)) = fun x => ‖g x‖ₑ ^ 2 := by
     funext x
-    simp
+    have hx : 0 ≤ ‖g x‖ := norm_nonneg _
+    -- convert both sides to a product of `ENNReal.ofReal` terms
+    simp [pow_two, ENNReal.ofReal_mul, hx]
   have h_integral_eq :
       ∫⁻ x, ENNReal.ofReal (‖g x‖ ^ 2) ∂μ =
         ∫⁻ x, ENNReal.ofReal (‖g x‖ ^ 2) ∂μ.restrict s := by
@@ -257,22 +259,20 @@ lemma hasFiniteIntegral_of_dominated_on_compactSupport {μ : Measure ℝ} {g : �
   have h_integral_lt_top :
       ∫⁻ x, ENNReal.ofReal (‖g x‖ ^ 2) ∂μ < ∞ := by
     have h_restrict_lt :
-        ∫⁻ x, ENNReal.ofReal (‖g x‖ ^ 2) ∂μ.restrict s < ∞ := by
-      simpa [HasFiniteIntegral] using h_restrict
-    have h_restrict_sq_lt :
         ∫⁻ x, ‖g x‖ₑ ^ 2 ∂μ.restrict s < ∞ := by
-      simpa [h_sq_eq] using h_restrict_lt
+      simpa [HasFiniteIntegral] using h_restrict
     have h_sq_lt_top :
         ∫⁻ x, ‖g x‖ₑ ^ 2 ∂μ < ∞ := by
-      simpa [h_integral_eq_sq] using h_restrict_sq_lt
+      simpa [h_integral_eq_sq] using h_restrict_lt
     simpa [h_sq_eq] using h_sq_lt_top
   -- Express the conclusion in terms of the original integrand.
   have h_abs : ∀ x, ‖(fun x => ‖g x‖ ^ 2) x‖ₑ = ENNReal.ofReal (‖g x‖ ^ 2) := by
     intro x
-    have hx : 0 ≤ ‖g x‖ ^ 2 := by
-      simp
-    have hxnorm : ‖‖g x‖ ^ 2‖ = ‖g x‖ ^ 2 := Real.norm_of_nonneg hx
-    simp
+    have hx : 0 ≤ ‖g x‖ := norm_nonneg _
+    have hx_sq : 0 ≤ ‖g x‖ ^ 2 := by
+      simpa [sq] using mul_nonneg hx hx
+    have hxnorm : ‖‖g x‖ ^ 2‖ = ‖g x‖ ^ 2 := Real.norm_of_nonneg hx_sq
+    simp [pow_two, ENNReal.ofReal_mul, hx, hxnorm]
   simpa [HasFiniteIntegral, h_abs] using h_integral_lt_top
 
 /-- Convolution of simple function truncation with smooth compact support function is in L² -/
@@ -657,7 +657,7 @@ lemma simpleFunc_levelSet_tail_measure_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
         simp [A]
       rw [h_set_eq]
       exact (hA_measurable.inter
-        (measurableSet_lt measurable_const continuous_abs.measurable)).nullMeasurableSet
+        (measurableSet_lt measurable_const continuous_norm.measurable)).nullMeasurableSet
     · -- The sets are decreasing (antitone)
       intro R₁ R₂ h_le
       exact h_nested R₁ R₂ h_le
@@ -694,7 +694,7 @@ lemma simpleFunc_tail_l2_convergence {σ : ℝ} (_hσ : 1 / 2 < σ)
   set gSimple := f.map gVal
 
   have h_tail_measurable : ∀ R : ℝ, MeasurableSet (tailSet R) := fun R =>
-    (measurableSet_lt measurable_const continuous_abs.measurable)
+    (measurableSet_lt measurable_const continuous_norm.measurable)
 
   -- Express the squared norm of the tail truncation using an indicator of the tail set
   have h_indicator (R : ℝ) :
@@ -1086,7 +1086,7 @@ lemma lp_tail_vanishing {σ : ℝ} (hσ : 1 / 2 < σ)
     let tailSet : Set ℝ := {x : ℝ | |x| > R}
     have h_open_tail : IsOpen tailSet := by
       have : tailSet = (fun x : ℝ => |x|) ⁻¹' Set.Ioi R := rfl
-      simpa [this] using (isOpen_Ioi.preimage continuous_abs)
+      simpa [this] using (isOpen_Ioi.preimage continuous_norm)
     have h_meas_tail : MeasurableSet tailSet := h_open_tail.measurableSet
     let tailS : ℝ → ℂ := tailSet.indicator fun x => (s : ℝ → ℂ) x
     let tailDiff : ℝ → ℂ := tailSet.indicator fun x =>

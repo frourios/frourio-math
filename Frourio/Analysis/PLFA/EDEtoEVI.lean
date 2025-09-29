@@ -242,6 +242,7 @@ lemma dini_upper_distance_squared (ρ : ℝ → X) (v : X) (t : ℝ)
           congr 1
           -- Simplify: L * h * ((2 * dist (ρ t) v + L * h) / h) = L * (2 * dist (ρ t) v + L * h)
           field_simp [ne_of_gt hpos]
+          ring
       _ = -(2 * L * dist (ρ t) v + L^2 * h) := by ring
       _ ≥ -(2 * L * dist (ρ t) v + L^2) := by
           apply neg_le_neg
@@ -274,6 +275,7 @@ lemma young_inequality_evi (a b ε : ℝ) (hε : 0 < ε) :
       _ = ε * a^2 - 2 * a * b + b^2 / ε := by
           congr 2
           field_simp [sqrt_pos.ne']
+          ring
 
   -- From 0 ≤ ε * a^2 - 2 * a * b + b^2 / ε
   -- We get: 2 * a * b ≤ ε * a^2 + b^2 / ε
@@ -399,7 +401,9 @@ lemma upperSemicontinuous_add_continuous {f g : ℝ → ℝ}
             congr 2
             ring_nf
       _ = ((ε/2) * h) / h := by rw [abs_of_pos hh_pos]
-      _ = ε/2 := by field_simp
+      _ = ε/2 := by
+          field_simp
+          ring
 
   -- Combine the bounds
   calc quotient_function f s y h + quotient_function g s y h
@@ -500,6 +504,7 @@ lemma DiniUpperE_lam_d2_bound_explicit {X : Type*} [PseudoMetricSpace X]
           exact div_le_div_of_nonneg_right habsprod (le_of_lt hpos')
         have : ((L * h) * (2 * b + L * h)) / h = L * (2 * b + L * h) := by
           field_simp [ne_of_gt hpos]
+          ring
         rw [← this]
         exact hdiv
       -- Use the factorization a^2 - b^2 = (a - b) * (a + b)
@@ -631,6 +636,7 @@ lemma DiniUpperE_lam_d2_bound {X : Type*} [PseudoMetricSpace X]
           exact div_le_div_of_nonneg_right habsprod (le_of_lt hpos')
         have : ((L * h) * (2 * b + L * h)) / h = L * (2 * b + L * h) := by
           field_simp [ne_of_gt hpos]
+          ring
         rw [← this]
         exact hdiv
       -- Use the factorization a^2 - b^2 = (a - b) * (a + b)

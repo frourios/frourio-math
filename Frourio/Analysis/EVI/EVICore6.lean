@@ -10,7 +10,6 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Topology.Basic
 import Mathlib.Topology.Order.DenselyOrdered
 import Mathlib.Order.LiminfLimsup
-import Mathlib.Topology.Order.LiminfLimsup
 import Mathlib.Topology.Algebra.Order.LiminfLimsup
 import Mathlib.Topology.Instances.EReal.Lemmas
 import Mathlib.Topology.Compactness.Compact
@@ -133,6 +132,7 @@ theorem nonincreasing_of_DiniUpperE_nonpos_right_with_usc
         convert this using 1
         simp [δ]
         field_simp
+        ring
       linarith
     exact h_limit
 

@@ -784,7 +784,7 @@ lemma mollifier_extended_continuous : ∀ (δ' : ℝ) (_ : 0 < δ'),
           have : {s : ℝ | |s| < δ'} = abs ⁻¹' Set.Iio δ' := by
             ext x; simp [Set.mem_preimage, Set.mem_Iio]
           rw [this]
-          exact isOpen_Iio.preimage continuous_abs
+          exact isOpen_Iio.preimage continuous_norm
         · exact ht_abs
 
     -- Now show continuity of s ↦ exp(-1/(δ'²-s²)) at t
@@ -1288,9 +1288,14 @@ lemma integral_Ioo_eq_intervalIntegral (δ : ℝ) (hδ_pos : 0 < δ) :
               · simp only [hx, if_false, norm_zero]
                 norm_num
 
-            -- Apply Integrable.of_bound
+            -- Apply bounded integrable theorem
             unfold IntegrableOn
-            exact Integrable.of_bound hmeas 1 hbound
+            refine ⟨hmeas, ?_⟩
+            have hμfinite : volume (Set.Ioo (-δ) δ) < ∞ := by
+              exact measure_Ioo_lt_top
+            exact
+              MeasureTheory.hasFiniteIntegral_restrict_of_bounded
+                (μ := volume) (s := Set.Ioo (-δ) δ) (C := (1 : ℝ)) hμfinite hbound
           · -- Integrability on a singleton (measure zero set)
             -- Any measurable function is integrable on a singleton set
             unfold IntegrableOn

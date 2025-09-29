@@ -2,7 +2,6 @@ import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Data.Real.Basic
 import Mathlib.Topology.MetricSpace.Lipschitz
 import Mathlib.Order.LiminfLimsup
-import Mathlib.Topology.Order.LiminfLimsup
 import Mathlib.Topology.Algebra.Order.LiminfLimsup
 import Mathlib.Topology.Instances.EReal.Lemmas
 import Mathlib.Data.EReal.Basic

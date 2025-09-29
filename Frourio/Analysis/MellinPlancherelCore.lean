@@ -592,7 +592,6 @@ lemma latticePoint_spacing (φ : ℝ) (hφ : 1 < φ) (k : ℤ) :
         linarith
   field_simp [Complex.ofReal_ne_zero.mpr hlog]
   -- Now simplify the algebra
-  simp only [Int.cast_add, Int.cast_one]
   ring
 
 /-- The zeros are purely imaginary when restricted to the imaginary axis -/
@@ -607,6 +606,7 @@ lemma latticePoint_im (φ : ℝ) (hφ : 1 < φ) (k : ℤ) :
   have h_log_ne : Real.log φ ≠ 0 := log_ne_zero_of_one_lt hφ
   simp [Complex.div_im, Complex.I_re, Complex.I_im]
   field_simp [h_log_ne]
+  ring
 
 /-- The zero lattice is symmetric about the origin -/
 @[simp]

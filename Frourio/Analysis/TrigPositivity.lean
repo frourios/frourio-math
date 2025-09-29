@@ -1,4 +1,3 @@
-import Mathlib.Analysis.Complex.Trigonometric
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Int.Interval
 import Mathlib.Algebra.BigOperators.Group.Finset.Defs

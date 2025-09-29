@@ -13,7 +13,6 @@ import Mathlib.InformationTheory.KullbackLeibler.Basic
 import Mathlib.Dynamics.Ergodic.RadonNikodym
 import Mathlib.Order.Filter.Basic
 import Mathlib.Order.LiminfLimsup
-import Mathlib.Topology.Order.LiminfLimsup
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.Topology.MetricSpace.Bounded
 import Mathlib.Topology.Bornology.Basic
@@ -275,8 +274,10 @@ lemma integrable_llr_of_bounded_rnDeriv {X : Type*} [MeasurableSpace X]
     -- klFun is continuous, hence strongly measurable
     -- The composition with rnDeriv.toReal is strongly measurable
     apply (hcont.stronglyMeasurable).aestronglyMeasurable.comp_aemeasurable
-    exact (Measure.measurable_rnDeriv _ _).ennreal_toReal.aemeasurable
-  exact Integrable.of_bound hmeas (|InformationTheory.klFun M|) hbounded
+    refine Measurable.aemeasurable ?_
+    exact Measurable.ennreal_toReal (Measure.measurable_rnDeriv _ _)
+  refine Integrable.mono' ?_ hmeas hbounded
+  exact integrable_const _
 
 /-- For probability measures with finite KL divergence, llr is integrable. -/
 lemma integrable_llr_of_finite_klDiv {X : Type*} [MeasurableSpace X]
@@ -345,7 +346,8 @@ lemma integrable_llr_of_uniform_bounds {X : Type*} [MeasurableSpace X]
     (Measurable.stronglyMeasurable (MeasureTheory.measurable_llr _ _)).aestronglyMeasurable
 
   -- Apply Integrable.of_bound
-  exact Integrable.of_bound hmeas (max |Real.log m| |Real.log M| + 1) hbounded_llr
+  refine Integrable.mono' ?_ hmeas hbounded_llr
+  exact integrable_const _
 
 /-- Data processing inequality: KL divergence decreases under stochastic maps -/
 theorem relativeEntropy_data_processing {X Y : Type*} [MeasurableSpace X] [MeasurableSpace Y]

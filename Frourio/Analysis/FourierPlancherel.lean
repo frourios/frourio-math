@@ -61,12 +61,18 @@ lemma fourierKernel_neg_div_two_pi (τ t : ℝ) :
     have : (2 : ℝ) ≠ 0 := by norm_num
     exact mul_ne_zero this Real.pi_ne_zero
   have hscale :
+      (2 * Real.pi) * (-τ / (2 * Real.pi)) = -τ := by
+    have h₂π : (2 * Real.pi) ≠ 0 := hpi
+    have hπ : (Real.pi) ≠ 0 := Real.pi_ne_zero
+    simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc, h₂π, hπ]
+  have hmul :
       -(2 * Real.pi * (-τ / (2 * Real.pi)) * t) = τ * t := by
-    simp [div_eq_mul_inv, mul_comm, mul_left_comm]
-  have hmul : Complex.ofReal (τ * t) * Complex.I = Complex.I * τ * t := by
+    have := congrArg (fun x : ℝ => -(x * t)) hscale
+    simpa [mul_comm, mul_left_comm, mul_assoc] using this
+  have hmul' : Complex.ofReal (τ * t) * Complex.I = Complex.I * τ * t := by
     simp [Complex.ofReal_mul, mul_comm, mul_left_comm]
-  simp only [fourierKernel, hscale]
-  rw [hmul]
+  simp only [fourierKernel, hmul]
+  rw [hmul']
 
 lemma integral_fourierIntegral_rescale_sq (g : ℝ → ℂ) :
     (∫ τ : ℝ, ‖fourierIntegral g (-τ / (2 * Real.pi))‖ ^ 2) =
@@ -313,9 +319,10 @@ lemma integrable_fourierIntegral_neg (f : SchwartzMap ℝ ℂ) :
     Integrable (fun ξ : ℝ => fourierIntegral (fun t : ℝ => f t) (-ξ)) := by
   classical
   have h := integrable_fourierIntegral f
-  have :=
-    (Measure.measurePreserving_neg (volume : Measure ℝ)).integrable_comp_of_integrable h
-  simpa [Function.comp] using this
+  have hneg :=
+    (Measure.measurePreserving_neg (volume : Measure ℝ)).integrable_comp
+      h.aestronglyMeasurable
+  simpa [Function.comp] using (hneg.2 h)
 
 /-- The conjugate of the Fourier transform of a Schwartz function is integrable. -/
 lemma integrable_conj_fourierIntegral (f : SchwartzMap ℝ ℂ) :
@@ -374,17 +381,16 @@ lemma fourierIntegral_conj_fourierIntegral (f : SchwartzMap ℝ ℂ) :
   have h_inversion_t := congrArg (fun g => g t) h_inversion
   have h_eval := h_comm_t.trans h_inversion_t
   -- Replace the intermediate inverse transform by the conjugated Fourier transform.
-  have h_conjFT_eq : 𝓕 (conjFourierTransform f) =
-      𝓕 (fun ξ : ℝ => conj (𝓕 (fun t : ℝ => f t) ξ)) := by
-    congr
-    funext ξ
-    simp [conjFourierTransform, fourierIntegral_eq_real]
-  have h_eval' :
-      𝓕 (conjFourierTransform f) t = conj (f t) := by
-    rw [h_conjFT_eq]
-    simpa [h_inv_fun_real.symm] using h_eval
+  -- Rewrite the inversion identity in terms of the explicit conjugated transform.
+  have h_eval_real :
+      Real.fourierIntegral (conjFourierTransform f) t = conj (f t) := by
+    simpa [conjFourierTransform, h_inv_fun_real.symm, fourierIntegral_eq_real]
+      using h_eval
   -- Translate the statement back to our explicit kernel formulation.
-  simpa [doubleFourierTransform, fourierIntegral_eq_real] using h_eval'
+  have h_eval_fourier :
+      fourierIntegral (conjFourierTransform f) t = conj (f t) := by
+    simpa [fourierIntegral_eq_real] using h_eval_real
+  simpa [doubleFourierTransform] using h_eval_fourier
 
 /-- Smooth compactly supported functions can be approximated by Schwartz functions in L²(ℝ) -/
 lemma schwartz_approximates_smooth_compactly_supported (g : ℝ → ℂ)

@@ -219,7 +219,10 @@ private lemma LogPull_sq_integral_eq (σ : ℝ) (f : Hσ σ) :
     have h_norm_sq :
         ENNReal.ofReal (‖Hσ.toFun f x‖^2)
           = (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ) := by
-      simp [pow_two]
+      rw [pow_two]
+      simp only [sq]
+      rw [ENNReal.ofReal_mul (norm_nonneg _)]
+      simp
     calc
       g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 2))
           = ENNReal.ofReal (‖Hσ.toFun f x‖^2)

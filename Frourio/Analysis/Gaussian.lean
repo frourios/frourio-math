@@ -5,7 +5,7 @@ import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 import Mathlib.Analysis.Complex.Basic
 import Mathlib.Data.Real.Sqrt
 import Mathlib.Analysis.SpecialFunctions.ExpDeriv
-import Mathlib.Analysis.Real.Pi.Bounds
+import Mathlib.Data.Real.Pi.Bounds
 
 namespace Frourio
 
@@ -278,10 +278,8 @@ lemma gaussian_integral_scaled (δ : ℝ) (hδ : 0 < δ) :
       _   = (δ ^ 2) * (Real.pi / (2 * Real.pi)) := by ring_nf
       _   = (δ ^ 2) * (1 / 2) := by
                 have hπ : Real.pi ≠ 0 := Real.pi_ne_zero
-                have hstep : Real.pi / (2 * Real.pi) = (Real.pi / Real.pi) / 2 := by
-                  -- a/(b*c) = (a/b)/c with a=π, b=π, c=2, then commute b*c
-                  simpa [mul_comm] using (div_mul_eq_div_div Real.pi Real.pi 2)
-                simp [hstep]
+                field_simp [hπ]
+                ring
       _   = δ ^ 2 / 2 := by ring
   -- Conclude using `sqrt (δ^2 / 2) = |δ| / √2 = δ / √2` since δ > 0.
   have : Real.sqrt (Real.pi / ((2 * Real.pi) / δ ^ 2))
@@ -602,7 +600,7 @@ lemma measurableSet_abs_gt (R : ℝ) :
     MeasurableSet {t : ℝ | R < |t|} := by
   have : {t : ℝ | R < |t|} = {t : ℝ | |t| ∈ Set.Ioi R} := by rfl
   rw [this]
-  exact measurableSet_preimage continuous_abs.measurable measurableSet_Ioi
+  exact measurableSet_preimage continuous_norm.measurable measurableSet_Ioi
 
 lemma integrable_gaussian_product (δ : ℝ) (hδ : 0 < δ) (R : ℝ) :
   Integrable (fun t => Real.exp (-Real.pi * R ^ 2 / δ ^ 2) *
@@ -705,7 +703,8 @@ lemma gaussian_integral_value (δ : ℝ) (hδ : 0 < δ) :
       simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc])
   -- simplify the RHS sqrt
   have hs : Real.sqrt (Real.pi / (Real.pi / δ ^ 2)) = Real.sqrt (δ ^ 2) := by
-    field_simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
+    congr 1
+    field_simp
   have hsqrt : Real.sqrt (δ ^ 2) = |δ| := by simpa [pow_two] using Real.sqrt_sq_eq_abs δ
   have : (∫ t : ℝ, Real.exp (-Real.pi * t ^ 2 / δ ^ 2))
       = Real.sqrt (Real.pi / (Real.pi / δ ^ 2)) := by
@@ -890,6 +889,15 @@ lemma integral_indicator_const_mul (S : Set ℝ) (c : ℝ) (f : ℝ → ℝ) :
   rw [hind]
   exact integral_const_mul (μ := volume) (r := c) (fun t : ℝ => Set.indicator S f t)
 
+/-- π is greater than 1/2, so 4π > 2 -/
+lemma two_le_four_pi : 2 ≤ 4 * Real.pi := by
+  -- Since π ≥ 2 > 1/2, we have 4π ≥ 8 > 2
+  have h_two_le_pi : 2 ≤ Real.pi := Real.two_le_pi
+  linarith
+
+/-- π is less than 4 - re-export from Mathlib -/
+lemma pi_lt_four : Real.pi < 4 := Real.pi_lt_four
+
 /-- For normalized Gaussian with width δ, the L² mass outside radius R vanishes as δ → 0 -/
 lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR : 0 < R) :
     ∃ w : Lp ℂ 2 (volume : Measure ℝ),
@@ -1029,7 +1037,9 @@ lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR 
         rw [← hrewrite]
         ring
       _ = (2 * Real.sqrt 2) * (δ / Real.sqrt Real.pi) / δ := by ring
-      _ = (2 * Real.sqrt 2) / Real.sqrt Real.pi := by field_simp
+      _ = (2 * Real.sqrt 2) / Real.sqrt Real.pi := by
+        field_simp
+        ring
   -- Therefore the tail integral ≤ (2√2/√π) · exp(-π R²/δ²)
   have htail_bound' :
       (∫ t in {t : ℝ | R < |t|}, ‖((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) t‖^2)
@@ -1051,14 +1061,7 @@ lemma normalized_gaussian_tail_vanishes (δ : ℝ) (hδ : 0 < δ) (R : ℝ) (hR 
     -- Multiply both sides by √π > 0
     have hineq' : 2 * Real.sqrt 2 ≤ 4 * Real.sqrt Real.pi := by
       -- It suffices that √2 ≤ 2√π, which after squaring is 2 ≤ 4π
-      have hπ_ge_half : (1 / 2 : ℝ) ≤ Real.pi := by
-        -- We know π > 3, so π > 1/2
-        have : 3 < Real.pi := by
-          norm_num [Real.pi_gt_three]
-        linarith
-      have : 2 ≤ 4 * Real.pi := by
-        have : (1 / 2 : ℝ) ≤ Real.pi := hπ_ge_half
-        nlinarith
+      have : 2 ≤ 4 * Real.pi := two_le_four_pi
       -- Convert to square roots form
       -- Since both sides are nonnegative, we can use this inequality directly via arithmetic
       -- 2 * √2 ≤ 4 * √π follows from 2 ≤ 4π by monotonicity of sqrt and scaling
@@ -1176,7 +1179,7 @@ lemma gaussian_norm_const_le_alt_const_for_large_n (n : ℕ) (hn : 2 ≤ n) :
       = (2 : ℝ) ^ (1/4 : ℝ) * Real.sqrt (n + 1 : ℝ) := by simp [one_div]
   have hR : (((1 / (n + 1 : ℝ)) * Real.pi ^ (1/4 : ℝ))⁻¹)
       = (n + 1 : ℝ) / (Real.pi ^ (1/4 : ℝ)) := by
-    field_simp [one_div, mul_comm, mul_left_comm, mul_assoc]
+    field_simp
   -- it suffices to prove the squared inequality, since both sides are ≥ 0
   have hL_nonneg : 0 ≤ (2 : ℝ) ^ (1/4 : ℝ) * Real.sqrt (n + 1 : ℝ) := by
     have h2pos : 0 ≤ (2 : ℝ) ^ (1/4 : ℝ) :=

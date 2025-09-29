@@ -7,7 +7,6 @@ import Mathlib.Topology.Algebra.InfiniteSum.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.L1
 import Mathlib.MeasureTheory.Integral.Bochner.VitaliCaratheodory
 import Mathlib.MeasureTheory.Group.Measure
-import Mathlib.Analysis.Complex.Trigonometric
 import Mathlib.Algebra.Module.Basic
 
 open MeasureTheory

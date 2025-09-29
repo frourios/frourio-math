@@ -2,7 +2,6 @@ import Mathlib.MeasureTheory.Function.LpSpace.Basic
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 import Mathlib.MeasureTheory.Measure.WithDensity
 import Mathlib.Analysis.SpecialFunctions.Complex.Log
-import Mathlib.Analysis.Complex.Trigonometric
 import Mathlib.Algebra.GroupWithZero.Basic
 import Mathlib.Algebra.BigOperators.Group.Finset.Defs
 import Mathlib.Tactic

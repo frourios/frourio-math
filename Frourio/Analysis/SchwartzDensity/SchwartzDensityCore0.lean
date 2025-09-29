@@ -1000,15 +1000,12 @@ lemma eLpNorm_bound_on_tail {σ : ℝ} {k₁ : ℕ}
       have h_sq' : ‖f x‖ ^ 2 ≤ (C / x ^ k₁) ^ 2 := by
         simpa [pow_two, mul_comm, mul_left_comm, mul_assoc] using h_sq
       have hx_norm_nonneg : 0 ≤ ‖f x‖ := norm_nonneg _
-      have hx_norm_sq_pow : ‖f x‖ₑ ^ 2 = ENNReal.ofReal (‖f x‖ ^ 2) := by
-        simp
+      have hx_norm_sq_pow : (‖f x‖ₑ : ℝ≥0∞) ^ 2 = ENNReal.ofReal (‖f x‖ ^ 2) := by
+        simpa using (ENNReal.ofReal_pow (norm_nonneg _) 2).symm
       have hx_ofReal :
           ENNReal.ofReal (‖f x‖ ^ 2) ≤ ENNReal.ofReal ((C / x ^ k₁) ^ 2) :=
         ENNReal.ofReal_le_ofReal h_sq'
-      have hx_target :
-          ‖f x‖ₑ ^ 2 ≤ ENNReal.ofReal ((C / x ^ k₁) ^ 2) := by
-        simpa using (hx_norm_sq_pow.symm ▸ hx_ofReal)
-      simpa [hx_set] using hx_target
+      simpa [hx_set, hx_norm_sq_pow] using hx_ofReal
     · simp [hx_set]
   have h_integral_bound :
       ∫⁻ x, ENNReal.ofReal (‖if x ∈ Set.Ioi (1 : ℝ) then f x else 0‖ ^ 2) ∂μ ≤
@@ -1042,7 +1039,7 @@ lemma eLpNorm_bound_on_tail {σ : ℝ} {k₁ : ℕ}
       ∫⁻ x, ENNReal.ofReal (‖if x ∈ Set.Ioi 1 then f x else 0‖ ^ 2) ∂μ := by
     congr
     funext x
-    simp [pow_two]
+    simpa using (ENNReal.ofReal_pow (norm_nonneg _) 2).symm
 
   -- First, use the integral bound to get an inequality for the square
   have h_sq_bound : (eLpNorm (fun x => if x ∈ Set.Ioi 1 then f x else 0) 2 μ) ^ (2 : ℝ) ≤
@@ -1052,7 +1049,8 @@ lemma eLpNorm_bound_on_tail {σ : ℝ} {k₁ : ℕ}
       (eLpNorm (fun x => if x ∈ Set.Ioi 1 then f x else 0) 2 μ) ^ (2 : ℝ)
           = ∫⁻ x, ‖if x ∈ Set.Ioi 1 then f x else 0‖ₑ ^ (2 : ℝ) ∂μ := h_eLpNorm_sq
       _ ≤ ∫⁻ x, ENNReal.ofReal ((if x ∈ Set.Ioi (1 : ℝ) then C / x ^ k₁ else 0) ^ 2) ∂μ := by
-          simpa [h_norm_eq.symm, Set.mem_Ioi, h_fun] using h'
+          rw [h_norm_eq]
+          simpa [Set.mem_Ioi, h_fun] using h'
 
   -- Take square root of both sides
   have h_sqrt : eLpNorm (fun x => if x ∈ Set.Ioi 1 then f x else 0) 2 μ ≤
@@ -1984,7 +1982,7 @@ lemma weight_integrableOn_Icc {σ a b : ℝ} (ha : 0 < a) (hab : a ≤ b) :
         hC _ (Set.mem_image_of_mem _ hx)
     exact (ae_restrict_iff' h_meas).2 h_all
   have h_integrable :=
-    HasFiniteIntegral.of_bounded
+    hasFiniteIntegral_of_bounded
       (μ := mulHaar.restrict (Set.Icc a b))
       (f := fun x : ℝ => x ^ (2 * σ - 1 : ℝ))
       (C := C) h_bound
@@ -2057,7 +2055,7 @@ lemma simpleFunc_bounded_support_integrable
   have hf_integrable_restrict : Integrable f (volume.restrict s) := by
     refine ⟨?_, ?_⟩
     · exact SimpleFunc.aestronglyMeasurable (μ := volume.restrict s) f
-    · exact HasFiniteIntegral.of_bounded (μ := volume.restrict s) h_bound_ae
+    · exact hasFiniteIntegral_of_bounded (μ := volume.restrict s) h_bound_ae
   have hf_integrableOn : IntegrableOn f s volume := by
     simpa [IntegrableOn] using hf_integrable_restrict
   -- Replace f with its indicator on s; outside s the function vanishes.
@@ -2166,7 +2164,7 @@ lemma simpleFunc_truncation_integrable {σ : ℝ} (_ : 1 / 2 < σ)
   have hf_integrable_restrict : Integrable f (volume.restrict s) := by
     refine ⟨?_, ?_⟩
     · exact SimpleFunc.aestronglyMeasurable (μ := volume.restrict s) f
-    · exact HasFiniteIntegral.of_bounded (μ := volume.restrict s) h_bound_ae
+    · exact hasFiniteIntegral_of_bounded (μ := volume.restrict s) h_bound_ae
   have hf_integrableOn : IntegrableOn f s volume := by
     simpa [IntegrableOn] using hf_integrable_restrict
   -- The truncation is the indicator of the interval applied to f

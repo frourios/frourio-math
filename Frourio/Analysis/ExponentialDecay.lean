@@ -1,6 +1,6 @@
 import Mathlib.Analysis.SpecialFunctions.Exp
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
-import Mathlib.Analysis.Real.Pi.Bounds
+import Mathlib.Data.Real.Pi.Bounds
 import Mathlib.Topology.Basic
 
 open Real

@@ -555,7 +555,7 @@ lemma continuous_to_smooth_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ)
         simpa [norm_sub_rev] using h_bound_on_B x hx)
   have h_ratio_lt_one :
       Real.sqrt ((μ B).toReal) / (Real.sqrt ((μ B).toReal) + 1) < 1 :=
-    (div_lt_one₀ h_den_pos).2 (by linarith)
+    (div_lt_one h_den_pos).2 (by linarith)
   have h_mul_lt : δ * Real.sqrt ((μ B).toReal) < ε := by
     have hε_pos : 0 < ε := hε
     have := mul_lt_mul_of_pos_left h_ratio_lt_one hε_pos
@@ -881,7 +881,7 @@ lemma schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ 
           (μ := mulHaar) (f := fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
       have : μ ≪ mulHaar := by
         simpa [hμ] using h_ac
-      exact this.null_mono h_base_zero
+      exact this h_base_zero
     -- The two L² representatives coincide almost everywhere
     have h_ae_eq : g =ᵐ[μ] fun x : ℝ => if x > 0 then g x else 0 := by
       have h_subset :
