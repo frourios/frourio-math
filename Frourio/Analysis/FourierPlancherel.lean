@@ -178,6 +178,51 @@ lemma norm_fourierIntegral_le (f : ℝ → ℂ) (ξ : ℝ) :
     funext t; simp [fourierKernel_norm ξ t]
   simpa [fourierIntegral, hnorm]
 
+lemma fourierIntegral_smul (c : ℂ) {f : ℝ → ℂ}
+    (_hf : Integrable f) (ξ : ℝ) :
+    fourierIntegral (fun t : ℝ => c * f t) ξ
+      = c * fourierIntegral f ξ := by
+  classical
+  calc
+    fourierIntegral (fun t : ℝ => c * f t) ξ
+        = ∫ t : ℝ, fourierKernel ξ t * (c * f t) := rfl
+    _ = ∫ t : ℝ, c • (fourierKernel ξ t * f t) := by
+          simp [smul_eq_mul, mul_comm, mul_left_comm]
+    _ = c • ∫ t : ℝ, fourierKernel ξ t * f t :=
+          (MeasureTheory.integral_smul (μ := volume)
+            (c := c) (f := fun t : ℝ => fourierKernel ξ t * f t))
+    _ = c * fourierIntegral f ξ := by
+          simp [fourierIntegral, smul_eq_mul]
+
+lemma fourierIntegral_add {f g : ℝ → ℂ}
+    (hf : Integrable f) (hg : Integrable g) (ξ : ℝ) :
+    fourierIntegral (fun t : ℝ => f t + g t) ξ
+      = fourierIntegral f ξ + fourierIntegral g ξ := by
+  classical
+  have hf_mul : Integrable (fun t : ℝ => fourierKernel ξ t * f t) :=
+    integrable_fourierKernel_mul ξ hf
+  have hg_mul : Integrable (fun t : ℝ => fourierKernel ξ t * g t) :=
+    integrable_fourierKernel_mul ξ hg
+  have h := MeasureTheory.integral_add hf_mul hg_mul
+  simpa [fourierIntegral, mul_add, add_comm, add_left_comm, add_assoc]
+    using h
+
+lemma fourierIntegral_sub {f g : ℝ → ℂ}
+    (hf : Integrable f) (hg : Integrable g) (ξ : ℝ) :
+    fourierIntegral (fun t : ℝ => f t - g t) ξ
+      = fourierIntegral f ξ - fourierIntegral g ξ := by
+  classical
+  have hg_neg : Integrable (fun t : ℝ => -g t) := hg.neg
+  have h_add :=
+    fourierIntegral_add (f := f) (g := fun t : ℝ => -g t)
+      hf hg_neg ξ
+  have h_neg :=
+    fourierIntegral_smul (-1 : ℂ) (f := g) hg ξ
+  have h_neg' : fourierIntegral (fun t : ℝ => -g t) ξ
+      = -fourierIntegral g ξ := by
+    simpa [smul_eq_mul] using h_neg
+  simpa [sub_eq_add_neg, h_neg'] using h_add
+
 lemma fourierIntegral_conj {f : ℝ → ℂ} (_hf : Integrable f) (ξ : ℝ) :
     conj (fourierIntegral f ξ) =
       fourierIntegral (fun t => conj (f t)) (-ξ) := by
@@ -340,6 +385,78 @@ lemma fourierIntegral_conj_fourierIntegral (f : SchwartzMap ℝ ℂ) :
     simpa [h_inv_fun_real.symm] using h_eval
   -- Translate the statement back to our explicit kernel formulation.
   simpa [doubleFourierTransform, fourierIntegral_eq_real] using h_eval'
+
+/-- Smooth compactly supported functions can be approximated by Schwartz functions in L²(ℝ) -/
+lemma schwartz_approximates_smooth_compactly_supported (g : ℝ → ℂ)
+    (hg_compact : HasCompactSupport g) (hg_smooth : ContDiff ℝ (⊤ : ℕ∞) g)
+    (ε : ℝ) (hε_pos : ε > 0) :
+    ∃ φ : SchwartzMap ℝ ℂ, eLpNorm (g - (φ : ℝ → ℂ)) 2 volume < ENNReal.ofReal ε := by
+  classical
+  -- Show that every derivative of `g` is bounded by taking the maximum on the compact support.
+  have hg_schwartz : ∀ k n : ℕ, ∃ C : ℝ,
+      ∀ x : ℝ, ‖x‖ ^ k * ‖iteratedFDeriv ℝ n g x‖ ≤ C := by
+    intro k n
+    classical
+    set K := tsupport g with hK_def
+    have hK_compact : IsCompact K := by
+      simpa [hK_def] using hg_compact
+    set h : ℝ → ℝ := fun x => ‖x‖ ^ k * ‖iteratedFDeriv ℝ n g x‖
+    have h_nonneg : ∀ x, 0 ≤ h x := by
+      intro x
+      exact mul_nonneg (pow_nonneg (norm_nonneg _) _) (norm_nonneg _)
+    have hK_subset : tsupport (iteratedFDeriv ℝ n g) ⊆ K := by
+      simpa [hK_def] using
+        (tsupport_iteratedFDeriv_subset (𝕜 := ℝ) (f := g) (n := n))
+    by_cases h_support_empty :
+        tsupport (iteratedFDeriv ℝ n g) = (∅ : Set ℝ)
+    · refine ⟨0, ?_⟩
+      intro x
+      have hx_not : x ∉ tsupport (iteratedFDeriv ℝ n g) := by
+        simp [h_support_empty]
+      have hx_zero : iteratedFDeriv ℝ n g x = 0 :=
+        image_eq_zero_of_notMem_tsupport hx_not
+      simp [hx_zero]
+    · have h_support_nonempty :
+          (tsupport (iteratedFDeriv ℝ n g)).Nonempty :=
+        Set.nonempty_iff_ne_empty.mpr (by simpa using h_support_empty)
+      obtain ⟨x₀, hx₀_support⟩ := h_support_nonempty
+      have hx₀K : x₀ ∈ K := hK_subset hx₀_support
+      have h_pow_cont : Continuous fun x : ℝ => ‖x‖ ^ k :=
+        (continuous_norm : Continuous fun x : ℝ => ‖x‖).pow _
+      have h_iter_cont :
+          Continuous fun x : ℝ => iteratedFDeriv ℝ n g x :=
+        (hg_smooth.continuous_iteratedFDeriv (hm := by
+          exact_mod_cast (le_top : (n : ℕ∞) ≤ (⊤ : ℕ∞))))
+      have h_cont : Continuous h := h_pow_cont.mul (h_iter_cont.norm)
+      have h_image_compact : IsCompact (h '' K) := hK_compact.image h_cont
+      have h_image_nonempty : (h '' K).Nonempty := ⟨h x₀, ⟨x₀, hx₀K, rfl⟩⟩
+      obtain ⟨C, hC_isGreatest⟩ :=
+        h_image_compact.exists_isGreatest h_image_nonempty
+      obtain ⟨⟨xC, hxC_K, rfl⟩, hC_max⟩ := hC_isGreatest
+      refine ⟨h xC, ?_⟩
+      intro x
+      by_cases hxK : x ∈ K
+      · have hx_mem : h x ∈ h '' K := ⟨x, hxK, rfl⟩
+        exact hC_max hx_mem
+      · have hx_not : x ∉ tsupport (iteratedFDeriv ℝ n g) := fun hx => hxK (hK_subset hx)
+        have hx_zero : iteratedFDeriv ℝ n g x = 0 :=
+          image_eq_zero_of_notMem_tsupport hx_not
+        have h_nonneg_xC : 0 ≤ h xC := h_nonneg xC
+        have hx_val : h x = 0 := by simp [h, hx_zero]
+        have hx_le : h x ≤ h xC := by simpa [hx_val] using h_nonneg_xC
+        simpa [h] using hx_le
+  -- Construct the Schwartz function associated to `g`.
+  let φ : SchwartzMap ℝ ℂ := ⟨g, hg_smooth, hg_schwartz⟩
+  have h_diff_zero : g - (φ : ℝ → ℂ) = (fun _ => 0 : ℝ → ℂ) := by
+    funext x
+    change g x - g x = 0
+    simp
+  have h_eLp_zero :
+      eLpNorm (g - (φ : ℝ → ℂ)) 2 volume = 0 := by
+    simp [h_diff_zero]
+  refine ⟨φ, ?_⟩
+  have hε_pos' : 0 < ENNReal.ofReal ε := ENNReal.ofReal_pos.mpr hε_pos
+  simpa [h_eLp_zero] using hε_pos'
 
 end Schwartz
 
