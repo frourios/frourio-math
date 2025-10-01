@@ -2144,7 +2144,85 @@ lemma fourier_plancherel (f : SchwartzMap ℝ ℂ) :
 end Frourio
 
 
-## ./Frourio/Analysis/FourierPlancherelL2.lean
+## ./Frourio/Analysis/FourierPlancherelL2/FourierPlancherelL2.lean
+
+namespace Frourio
+
+lemma meyers_serrin_L1_L2_density
+    (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ g : ℝ → ℂ,
+      HasCompactSupport g ∧ ContDiff ℝ (⊤ : ℕ∞) g ∧
+      eLpNorm (fun t => f t - g t) 1 volume < ENNReal.ofReal ε ∧
+      eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal ε  := sorry
+
+lemma exists_smooth_compact_support_L1_L2_close
+    (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ g : ℝ → ℂ,
+      HasCompactSupport g ∧ ContDiff ℝ (⊤ : ℕ∞) g ∧
+      eLpNorm (fun t : ℝ => f t - g t) 1 volume < ENNReal.ofReal ε ∧
+      eLpNorm (fun t : ℝ => f t - g t) 2 volume < ENNReal.ofReal ε  := sorry
+
+lemma exists_schwartz_L1_L2_close
+    (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ φ : SchwartzMap ℝ ℂ,
+      eLpNorm (fun t : ℝ => f t - φ t) 1 volume < ENNReal.ofReal ε ∧
+      eLpNorm (fun t : ℝ => f t - φ t) 2 volume < ENNReal.ofReal ε  := proven
+
+lemma exists_schwartz_L1_L2_approx
+    (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume) :
+    ∃ φ : ℕ → SchwartzMap ℝ ℂ,
+      (∀ n, Integrable (fun t : ℝ => φ n t)) ∧
+      (∀ n, MemLp (fun t : ℝ => φ n t) 2 volume) ∧
+      Filter.Tendsto (fun n =>
+          eLpNorm (fun t : ℝ => f t - φ n t) 1 volume) Filter.atTop (𝓝 0) ∧
+      Filter.Tendsto (fun n =>
+          eLpNorm (fun t : ℝ => f t - φ n t) 2 volume) Filter.atTop (𝓝 0)  := proven
+
+lemma continuous_integral_norm_sq_of_L2_tendsto
+    {φ : ℕ → ℝ → ℂ} {g : ℝ → ℂ}
+    (hg_L2 : MemLp g 2 volume)
+    (hφ_L2 : ∀ n, MemLp (φ n) 2 volume)
+    (hφ_tendsto : Filter.Tendsto
+      (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 2 volume)
+      Filter.atTop (𝓝 (0 : ℝ≥0∞))) :
+    Filter.Tendsto (fun n => ∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume)
+      Filter.atTop (𝓝 (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume))  := sorry
+
+lemma fourierIntegral_L2_convergence
+    {φ : ℕ → SchwartzMap ℝ ℂ} {g : ℝ → ℂ}
+    (hg_L1 : Integrable g)
+    (hg_L2 : MemLp g 2 volume)
+    (hφ_L1 : ∀ n, Integrable (fun t : ℝ => φ n t))
+    (hφ_L2 : ∀ n, MemLp (fun t : ℝ => φ n t) 2 volume)
+    (hφ_tendsto_L1 : Filter.Tendsto
+      (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 1 volume) Filter.atTop (𝓝 0))
+    (hφ_tendsto_L2 : Filter.Tendsto
+      (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 2 volume) Filter.atTop (𝓝 0)) :
+    Filter.Tendsto
+      (fun n =>
+        eLpNorm
+          (fun ξ : ℝ =>
+            fourierIntegral g ξ - fourierIntegral (fun t : ℝ => φ n t) ξ)
+          2 volume)
+      Filter.atTop (𝓝 (0 : ℝ≥0∞))  := sorry
+
+lemma fourierIntegral_memLp_L1_L2
+    {g : ℝ → ℂ} (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
+    MemLp (fun ξ : ℝ => fourierIntegral g ξ) 2 volume  := sorry
+
+lemma fourier_plancherel_L1_L2 (g : ℝ → ℂ)
+    (hg_L1 : Integrable g)
+    (hg_L2 : MemLp g 2 volume) :
+    ∫ t : ℝ, ‖g t‖ ^ 2 ∂volume
+      = (1 / (2 * Real.pi)) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume  := sorry
+
+end Frourio
+
+
+## ./Frourio/Analysis/FourierPlancherelL2/FourierPlancherelL2Core0.lean
 
 namespace Frourio
 
@@ -2302,6 +2380,100 @@ lemma fourierIntegral_cauchySeq_of_schwartz_tendsto
         (fourierIntegral_memLp_of_schwartz (φ n)).toLp
           (fun ξ => fourierIntegral (fun t : ℝ => φ n t) ξ))  := proven
 
+lemma weak_convergence_fourierIntegral_of_schwartz_approx
+    {φ : ℕ → SchwartzMap ℝ ℂ} {f : ℝ → ℂ}
+    (hf_L1 : Integrable f)
+    (ψLp : ℕ → Lp ℂ 2 volume)
+    (_ : ∀ n, ψLp n = (fourierIntegral_memLp_of_schwartz (φ n)).toLp
+                              (fun ξ => fourierIntegral (fun t : ℝ => φ n t) ξ))
+    (h_weak_limit : ∀ ψ : SchwartzMap ℝ ℂ,
+      Filter.Tendsto (fun n =>
+          @inner ℂ (Lp ℂ 2 volume) _
+            ((fourierIntegral_memLp_of_schwartz ψ).toLp
+              (fun ξ : ℝ => fourierIntegral (fun t : ℝ => ψ t) ξ)) (ψLp n))
+        Filter.atTop
+        (𝓝 (∫ t : ℝ, f t * conj (ψ t) ∂volume))) :
+    ∀ ψ : SchwartzMap ℝ ℂ,
+      Filter.Tendsto (fun n => ∫ x, (ψLp n) x * (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume)
+                      Filter.atTop
+                      (𝓝 (∫ x, (fourierIntegral f x) *
+                          (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume))  := proven
+
+lemma strong_L2_implies_weak_convergence_schwartz
+    (ψLp : ℕ → Lp ℂ 2 volume) (ψ_lim : Lp ℂ 2 volume)
+    (hψ_lim : Filter.Tendsto ψLp Filter.atTop (𝓝 ψ_lim)) :
+    ∀ φ : SchwartzMap ℝ ℂ,
+      Filter.Tendsto (fun n => ∫ x, (ψLp n) x * (starRingEnd ℂ) (SchwartzMap.toFun φ x) ∂volume)
+                      Filter.atTop
+                      (𝓝 (∫ x, ψ_lim x * (starRingEnd ℂ) (SchwartzMap.toFun φ x) ∂volume))  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/FourierPlancherelL2/FourierPlancherelL2Core1.lean
+
+namespace Frourio
+
+lemma integral_mul_star_eq_inner
+    {g : ℝ → ℂ} (hg_mem : MemLp g 2 volume) (φ : SchwartzMap ℝ ℂ) :
+    ∫ x, g x * (starRingEnd ℂ) (SchwartzMap.toFun φ x) ∂volume
+      =
+        @inner ℂ (Lp ℂ 2 volume) _
+          ((SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
+            (fun x => φ x)) (hg_mem.toLp g)  := proven
+
+lemma ae_eq_of_memLp_schwartz_pairings
+    {g₁ g₂ : ℝ → ℂ}
+    (hg₁ : MemLp g₁ 2 volume) (hg₂ : MemLp g₂ 2 volume)
+    (h_pairings : ∀ φ : SchwartzMap ℝ ℂ,
+      ∫ x, g₁ x * (starRingEnd ℂ) (SchwartzMap.toFun φ x) ∂volume =
+      ∫ x, g₂ x * (starRingEnd ℂ) (SchwartzMap.toFun φ x) ∂volume) :
+    g₁ =ᵐ[volume] g₂  := proven
+
+lemma integrable_tail_small {f : ℝ → ℂ} (hf : Integrable f) :
+    ∀ δ > 0, ∃ R > 0, ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ∂volume < δ  := proven
+
+lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_ball
+    {f : ℝ → ℂ} (hf : MemLp f 2 volume) (R : ℝ) :
+    ∫ t in {t : ℝ | |t| ≤ R}, ‖f t‖ ∂volume ≤
+      (volume {t : ℝ | |t| ≤ R}).toReal ^ (1/2 : ℝ) *
+      (eLpNorm f 2 volume).toReal  := proven
+
+lemma volume_ball_eq (R : ℝ) :
+    volume {t : ℝ | |t| ≤ R} = ENNReal.ofReal (2 * R)  := proven
+
+lemma finite_uniform_tail_bound
+    {ι : Type*} [Fintype ι] (g : ι → ℝ → ℂ) (hg : ∀ i, Integrable (g i))
+    (δ : ℝ) (hδ : 0 < δ) :
+    ∃ R > 0, ∀ i, ∫ t in {t : ℝ | R ≤ |t|}, ‖g i t‖ ∂volume < δ  := proven
+
+lemma tail_integral_diff_le
+    (f g : ℝ → ℂ) (hf : Integrable f) (hg : Integrable g) (R : ℝ) :
+    ∫ t in {t : ℝ | R ≤ |t|}, ‖f t - g t‖ ∂volume ≤
+      ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ∂volume +
+      ∫ t in {t : ℝ | R ≤ |t|}, ‖g t‖ ∂volume  := proven
+
+lemma fourierIntegral_tendsto_of_schwartz_approx
+    {φ : ℕ → SchwartzMap ℝ ℂ} {f : ℝ → ℂ}
+    (hf_L1 : Integrable f) (hφ_L1 : ∀ n, Integrable (fun t : ℝ => φ n t))
+    (hφ_tendsto_L1 : Filter.Tendsto (fun n =>
+        eLpNorm (fun t : ℝ => f t - φ n t) 1 volume) Filter.atTop (𝓝 0))
+    (ξ : ℝ) :
+    Filter.Tendsto (fun n => fourierIntegral (fun t => φ n t) ξ)
+      Filter.atTop (𝓝 (fourierIntegral f ξ))  := proven
+
+lemma fourierIntegral_L2_convergence_of_schwartz_approx
+    {φ : ℕ → SchwartzMap ℝ ℂ} {f : ℝ → ℂ}
+    (_hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
+    (hφ_L1 : ∀ n, Integrable (fun t : ℝ => φ n t))
+    (hφ_L2 : ∀ n, MemLp (fun t : ℝ => φ n t) 2 volume)
+    (hφ_tendsto : Filter.Tendsto (fun n =>
+        eLpNorm (fun t : ℝ => f t - φ n t) 2 volume) Filter.atTop (𝓝 0)) :
+    ∃ (ψLp : ℕ → Lp ℂ 2 volume) (ψ_lim : Lp ℂ 2 volume),
+      (∀ n, ψLp n = (fourierIntegral_memLp_of_schwartz (φ n)).toLp
+                      (fun ξ => fourierIntegral (fun t : ℝ => φ n t) ξ)) ∧
+      Filter.Tendsto ψLp Filter.atTop (𝓝 ψ_lim)  := proven
+
 lemma fourierIntegral_memLp_limit
     {φ : ℕ → SchwartzMap ℝ ℂ} {f : ℝ → ℂ}
     (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
@@ -2309,16 +2481,112 @@ lemma fourierIntegral_memLp_limit
     (hφ_L2 : ∀ n, MemLp (fun t : ℝ => φ n t) 2 volume)
     (hφ_tendsto : Filter.Tendsto (fun n =>
         eLpNorm (fun t : ℝ => f t - φ n t) 2 volume) Filter.atTop (𝓝 0)) :
-    MemLp (fun ξ : ℝ => fourierIntegral f ξ) 2 volume  := sorry
+    ∃ (ψLp : ℕ → Lp ℂ 2 volume) (ψ_lim : Lp ℂ 2 volume),
+      (∀ n, ψLp n =
+        (fourierIntegral_memLp_of_schwartz (φ n)).toLp
+          (fun ξ => fourierIntegral (fun t : ℝ => φ n t) ξ)) ∧
+      Filter.Tendsto ψLp Filter.atTop (𝓝 ψ_lim)  := proven
+
 
 lemma fourierIntegral_memLp_of_memLp (f : ℝ → ℂ)
     (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume) :
-    MemLp (fun ξ : ℝ => fourierIntegral f ξ) 2 volume  := proven
+    ∃ (φ : ℕ → SchwartzMap ℝ ℂ)
+      (hφ_L1 : ∀ n, Integrable (fun t : ℝ => φ n t))
+      (hφ_L2 : ∀ n, MemLp (fun t : ℝ => φ n t) 2 volume)
+      (ψLp : ℕ → Lp ℂ 2 volume) (ψ_lim : Lp ℂ 2 volume),
+        (∀ n, ψLp n =
+          (fourierIntegral_memLp_of_schwartz (φ n)).toLp
+            (fun ξ => fourierIntegral (fun t : ℝ => φ n t) ξ)) ∧
+        Filter.Tendsto ψLp Filter.atTop (𝓝 ψ_lim)  := proven
 
-lemma fourierIntegral_l2_norm (f : ℝ → ℂ)
-    (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume) :
-    ∫ t : ℝ, ‖f t‖ ^ 2 ∂volume
-      = (1 / (2 * Real.pi)) * ∫ ξ : ℝ, ‖fourierIntegral f ξ‖ ^ 2 ∂volume  := sorry
+lemma integrable_norm_sq_of_memLp_two {f : ℝ → ℂ}
+    (hf : MemLp f 2 volume) :
+    Integrable (fun t : ℝ => ‖f t‖ ^ 2)  := proven
+
+lemma memLp_two_tail_norm_sq_small {f : ℝ → ℂ}
+    (hf : MemLp f 2 volume) :
+    ∀ δ > 0, ∃ R > 0,
+      ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ^ 2 ∂volume < δ  := proven
+
+lemma integrable_indicator_ball_of_integrable {f : ℝ → ℂ}
+    (hf : Integrable f) (R : ℝ) :
+    Integrable (fun t : ℝ => Set.indicator {t : ℝ | |t| ≤ R} f t)  := proven
+
+lemma tsupport_indicator_subset_ball {f : ℝ → ℂ} {R : ℝ} :
+    tsupport (fun t : ℝ => Set.indicator {t : ℝ | |t| ≤ R} f t)
+      ⊆ Metric.closedBall (0 : ℝ) R  := proven
+
+lemma sub_indicator_ball_eq_indicator_compl (f : ℝ → ℂ) (R : ℝ) :
+    (fun t : ℝ => f t - Set.indicator {t : ℝ | |t| ≤ R} f t)
+      = fun t : ℝ => Set.indicator {t : ℝ | |t| ≤ R}ᶜ f t  := proven
+
+lemma integrable_memLp_tail_small
+    {f : ℝ → ℂ} (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume) :
+    ∀ δ > 0, ∃ R > 0,
+      ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ∂volume < δ ∧
+      ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ^ 2 ∂volume < δ  := proven
+
+lemma eLpNorm_one_tail_indicator_sub
+    {f : ℝ → ℂ} (hf : Integrable f) {R δ : ℝ}
+    (h_tail : ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ∂volume < δ) :
+    eLpNorm (fun t : ℝ => f t - Set.indicator {t : ℝ | |t| ≤ R} f t) 1 volume
+      < ENNReal.ofReal δ  := proven
+
+lemma eLpNorm_two_tail_indicator_sub
+    {f : ℝ → ℂ} (hf_L2 : MemLp f 2 volume) {R δ : ℝ}
+    (hδ : 0 < δ)
+    (h_tail : ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ^ 2 ∂volume < δ ^ 2) :
+    eLpNorm (fun t : ℝ => f t - Set.indicator {t : ℝ | |t| ≤ R} f t) 2 volume
+      < ENNReal.ofReal δ  := proven
+
+lemma memLp_one_indicator_ball_of_memLp_two
+    {f : ℝ → ℂ} (hf_L2 : MemLp f 2 volume) (R : ℝ) :
+    MemLp (fun t : ℝ => Set.indicator {t : ℝ | |t| ≤ R} f t) 1 volume  := proven
+
+
+lemma integrable_indicator_tail_of_tail_bound
+    {f : ℝ → ℂ} (hf_L2 : MemLp f 2 volume) {R : ℝ}
+    (h_tail_finite :
+      HasFiniteIntegral
+        (fun t => Set.indicator {t : ℝ | R ≤ |t|} (fun t => ‖f t‖) t)
+        volume) :
+    Integrable (fun t => Set.indicator {t : ℝ | R ≤ |t|} f t)  := proven
+
+
+lemma integrable_indicator_ball_of_memLp_two
+    {f : ℝ → ℂ} (hf_L2 : MemLp f 2 volume) (R : ℝ) :
+    Integrable (fun t => Set.indicator {t : ℝ | |t| ≤ R} f t)  := proven
+
+
+lemma integrable_of_memLp_two_with_tail_bound
+    {f : ℝ → ℂ} (hf_L2 : MemLp f 2 volume) {R : ℝ}
+    (h_tail_finite :
+      HasFiniteIntegral
+        (fun t => Set.indicator {t : ℝ | R ≤ |t|} (fun t => ‖f t‖) t)
+        volume) :
+    Integrable f  := proven
+
+
+lemma hasFiniteIntegral_indicator_norm_of_integral_lt
+    {f : ℝ → ℂ} (R δ : ℝ)
+    (hf_meas :
+      AEStronglyMeasurable
+        (fun t =>
+          Set.indicator {t : ℝ | R ≤ |t|} (fun t => ‖f t‖) t)
+        volume)
+    (h_tail :
+      ∫⁻ t in {t : ℝ | R ≤ |t|}, ENNReal.ofReal ‖f t‖ ∂volume < ENNReal.ofReal δ) :
+    HasFiniteIntegral
+      (fun t => Set.indicator {t : ℝ | R ≤ |t|} (fun t => ‖f t‖) t)
+      volume  := proven
+
+lemma smooth_compact_support_to_schwartz_L1_L2
+    {g : ℝ → ℂ}
+    (hg_compact : HasCompactSupport g) (hg_smooth : ContDiff ℝ (⊤ : ℕ∞) g)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ φ : SchwartzMap ℝ ℂ,
+      eLpNorm (fun t : ℝ => g t - φ t) 1 volume < ENNReal.ofReal ε ∧
+      eLpNorm (fun t : ℝ => g t - φ t) 2 volume < ENNReal.ofReal ε  := proven
 
 end Frourio
 
@@ -9657,4 +9925,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 95
+Total files processed: 97

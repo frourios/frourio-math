@@ -1,5 +1,5 @@
 import Frourio.Analysis.FourierPlancherel
-import Frourio.Analysis.FourierPlancherelL2
+import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2
 import Frourio.Analysis.MellinPlancherel
 import Frourio.Analysis.MellinParsevalCore
 import Frourio.Analysis.HilbertSpaceCore
@@ -1218,7 +1218,6 @@ theorem parseval_identity_equivalence (σ : ℝ) :
 
           -- The equations give us the norms in terms of integrals
           -- We need to substitute these into our expression
-          -- For now, we leave this as sorry as it requires careful manipulation
           sorry
       _ = C * ∫ τ : ℝ, starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * τ)) *
             mellinTransform (g : ℝ → ℂ) (σ + I * τ) := by

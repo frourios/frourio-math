@@ -4,6 +4,8 @@ import Frourio.Analysis.SchwartzDensity.SchwartzDensity
 import Mathlib.Analysis.Distribution.FourierSchwartz
 import Mathlib.Topology.Basic
 import Mathlib.Data.ENNReal.Basic
+import Mathlib.Topology.UniformSpace.UniformConvergence
+import Mathlib.Analysis.Normed.Lp.lpSpace
 
 /-!
 # Fourier–Plancherel in `L²`
@@ -1408,89 +1410,191 @@ lemma fourierIntegral_cauchySeq_of_schwartz_tendsto
     simpa [hψφ_eq] using hφ_lt
   exact hψ_lt
 
-/-- Continuity of the Fourier integral on `L²`, expressed for an approximating
-sequence of Schwartz functions. -/
-lemma fourierIntegral_memLp_limit
+/-- Weak convergence of Fourier transforms of Schwartz approximations implies
+convergence to the Fourier transform of the limit function. -/
+lemma weak_convergence_fourierIntegral_of_schwartz_approx
     {φ : ℕ → SchwartzMap ℝ ℂ} {f : ℝ → ℂ}
-    (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
-    (hφ_L1 : ∀ n, Integrable (fun t : ℝ => φ n t))
-    (hφ_L2 : ∀ n, MemLp (fun t : ℝ => φ n t) 2 volume)
-    (hφ_tendsto : Filter.Tendsto (fun n =>
-        eLpNorm (fun t : ℝ => f t - φ n t) 2 volume) Filter.atTop (𝓝 0)) :
-    MemLp (fun ξ : ℝ => fourierIntegral f ξ) 2 volume := by
+    (hf_L1 : Integrable f)
+    (ψLp : ℕ → Lp ℂ 2 volume)
+    (_ : ∀ n, ψLp n = (fourierIntegral_memLp_of_schwartz (φ n)).toLp
+                              (fun ξ => fourierIntegral (fun t : ℝ => φ n t) ξ))
+    (h_weak_limit : ∀ ψ : SchwartzMap ℝ ℂ,
+      Filter.Tendsto (fun n =>
+          @inner ℂ (Lp ℂ 2 volume) _
+            ((fourierIntegral_memLp_of_schwartz ψ).toLp
+              (fun ξ : ℝ => fourierIntegral (fun t : ℝ => ψ t) ξ)) (ψLp n))
+        Filter.atTop
+        (𝓝 (∫ t : ℝ, f t * conj (ψ t) ∂volume))) :
+    ∀ ψ : SchwartzMap ℝ ℂ,
+      Filter.Tendsto (fun n => ∫ x, (ψLp n) x * (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume)
+                      Filter.atTop
+                      (𝓝 (∫ x, (fourierIntegral f x) *
+                          (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume)) := by
   classical
-  -- Frequency-side functions associated with the Schwartz approximations.
-  let ψFun : ℕ → ℝ → ℂ := fun n ξ => fourierIntegral (fun t : ℝ => φ n t) ξ
-  have hψ_mem : ∀ n, MemLp (ψFun n) 2 volume := fun n =>
-    fourierIntegral_memLp_of_schwartz (φ n)
-
-  -- L² objects for the time and frequency sides.
-  let ψLp : ℕ → Lp ℂ 2 volume := fun n =>
-    (hψ_mem n).toLp (ψFun n)
-  let φLp : ℕ → Lp ℂ 2 volume := fun n =>
-    (hφ_L2 n).toLp (fun t : ℝ => φ n t)
-  let fLp : Lp ℂ 2 volume := hf_L2.toLp f
-
-  -- Useful measurability data.
-  have hf_meas : AEStronglyMeasurable f volume := hf_L2.aestronglyMeasurable
-  have hφ_meas : ∀ n, AEStronglyMeasurable (fun t : ℝ => φ n t) volume := fun n =>
-    (SchwartzMap.continuous (φ n)).aestronglyMeasurable
-
-  -- The L²-distance between φₙ and φₘ is controlled by their distance to f.
-  have hφ_cauchy := eLpNorm_tendsto_toReal_of_tendsto hf_L2 hφ_L2 hφ_tendsto
-
-  -- The time-side sequence converges to `f` in `L²`.
-  have hφLp_tendsto :
-      Filter.Tendsto φLp Filter.atTop (𝓝 fLp) := by
-    simpa [φLp, fLp] using toLp_tendsto_of_eLpNorm_tendsto hf_L2 hφ_L2 hφ_tendsto
-
-  -- The frequency-side sequence is Cauchy in `L²`.
-  have hψ_cauchy : CauchySeq ψLp := by
-    simpa [ψLp, ψFun] using
-      fourierIntegral_cauchySeq_of_schwartz_tendsto hf_L2 hφ_L1 hφ_L2 hφ_tendsto
-
-  -- Weak limit against Schwartz test functions matches the classical pairing.
-  have h_weak_limit :
-      ∀ ψ : SchwartzMap ℝ ℂ,
-        Filter.Tendsto (fun n =>
-            @inner ℂ (Lp ℂ 2 volume) _
-              ((fourierIntegral_memLp_of_schwartz ψ).toLp
-                (fun ξ : ℝ => fourierIntegral (fun t : ℝ => ψ t) ξ)) (ψLp n))
+  intro ψ
+  -- Choose the inverse Fourier transform of ψ so that we can trade frequency and time
+  -- side pairings.
+  let ψ_inv : SchwartzMap ℝ ℂ := (fourierTransformCLE ℝ).symm ψ
+  have hψ_fourier : fourierTransformCLE ℝ ψ_inv = ψ := by
+    simp [ψ_inv]
+  have h_fourier_eval_point :
+      ∀ ξ : ℝ, fourierIntegral (fun t : ℝ => ψ_inv t) ξ = ψ ξ := by
+    intro ξ
+    have h := fourierIntegral_eq_fourierTransform (ψ_inv) ξ
+    simpa [hψ_fourier] using h
+  have h_fourier_eval :
+      (fun ξ : ℝ => fourierIntegral (fun t : ℝ => ψ_inv t) ξ)
+        = fun ξ : ℝ => ψ ξ := by
+    funext ξ; exact h_fourier_eval_point ξ
+  -- Identify the frequency-side test function arising from ψ_inv.
+  let ψFreqInv : Lp ℂ 2 volume :=
+    (fourierIntegral_memLp_of_schwartz ψ_inv).toLp
+      (fun ξ : ℝ => fourierIntegral (fun t : ℝ => ψ_inv t) ξ)
+  -- Specialise the assumed weak limit to ψ_inv.
+  have h_limit := h_weak_limit ψ_inv
+  -- Translate the L² inner product into the explicit integral appearing in the
+  -- statement.
+  have hψFreq_ae :
+      (fun ξ : ℝ => (ψFreqInv : ℝ → ℂ) ξ)
+        =ᵐ[volume]
+          fun ξ : ℝ => fourierIntegral (fun t : ℝ => ψ_inv t) ξ :=
+    MemLp.coeFn_toLp (fourierIntegral_memLp_of_schwartz ψ_inv)
+  have hψ_fourier_ae :
+      (fun ξ : ℝ => fourierIntegral (fun t : ℝ => ψ_inv t) ξ)
+        =ᵐ[volume] fun ξ : ℝ => ψ ξ :=
+    Filter.Eventually.of_forall h_fourier_eval_point
+  have hψFreq_eq_ψ :
+      (fun ξ : ℝ => (ψFreqInv : ℝ → ℂ) ξ) =ᵐ[volume] fun ξ : ℝ => ψ ξ :=
+    hψFreq_ae.trans hψ_fourier_ae
+  have h_conj_eq :
+      (fun ξ : ℝ => conj ((ψFreqInv : ℝ → ℂ) ξ))
+        =ᵐ[volume] fun ξ : ℝ => (starRingEnd ℂ) (ψ ξ) :=
+    hψFreq_eq_ψ.mono <| by
+      intro ξ hξ
+      simp [hξ]
+  have h_inner_eq : ∀ n,
+      @inner ℂ (Lp ℂ 2 volume) _ ψFreqInv (ψLp n)
+        = ∫ x : ℝ, (ψLp n x) * (starRingEnd ℂ) (ψ x) ∂volume := by
+    intro n
+    have h_inner :
+        @inner ℂ (Lp ℂ 2 volume) _ ψFreqInv (ψLp n)
+          = ∫ x : ℝ, (ψLp n x) * conj ((ψFreqInv : ℝ → ℂ) x) ∂volume := by
+      simpa [ψFreqInv, RCLike.inner_apply]
+        using
+          (MeasureTheory.L2.inner_def (𝕜 := ℂ) (μ := volume)
+            (f := ψFreqInv) (g := ψLp n))
+    have h_integrand :
+        (fun x : ℝ => (ψLp n x) * conj ((ψFreqInv : ℝ → ℂ) x))
+          =ᵐ[volume]
+            fun x : ℝ => (ψLp n x) * (starRingEnd ℂ) (ψ x) :=
+      h_conj_eq.mono <| by
+        intro x hx
+        simp [hx]
+    exact h_inner.trans (integral_congr_ae h_integrand)
+  -- Replace the sequence in the weak convergence statement with the desired one.
+  have h_final :
+      Filter.Tendsto
+          (fun n => ∫ x, (ψLp n) x * (starRingEnd ℂ) (ψ x) ∂volume)
           Filter.atTop
-          (𝓝 (∫ t : ℝ, f t * conj (ψ t) ∂volume)) := by
-    simpa [ψLp] using
-      weak_limit_fourierIntegral_of_schwartz_tendsto hf_L2 hφ_L1 hφ_L2 hφ_tendsto
+          (𝓝 (∫ t : ℝ, f t * conj (ψ_inv t) ∂volume)) := by
+    refine h_limit.congr' ?_
+    exact Filter.Eventually.of_forall h_inner_eq
+  -- Express the limiting value using the Fourier-side formulation.
+  have h_target_freq :
+      (fun ξ : ℝ => fourierIntegral f ξ *
+          conj (fourierIntegral (fun t : ℝ => ψ_inv t) ξ))
+        =ᵐ[volume]
+          fun ξ : ℝ => fourierIntegral f ξ * (starRingEnd ℂ) (ψ ξ) :=
+    hψ_fourier_ae.mono <| by
+      intro ξ hξ
+      simp [hξ]
+  have h_target_limit :
+      (∫ t : ℝ, f t * conj (ψ_inv t) ∂volume)
+        = ∫ ξ : ℝ, (fourierIntegral f ξ) * (starRingEnd ℂ) (ψ ξ) ∂volume := by
+    have h_freq :=
+      (fourierIntegral_inner_schwartz_conj (hf_L1 := hf_L1) (ψ := ψ_inv)).symm
+    exact
+      h_freq.trans (integral_congr_ae h_target_freq)
+  -- Conclude by rewriting the limit value accordingly.
+  simpa [h_target_limit] using h_final
 
-  -- Since ψLp is Cauchy, it converges to some limit in the complete space Lp.
-  have hψ_complete : ∃ ψ_lim : Lp ℂ 2 volume, Filter.Tendsto ψLp Filter.atTop (𝓝 ψ_lim) :=
-    cauchySeq_tendsto_of_complete hψ_cauchy
-
-  -- Extract the limit and its convergence.
-  obtain ⟨ψ_lim, hψ_lim⟩ := hψ_complete
-
-  -- The limit ψ_lim corresponds to a function in L².
-  have hψ_lim_mem : MemLp (fun ξ : ℝ => (ψ_lim : ℝ → ℂ) ξ) 2 volume :=
-    Lp.memLp ψ_lim
-
-  sorry
-
--- The Fourier integral sends `L¹ ∩ L²` functions into `L²`.
-lemma fourierIntegral_memLp_of_memLp (f : ℝ → ℂ)
-    (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume) :
-    MemLp (fun ξ : ℝ => fourierIntegral f ξ) 2 volume := by
+/-- Strong L² convergence implies weak convergence against Schwartz test functions. -/
+lemma strong_L2_implies_weak_convergence_schwartz
+    (ψLp : ℕ → Lp ℂ 2 volume) (ψ_lim : Lp ℂ 2 volume)
+    (hψ_lim : Filter.Tendsto ψLp Filter.atTop (𝓝 ψ_lim)) :
+    ∀ φ : SchwartzMap ℝ ℂ,
+      Filter.Tendsto (fun n => ∫ x, (ψLp n) x * (starRingEnd ℂ) (SchwartzMap.toFun φ x) ∂volume)
+                      Filter.atTop
+                      (𝓝 (∫ x, ψ_lim x * (starRingEnd ℂ) (SchwartzMap.toFun φ x) ∂volume)) := by
   classical
-  obtain ⟨φ, hφ_L1, hφ_L2, hφ_tendsto⟩ :=
-    exists_schwartz_L2_approx f hf_L1 hf_L2
-  exact
-    fourierIntegral_memLp_limit hf_L1 hf_L2 hφ_L1 hφ_L2 hφ_tendsto
+  intro φ
+  -- View the test function as an `L²` element.
+  have hφ_mem : MemLp (fun x : ℝ => φ x) 2 volume :=
+    SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)
+  set φLp : Lp ℂ 2 volume := hφ_mem.toLp (fun x : ℝ => φ x)
+  have hφLp_eq :
+      (fun x : ℝ => (φLp : ℝ → ℂ) x) =ᵐ[volume] fun x => φ x :=
+    MemLp.coeFn_toLp hφ_mem
+  have hφ_star_eq :
+      (fun x : ℝ => star ((φLp : ℝ → ℂ) x)) =ᵐ[volume] fun x => star (φ x) :=
+    hφLp_eq.mono <| by
+      intro x hx
+      simp [hx]
+  have h_integral_eq :
+      ∀ n,
+        ∫ x : ℝ, (ψLp n x) * star (φ x) ∂volume
+          = @inner ℂ (Lp ℂ 2 volume) _ φLp (ψLp n) := by
+    intro n
+    have hinner :
+        @inner ℂ (Lp ℂ 2 volume) _ φLp (ψLp n)
+          = ∫ x : ℝ, (ψLp n x) * star ((φLp : ℝ → ℂ) x) ∂volume := by
+      simpa [RCLike.inner_apply, φLp]
+        using (MeasureTheory.L2.inner_def (𝕜 := ℂ) (μ := volume)
+          (f := φLp) (g := ψLp n))
+    calc
+      ∫ x : ℝ, (ψLp n x) * star (φ x) ∂volume
+          = ∫ x : ℝ, (ψLp n x) * star ((φLp : ℝ → ℂ) x) ∂volume := by
+            refine integral_congr_ae ?_
+            refine (Filter.EventuallyEq.mul ?_ hφ_star_eq.symm)
+            exact Filter.EventuallyEq.rfl
+      _ = @inner ℂ (Lp ℂ 2 volume) _ φLp (ψLp n) := by
+        simpa using hinner.symm
+  have h_limit_eq :
+      ∫ x : ℝ, ψ_lim x * star (φ x) ∂volume
+        = @inner ℂ (Lp ℂ 2 volume) _ φLp ψ_lim := by
+    have hinner :
+        @inner ℂ (Lp ℂ 2 volume) _ φLp ψ_lim
+          = ∫ x : ℝ, ψ_lim x * star ((φLp : ℝ → ℂ) x) ∂volume := by
+      simpa [RCLike.inner_apply, φLp]
+        using (MeasureTheory.L2.inner_def (𝕜 := ℂ) (μ := volume)
+          (f := φLp) (g := ψ_lim))
+    have hcongr :
+        ∫ x : ℝ, ψ_lim x * star (φ x) ∂volume
+          = ∫ x : ℝ, ψ_lim x * star ((φLp : ℝ → ℂ) x) ∂volume := by
+      refine integral_congr_ae ?_
+      refine (Filter.EventuallyEq.mul ?_ hφ_star_eq.symm)
+      exact Filter.EventuallyEq.rfl
+    have hinner' :
+        ∫ x : ℝ, ψ_lim x * star ((φLp : ℝ → ℂ) x) ∂volume
+          = @inner ℂ (Lp ℂ 2 volume) _ φLp ψ_lim := by
+      simpa using hinner.symm
+    exact hcongr.trans hinner'
+  have h_inner_tendsto :
+      Filter.Tendsto (fun n => @inner ℂ (Lp ℂ 2 volume) _ φLp (ψLp n))
+        Filter.atTop (𝓝 (@inner ℂ (Lp ℂ 2 volume) _ φLp ψ_lim)) :=
+    tendsto_inner_const_left_of_L2_tendsto hψ_lim φLp
+  have h_integral_tendsto :
+      Filter.Tendsto (fun n => ∫ x : ℝ, (ψLp n x) * star (φ x) ∂volume)
+        Filter.atTop (𝓝 (@inner ℂ (Lp ℂ 2 volume) _ φLp ψ_lim)) := by
+    refine h_inner_tendsto.congr' ?_
+    exact Filter.Eventually.of_forall fun n => (h_integral_eq n).symm
+  have h_final :
+      Filter.Tendsto (fun n => ∫ x : ℝ, (ψLp n x) * star (φ x) ∂volume)
+        Filter.atTop (𝓝 (∫ x : ℝ, ψ_lim x * star (φ x) ∂volume)) := by
+    convert h_integral_tendsto using 1
+    simp [h_limit_eq.symm]
+  simpa [SchwartzMap.toFun] using h_final
 
 end Approximation
-
-/-- Plancherel identity for `L¹ ∩ L²` functions with the explicit kernel. -/
-lemma fourierIntegral_l2_norm (f : ℝ → ℂ)
-    (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume) :
-    ∫ t : ℝ, ‖f t‖ ^ 2 ∂volume
-      = (1 / (2 * Real.pi)) * ∫ ξ : ℝ, ‖fourierIntegral f ξ‖ ^ 2 ∂volume := by
-  sorry
 
 end Frourio
