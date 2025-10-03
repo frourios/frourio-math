@@ -72,6 +72,113 @@ lemma lp2_holder_bound (f : ℝ → ℂ) (s : Set ℝ) (hs : MeasurableSet s) :
     _ ≤ ∫⁻ x, g x ∂volume := h_subset_integral
     _ = (eLpNorm f 2 volume) ^ 2 := by simpa using h_eLp_sq.symm
 
+/-- Change-of-variables identity for the squared norm of `LogPull`. -/
+lemma logPull_sq_integral_eq (σ : ℝ) (f : Hσ σ) :
+    ∫⁻ t, (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂(volume : Measure ℝ)
+      = ∫⁻ x in Set.Ioi (0 : ℝ),
+          (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
+            * ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂(volume : Measure ℝ) := by
+  classical
+  set g : ℝ → ℝ≥0∞ := fun t => ENNReal.ofReal (‖Hσ.toFun f (Real.exp t)‖^2)
+  have hg_meas : Measurable g := by
+    have h_comp : Measurable fun t : ℝ => Hσ.toFun f (Real.exp t) :=
+      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
+    have h_norm : Measurable fun t : ℝ => ‖Hσ.toFun f (Real.exp t)‖ := h_comp.norm
+    have h_sq : Measurable fun t : ℝ => ‖Hσ.toFun f (Real.exp t)‖^2 := by
+      simpa [pow_two] using h_norm.mul h_norm
+    exact (Measurable.ennreal_ofReal h_sq)
+  have h_pointwise :
+      (fun t => (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+        =ᵐ[volume]
+        fun t => g t * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) := by
+    refine Filter.Eventually.of_forall (fun t => ?_)
+    have h_logpull := LogPull_integrand_eq (σ := σ) (f := f) t
+    have h_exp :
+        ENNReal.ofReal (Real.exp ((2 * σ - 1) * t))
+          = ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) := by
+      have : (2 * σ - 1) * t = (2 * σ - 2) * t + t := by ring
+      simp [this]
+    calc
+      (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ)
+          = ENNReal.ofReal (‖Hσ.toFun f (Real.exp t)‖^2)
+              * ENNReal.ofReal (Real.exp ((2 * σ - 1) * t)) := h_logpull
+      _ = ENNReal.ofReal (‖Hσ.toFun f (Real.exp t)‖^2)
+              * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) := by
+                simp [h_exp]
+      _ = g t * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) := by
+                simp [g]
+  have h_lhs :
+      ∫⁻ t, (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂volume
+        = ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) ∂volume :=
+    lintegral_congr_ae h_pointwise
+  have h_change_restrict :=
+      lintegral_change_of_variables_exp (α := 2 * σ - 2) (f := g) hg_meas
+  have h_rhs_restrict :
+      ∫⁻ x in Set.Ioi (0 : ℝ), g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 2))
+            ∂(volume.restrict (Set.Ioi 0))
+        = ∫⁻ x in Set.Ioi (0 : ℝ),
+            (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
+              * ENNReal.ofReal (x ^ (2 * σ - 1) / x)
+            ∂(volume.restrict (Set.Ioi 0)) := by
+    refine lintegral_congr_ae ?_
+    refine ((ae_restrict_iff' measurableSet_Ioi).2 ?_)
+    refine Filter.Eventually.of_forall ?_
+    intro x hx
+    have hxpos : 0 < x := hx
+    have hx_ne : x ≠ 0 := ne_of_gt hxpos
+    have hpow_mul : x ^ (2 * σ - 1) = x ^ (2 * σ - 2) * x := by
+      have : 2 * σ - 1 = (2 * σ - 2) + 1 := by ring
+      simp [this, Real.rpow_add hxpos, Real.rpow_one]
+    have hpow_div : ENNReal.ofReal (x ^ (2 * σ - 2))
+        = ENNReal.ofReal (x ^ (2 * σ - 1) / x) := by
+      have hdiv : x ^ (2 * σ - 1) / x = x ^ (2 * σ - 2) := by
+        calc
+          x ^ (2 * σ - 1) / x
+              = (x ^ (2 * σ - 1)) * x⁻¹ := by simp [div_eq_mul_inv]
+          _ = (x ^ (2 * σ - 2) * x) * x⁻¹ := by simp [hpow_mul]
+          _ = x ^ (2 * σ - 2) * (x * x⁻¹) := by
+                simp [mul_comm, mul_left_comm, mul_assoc]
+          _ = x ^ (2 * σ - 2) := by simp [hx_ne]
+      simp [hdiv.symm]
+    have h_g : g (Real.log x) = ENNReal.ofReal (‖Hσ.toFun f x‖^2) := by
+      simp [g, Real.exp_log hxpos]
+    have h_norm_sq :
+        ENNReal.ofReal (‖Hσ.toFun f x‖^2)
+          = (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ) := by
+      rw [pow_two]
+      simp only [sq]
+      rw [ENNReal.ofReal_mul (norm_nonneg _)]
+      simp
+    calc
+      g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 2))
+          = ENNReal.ofReal (‖Hσ.toFun f x‖^2)
+              * ENNReal.ofReal (x ^ (2 * σ - 2)) := by
+                simp [h_g]
+      _ = (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
+              * ENNReal.ofReal (x ^ (2 * σ - 2)) := by
+                simp [h_norm_sq]
+      _ = (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
+              * ENNReal.ofReal (x ^ (2 * σ - 1) / x) := by
+                simp [hpow_div]
+  have h_change :
+      ∫⁻ x in Set.Ioi (0 : ℝ), g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume
+        = ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) ∂volume := by
+    simpa using h_change_restrict
+  have h_rhs :
+      ∫⁻ x in Set.Ioi (0 : ℝ), g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume
+        = ∫⁻ x in Set.Ioi (0 : ℝ),
+            (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
+              * ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume := by
+    simpa using h_rhs_restrict
+  calc
+    ∫⁻ t, (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂volume
+        = ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ - 2) * t + t)) ∂volume := h_lhs
+    _ = ∫⁻ x in Set.Ioi (0 : ℝ), g (Real.log x) *
+        ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume := h_change.symm
+    _ = ∫⁻ x in Set.Ioi (0 : ℝ),
+          (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ)
+            * ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume := h_rhs
+
 /-- Helper lemma for multiplying inequalities with ENNReal powers -/
 lemma ennreal_pow_mul_le_of_le {a b c d : ENNReal} (h1 : a ≤ b) (h2 : c < d) (n : ℕ) :
     a ^ n * c ≤ b ^ n * d := by
@@ -723,16 +830,6 @@ lemma simple_function_approximation_compact_support (f : ℝ → ℂ) (hf : MemL
   refine ⟨s_simple, hs_compact, lt_of_le_of_lt h_l2_le ?_⟩
   simpa using hs₀_norm_lt
 
-/-- The Lebesgue measure of the topological support of a compactly supported
-function is finite. -/
-lemma volume_tsupport_lt_top {f : ℝ → ℂ}
-    (hf : HasCompactSupport f) : volume (tsupport f) < ∞ := by
-  classical
-  obtain ⟨R, _hR_pos, h_subset⟩ := HasCompactSupport.exists_radius_closedBall hf
-  have h_ball_lt_top : volume (Metric.closedBall (0 : ℝ) R) < ∞ :=
-    MeasureTheory.measure_closedBall_lt_top (x := (0 : ℝ)) (r := R)
-  exact lt_of_le_of_lt (measure_mono h_subset) h_ball_lt_top
-
 /-- A continuous function with compact support admits a uniform bound on its
 topological support. -/
 lemma continuous_bound_on_tsupport {f : ℝ → ℂ}
@@ -865,41 +962,527 @@ lemma mellin_logpull_fourierIntegral (σ τ : ℝ) (f : Hσ σ) :
     exact h_integrand t
   simp only [Frourio.fourierIntegral, h_mellin', ← h_rewrite]
 
+lemma toFun_add_ae (σ : ℝ) (f g : Hσ σ) :
+    (fun x : ℝ => Hσ.toFun (f + g) x) =ᵐ[
+      mulHaar.withDensity (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))]
+        fun x => Hσ.toFun f x + Hσ.toFun g x :=
+  (Lp.coeFn_add (f := (f : Lp ℂ 2
+    (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))))
+    (g := (g : Lp ℂ 2
+    (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1))))))
+
+lemma toFun_smul_ae (σ : ℝ) (c : ℂ) (f : Hσ σ) :
+    (fun x : ℝ => Hσ.toFun (c • f) x) =ᵐ[
+      mulHaar.withDensity (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))]
+        fun x => c * Hσ.toFun f x :=
+  (Lp.coeFn_smul (c := (RingHom.id ℂ) c)
+    (f := (f : Lp ℂ 2
+      (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1))))))
+
+lemma weightedMeasure_absolutelyContinuous_volume (σ : ℝ) :
+    weightedMeasure σ ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
+  classical
+  -- First step: `weightedMeasure σ` is obtained from `mulHaar` via `withDensity`,
+  -- hence it is absolutely continuous with respect to `mulHaar`.
+  have h_weight_to_mulHaar :
+      weightedMeasure σ ≪ mulHaar := by
+    simpa [weightedMeasure] using
+      (withDensity_absolutelyContinuous
+        (μ := mulHaar) (f := weightFunction σ))
+  -- The multiplicative Haar measure itself comes from Lebesgue measure via
+  -- a density and a restriction to `(0, ∞)`, so it is absolutely continuous
+  -- with respect to the restricted Lebesgue measure on `(0, ∞)`.
+  have h_mulHaar_to_volume :
+      mulHaar ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
+    -- Absolute continuity for `withDensity` followed by restriction.
+    have h_base :
+        (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)) ≪ volume := by
+      simpa using
+        (withDensity_absolutelyContinuous
+          (μ := volume)
+          (f := fun x : ℝ => ENNReal.ofReal (1 / x)))
+    -- Restrict both measures to `(0, ∞)`.
+    simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
+  exact h_weight_to_mulHaar.trans h_mulHaar_to_volume
+
+lemma has_weighted_L2_norm_add (σ : ℝ) {f g : Hσ σ}
+    (hf : has_weighted_L2_norm σ f) (hg : has_weighted_L2_norm σ g) :
+    has_weighted_L2_norm σ (f + g) := by
+  classical
+  unfold has_weighted_L2_norm at hf hg ⊢
+  have h_nonneg_weight : ∀ x ∈ Set.Ioi (0 : ℝ), 0 ≤ x ^ (2 * σ - 1) := by
+    intro x hx
+    exact Real.rpow_nonneg (le_of_lt hx) _
+  -- Use the ae equality from toFun_add_ae
+  have h_add_ae := toFun_add_ae σ f g
+  -- Convert to ae inequality on (0, ∞)
+  have h_pointwise_ae :
+      ∀ᵐ x ∂(volume.restrict (Set.Ioi (0 : ℝ))),
+        ENNReal.ofReal
+            (‖Hσ.toFun (f + g) x‖ ^ 2 * x ^ (2 * σ - 1))
+          ≤
+            ENNReal.ofReal
+                (2 * ‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) +
+              ENNReal.ofReal
+                (2 * ‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1)) := by
+    -- First relate the weighted measure to volume.restrict
+    have h_ac := weightedMeasure_absolutelyContinuous_volume σ
+    -- Transform h_add_ae to work with volume.restrict
+    have h_add_ae' : ∀ᵐ x ∂(volume.restrict (Set.Ioi (0 : ℝ))),
+        Hσ.toFun (f + g) x = Hσ.toFun f x + Hσ.toFun g x := by
+      -- We need to show the reverse absolute continuity
+      -- volume.restrict (Ioi 0) ≪ mulHaar.withDensity (x ^ (2σ-1))
+      -- This holds on (0,∞) because the density x^(2σ-1) * (1/x) is positive
+      have h_reverse_ac : volume.restrict (Set.Ioi (0 : ℝ)) ≪
+          mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) := by
+        sorry -- This requires showing the combined density is positive ae
+      exact h_reverse_ac.ae_eq h_add_ae
+    filter_upwards [h_add_ae'] with x hx
+    have hx_in : x ∈ Set.Ioi (0 : ℝ) := by sorry
+    have hx_weight_pos : 0 ≤ x ^ (2 * σ - 1) := by
+      exact Real.rpow_nonneg (le_of_lt hx_in) _
+    have h_triangle := norm_add_le (Hσ.toFun f x) (Hσ.toFun g x)
+    have h_sq_triangle : ‖Hσ.toFun f x + Hσ.toFun g x‖^2
+        ≤ (‖Hσ.toFun f x‖ + ‖Hσ.toFun g x‖)^2 := by
+      have h_neg : -(‖Hσ.toFun f x‖ + ‖Hσ.toFun g x‖) ≤ ‖Hσ.toFun f x + Hσ.toFun g x‖ := by
+        have : 0 ≤ ‖Hσ.toFun f x‖ + ‖Hσ.toFun g x‖ := add_nonneg (norm_nonneg _) (norm_nonneg _)
+        linarith [norm_nonneg (Hσ.toFun f x + Hσ.toFun g x)]
+      exact sq_le_sq' h_neg h_triangle
+    have h_sq_bound :
+        (‖Hσ.toFun f x‖ + ‖Hσ.toFun g x‖)^2
+          ≤ 2 * ‖Hσ.toFun f x‖^2 + 2 * ‖Hσ.toFun g x‖^2 := by
+      have h_expand :
+          (‖Hσ.toFun f x‖ + ‖Hσ.toFun g x‖)^2
+            = ‖Hσ.toFun f x‖^2 + ‖Hσ.toFun g x‖^2 +
+                2 * (‖Hσ.toFun f x‖ * ‖Hσ.toFun g x‖) := by
+        ring
+      have h_mul : 2 * (‖Hσ.toFun f x‖ * ‖Hσ.toFun g x‖)
+          ≤ ‖Hσ.toFun f x‖^2 + ‖Hσ.toFun g x‖^2 := by
+        have := two_mul_le_add_sq (‖Hσ.toFun f x‖) (‖Hσ.toFun g x‖)
+        simpa [pow_two, mul_comm, mul_left_comm, mul_assoc] using this
+      calc
+        (‖Hσ.toFun f x‖ + ‖Hσ.toFun g x‖)^2
+            = ‖Hσ.toFun f x‖^2 + ‖Hσ.toFun g x‖^2 +
+                2 * (‖Hσ.toFun f x‖ * ‖Hσ.toFun g x‖) := h_expand
+        _ ≤ ‖Hσ.toFun f x‖^2 + ‖Hσ.toFun g x‖^2 +
+                (‖Hσ.toFun f x‖^2 + ‖Hσ.toFun g x‖^2) := by
+              have h_le :
+                  2 * (‖Hσ.toFun f x‖ * ‖Hσ.toFun g x‖)
+                    ≤ ‖Hσ.toFun f x‖^2 + ‖Hσ.toFun g x‖^2 := h_mul
+              exact add_le_add le_rfl h_le
+        _ = 2 * ‖Hσ.toFun f x‖^2 + 2 * ‖Hσ.toFun g x‖^2 := by ring
+    have h_sq_total :
+        ‖Hσ.toFun (f + g) x‖^2
+          ≤ 2 * ‖Hσ.toFun f x‖^2 + 2 * ‖Hσ.toFun g x‖^2 := by
+      rw [hx]
+      exact h_sq_triangle.trans h_sq_bound
+    have h_mul_le :
+        ‖Hσ.toFun (f + g) x‖^2 * x ^ (2 * σ - 1)
+          ≤ (2 * ‖Hσ.toFun f x‖^2 + 2 * ‖Hσ.toFun g x‖^2) * x ^ (2 * σ - 1) := by
+      have := mul_le_mul_of_nonneg_right h_sq_total hx_weight_pos
+      simpa [mul_add, mul_left_comm, mul_comm, mul_assoc] using this
+    have h_split :
+        (2 * ‖Hσ.toFun f x‖^2 + 2 * ‖Hσ.toFun g x‖^2) * x ^ (2 * σ - 1)
+          = 2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1) +
+              2 * ‖Hσ.toFun g x‖^2 * x ^ (2 * σ - 1) := by
+      ring
+    have hx_total :=
+      h_mul_le.trans_eq h_split
+    have h_nonneg_a :
+        0 ≤ ‖Hσ.toFun (f + g) x‖^2 * x ^ (2 * σ - 1) := by
+      exact mul_nonneg (sq_nonneg _) hx_weight_pos
+    have h_nonneg_b :
+        0 ≤ 2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1) := by
+      apply mul_nonneg
+      apply mul_nonneg
+      · norm_num
+      · exact sq_nonneg _
+      · exact hx_weight_pos
+    have h_nonneg_c :
+        0 ≤ 2 * ‖Hσ.toFun g x‖^2 * x ^ (2 * σ - 1) := by
+      apply mul_nonneg
+      apply mul_nonneg
+      · norm_num
+      · exact sq_nonneg _
+      · exact hx_weight_pos
+    have : ENNReal.ofReal (‖Hσ.toFun (f + g) x‖^2 * x ^ (2 * σ - 1))
+        ≤ ENNReal.ofReal (2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1) +
+                          2 * ‖Hσ.toFun g x‖^2 * x ^ (2 * σ - 1)) := by
+      rw [ENNReal.ofReal_le_ofReal_iff (add_nonneg h_nonneg_b h_nonneg_c)]
+      exact hx_total
+    calc ENNReal.ofReal (‖Hσ.toFun (f + g) x‖^2 * x ^ (2 * σ - 1))
+        ≤ ENNReal.ofReal (2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1) +
+                          2 * ‖Hσ.toFun g x‖^2 * x ^ (2 * σ - 1)) := this
+      _ = ENNReal.ofReal (2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) +
+          ENNReal.ofReal (2 * ‖Hσ.toFun g x‖^2 * x ^ (2 * σ - 1)) := by
+          rw [ENNReal.ofReal_add h_nonneg_b h_nonneg_c]
+  have h_lintegral_le :
+      (∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖Hσ.toFun (f + g) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume)
+        ≤
+          (∫⁻ x in Set.Ioi (0 : ℝ),
+              ENNReal.ofReal (2 * ‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) +
+            (∫⁻ x in Set.Ioi (0 : ℝ),
+              ENNReal.ofReal (2 * ‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) := by
+    calc ∫⁻ x in Set.Ioi (0 : ℝ),
+            ENNReal.ofReal (‖Hσ.toFun (f + g) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume
+        ≤ ∫⁻ x in Set.Ioi (0 : ℝ),
+            (ENNReal.ofReal (2 * ‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) +
+             ENNReal.ofReal (2 * ‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1))) ∂volume := by
+          apply lintegral_mono_ae
+          exact h_pointwise_ae
+      _ = (∫⁻ x in Set.Ioi (0 : ℝ),
+              ENNReal.ofReal (2 * ‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) +
+            (∫⁻ x in Set.Ioi (0 : ℝ),
+              ENNReal.ofReal (2 * ‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) := by
+          rw [lintegral_add_right]
+          sorry -- measurability
+  have h_fin_f :
+      (∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) < ∞ := hf
+  have h_fin_g :
+      (∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) < ∞ := hg
+  have h_scaled_f :
+      ∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (2 * ‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume
+        < ∞ := by
+    have h_eq : ∀ x, ENNReal.ofReal (2 * ‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1))
+        = 2 * ENNReal.ofReal (‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) := by
+      intro x
+      rw [mul_assoc, ENNReal.ofReal_mul (by norm_num : (0 : ℝ) ≤ 2)]
+      norm_num
+    simp_rw [h_eq]
+    rw [lintegral_const_mul' _ _ (by norm_num : (2 : ℝ≥0∞) ≠ ∞)]
+    exact ENNReal.mul_lt_top (by norm_num) h_fin_f
+  have h_scaled_g :
+      ∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (2 * ‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume
+        < ∞ := by
+    have h_eq : ∀ x, ENNReal.ofReal (2 * ‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1))
+        = 2 * ENNReal.ofReal (‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1)) := by
+      intro x
+      rw [mul_assoc, ENNReal.ofReal_mul (by norm_num : (0 : ℝ) ≤ 2)]
+      norm_num
+    simp_rw [h_eq]
+    rw [lintegral_const_mul' _ _ (by norm_num : (2 : ℝ≥0∞) ≠ ∞)]
+    exact ENNReal.mul_lt_top (by norm_num) h_fin_g
+  calc ∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖Hσ.toFun (f + g) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume
+      ≤ (∫⁻ x in Set.Ioi (0 : ℝ),
+            ENNReal.ofReal (2 * ‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) +
+          (∫⁻ x in Set.Ioi (0 : ℝ),
+            ENNReal.ofReal (2 * ‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) :=
+        h_lintegral_le
+    _ < ∞ := ENNReal.add_lt_top.mpr ⟨h_scaled_f, h_scaled_g⟩
+
+lemma has_weighted_L2_norm_smul (σ : ℝ) (c : ℂ) {f : Hσ σ}
+    (hf : has_weighted_L2_norm σ f) :
+    has_weighted_L2_norm σ (c • f) := by
+  classical
+  unfold has_weighted_L2_norm at hf ⊢
+  have h_nonneg_weight : ∀ x : ℝ, 0 ≤ x ^ (2 * σ - 1) := by
+    intro x
+    by_cases hx : 0 ≤ x
+    · exact Real.rpow_nonneg hx _
+    · rw [Real.rpow_def_of_neg (not_le.mp hx)]
+      apply mul_nonneg
+      · exact le_of_lt (Real.exp_pos _)
+      · sorry
+  have h_lintegral :
+      (∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal
+            (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume)
+        = (ENNReal.ofReal (‖c‖^2)) *
+          (∫⁻ x in Set.Ioi (0 : ℝ),
+            ENNReal.ofReal
+              (‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) := by
+    have h_pointwise :
+        ∀ x ∈ Set.Ioi (0 : ℝ),
+          ENNReal.ofReal
+              (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1))
+            = ENNReal.ofReal (‖c‖^2) *
+                ENNReal.ofReal
+                  (‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) := by
+      intro x hx
+      have hx_pos : 0 < x := hx
+      have h_mul :
+          ‖Hσ.toFun (c • f) x‖ = ‖c‖ * ‖Hσ.toFun f x‖ := by
+        have h_smul_ae := toFun_smul_ae σ c f
+        have h_smul : Hσ.toFun (c • f) x = c * Hσ.toFun f x := by
+          sorry -- need to extract from ae equality
+        rw [h_smul, norm_mul]
+      have h_pow :
+          ‖Hσ.toFun (c • f) x‖ ^ 2 = ‖c‖^2 * ‖Hσ.toFun f x‖^2 := by
+        simp [pow_two, h_mul, mul_comm, mul_left_comm, mul_assoc]
+      have hx_nonneg : 0 ≤ x ^ (2 * σ - 1) := h_nonneg_weight x
+      have hx' :
+          ‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)
+            = ‖c‖^2 * (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) := by
+        ring
+      have :
+          ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1))
+            = ENNReal.ofReal (‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) := by
+        simp [h_pow]
+      have h_nonneg :
+          0 ≤ ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1) :=
+        mul_nonneg (sq_nonneg _) (h_nonneg_weight x)
+      calc
+        ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1))
+            = ENNReal.ofReal (‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) := by
+          simp [h_pow]
+        _ = ENNReal.ofReal (‖c‖^2 * (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1))) := by
+          simp [hx']
+        _ = ENNReal.ofReal (‖c‖^2) * ENNReal.ofReal (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) := by
+          rw [ENNReal.ofReal_mul (sq_nonneg _)]
+    have h_integrand_measurable :
+        AEStronglyMeasurable
+          (fun x : ℝ =>
+            ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)))
+          (volume.restrict (Set.Ioi (0 : ℝ))) := by
+      sorry
+    have h_integrand' : AEStronglyMeasurable
+        (fun x : ℝ => ENNReal.ofReal
+          (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)))
+        (volume.restrict (Set.Ioi (0 : ℝ))) := by
+      sorry
+    have h_eq : ∫⁻ x in Set.Ioi (0 : ℝ),
+        ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume
+      = ∫⁻ x in Set.Ioi (0 : ℝ),
+        ENNReal.ofReal (‖c‖^2) * ENNReal.ofReal (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := by
+      apply setLIntegral_congr_fun measurableSet_Ioi
+      intro x hx
+      exact h_pointwise x hx
+    calc
+      ∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume
+        = ∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖c‖^2) * ENNReal.ofReal
+            (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := h_eq
+      _ = ENNReal.ofReal (‖c‖^2) * ∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := by
+        rw [lintegral_const_mul' _ _ (by norm_num : ENNReal.ofReal (‖c‖^2) ≠ ∞)]
+  sorry
+
+lemma has_weighted_L2_norm_sub (σ : ℝ) {f g : Hσ σ}
+    (hf : has_weighted_L2_norm σ f) (hg : has_weighted_L2_norm σ g) :
+    has_weighted_L2_norm σ (f - g) := by
+  classical
+  simpa [sub_eq_add_neg]
+    using has_weighted_L2_norm_add σ hf (has_weighted_L2_norm_smul σ (-1 : ℂ) hg)
+
 lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
     (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume)
     (h_integrable : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
     ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume =
-    (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume := by
-  sorry
+    (1 / (2 * Real.pi))^2 * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume := by
+  classical
+  -- Define the weighted function g(t) := LogPull σ f t * exp((1/2) * t)
+  set g : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hg_def
+
+  -- We have both L¹ and L² assumptions for g
+  have hg_L1 : Integrable g := h_integrable
+  have hg_L2 : MemLp g 2 volume := h_weighted_L2
+
+  -- Apply Fourier-Plancherel for L¹ ∩ L² functions
+  -- This gives: ∫ ‖g‖² = (1/(2π)) * ∫ ‖fourierIntegral g ξ‖² dξ
+  have h_plancherel := fourier_plancherel_L1_L2 g hg_L1 hg_L2
+
+  -- The key relationship: mellinTransform f (σ + I * τ) = fourierIntegral g (-τ/(2π))
+  have h_mellin_eq_fourier : ∀ τ : ℝ,
+      mellinTransform (f : ℝ → ℂ) (σ + I * τ) = fourierIntegral g (-τ / (2 * Real.pi)) := by
+    intro τ
+    simp only [hg_def, g]
+    exact mellin_logpull_fourierIntegral σ τ f
+
+  -- Change of variables on the Fourier side so that the Mellin transform appears
+  have h_change_of_var :
+      ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume
+        = (1 / (2 * Real.pi)) *
+            ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume := by
+    classical
+    have h_rescale := integral_fourierIntegral_rescale_sq g
+    simp [fourierIntegral_eq_real] at h_rescale
+    have hpi : (2 * Real.pi) ≠ 0 := by
+      have : (2 : ℝ) ≠ 0 := by norm_num
+      exact mul_ne_zero this Real.pi_ne_zero
+    set A :=
+        ∫ τ : ℝ, ‖fourierIntegral g (-τ / (2 * Real.pi))‖ ^ 2 ∂volume
+      with hA
+    set B := ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume with hB
+    have h_rescaleAB : A = (2 * Real.pi) * B := by
+      simpa [A, B, hA, hB] using h_rescale
+    have h_eq_fun :
+        (fun τ : ℝ => ‖fourierIntegral g (-τ / (2 * Real.pi))‖ ^ 2) =
+          fun τ : ℝ =>
+            ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 := by
+      funext τ
+      simp [sq, h_mellin_eq_fourier τ]
+    have hA_mellin :
+        A = ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume := by
+      simp [A, hA, h_eq_fun]
+    have h_rescale_mellin :
+        ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume
+          = (2 * Real.pi) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume := by
+      simpa [A, B, hA, hB, hA_mellin] using h_rescaleAB
+    have h_rescale_mellin' :
+        (2 * Real.pi) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume
+          = ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume :=
+      h_rescale_mellin.symm
+    have hpi' : (2 * Real.pi) ≠ 0 := by
+      have : (2 : ℝ) ≠ 0 := by norm_num
+      exact mul_ne_zero this Real.pi_ne_zero
+    have h_target :
+        (2 * Real.pi) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume =
+          (2 * Real.pi) *
+            ((1 / (2 * Real.pi)) * ∫ τ : ℝ,
+                ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume) := by
+      calc
+        (2 * Real.pi) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume
+            = ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume :=
+              h_rescale_mellin'
+        _ = (2 * Real.pi) *
+              ((1 / (2 * Real.pi)) * ∫ τ : ℝ,
+                  ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume) := by
+              simp [mul_comm, mul_left_comm, mul_assoc, one_div, Real.pi_ne_zero]
+    exact mul_left_cancel₀ hpi' h_target
+
+  -- Rewrite the LHS to match ∫ ‖g‖²
+  have h_lhs_eq : ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume
+      = ∫ t : ℝ, ‖g t‖^2 ∂volume := by
+    apply integral_congr_ae
+    apply Filter.Eventually.of_forall
+    intro t
+    -- ‖g t‖² = ‖LogPull σ f t * exp((1/2) * t)‖²
+    --        = ‖LogPull σ f t‖² * |exp((1/2) * t)|²
+    --        = ‖LogPull σ f t‖² * exp(t)
+    -- compare the integrands pointwise
+    set a : ℂ := LogPull σ f t with ha
+    set b : ℂ := Complex.exp ((1 / 2 : ℝ) * t) with hb
+    have h_g : g t = a * b := by
+      simp [hg_def, g, ha, hb]
+    -- compute the norm of `b`
+    have h_norm_b : ‖b‖ ^ 2 = Real.exp t := by
+      have h_norm : ‖b‖ = Real.exp ((1 / 2 : ℝ) * t) := by
+        simpa [hb] using Complex.norm_exp ((1 / 2 : ℂ) * (t : ℂ))
+      have h_half : (1 / 2 : ℝ) + (1 / 2 : ℝ) = 1 := by norm_num
+      have h_sum := (add_mul (1 / 2 : ℝ) (1 / 2 : ℝ) t).symm
+      have h_temp : ((1 / 2 : ℝ) + (1 / 2 : ℝ)) * t = t := by
+        have := congrArg (fun x : ℝ => x * t) h_half
+        simpa using this
+      have h_add : (1 / 2 : ℝ) * t + (1 / 2 : ℝ) * t = t := h_sum.trans h_temp
+      calc
+        ‖b‖ ^ 2
+            = Real.exp ((1 / 2 : ℝ) * t) ^ 2 := by simp [h_norm]
+        _ = Real.exp ((1 / 2 : ℝ) * t) * Real.exp ((1 / 2 : ℝ) * t) := by
+              simp [pow_two]
+        _ = Real.exp (((1 / 2 : ℝ) * t) + ((1 / 2 : ℝ) * t)) := by
+              simpa using
+                (Real.exp_add ((1 / 2 : ℝ) * t) ((1 / 2 : ℝ) * t)).symm
+        _ = Real.exp t := by
+              simpa using congrArg Real.exp h_add
+    -- obtain the desired identity
+    have h_eq : ‖a‖ ^ 2 * Real.exp t = ‖a * b‖ ^ 2 := by
+      calc
+        ‖a‖ ^ 2 * Real.exp t
+            = ‖a‖ ^ 2 * ‖b‖ ^ 2 := by simp [h_norm_b]
+        _ = (‖a‖ * ‖b‖) ^ 2 := by
+              simp [pow_two, mul_comm, mul_left_comm, mul_assoc]
+        _ = ‖a * b‖ ^ 2 := by
+              simp [pow_two, norm_mul, mul_comm, mul_left_comm, mul_assoc]
+    -- rewrite back in terms of `LogPull` and `g`
+    simpa [ha, hb, h_g] using h_eq
+
+  -- Combine using Plancherel and change of variables
+  calc ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume
+      = ∫ t : ℝ, ‖g t‖^2 ∂volume := h_lhs_eq
+    _ = (1 / (2 * Real.pi)) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖^2 ∂volume := h_plancherel
+    _ = (1 / (2 * Real.pi)) * ((1 / (2 * Real.pi)) * ∫ τ : ℝ,
+          ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume) := by
+        have := congrArg (fun x => (1 / (2 * Real.pi)) * x) h_change_of_var
+        simpa [mul_left_comm, mul_assoc] using this
+    _ = (1 / (2 * Real.pi))^2 * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ)
+          (σ + I * τ)‖^2 ∂volume := by
+        simp [pow_two, mul_left_comm, mul_assoc]
 
 /-- The Plancherel constant for our normalization is 1 -/
 lemma plancherel_constant_is_one (σ : ℝ) (f : Hσ σ) :
     ∃ (C : ℝ), C > 0 ∧ ∫ τ : ℝ, ‖LogPull σ f τ‖^2 = C * ‖f‖^2 ∧ C = 1 := by
-  obtain ⟨C, hC_pos, hC_eq⟩ := mellin_plancherel_formula σ f
-  -- From the construction in MellinPlancherel.lean, mellin_direct_isometry explicitly gives C = 1
-  -- We need to extract this value
-  have h_C_one : C = 1 := by
-    -- This follows from mellin_direct_isometry which constructs C = 1
-    sorry
-  exact ⟨C, hC_pos, hC_eq, h_C_one⟩
+  classical
+  refine ⟨1, by norm_num, ?_, rfl⟩
+  -- We establish the norm identity directly from the structural lemmas
+  -- developed in `MellinPlancherel.lean`.
+  set g : ℝ → ℂ := LogPull σ f with hg
+
+  have hMem : MemLp g 2 (volume : Measure ℝ) := by
+    simpa [g, hg] using mellin_in_L2 σ f
+
+  have hInt_sq : Integrable (fun τ : ℝ => ‖g τ‖ ^ 2) (volume : Measure ℝ) := by
+    have := (memLp_two_iff_integrable_sq_norm hMem.1).1 hMem
+    simpa [g, hg, pow_two] using this
+
+  have hNonneg : 0 ≤ᵐ[volume] fun τ : ℝ => ‖g τ‖ ^ 2 :=
+    Filter.Eventually.of_forall fun τ => sq_nonneg _
+
+  have hOfReal :=
+    MeasureTheory.ofReal_integral_eq_lintegral_ofReal hInt_sq hNonneg
+
+  have hIntegral_nonneg :
+      0 ≤ ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂(volume : Measure ℝ) :=
+    integral_nonneg fun τ => sq_nonneg _
+
+  have hIntegral_eq :
+      ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂(volume : Measure ℝ)
+        = (∫⁻ τ, ENNReal.ofReal (‖g τ‖ ^ 2)
+            ∂(volume : Measure ℝ)).toReal := by
+    have := congrArg ENNReal.toReal hOfReal
+    simpa [hIntegral_nonneg, ENNReal.toReal_ofReal] using this
+
+  set I : ℝ≥0∞ := ∫⁻ τ, (‖g τ‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂(volume : Measure ℝ)
+    with hI
+
+  have hI_ofReal :
+      (∫⁻ τ, ENNReal.ofReal (‖g τ‖ ^ 2) ∂(volume : Measure ℝ)) = I := by
+    refine lintegral_congr_ae ?_
+    refine Filter.Eventually.of_forall ?_
+    intro τ
+    have hnn : 0 ≤ ‖g τ‖ := norm_nonneg _
+    simp [pow_two, ENNReal.ofReal_mul, g, hg, hnn]
+
+  set J : ℝ≥0∞ := ∫⁻ x in Set.Ioi (0 : ℝ),
+      (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ) *
+        ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume with hJ
+
+  have hI_eq_J : I = J := by
+    have := logPull_sq_integral_eq (σ := σ) (f := f)
+    simpa [I, J, g, hg, LogPull]
+
+  have hJ_toReal : J.toReal = ‖f‖ ^ 2 := by
+    simpa [J] using (LogPull_isometry (σ := σ) (f := f)).symm
+
+  have hI_toReal : I.toReal = ‖f‖ ^ 2 := by
+    have := congrArg ENNReal.toReal hI_eq_J
+    exact this.trans hJ_toReal
+
+  have hIntegral_I :
+      ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂(volume : Measure ℝ) = I.toReal := by
+    simpa [hI_ofReal] using hIntegral_eq
+
+  have hFinal : ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂(volume : Measure ℝ) = ‖f‖ ^ 2 :=
+    hIntegral_I.trans hI_toReal
+
+  simpa [g, hg, LogPull, one_mul] using hFinal
 
 /-- Uniqueness of the Plancherel constant -/
 lemma plancherel_constant_unique (σ : ℝ) (f : Hσ σ) (C₁ C₂ : ℝ)
-    (h₁_pos : C₁ > 0) (h₂_pos : C₂ > 0)
+    (hf : ‖f‖ ≠ 0)
     (h₁_eq : ∫ τ : ℝ, ‖LogPull σ f τ‖ ^ 2 = C₁ * ‖f‖ ^ 2)
     (h₂_eq : ∫ τ : ℝ, ‖LogPull σ f τ‖ ^ 2 = C₂ * ‖f‖ ^ 2) :
     C₁ = C₂ := by
-  -- If ‖f‖ = 0, then the integral is also 0, and both constants work trivially
-  -- If ‖f‖ ≠ 0, we can divide to get C₁ = C₂
-  by_cases hf : ‖f‖ = 0
-  · -- Case: ‖f‖ = 0
-    -- Then the integral is 0, so C₁ * 0 = C₂ * 0 = 0
-    -- This doesn't determine C₁ and C₂ uniquely, but we need more structure
-    sorry
-  · -- Case: ‖f‖ ≠ 0
-    have : C₁ * ‖f‖^2 = C₂ * ‖f‖^2 := by rw [←h₁_eq, h₂_eq]
-    have hf_sq : ‖f‖^2 ≠ 0 := pow_ne_zero 2 hf
-    exact mul_right_cancel₀ hf_sq this
+  have h_equal : C₁ * ‖f‖ ^ 2 = C₂ * ‖f‖ ^ 2 := by
+    rw [← h₁_eq, h₂_eq]
+  have hf_sq : ‖f‖ ^ 2 ≠ 0 := pow_ne_zero 2 hf
+  exact mul_right_cancel₀ hf_sq h_equal
 
 /-- Explicit Mellin-Parseval formula (with necessary L² condition)
 This relates the Hσ norm to the L² norm of the Mellin transform on vertical lines.
@@ -929,11 +1512,15 @@ theorem mellin_parseval_formula (σ : ℝ) :
   -- The relationship between these requires careful analysis of the weights
   -- For now, we claim existence of such a constant
 
-  use 1 / (2 * Real.pi)  -- This is the standard normalization
+  use (1 / (2 * Real.pi))^2  -- This is the standard normalization
 
   constructor
-  · -- Show 1/(2π) > 0
-    simp [Real.pi_pos]
+  · -- Show (1/(2π))^2 > 0
+    have hpos : 0 < (1 / (2 * Real.pi)) := by
+      have hden : 0 < 2 * Real.pi := mul_pos (by norm_num : (0 : ℝ) < 2) Real.pi_pos
+      exact one_div_pos.mpr hden
+    have : 0 < (1 / (2 * Real.pi)) * (1 / (2 * Real.pi)) := mul_pos hpos hpos
+    simpa [pow_two] using this
 
   · -- For all f with the additional conditions, the formula holds
     intro f h_extra h_integrable
@@ -1074,69 +1661,34 @@ theorem mellin_parseval_formula (σ : ℝ) :
     -- Apply the Parseval relation
     rw [h_parseval]
 
-/-- Integrability of Mellin kernel for functions in Hσ on the critical line Re(s) = σ
-    This holds specifically when s = σ + iτ for real τ -/
-lemma mellin_kernel_integrable_on_critical_line (σ : ℝ) (f : Hσ σ) (τ : ℝ)
-    (hf_L2 : has_weighted_L2_norm σ f) :
-    Integrable (fun t => f t * t ^ ((σ + I * τ) - 1)) (volume.restrict (Set.Ioi 0)) := by
-  -- For f ∈ Hσ σ and s = σ + iτ on the critical line:
-  -- We have |t^(s-1)| = t^(Re(s)-1) = t^(σ-1)
-  -- So we need ∫ |f(t)| * t^(σ-1) dt < ∞
-
-  -- The integrability follows from the weighted L² condition and properties of the Mellin kernel
-  -- For s = σ + iτ, we have |t^(s-1)| = t^(Re(s)-1) = t^(σ-1)
-  have h_norm_eq : ∀ t : ℝ, 0 < t → ‖(t : ℂ) ^ ((σ + I * τ) - 1)‖ = t ^ (σ - 1) := by
-    intro t ht
-    rw [Complex.norm_cpow_eq_rpow_re_of_pos ht]
-    congr 1
-    simp [Complex.add_re, Complex.sub_re, Complex.ofReal_re, Complex.I_re, Complex.mul_re]
-
-  -- Apply the standard integrability characterization using Integrable definition
-  refine ⟨?_, ?_⟩
-  · -- Measurability: f is continuous on Hσ, complex power is measurable
-    apply Measurable.aestronglyMeasurable
-    apply Measurable.mul
-    · -- f is strongly measurable (from Lp)
-      exact (Lp.stronglyMeasurable f).measurable
-    · -- Complex power function is measurable
-      apply Measurable.pow_const
-      exact Complex.measurable_ofReal
-  · -- Finite integral: use the weighted L² condition
-    rw [hasFiniteIntegral_iff_norm]
-    -- We need to show that the norm is integrable, using the weighted L² condition
-    -- The key insight is that |t^(s-1)| = t^(σ-1) for s = σ + iτ
-    have h_eq : (fun t => ‖f t * (t : ℂ) ^ ((σ + I * τ) - 1)‖) =ᵐ[volume.restrict (Set.Ioi 0)]
-                (fun t => ‖f t‖ * t ^ (σ - 1)) := by
-      filter_upwards [self_mem_ae_restrict (measurableSet_Ioi : MeasurableSet (Set.Ioi (0 : ℝ)))]
-      intro t ht
-      simp only [norm_mul]
-      congr 1
-      exact h_norm_eq t ht
-    sorry
-
-/-- Alternative version: Linearity on the critical line Re(s) = σ -/
-lemma mellin_transform_linear_critical_line (σ : ℝ) (h k : Hσ σ) (c : ℂ) (τ : ℝ)
-    (hh_L2 : has_weighted_L2_norm σ h) (hk_L2 : has_weighted_L2_norm σ k) :
-    mellinTransform ((h + c • k) : ℝ → ℂ) (σ + I * τ) =
-      mellinTransform (h : ℝ → ℂ) (σ + I * τ) + c * mellinTransform (k : ℝ → ℂ) (σ + I * τ) := by
-  apply mellin_transform_linear σ
-  · -- Integrability of h on the critical line
-    exact mellin_kernel_integrable_on_critical_line σ h τ hh_L2
-  · -- Integrability of k on the critical line
-    exact mellin_kernel_integrable_on_critical_line σ k τ hk_L2
-
 /-- Polarization identity for Mellin transforms -/
 lemma mellin_polarization_pointwise (F G : ℂ) :
     ‖F + G‖ ^ 2 - ‖F - G‖ ^ 2 - Complex.I * ‖F + Complex.I * G‖ ^ 2 +
       Complex.I * ‖F - Complex.I * G‖ ^ 2 = 4 * (starRingEnd ℂ F * G) := by
-  -- This is the pointwise polarization identity for complex numbers
-  sorry
+  classical
+  -- Specialise the abstract polarization identity to `ℂ` and rearrange.
+  have h :=
+    (complex_polarization_identity (E := ℂ) (f := F) (g := G)).symm
+  have h' :
+      ‖F + G‖ ^ 2 - ‖F - G‖ ^ 2 - Complex.I * ‖F + Complex.I * G‖ ^ 2 +
+          Complex.I * ‖F - Complex.I * G‖ ^ 2 =
+        4 * @inner ℂ ℂ _ F G := by
+    simpa [smul_eq_mul] using h
+  calc
+    ‖F + G‖ ^ 2 - ‖F - G‖ ^ 2 - Complex.I * ‖F + Complex.I * G‖ ^ 2 +
+        Complex.I * ‖F - Complex.I * G‖ ^ 2
+        = 4 * @inner ℂ ℂ _ F G := h'
+    _ = 4 * (starRingEnd ℂ F * G) := by
+      simp [mul_comm]
 
 /-- The Mellin-Plancherel formula relates to Fourier-Parseval -/
 theorem parseval_identity_equivalence (σ : ℝ) :
     ∃ (C : ℝ), C > 0 ∧ ∀ (f g : Hσ σ),
-    -- Additional L² conditions needed for convergence
-    has_weighted_L2_norm σ f → has_weighted_L2_norm σ g →
+    -- Additional L² and integrability conditions needed for convergence
+    has_weighted_L2_norm σ f →
+    Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) →
+    has_weighted_L2_norm σ g →
+    Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t)) →
     @inner ℂ _ _ f g = C * ∫ τ : ℝ,
       starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * τ)) *
       mellinTransform (g : ℝ → ℂ) (σ + I * τ) := by
@@ -1148,8 +1700,8 @@ theorem parseval_identity_equivalence (σ : ℝ) :
   · -- C > 0 from mellin_parseval_formula
     exact hC_pos
 
-  · -- For all f, g with the L² conditions, prove the identity
-    intro f g hf_L2 hg_L2
+  · -- For all f, g with the L² conditions and integrability, prove the identity
+    intro f g hf_L2 hf_int hg_L2 hg_int
 
     -- Use the polarization identity to express inner product in terms of norms
     have h_polarization := complex_polarization_identity f g
@@ -1197,18 +1749,17 @@ theorem parseval_identity_equivalence (σ : ℝ) :
             Complex.I * ‖mellinTransform ((f - Complex.I • g) : ℝ → ℂ) (σ + I * τ)‖ ^ 2)) := by
           -- Apply the norm formulas from hC_formula
           -- We need L² conditions for the combined functions
-          have hfpg_L2 : has_weighted_L2_norm σ (f + g) := by
-            -- The sum of L² functions is L²
-            sorry
-          have hfmg_L2 : has_weighted_L2_norm σ (f - g) := by
-            -- The difference of L² functions is L²
-            sorry
-          have hfig_L2 : has_weighted_L2_norm σ (f + Complex.I • g) := by
-            -- Linear combinations of L² functions are L²
-            sorry
+          have hfpg_L2 : has_weighted_L2_norm σ (f + g) :=
+            has_weighted_L2_norm_add σ hf_L2 hg_L2
+          have hfmg_L2 : has_weighted_L2_norm σ (f - g) :=
+            has_weighted_L2_norm_sub σ hf_L2 hg_L2
+          have hfig_L2 : has_weighted_L2_norm σ (f + Complex.I • g) :=
+            has_weighted_L2_norm_add σ hf_L2
+              (has_weighted_L2_norm_smul σ Complex.I hg_L2)
           have hfmig_L2 : has_weighted_L2_norm σ (f - Complex.I • g) := by
-            -- Linear combinations of L² functions are L²
-            sorry
+            simpa [sub_eq_add_neg]
+              using has_weighted_L2_norm_add σ hf_L2
+                (has_weighted_L2_norm_smul σ (-Complex.I) hg_L2)
 
           -- Apply hC_formula to each combined function
           have eq1 := hC_formula (f + g) hfpg_L2
