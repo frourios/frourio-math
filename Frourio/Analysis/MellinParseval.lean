@@ -1275,7 +1275,7 @@ lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
     (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume)
     (h_integrable : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
     ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume =
-    (1 / (2 * Real.pi))^2 * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume := by
+    (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume := by
   classical
   -- Define the weighted function g(t) := LogPull σ f t * exp((1/2) * t)
   set g : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hg_def
@@ -1396,14 +1396,9 @@ lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
   -- Combine using Plancherel and change of variables
   calc ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume
       = ∫ t : ℝ, ‖g t‖^2 ∂volume := h_lhs_eq
-    _ = (1 / (2 * Real.pi)) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖^2 ∂volume := h_plancherel
-    _ = (1 / (2 * Real.pi)) * ((1 / (2 * Real.pi)) * ∫ τ : ℝ,
-          ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume) := by
-        have := congrArg (fun x => (1 / (2 * Real.pi)) * x) h_change_of_var
-        simpa [mul_left_comm, mul_assoc] using this
-    _ = (1 / (2 * Real.pi))^2 * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ)
-          (σ + I * τ)‖^2 ∂volume := by
-        simp [pow_two, mul_left_comm, mul_assoc]
+    _ = ∫ ξ : ℝ, ‖fourierIntegral g ξ‖^2 ∂volume := h_plancherel
+    _ = (1 / (2 * Real.pi)) * ∫ τ : ℝ,
+          ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume := h_change_of_var
 
 /-- The Plancherel constant for our normalization is 1 -/
 lemma plancherel_constant_is_one (σ : ℝ) (f : Hσ σ) :
@@ -1512,15 +1507,12 @@ theorem mellin_parseval_formula (σ : ℝ) :
   -- The relationship between these requires careful analysis of the weights
   -- For now, we claim existence of such a constant
 
-  use (1 / (2 * Real.pi))^2  -- This is the standard normalization
+  use (1 / (2 * Real.pi))  -- This is the normalization from Fourier-Plancherel
 
   constructor
-  · -- Show (1/(2π))^2 > 0
-    have hpos : 0 < (1 / (2 * Real.pi)) := by
-      have hden : 0 < 2 * Real.pi := mul_pos (by norm_num : (0 : ℝ) < 2) Real.pi_pos
-      exact one_div_pos.mpr hden
-    have : 0 < (1 / (2 * Real.pi)) * (1 / (2 * Real.pi)) := mul_pos hpos hpos
-    simpa [pow_two] using this
+  · -- Show (1/(2π)) > 0
+    have hden : 0 < 2 * Real.pi := mul_pos (by norm_num : (0 : ℝ) < 2) Real.pi_pos
+    exact one_div_pos.mpr hden
 
   · -- For all f with the additional conditions, the formula holds
     intro f h_extra h_integrable

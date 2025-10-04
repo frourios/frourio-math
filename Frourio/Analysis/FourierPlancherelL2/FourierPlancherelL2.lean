@@ -1,5 +1,6 @@
 import Frourio.Analysis.FourierPlancherel
-import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2Core2
+import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2Core3
+import Frourio.Analysis.Gaussian
 import Frourio.Analysis.HilbertSpace
 import Frourio.Analysis.MellinParsevalCore
 import Frourio.Analysis.SchwartzDensity.SchwartzDensity
@@ -9,6 +10,7 @@ import Mathlib.Topology.Basic
 import Mathlib.Data.ENNReal.Basic
 import Mathlib.Topology.UniformSpace.UniformConvergence
 import Mathlib.MeasureTheory.Measure.Prod
+import Mathlib.MeasureTheory.Integral.MeanInequalities
 import Mathlib.Analysis.Normed.Lp.lpSpace
 
 open MeasureTheory Complex Real SchwartzMap Metric
@@ -19,1135 +21,6 @@ noncomputable section
 namespace Frourio
 open Schwartz
 
-lemma mollifier_convolution_L1_tendsto (f : ℝ → ℂ)
-    (hf_compact : HasCompactSupport f) (hf_L1 : Integrable f) (hf_cont : Continuous f) :
-    Filter.Tendsto (fun δ : ℝ =>
-        eLpNorm (fun t => f t -
-          ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume)
-      (nhdsWithin (0 : ℝ) (Set.Ioi 0)) (𝓝 0) := by
-  classical
-  -- Strategy: Use mollifier properties to show convergence
-  -- The key is to rewrite f(t) - ∫ φ_δ(y) f(t-y) dy using φ_δ integrates to 1
-
-  have hf_unif : UniformContinuous f :=
-    Continuous.uniformContinuous_of_hasCompactSupport hf_cont hf_compact
-
-  -- Get support radius
-  obtain ⟨R, hR_pos, hR_support⟩ :=
-    HasCompactSupport.exists_radius_closedBall hf_compact
-
-  -- Use the definition of tendsto for nhdsWithin
-  refine (Filter.tendsto_iff_forall_eventually_mem).2 ?_
-  intro s hs
-
-  -- Since 0 is in the target neighborhood, we can work with a small order interval around 0
-  rcases ENNReal.nhds_zero_basis.mem_iff.mp hs with ⟨ε, hε_pos, hε_subset⟩
-  classical
-  set εR : ℝ := if hε_top : ε = ∞ then 1 else ε.toReal / 2 with hεR_def
-  have hεR_pos : 0 < εR := by
-    by_cases hε_top : ε = ∞
-    · simp [εR, hε_top]
-    · have hε_ne_zero : ε ≠ 0 := ne_of_gt hε_pos
-      have h_toReal_pos : 0 < ε.toReal := ENNReal.toReal_pos hε_ne_zero hε_top
-      have : 0 < ε.toReal / 2 := by
-        have := h_toReal_pos
-        nlinarith
-      simpa [εR, hε_top] using this
-  have hεR_nonneg : 0 ≤ εR := by
-    by_cases hε_top : ε = ∞
-    · simp [εR, hε_top]
-    · have h_toReal_nonneg : 0 ≤ ε.toReal := ENNReal.toReal_nonneg
-      have : 0 ≤ ε.toReal / 2 := by
-        have := h_toReal_nonneg
-        nlinarith
-      simpa [εR, hε_top] using this
-  have hεR_lt : ENNReal.ofReal εR < ε := by
-    by_cases hε_top : ε = ∞
-    · simp [εR, hε_top]
-    · have hε_ne_zero : ε ≠ 0 := ne_of_gt hε_pos
-      have h_toReal_pos : 0 < ε.toReal := ENNReal.toReal_pos hε_ne_zero hε_top
-      have h_toReal_ne_top : ε ≠ ∞ := hε_top
-      have h_half_lt : ε.toReal / 2 < ε.toReal := by
-        have := h_toReal_pos
-        nlinarith
-      have h_nonneg : 0 ≤ ε.toReal / 2 := by
-        have := ENNReal.toReal_nonneg (a := ε)
-        nlinarith
-      have := ENNReal.ofReal_lt_iff_lt_toReal h_nonneg h_toReal_ne_top
-      simpa [εR, hε_top] using this.mpr h_half_lt
-  have hε_subset' : Set.Iio (ENNReal.ofReal εR) ⊆ s := by
-    intro x hx
-    refine hε_subset ?_
-    exact lt_trans hx hεR_lt
-
-  -- Use uniform continuity to get δ₀
-  have h_den_pos : 0 < 4 * R + 2 := by nlinarith [hR_pos]
-  have h_ratio_pos : 0 < εR / (4 * R + 2) := by exact div_pos hεR_pos h_den_pos
-  obtain ⟨δ₀, hδ₀_pos, h_unif⟩ :=
-    Metric.uniformContinuous_iff.mp hf_unif (εR / (4 * R + 2)) h_ratio_pos
-
-  -- Show that eventually in nhdsWithin, the values are in s
-  rw [eventually_nhdsWithin_iff]
-  have h_ball_pos : 0 < min δ₀ 1 := by
-    have hδ₀_pos' : 0 < δ₀ := hδ₀_pos
-    have h_one_pos : 0 < (1 : ℝ) := by norm_num
-    exact lt_min_iff.mpr ⟨hδ₀_pos', h_one_pos⟩
-  refine Filter.eventually_of_mem (Metric.ball_mem_nhds (x := 0) (ε := min δ₀ 1) h_ball_pos) ?_
-  intro δ hδ_ball hδ_pos
-
-  -- δ is in the ball and positive
-  simp [Metric.mem_ball, Real.dist_eq] at hδ_ball
-  have hδ_abs : |δ| < min δ₀ 1 :=
-    lt_min_iff.mpr ⟨hδ_ball.1, hδ_ball.2⟩
-  have hδ_bound : δ < min δ₀ 1 := by
-    have := abs_lt.mp hδ_abs
-    exact this.2
-
-  -- Key inequality: use mollifier integral = 1 to rewrite the difference
-  have h_mol_int := mollifier_self_convolution_eq_one δ hδ_pos
-
-  have h_mol_int_complex :
-      ∫ x, (create_mollifier δ x : ℂ) ∂volume = (1 : ℂ) := by
-    simp [h_mol_int, Complex.ofReal_one]
-
-  -- Rewrite f(t) = ∫ φ_δ(y) f(t) dy using the normalization of the mollifier
-  have h_rewrite : ∀ t, f t = ∫ y, (create_mollifier δ y : ℂ) * f t ∂volume := by
-    intro t
-    calc
-      f t = (1 : ℂ) * f t := by simp
-      _ = (∫ y, (create_mollifier δ y : ℂ) ∂volume) * f t := by
-        simp [h_mol_int_complex]
-      _ = ∫ y, (create_mollifier δ y : ℂ) * f t ∂volume := by
-        simpa using
-          (MeasureTheory.integral_mul_const (μ := volume)
-            (f := fun y => (create_mollifier δ y : ℂ)) (r := f t)).symm
-
-  have h_mollifier_integrable_real :
-      Integrable (fun y : ℝ => create_mollifier δ y) := by
-    classical
-    have hδ_pos' : 0 < δ := by
-      have : δ ∈ Set.Ioi (0 : ℝ) := hδ_pos
-      simpa [Set.mem_Ioi] using this
-    set S := Set.Ioo (-δ) δ with hS_def
-    have hS_meas : MeasurableSet S := by simp [hS_def]
-    obtain ⟨-, h_integrableOn⟩ := mollifier_normalized_integral δ hδ_pos'
-    have h_indicator_int :
-        Integrable
-          (fun y : ℝ =>
-            Set.indicator S (fun y : ℝ => create_mollifier δ y) y) := by
-      exact
-        (integrable_indicator_iff (μ := volume) (s := S)
-            (f := fun y : ℝ => create_mollifier δ y) hS_meas).2
-          h_integrableOn
-    have h_indicator_eq :
-        (fun y : ℝ =>
-            Set.indicator S (fun y : ℝ => create_mollifier δ y) y)
-          =ᵐ[volume] fun y : ℝ => create_mollifier δ y := by
-      refine Filter.Eventually.of_forall ?_
-      intro y
-      by_cases hy : y ∈ S
-      · simp [Set.indicator_of_mem, hy]
-      · have h_not : ¬ |y| < δ := by
-          intro h_lt
-          apply hy
-          have h_pair := abs_lt.mp h_lt
-          simpa [hS_def, Set.mem_Ioo] using h_pair
-        have h_zero : create_mollifier δ y = 0 := by
-          simp [create_mollifier, h_not]
-        simp [Set.indicator_of_notMem, hy, h_zero]
-    exact h_indicator_int.congr h_indicator_eq
-
-  have h_mollifier_integrable_complex :
-      Integrable (fun y : ℝ => (create_mollifier δ y : ℂ)) :=
-    h_mollifier_integrable_real.ofReal
-
-  have h_const_integrable :
-      ∀ t : ℝ,
-        Integrable (fun y : ℝ => (create_mollifier δ y : ℂ) * f t) := by
-    intro t
-    simpa using h_mollifier_integrable_complex.mul_const (f t)
-
-  have h_shift_integrable :
-      ∀ t : ℝ,
-        Integrable (fun y : ℝ => (create_mollifier δ y : ℂ) * f (t - y)) := by
-    intro t
-    classical
-    have hδ_pos' : 0 < δ := by
-      have : δ ∈ Set.Ioi (0 : ℝ) := hδ_pos
-      simpa [Set.mem_Ioi] using this
-    obtain ⟨C, hC_pos, hC_bound⟩ := create_mollifier_le_bound δ hδ_pos'
-    have h_shift : Integrable (fun y : ℝ => f (t - y)) :=
-      integrable_comp_sub hf_L1 (x := t)
-    have h_memLp :
-        MemLp (fun y : ℝ => (create_mollifier δ y : ℂ)) ∞ volume := by
-      have h_meas :
-          AEStronglyMeasurable (fun y : ℝ => (create_mollifier δ y : ℂ)) volume :=
-        (Complex.measurable_ofReal.comp (create_mollifier_measurable δ)).aestronglyMeasurable
-      refine memLp_top_of_bound h_meas (C := C) ?_
-      refine Filter.Eventually.of_forall ?_
-      intro y
-      have h_abs : |create_mollifier δ y| = create_mollifier δ y :=
-        abs_create_mollifier _ _
-      simpa [Complex.norm_ofReal, h_abs] using hC_bound y
-    have h_smul :=
-      Integrable.smul_of_top_right (μ := volume)
-        (f := fun y : ℝ => f (t - y))
-        (φ := fun y : ℝ => (create_mollifier δ y : ℂ))
-        h_shift h_memLp
-    simpa [smul_eq_mul] using h_smul
-
-  -- Now the difference becomes ∫ φ_δ(y) [f(t) - f(t-y)] dy
-  have h_diff : ∀ t, f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume
-      = ∫ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) ∂volume := by
-    intro t
-    have h_lhs :
-        f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume
-          =
-            (∫ y, (create_mollifier δ y : ℂ) * f t ∂volume)
-              - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume := by
-      simpa using
-        congrArg
-          (fun z : ℂ =>
-            z - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume)
-          (h_rewrite t)
-    have h_const_integrable' := h_const_integrable t
-    have h_shift_integrable' := h_shift_integrable t
-    have h_sub :=
-      MeasureTheory.integral_sub h_const_integrable' h_shift_integrable'
-    have h_eq :
-        (fun y : ℝ =>
-            (create_mollifier δ y : ℂ) * f t -
-              (create_mollifier δ y : ℂ) * f (t - y))
-          = fun y : ℝ =>
-              (create_mollifier δ y : ℂ) * (f t - f (t - y)) := by
-      funext y
-      simp [mul_sub]
-    exact h_lhs.trans <| (by simpa [Pi.sub_def, h_eq] using h_sub.symm)
-
-  -- Use L¹ norm estimate
-  have h_mem_Iio :
-      eLpNorm
-          (fun t => f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume
-        ∈ Set.Iio (ENNReal.ofReal εR) := by
-    have h_congr :
-        (fun t => f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume)
-            = fun t => ∫ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) ∂volume := by
-      funext t
-      exact h_diff t
-    have h_bound :
-        eLpNorm
-            (fun t => ∫ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) ∂volume) 1 volume
-          < ENNReal.ofReal εR := by
-      classical
-      set g := fun t : ℝ =>
-        ∫ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) ∂volume with hg_def
-      set Cε : ℝ := εR / (4 * R + 2) with hCε_def
-
-      have hCε_pos : 0 < Cε := by
-        simpa [hCε_def] using h_ratio_pos
-      have hCε_nonneg : 0 ≤ Cε := hCε_pos.le
-
-      have hδ_lt_one : δ < (1 : ℝ) :=
-        lt_of_lt_of_le hδ_bound (min_le_right _ _)
-
-      have hf_zero : ∀ {x : ℝ}, R < |x| → f x = 0 := by
-        intro x hx
-        have hx_not_ball : x ∉ Metric.closedBall (0 : ℝ) R := by
-          intro hx_ball
-          have hx_le : |x| ≤ R := by
-            simpa [Metric.mem_closedBall, Real.dist_eq] using hx_ball
-          have : R < R := lt_of_lt_of_le hx hx_le
-          exact (lt_irrefl _ this).elim
-        have hx_not_support : x ∉ tsupport f := by
-          intro hx_support
-          exact hx_not_ball (hR_support hx_support)
-        exact image_eq_zero_of_notMem_tsupport hx_not_support
-
-      have h_pointwise : ∀ t, ‖g t‖ ≤ Cε := by
-        intro t
-        have h_const_integrable' := h_const_integrable t
-        have h_shift_integrable' := h_shift_integrable t
-        have h_diff_integrable' := h_const_integrable'.sub h_shift_integrable'
-        have h_diff_eq :
-            (fun y : ℝ =>
-                (create_mollifier δ y : ℂ) * f t -
-                  (create_mollifier δ y : ℂ) * f (t - y))
-              =ᵐ[volume]
-              (fun y : ℝ =>
-                (create_mollifier δ y : ℂ) * (f t - f (t - y))) := by
-          refine Filter.Eventually.of_forall ?_
-          intro y
-          simp [mul_sub]
-        have h_diff_integrable :
-            Integrable
-              (fun y : ℝ => (create_mollifier δ y : ℂ) * (f t - f (t - y))) :=
-          h_diff_integrable'.congr h_diff_eq
-
-        have h_norm_le :
-            ‖g t‖
-              ≤ ∫ y, create_mollifier δ y * ‖f t - f (t - y)‖ ∂volume := by
-          have :=
-            norm_integral_le_integral_norm (μ := volume)
-              (fun y : ℝ => (create_mollifier δ y : ℂ) * (f t - f (t - y)))
-          simpa [hg_def, norm_mul, norm_complex_create_mollifier,
-            abs_create_mollifier]
-            using this
-
-        have h_bound_integrand :
-            ∀ y : ℝ,
-              create_mollifier δ y * ‖f t - f (t - y)‖
-                ≤ create_mollifier δ y * Cε := by
-          intro y
-          have hcm_nonneg : 0 ≤ create_mollifier δ y :=
-            create_mollifier_nonneg δ y
-          by_cases hy_zero : create_mollifier δ y = 0
-          · simp [hy_zero, hcm_nonneg]
-          · have hy_abs_lt : |y| < δ := by
-              by_contra hy_abs
-              have : create_mollifier δ y = 0 := by
-                simp [create_mollifier, hy_abs]
-              exact hy_zero this
-            have hy_lt_delta0 : |y| < δ₀ := by
-              have hδ_lt_delta0 : δ < δ₀ :=
-                lt_of_lt_of_le hδ_bound (min_le_left _ _)
-              exact lt_of_lt_of_le hy_abs_lt hδ_lt_delta0.le
-            have h_dist : dist t (t - y) < δ₀ := by
-              simpa [Real.dist_eq, abs_sub_comm] using hy_lt_delta0
-            have h_uc := h_unif h_dist
-            have h_norm_lt : ‖f t - f (t - y)‖ < Cε := by
-              simpa [hCε_def, Complex.dist_eq, sub_eq_add_neg] using h_uc
-            have h_norm_le : ‖f t - f (t - y)‖ ≤ Cε := le_of_lt h_norm_lt
-            have :
-                create_mollifier δ y * ‖f t - f (t - y)‖
-                  ≤ create_mollifier δ y * Cε := by
-              exact mul_le_mul_of_nonneg_left h_norm_le hcm_nonneg
-            simpa using this
-
-        have h_integrable_left :
-            Integrable
-              (fun y : ℝ => create_mollifier δ y * ‖f t - f (t - y)‖) := by
-          have := h_diff_integrable.norm
-          simpa [norm_mul, norm_complex_create_mollifier, abs_create_mollifier]
-            using this
-
-        have h_integrable_right :
-            Integrable (fun y : ℝ => create_mollifier δ y * Cε) := by
-          simpa using h_mollifier_integrable_real.mul_const (c := Cε)
-
-        have h_int_le :
-            ∫ y, create_mollifier δ y * ‖f t - f (t - y)‖ ∂volume
-              ≤ ∫ y, create_mollifier δ y * Cε ∂volume := by
-          refine MeasureTheory.integral_mono_ae
-              h_integrable_left h_integrable_right ?_
-          refine Filter.Eventually.of_forall h_bound_integrand
-
-        have h_int_right :
-            ∫ y, create_mollifier δ y * Cε ∂volume = Cε := by
-          have h_integral :=
-            MeasureTheory.integral_mul_const (μ := volume)
-              (f := fun y : ℝ => create_mollifier δ y) Cε
-          simpa [Cε, hCε_def, h_mol_int, mul_comm, mul_left_comm, mul_assoc]
-            using h_integral
-
-        have h_norm_le' :
-            ‖g t‖ ≤ Cε := by
-          have := le_trans h_norm_le (le_trans h_int_le (le_of_eq h_int_right))
-          simpa [hg_def] using this
-        exact h_norm_le'
-
-      have h_support_g :
-          ∀ ⦃t⦄, R + 1 < |t| → g t = 0 := by
-        intro t ht
-        have hR_lt_abs : R < |t| := by
-          have hR_lt : R < R + 1 := by linarith
-          exact lt_trans hR_lt ht
-        have hf_t : f t = 0 := hf_zero hR_lt_abs
-        have h_integrand_zero :
-            ∀ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) = 0 := by
-          intro y
-          by_cases hy_zero : create_mollifier δ y = 0
-          · simp [hy_zero, hf_t]
-          · have hy_abs_lt : |y| < δ := by
-              by_contra hy_abs
-              have : create_mollifier δ y = 0 := by
-                simp [create_mollifier, hy_abs]
-              exact hy_zero this
-            have hy_lt_one : |y| < 1 := lt_of_lt_of_le hy_abs_lt hδ_lt_one.le
-            have hR_lt_sub : R < |t - y| := by
-              have hR_add_lt : R + |y| < |t| := by
-                have h_aux : R + |y| < R + 1 := by
-                  have := add_lt_add_left hy_lt_one R
-                  simpa [add_comm, add_left_comm, add_assoc] using this
-                exact lt_trans h_aux ht
-              have h_gt : R < |t| - |y| := (lt_sub_iff_add_lt).2 hR_add_lt
-              have h_one_le_abs_t : (1 : ℝ) ≤ |t| := by
-                have : (1 : ℝ) ≤ R + 1 := by nlinarith [hR_pos]
-                exact le_trans this (le_of_lt ht)
-              have hy_le_abs_t : |y| ≤ |t| := le_trans hy_lt_one.le h_one_le_abs_t
-              have h_nonneg : 0 ≤ |t| - |y| := sub_nonneg.mpr hy_le_abs_t
-              have h_abs_le : |t| - |y| ≤ |t - y| := by
-                have h_aux := abs_sub_abs_le_abs_sub t y
-                have h_abs_eq : |t| - |y| = |t| - |y| := by
-                  simp [abs_of_nonneg h_nonneg]
-                simpa [h_abs_eq] using h_aux
-              exact lt_of_lt_of_le h_gt h_abs_le
-            have hf_ty : f (t - y) = 0 := hf_zero hR_lt_sub
-            simp [hf_t, hf_ty]
-        have h_integrand_zero' :
-            (fun y : ℝ => (create_mollifier δ y : ℂ) * (f t - f (t - y))) = 0 := by
-          funext y; exact h_integrand_zero y
-        simp [hg_def, h_integrand_zero']
-
-      let S : Set ℝ := Metric.closedBall (0 : ℝ) (R + 1)
-
-      have h_indicator_eq :
-          (fun t : ℝ => ENNReal.ofReal ‖g t‖)
-            = Set.indicator S (fun t : ℝ => ENNReal.ofReal ‖g t‖) := by
-        funext t
-        by_cases ht : t ∈ S
-        · simp [ht]
-        · have ht_abs : R + 1 < |t| := by
-            simpa [S, Metric.mem_closedBall, Real.dist_eq, not_le] using ht
-          have hg_zero : g t = 0 := h_support_g ht_abs
-          simp [ht, hg_zero]
-
-      have hS_meas : MeasurableSet S := (Metric.isClosed_closedBall).measurableSet
-
-      have h_indicator_le :
-          (fun t : ℝ => ENNReal.ofReal ‖g t‖)
-            ≤ᵐ[volume]
-              Set.indicator S (fun _ : ℝ => ENNReal.ofReal Cε) := by
-        refine Filter.Eventually.of_forall ?_
-        intro t
-        by_cases ht : t ∈ S
-        · have h_norm := h_pointwise t
-          have h_norm' : ENNReal.ofReal ‖g t‖ ≤ ENNReal.ofReal Cε := by
-            refine (ENNReal.ofReal_le_ofReal_iff hCε_nonneg).2 ?_
-            simpa using h_norm
-          have h_norm'' : ↑‖g t‖₊ ≤ ENNReal.ofReal Cε := by
-            simpa using h_norm'
-          simp [h_indicator_eq, ht, h_norm'', hCε_nonneg]
-        · have ht_abs : R + 1 < |t| := by
-            simpa [S, Metric.mem_closedBall, Real.dist_eq, not_le] using ht
-          have hg_zero : g t = 0 := h_support_g ht_abs
-          simp [h_indicator_eq, ht, hg_zero, hCε_nonneg]
-
-      have h_lintegral_le :
-          ∫⁻ t, ENNReal.ofReal ‖g t‖ ∂volume
-            ≤ ∫⁻ t, Set.indicator S (fun _ : ℝ => ENNReal.ofReal Cε) t ∂volume :=
-        lintegral_mono_ae h_indicator_le
-
-      have h_volume : volume S = ENNReal.ofReal (2 * (R + 1)) := by
-        simp [S, two_mul, add_comm, add_left_comm, add_assoc]
-
-      have h_lintegral_const :
-          ∫⁻ t, Set.indicator S (fun _ : ℝ => ENNReal.ofReal Cε) t ∂volume
-            = ENNReal.ofReal Cε * volume S := by
-        simp [hS_meas, h_volume, hCε_nonneg]
-
-      have h_norm_le_const :
-          eLpNorm g 1 volume
-              ≤ ENNReal.ofReal Cε * volume S := by
-        have :=
-          calc
-            eLpNorm g 1 volume
-                = ∫⁻ t, ENNReal.ofReal ‖g t‖ ∂volume := by
-                    simp [hg_def, eLpNorm_one_eq_lintegral_enorm]
-            _ ≤ ∫⁻ t, Set.indicator S (fun _ : ℝ => ENNReal.ofReal Cε) t ∂volume :=
-                    h_lintegral_le
-            _ = ENNReal.ofReal Cε * volume S := h_lintegral_const
-        exact this
-
-      have h_product_lt :
-          ENNReal.ofReal Cε * volume S < ENNReal.ofReal εR := by
-        have h_real_lt : Cε * (2 * (R + 1)) < εR := by
-          have h_den_pos' : 0 < 4 * R + 2 := by
-            simpa using h_den_pos
-          have h_ratio_lt_one : 2 * (R + 1) < 4 * R + 2 := by
-            nlinarith [hR_pos]
-          have h_ratio_lt_one' :
-              (2 * (R + 1)) / (4 * R + 2) < 1 :=
-            (div_lt_one h_den_pos').2 h_ratio_lt_one
-          have hεR_pos' : 0 < εR := hεR_pos
-          calc
-            Cε * (2 * (R + 1))
-                = εR * ((2 * (R + 1)) / (4 * R + 2)) := by
-                    simp [Cε, div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
-            _ < εR * 1 := by
-                    exact mul_lt_mul_of_pos_left h_ratio_lt_one' hεR_pos'
-            _ = εR := by simp
-        have h_pos_mul : 0 ≤ 2 * (R + 1) := by nlinarith [hR_pos]
-        have h_lt :
-            ENNReal.ofReal (Cε * (2 * (R + 1))) < ENNReal.ofReal εR :=
-          (ENNReal.ofReal_lt_ofReal_iff hεR_pos).2 h_real_lt
-        simpa [h_volume, ENNReal.ofReal_mul hCε_nonneg, h_pos_mul]
-          using h_lt
-
-      refine lt_of_le_of_lt h_norm_le_const h_product_lt
-    have h_lt :
-        eLpNorm
-            (fun t => f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume
-          < ENNReal.ofReal εR := by
-      simpa [h_congr] using h_bound
-    simpa [Set.mem_Iio] using h_lt
-  exact hε_subset' h_mem_Iio
-
-lemma mollifier_convolution_L2_tendsto (f : ℝ → ℂ)
-    (hf_compact : HasCompactSupport f) (hf_L1 : Integrable f) (hf_cont : Continuous f) :
-    Filter.Tendsto (fun δ : ℝ =>
-        eLpNorm (fun t => f t -
-          ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 2 volume)
-      (nhdsWithin (0 : ℝ) (Set.Ioi 0)) (𝓝 0) := by
-  classical
-
-  have hf_unif : UniformContinuous f :=
-    Continuous.uniformContinuous_of_hasCompactSupport hf_cont hf_compact
-
-  obtain ⟨R, hR_pos, hR_support⟩ :=
-    HasCompactSupport.exists_radius_closedBall hf_compact
-
-  refine (Filter.tendsto_iff_forall_eventually_mem).2 ?_
-  intro s hs
-
-  rcases ENNReal.nhds_zero_basis.mem_iff.mp hs with ⟨ε, hε_pos, hε_subset⟩
-  set εR : ℝ := if hε_top : ε = ∞ then 1 else ε.toReal / 2 with hεR_def
-  have hεR_pos : 0 < εR := by
-    by_cases hε_top : ε = ∞
-    · simp [εR, hε_top]
-    · have hε_ne_zero : ε ≠ 0 := ne_of_gt hε_pos
-      have h_toReal_pos : 0 < ε.toReal := ENNReal.toReal_pos hε_ne_zero hε_top
-      have : 0 < ε.toReal / 2 := by
-        have := h_toReal_pos
-        nlinarith
-      simpa [εR, hε_top] using this
-  have hεR_nonneg : 0 ≤ εR := hεR_pos.le
-  have hεR_lt : ENNReal.ofReal εR < ε := by
-    by_cases hε_top : ε = ∞
-    · simp [εR, hε_top]
-    · have hε_ne_zero : ε ≠ 0 := ne_of_gt hε_pos
-      have h_toReal_pos : 0 < ε.toReal := ENNReal.toReal_pos hε_ne_zero hε_top
-      have h_half_lt : ε.toReal / 2 < ε.toReal := by
-        have := h_toReal_pos
-        nlinarith
-      have h_nonneg : 0 ≤ ε.toReal / 2 := by
-        have := ENNReal.toReal_nonneg (a := ε)
-        nlinarith
-      have := ENNReal.ofReal_lt_iff_lt_toReal h_nonneg hε_top
-      simpa [εR, hε_top] using this.mpr h_half_lt
-  have hε_subset' : Set.Iio (ENNReal.ofReal εR) ⊆ s := by
-    intro x hx
-    refine hε_subset ?_
-    exact lt_trans hx hεR_lt
-
-  have h_den_pos : 0 < 4 * R + 2 := by nlinarith [hR_pos]
-  have h_ratio_pos : 0 < εR / (4 * R + 2) := div_pos hεR_pos h_den_pos
-  obtain ⟨δ₀, hδ₀_pos, h_unif⟩ :=
-    Metric.uniformContinuous_iff.mp hf_unif (εR / (4 * R + 2)) h_ratio_pos
-
-  rw [eventually_nhdsWithin_iff]
-  have h_ball_pos : 0 < min δ₀ 1 :=
-    lt_min_iff.mpr ⟨hδ₀_pos, show (0 : ℝ) < 1 by norm_num⟩
-  refine Filter.eventually_of_mem
-      (Metric.ball_mem_nhds (x := 0) (ε := min δ₀ 1) h_ball_pos) ?_
-  intro δ hδ_ball hδ_pos
-
-  simp [Metric.mem_ball, Real.dist_eq] at hδ_ball
-  have hδ_abs : |δ| < min δ₀ 1 := lt_min_iff.mpr ⟨hδ_ball.1, hδ_ball.2⟩
-  have hδ_bound : δ < min δ₀ 1 :=
-    let ⟨h_neg, h_pos⟩ := abs_lt.mp hδ_abs
-    h_pos
-
-  have h_mol_int := mollifier_self_convolution_eq_one δ hδ_pos
-  have h_mol_int_complex :
-      ∫ x, (create_mollifier δ x : ℂ) ∂volume = 1 :=
-    by simpa [Complex.ofReal_one] using h_mol_int
-
-  have h_rewrite : ∀ t, f t = ∫ y, (create_mollifier δ y : ℂ) * f t ∂volume := by
-    intro t
-    calc
-      f t = (1 : ℂ) * f t := by simp
-      _ = (∫ y, (create_mollifier δ y : ℂ) ∂volume) * f t := by
-        simp [h_mol_int_complex]
-      _ = ∫ y, (create_mollifier δ y : ℂ) * f t ∂volume := by
-        simpa using
-          (MeasureTheory.integral_mul_const (μ := volume)
-            (f := fun y => (create_mollifier δ y : ℂ)) (r := f t)).symm
-
-  have h_mollifier_integrable_real : Integrable (fun y : ℝ => create_mollifier δ y) := by
-    have hδ_pos' : 0 < δ := hδ_pos
-    set S := Set.Ioo (-δ) δ with hS_def
-    have hS_meas : MeasurableSet S := by simp [hS_def]
-    obtain ⟨-, h_integrableOn⟩ := mollifier_normalized_integral δ hδ_pos'
-    have h_indicator_int :
-        Integrable
-          (fun y : ℝ =>
-            Set.indicator S (fun y : ℝ => create_mollifier δ y) y) := by
-      exact
-        (integrable_indicator_iff (μ := volume) (s := S)
-            (f := fun y => create_mollifier δ y) hS_meas).2 h_integrableOn
-    have h_indicator_eq :
-        (fun y : ℝ =>
-            Set.indicator S (fun y : ℝ => create_mollifier δ y) y)
-          =ᵐ[volume] fun y : ℝ => create_mollifier δ y := by
-      refine Filter.Eventually.of_forall ?_
-      intro y
-      by_cases hy : y ∈ S
-      · simp [Set.indicator_of_mem, hy]
-      · have h_not : ¬ |y| < δ := by
-          intro h_lt
-          apply hy
-          have h_pair := abs_lt.mp h_lt
-          simpa [hS_def, Set.mem_Ioo] using h_pair
-        have h_zero : create_mollifier δ y = 0 := by
-          simp [create_mollifier, h_not]
-        simp [Set.indicator_of_notMem, hy, h_zero]
-    exact h_indicator_int.congr h_indicator_eq
-
-  have h_mollifier_integrable_complex :
-      Integrable (fun y : ℝ => (create_mollifier δ y : ℂ)) :=
-    h_mollifier_integrable_real.ofReal
-
-  have h_const_integrable :
-      ∀ t, Integrable (fun y : ℝ => (create_mollifier δ y : ℂ) * f t) := by
-    intro t
-    simpa using h_mollifier_integrable_complex.mul_const (f t)
-
-  have h_shift_integrable :
-      ∀ t, Integrable (fun y : ℝ => (create_mollifier δ y : ℂ) * f (t - y)) := by
-    intro t
-    obtain ⟨C, hC_pos, hC_bound⟩ :=
-      create_mollifier_le_bound δ
-        (by
-          have : δ ∈ Set.Ioi (0 : ℝ) := hδ_pos
-          simpa [Set.mem_Ioi] using this)
-    have h_shift := integrable_comp_sub hf_L1 (x := t)
-    have h_memLp :
-        MemLp (fun y : ℝ => (create_mollifier δ y : ℂ)) ∞ volume := by
-      have h_meas :
-          AEStronglyMeasurable (fun y : ℝ => (create_mollifier δ y : ℂ)) volume :=
-        (Complex.measurable_ofReal.comp (create_mollifier_measurable δ)).aestronglyMeasurable
-      exact memLp_top_of_bound h_meas (C := C)
-        (Filter.Eventually.of_forall fun y => by
-          have h_abs : |create_mollifier δ y| = create_mollifier δ y :=
-            abs_create_mollifier _ _
-          simpa [Complex.norm_ofReal, h_abs] using hC_bound y)
-    simpa [smul_eq_mul] using
-      Integrable.smul_of_top_right (f := fun y => f (t - y))
-        (φ := fun y => (create_mollifier δ y : ℂ)) h_shift h_memLp
-
-  have h_diff : ∀ t,
-      f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume
-        = ∫ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) ∂volume := by
-    intro t
-    have h_lhs :
-        f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume =
-          (∫ y, (create_mollifier δ y : ℂ) * f t ∂volume)
-            - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume := by
-      simpa using
-        congrArg
-          (fun z : ℂ =>
-            z - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume)
-          (h_rewrite t)
-    have h_sub :=
-      MeasureTheory.integral_sub (h_const_integrable t) (h_shift_integrable t)
-    have h_eq :
-        (fun y : ℝ =>
-            (create_mollifier δ y : ℂ) * f t -
-              (create_mollifier δ y : ℂ) * f (t - y))
-          = fun y : ℝ =>
-              (create_mollifier δ y : ℂ) * (f t - f (t - y)) := by
-      funext y; simp [mul_sub]
-    exact h_lhs.trans <| (by simpa [Pi.sub_def, h_eq] using h_sub.symm)
-
-  have h_mem_Iio :
-      eLpNorm
-          (fun t => f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 2 volume
-        ∈ Set.Iio (ENNReal.ofReal εR) := by
-    have h_congr :
-        (fun t => f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume)
-            = fun t => ∫ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) ∂volume := by
-      funext t; exact h_diff t
-    have h_bound :
-        eLpNorm
-            (fun t => ∫ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) ∂volume) 2 volume
-          < ENNReal.ofReal εR := by
-      classical
-      set g := fun t : ℝ =>
-        ∫ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) ∂volume with hg_def
-      set Cε : ℝ := εR / (4 * R + 2) with hCε_def
-
-      have hCε_pos : 0 < Cε := by
-        simpa [hCε_def] using h_ratio_pos
-      have hCε_nonneg : 0 ≤ Cε := hCε_pos.le
-
-      have hδ_lt_one : δ < 1 :=
-        lt_of_lt_of_le hδ_bound (min_le_right _ _)
-
-      have hf_zero : ∀ {x : ℝ}, R < |x| → f x = 0 := by
-        intro x hx
-        have hx_not_ball : x ∉ Metric.closedBall (0 : ℝ) R := by
-          intro hx_ball
-          have hx_le : |x| ≤ R := by
-            simpa [Metric.mem_closedBall, Real.dist_eq] using hx_ball
-          have : R < R := lt_of_lt_of_le hx hx_le
-          exact (lt_irrefl _ this).elim
-        have hx_not_support : x ∉ tsupport f := by
-          intro hx_support
-          exact hx_not_ball (hR_support hx_support)
-        exact image_eq_zero_of_notMem_tsupport hx_not_support
-
-      have h_pointwise : ∀ t, ‖g t‖ ≤ Cε := by
-        intro t
-        have h_const_integrable' := h_const_integrable t
-        have h_shift_integrable' := h_shift_integrable t
-        have h_diff_integrable' := h_const_integrable'.sub h_shift_integrable'
-        have h_diff_eq :
-            (fun y : ℝ =>
-                (create_mollifier δ y : ℂ) * f t -
-                  (create_mollifier δ y : ℂ) * f (t - y))
-              =ᵐ[volume]
-              (fun y : ℝ =>
-                (create_mollifier δ y : ℂ) * (f t - f (t - y))) := by
-          refine Filter.Eventually.of_forall ?_
-          intro y; simp [mul_sub]
-        have h_diff_integrable :
-            Integrable
-              (fun y : ℝ => (create_mollifier δ y : ℂ) * (f t - f (t - y))) :=
-          h_diff_integrable'.congr h_diff_eq
-
-        have h_norm_le :
-            ‖g t‖
-              ≤ ∫ y, create_mollifier δ y * ‖f t - f (t - y)‖ ∂volume := by
-          have :=
-            norm_integral_le_integral_norm (μ := volume)
-              (fun y : ℝ => (create_mollifier δ y : ℂ) * (f t - f (t - y)))
-          simpa [hg_def, norm_mul, norm_complex_create_mollifier,
-            abs_create_mollifier]
-            using this
-
-        have h_bound_integrand :
-            ∀ y : ℝ,
-              create_mollifier δ y * ‖f t - f (t - y)‖
-                ≤ create_mollifier δ y * Cε := by
-          intro y
-          have hcm_nonneg : 0 ≤ create_mollifier δ y :=
-            create_mollifier_nonneg δ y
-          by_cases hy_zero : create_mollifier δ y = 0
-          · simp [hy_zero, hcm_nonneg]
-          · have hy_abs_lt : |y| < δ := by
-              by_contra hy_abs
-              have : create_mollifier δ y = 0 := by
-                simp [create_mollifier, hy_abs]
-              exact hy_zero this
-            have hy_lt_delta0 : |y| < δ₀ := by
-              have hδ_lt_delta0 : δ < δ₀ :=
-                lt_of_lt_of_le hδ_bound (min_le_left _ _)
-              exact lt_of_lt_of_le hy_abs_lt hδ_lt_delta0.le
-            have h_dist : dist t (t - y) < δ₀ := by
-              simpa [Real.dist_eq, abs_sub_comm] using hy_lt_delta0
-            have h_uc := h_unif h_dist
-            have h_norm_lt : ‖f t - f (t - y)‖ < Cε := by
-              simpa [hCε_def, Complex.dist_eq, sub_eq_add_neg] using h_uc
-            have h_norm_le : ‖f t - f (t - y)‖ ≤ Cε := le_of_lt h_norm_lt
-            have :
-                create_mollifier δ y * ‖f t - f (t - y)‖
-                  ≤ create_mollifier δ y * Cε := by
-              exact mul_le_mul_of_nonneg_left h_norm_le hcm_nonneg
-            simpa using this
-
-        have h_integrable_left :
-            Integrable
-              (fun y : ℝ => create_mollifier δ y * ‖f t - f (t - y)‖) := by
-          have := h_diff_integrable.norm
-          simpa [norm_mul, norm_complex_create_mollifier, abs_create_mollifier]
-            using this
-
-        have h_integrable_right :
-            Integrable (fun y : ℝ => create_mollifier δ y * Cε) := by
-          simpa using h_mollifier_integrable_real.mul_const (c := Cε)
-
-        have h_int_le :
-            ∫ y, create_mollifier δ y * ‖f t - f (t - y)‖ ∂volume
-              ≤ ∫ y, create_mollifier δ y * Cε ∂volume := by
-          refine MeasureTheory.integral_mono_ae
-              h_integrable_left h_integrable_right ?_
-          refine Filter.Eventually.of_forall h_bound_integrand
-
-        have h_int_right :
-            ∫ y, create_mollifier δ y * Cε ∂volume = Cε := by
-          have h_integral :=
-            MeasureTheory.integral_mul_const (μ := volume)
-              (f := fun y : ℝ => create_mollifier δ y) Cε
-          simpa [Cε, hCε_def, h_mol_int, mul_comm, mul_left_comm, mul_assoc]
-            using h_integral
-
-        have h_norm_le' :
-            ‖g t‖ ≤ Cε := by
-          have := le_trans h_norm_le (le_trans h_int_le (le_of_eq h_int_right))
-          simpa [hg_def] using this
-        exact h_norm_le'
-
-      have h_support_g :
-          ∀ ⦃t⦄, R + 1 < |t| → g t = 0 := by
-        intro t ht
-        have hR_lt_abs : R < |t| := by
-          have hR_lt : R < R + 1 := by linarith
-          exact lt_trans hR_lt ht
-        have hf_t : f t = 0 := hf_zero hR_lt_abs
-        have h_integrand_zero :
-            ∀ y, (create_mollifier δ y : ℂ) * (f t - f (t - y)) = 0 := by
-          intro y
-          by_cases hy_zero : create_mollifier δ y = 0
-          · simp [hy_zero, hf_t]
-          · have hy_abs_lt : |y| < δ := by
-              by_contra hy_abs
-              have : create_mollifier δ y = 0 := by
-                simp [create_mollifier, hy_abs]
-              exact hy_zero this
-            have hy_lt_one : |y| < 1 := lt_of_lt_of_le hy_abs_lt hδ_lt_one.le
-            have hR_lt_sub : R < |t - y| := by
-              have hR_add_lt : R + |y| < |t| := by
-                have h_aux : R + |y| < R + 1 := by
-                  have := add_lt_add_left hy_lt_one R
-                  simpa [add_comm, add_left_comm, add_assoc] using this
-                exact lt_trans h_aux ht
-              have h_gt : R < |t| - |y| := (lt_sub_iff_add_lt).2 hR_add_lt
-              have h_one_le_abs_t : (1 : ℝ) ≤ |t| := by
-                have : (1 : ℝ) ≤ R + 1 := by nlinarith [hR_pos]
-                exact le_trans this (le_of_lt ht)
-              have hy_le_abs_t : |y| ≤ |t| := le_trans hy_lt_one.le h_one_le_abs_t
-              have h_nonneg : 0 ≤ |t| - |y| := sub_nonneg.mpr hy_le_abs_t
-              have h_abs_le : |t| - |y| ≤ |t - y| := by
-                have h_aux := abs_sub_abs_le_abs_sub t y
-                have h_abs_eq : |t| - |y| = |t| - |y| := by
-                  simp [abs_of_nonneg h_nonneg]
-                simpa [h_abs_eq] using h_aux
-              exact lt_of_lt_of_le h_gt h_abs_le
-            have hf_ty : f (t - y) = 0 := hf_zero hR_lt_sub
-            simp [hf_t, hf_ty]
-        have h_integrand_zero' :
-            (fun y : ℝ => (create_mollifier δ y : ℂ) * (f t - f (t - y))) = 0 := by
-          funext y; exact h_integrand_zero y
-        simp [hg_def, h_integrand_zero']
-
-      let S : Set ℝ := Metric.closedBall (0 : ℝ) (R + 1)
-
-      have h_indicator_eq :
-          (fun t : ℝ => ENNReal.ofReal ‖g t‖)
-            = Set.indicator S (fun t : ℝ => ENNReal.ofReal ‖g t‖) := by
-        funext t
-        by_cases ht : t ∈ S
-        · simp [ht]
-        · have ht_abs : R + 1 < |t| := by
-            simpa [S, Metric.mem_closedBall, Real.dist_eq, not_le] using ht
-          have hg_zero : g t = 0 := h_support_g ht_abs
-          simp [ht, hg_zero]
-
-      have h_indicator_sq_eq :
-          (fun t : ℝ => ENNReal.ofReal (‖g t‖ ^ 2))
-            = Set.indicator S (fun t : ℝ => ENNReal.ofReal (‖g t‖ ^ 2)) := by
-        funext t
-        by_cases ht : t ∈ S
-        · simp [ht]
-        · have ht_abs : R + 1 < |t| := by
-            simpa [S, Metric.mem_closedBall, Real.dist_eq, not_le] using ht
-          have hg_zero : g t = 0 := h_support_g ht_abs
-          simp [ht, hg_zero]
-
-      have hS_meas : MeasurableSet S := (Metric.isClosed_closedBall).measurableSet
-
-      have h_indicator_le :
-          (fun t : ℝ => ENNReal.ofReal ‖g t‖)
-            ≤ᵐ[volume]
-              Set.indicator S (fun _ : ℝ => ENNReal.ofReal Cε) := by
-        refine Filter.Eventually.of_forall ?_
-        intro t
-        by_cases ht : t ∈ S
-        · have h_norm := h_pointwise t
-          have h_norm' : ENNReal.ofReal ‖g t‖ ≤ ENNReal.ofReal Cε := by
-            refine (ENNReal.ofReal_le_ofReal_iff hCε_nonneg).2 ?_
-            simpa using h_norm
-          have h_norm'' : ↑‖g t‖₊ ≤ ENNReal.ofReal Cε := by
-            simpa using h_norm'
-          simp [h_indicator_eq, ht, h_norm'', hCε_nonneg]
-        · have ht_abs : R + 1 < |t| := by
-            simpa [S, Metric.mem_closedBall, Real.dist_eq, not_le] using ht
-          have hg_zero : g t = 0 := h_support_g ht_abs
-          simp [h_indicator_eq, ht, hg_zero, hCε_nonneg]
-
-      have h_indicator_sq_le :
-          (fun t : ℝ => ENNReal.ofReal (‖g t‖ ^ 2))
-            ≤ᵐ[volume]
-              Set.indicator S (fun _ : ℝ => ENNReal.ofReal (Cε ^ 2)) := by
-        refine Filter.Eventually.of_forall ?_
-        intro t
-        by_cases ht : t ∈ S
-        · have h_norm := h_pointwise t
-          have h_norm_sq : ‖g t‖ ^ 2 ≤ Cε ^ 2 := by
-            have h_norm_nonneg : 0 ≤ ‖g t‖ := norm_nonneg _
-            calc
-              ‖g t‖ ^ 2 = ‖g t‖ * ‖g t‖ := by simp [pow_two]
-              _ ≤ Cε * Cε := mul_le_mul h_norm h_norm h_norm_nonneg hCε_nonneg
-              _ = Cε ^ 2 := by simp [pow_two]
-          have h_norm' : ENNReal.ofReal (‖g t‖ ^ 2) ≤ ENNReal.ofReal (Cε ^ 2) := by
-            refine (ENNReal.ofReal_le_ofReal_iff (sq_nonneg Cε)).2 ?_
-            simpa using h_norm_sq
-          simp [h_indicator_sq_eq, ht, h_norm']
-        · have ht_abs : R + 1 < |t| := by
-            simpa [S, Metric.mem_closedBall, Real.dist_eq, not_le] using ht
-          have hg_zero : g t = 0 := h_support_g ht_abs
-          simp [h_indicator_sq_eq, ht, hg_zero]
-
-      have h_lintegral_le :
-          ∫⁻ t, ENNReal.ofReal ‖g t‖ ∂volume
-            ≤ ∫⁻ t, Set.indicator S (fun _ : ℝ => ENNReal.ofReal Cε) t ∂volume :=
-        lintegral_mono_ae h_indicator_le
-
-      have h_lintegral_sq_le :
-          ∫⁻ t, ENNReal.ofReal (‖g t‖ ^ 2) ∂volume
-            ≤ ∫⁻ t, Set.indicator S (fun _ : ℝ => ENNReal.ofReal (Cε ^ 2)) t ∂volume :=
-        lintegral_mono_ae h_indicator_sq_le
-
-      have h_volume : volume S = ENNReal.ofReal (2 * (R + 1)) := by
-        simp [S, two_mul, add_comm, add_left_comm, add_assoc]
-
-      have h_lintegral_const :
-          ∫⁻ t, Set.indicator S (fun _ : ℝ => ENNReal.ofReal Cε) t ∂volume
-            = ENNReal.ofReal Cε * volume S := by
-        simp [hS_meas, h_volume, hCε_nonneg]
-
-      have h_lintegral_sq_const :
-          ∫⁻ t, Set.indicator S (fun _ : ℝ => ENNReal.ofReal (Cε ^ 2)) t ∂volume
-            = ENNReal.ofReal (Cε ^ 2) * volume S := by
-        have hCε_sq_nonneg : 0 ≤ Cε ^ 2 := sq_nonneg _
-        simp [hS_meas, h_volume, hCε_sq_nonneg]
-
-      have h_norm_le_const :
-          eLpNorm g 1 volume
-              ≤ ENNReal.ofReal Cε * volume S := by
-        have :=
-          calc
-            eLpNorm g 1 volume
-                = ∫⁻ t, ENNReal.ofReal ‖g t‖ ∂volume := by
-                    simp [hg_def, eLpNorm_one_eq_lintegral_enorm]
-            _ ≤ ∫⁻ t, Set.indicator S (fun _ : ℝ => ENNReal.ofReal Cε) t ∂volume :=
-                    h_lintegral_le
-            _ = ENNReal.ofReal Cε * volume S := h_lintegral_const
-        exact this
-
-      have h_norm_sq_le_const :
-          eLpNorm g 2 volume
-              ≤ (ENNReal.ofReal (Cε ^ 2) * volume S) ^ (1 / 2 : ℝ) := by
-        have h_two_ne_zero : (2 : ℝ≥0∞) ≠ 0 := by norm_num
-        have h_two_ne_top : (2 : ℝ≥0∞) ≠ ∞ := by simp
-        have h_l2_def :=
-          eLpNorm_eq_lintegral_rpow_enorm (p := (2 : ℝ≥0∞))
-            (f := g) (μ := volume) h_two_ne_zero h_two_ne_top
-        have h_integrand_eq :
-            ∀ t, ‖g t‖ₑ ^ (2 : ℝ) = ENNReal.ofReal (‖g t‖ ^ 2) := by
-          intro t
-          simp [pow_two, sq, ENNReal.ofReal_mul, norm_nonneg]
-        have h_nn_eq :
-            ∀ t, (↑‖g t‖₊ : ℝ≥0∞) ^ 2 = ENNReal.ofReal (‖g t‖ ^ 2) := by
-          intro t
-          simp [pow_two, ENNReal.ofReal_mul, norm_nonneg]
-        have h_integral_eq :
-            ∫⁻ t, ‖g t‖ₑ ^ (2 : ℝ) ∂volume
-              = ∫⁻ t, ENNReal.ofReal (‖g t‖ ^ 2) ∂volume := by
-          refine lintegral_congr_ae ?_
-          refine Filter.Eventually.of_forall ?_
-          intro t
-          exact h_integrand_eq t
-        have h_pow_le :
-            ∫⁻ t, ‖g t‖ₑ ^ (2 : ℝ) ∂volume
-              ≤ ENNReal.ofReal (Cε ^ 2) * volume S := by
-          calc
-            ∫⁻ t, ‖g t‖ₑ ^ (2 : ℝ) ∂volume
-                = ∫⁻ t, ENNReal.ofReal (‖g t‖ ^ 2) ∂volume := by
-                    simpa using h_integral_eq
-            _ ≤ ∫⁻ t, Set.indicator S (fun _ : ℝ => ENNReal.ofReal (Cε ^ 2)) t ∂volume :=
-                h_lintegral_sq_le
-            _ = ENNReal.ofReal (Cε ^ 2) * volume S := h_lintegral_sq_const
-        have h_sqrt_le_aux :=
-          ENNReal.rpow_le_rpow h_pow_le (by norm_num : 0 ≤ (1 / 2 : ℝ))
-        have h_sqrt_le_aux' :
-            (∫⁻ t, ‖g t‖ₑ ^ (2 : ℝ) ∂volume) ^ (1 / 2 : ℝ)
-              ≤ (ENNReal.ofReal (Cε ^ 2) * volume S) ^ (1 / 2 : ℝ) := by
-          simpa using h_sqrt_le_aux
-        have h_l2_eval :
-            eLpNorm g 2 volume
-              = (∫⁻ t, ‖g t‖ₑ ^ (2 : ℝ) ∂volume) ^ (1 / 2 : ℝ) := by
-          simp [h_l2_def]
-        have h_sqrt_le :
-            eLpNorm g 2 volume
-              ≤ (ENNReal.ofReal (Cε ^ 2) * volume S) ^ (1 / 2 : ℝ) := by
-          rw [h_l2_eval]
-          exact h_sqrt_le_aux'
-        exact h_sqrt_le
-
-      have h_product_sq_lt :
-          ENNReal.ofReal (Cε ^ 2) * volume S
-            < (ENNReal.ofReal εR) ^ 2 := by
-        have h_pos_mul : 0 ≤ 2 * (R + 1) := by nlinarith [hR_pos]
-        have h_left :
-            ENNReal.ofReal (Cε ^ 2) * volume S
-              = ENNReal.ofReal (Cε ^ 2 * (2 * (R + 1))) := by
-            simp [h_volume, ENNReal.ofReal_mul, sq_nonneg _, h_pos_mul]
-        have h_right :
-            (ENNReal.ofReal εR) ^ 2 = ENNReal.ofReal (εR ^ 2) := by
-          simp [pow_two, sq, ENNReal.ofReal_mul, hεR_nonneg]
-        have h_ratio_lt_one :
-            (2 * (R + 1)) / (4 * R + 2) ^ 2 < 1 := by
-          have h_den_sq_pos : 0 < (4 * R + 2) ^ 2 := sq_pos_of_pos h_den_pos
-          have h_num_lt : 2 * (R + 1) < (4 * R + 2) ^ 2 := by
-            have h_diff_eq :
-                (4 * R + 2) ^ 2 - 2 * (R + 1) = 16 * R ^ 2 + 14 * R + 2 := by ring
-            have h_square_nonneg : 0 ≤ 16 * R ^ 2 := by
-              have : 0 ≤ R ^ 2 := sq_nonneg _
-              exact mul_nonneg (by norm_num) this
-            have h14R_nonneg : 0 ≤ 14 * R := by
-              have : 0 ≤ R := hR_pos.le
-              exact mul_nonneg (by norm_num) this
-            have h_quad_nonneg : 0 ≤ 16 * R ^ 2 + 14 * R :=
-              add_nonneg h_square_nonneg h14R_nonneg
-            have h_two_pos : 0 < (2 : ℝ) := by norm_num
-            have h_rhs_pos : 0 < 16 * R ^ 2 + 14 * R + 2 :=
-              add_pos_of_nonneg_of_pos h_quad_nonneg h_two_pos
-            have h_diff_pos : 0 < (4 * R + 2) ^ 2 - 2 * (R + 1) := by
-              simpa [h_diff_eq] using h_rhs_pos
-            exact sub_pos.mp h_diff_pos
-          exact (div_lt_one h_den_sq_pos).2 h_num_lt
-        have h_eq : Cε ^ 2 * (2 * (R + 1))
-            = εR ^ 2 * ((2 * (R + 1)) / (4 * R + 2) ^ 2) := by
-          simp [Cε, hCε_def, pow_two, sq, div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
-        have h_real_lt : Cε ^ 2 * (2 * (R + 1)) < εR ^ 2 := by
-          have h_eps_sq_pos : 0 < εR ^ 2 := sq_pos_of_pos hεR_pos
-          have := mul_lt_mul_of_pos_left h_ratio_lt_one h_eps_sq_pos
-          simpa [h_eq] using this
-        have h_eps_sq_pos : 0 < εR ^ 2 := sq_pos_of_pos hεR_pos
-        have := (ENNReal.ofReal_lt_ofReal_iff h_eps_sq_pos).2 h_real_lt
-        simpa [h_left, h_right] using this
-
-      have h_sqrt_lt :
-          (ENNReal.ofReal (Cε ^ 2) * volume S) ^ (1 / 2 : ℝ)
-            < ENNReal.ofReal εR := by
-        have h_pow := ENNReal.rpow_lt_rpow h_product_sq_lt (by norm_num : (0 : ℝ) < 1 / 2)
-        have h_pow'' :
-            (ENNReal.ofReal (Cε ^ 2) * volume S) ^ (1 / 2 : ℝ)
-              < ((ENNReal.ofReal εR) ^ 2) ^ (1 / 2 : ℝ) := by
-          simpa [one_div] using h_pow
-        have h_base : ((ENNReal.ofReal εR) ^ 2) = ENNReal.ofReal (εR ^ 2) := by
-          simp [pow_two, sq, ENNReal.ofReal_mul, hεR_nonneg]
-        have h_pow' :
-            (ENNReal.ofReal (Cε ^ 2) * volume S) ^ (1 / 2 : ℝ)
-              < ENNReal.ofReal (εR ^ 2) ^ (1 / 2 : ℝ) := by
-          simpa [h_base] using h_pow''
-        have h_sq_nonneg : 0 ≤ εR ^ 2 := sq_nonneg εR
-        have h_rpow_eq : (εR ^ 2) ^ (1 / 2 : ℝ) = εR := by
-          have h_sqrt := Real.sqrt_sq (le_of_lt hεR_pos)
-          have h_pow := Real.sqrt_eq_rpow (εR ^ 2)
-          simpa [h_pow, one_div] using h_sqrt
-        have h_rhs :
-            ENNReal.ofReal (εR ^ 2) ^ (1 / 2 : ℝ) = ENNReal.ofReal εR := by
-          have h_eq0 :
-              ENNReal.ofReal (εR ^ 2) ^ (1 / 2 : ℝ)
-                = ENNReal.ofReal ((εR ^ 2) ^ (1 / 2 : ℝ)) := by
-            simpa [one_div] using
-              ENNReal.ofReal_rpow_of_nonneg (x := εR ^ 2)
-                h_sq_nonneg (by norm_num : 0 ≤ (1 / 2 : ℝ))
-          have h_eq1 := congrArg ENNReal.ofReal h_rpow_eq
-          exact h_eq0.trans h_eq1
-        have h_sqrt_lt :
-            (ENNReal.ofReal (Cε ^ 2) * volume S) ^ (1 / 2 : ℝ)
-              < ENNReal.ofReal εR := h_rhs ▸ h_pow'
-        exact h_sqrt_lt
-
-      have h_lt :
-          eLpNorm g 2 volume < ENNReal.ofReal εR :=
-        lt_of_le_of_lt h_norm_sq_le_const h_sqrt_lt
-      exact h_lt
-    have h_lt :
-        eLpNorm
-            (fun t => f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 2 volume
-          < ENNReal.ofReal εR := by
-      simpa [h_congr] using h_bound
-    simpa [Set.mem_Iio] using h_lt
-  exact hε_subset' h_mem_Iio
-
-/-- Convolution with a mollifier of vanishing radius approximates a compactly supported
-function simultaneously in `L¹` and `L²`. -/
-lemma mollifier_convolution_L1_L2_small
-    (f : ℝ → ℂ) (hf_compact : HasCompactSupport f)
-    (hf_L1 : Integrable f) (hf_cont : Continuous f) :
-    ∀ ε > 0,
-      ∃ δ > 0,
-        eLpNorm
-            (fun t =>
-              f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume
-              < ENNReal.ofReal ε ∧
-        eLpNorm
-            (fun t =>
-              f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 2 volume
-              < ENNReal.ofReal ε := by
-  classical
-  intro ε hε
-  have hε_pos : 0 < ENNReal.ofReal ε := ENNReal.ofReal_pos.mpr hε
-  have hL1_tendsto := mollifier_convolution_L1_tendsto f hf_compact hf_L1 hf_cont
-  have hL2_tendsto := mollifier_convolution_L2_tendsto f hf_compact hf_L1 hf_cont
-
-  -- Define the error functions in L¹ and L².
-  set F₁ : ℝ → ℝ≥0∞ := fun δ =>
-      eLpNorm
-        (fun t =>
-          f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume
-  set F₂ : ℝ → ℝ≥0∞ := fun δ =>
-      eLpNorm
-        (fun t =>
-          f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 2 volume
-
-  -- Using the tendsto statements, both error sets are members of the filter.
-  have h_set₁ : {δ : ℝ | F₁ δ < ENNReal.ofReal ε}
-      ∈ nhdsWithin (0 : ℝ) (Set.Ioi (0 : ℝ)) := by
-    have h_target : Set.Iio (ENNReal.ofReal ε) ∈ 𝓝 (0 : ℝ≥0∞) :=
-      Iio_mem_nhds hε_pos
-    simpa [F₁] using hL1_tendsto h_target
-
-  have h_set₂ : {δ : ℝ | F₂ δ < ENNReal.ofReal ε}
-      ∈ nhdsWithin (0 : ℝ) (Set.Ioi (0 : ℝ)) := by
-    have h_target : Set.Iio (ENNReal.ofReal ε) ∈ 𝓝 (0 : ℝ≥0∞) :=
-      Iio_mem_nhds hε_pos
-    simpa [F₂] using hL2_tendsto h_target
-
-  -- Intersect the two eventuality sets.
-  have h_inter := Filter.inter_mem h_set₁ h_set₂
-  have h_ball_subset : ∃ η > 0,
-      ball (0 : ℝ) η ∩ Set.Ioi (0 : ℝ)
-        ⊆ ({δ : ℝ | F₁ δ < ENNReal.ofReal ε}
-            ∩ {δ : ℝ | F₂ δ < ENNReal.ofReal ε}) := by
-    simpa [F₁, F₂] using (mem_nhdsWithin_iff).1 h_inter
-
-  obtain ⟨η, hη_pos, h_subset⟩ := h_ball_subset
-  -- Choose δ = η/2, which lies in the intersection of the ball and the positive half-line.
-  refine ⟨η / 2, half_pos hη_pos, ?_⟩
-  have hδ_ball : (η / 2) ∈ ball (0 : ℝ) η := by
-    have h_nonneg : 0 ≤ η / 2 := by positivity
-    have h_lt : η / 2 < η := half_lt_self hη_pos
-    have h_abs : |η / 2| = η / 2 := abs_of_nonneg h_nonneg
-    simpa [Metric.ball, Real.dist_eq, h_abs] using h_lt
-  have hδ_pos : η / 2 ∈ Set.Ioi (0 : ℝ) := by
-    simpa using half_pos hη_pos
-
-  have hδ_mem := h_subset ⟨hδ_ball, hδ_pos⟩
-  have hδ_mem' :
-      (η / 2) ∈ {δ : ℝ | F₁ δ < ENNReal.ofReal ε}
-        ∧ (η / 2) ∈ {δ : ℝ | F₂ δ < ENNReal.ofReal ε} := by
-    simpa [Set.mem_inter] using hδ_mem
-  have hδ_mem₁ : F₁ (η / 2) < ENNReal.ofReal ε :=
-    by simpa [F₁] using hδ_mem'.1
-  have hδ_mem₂ : F₂ (η / 2) < ENNReal.ofReal ε :=
-    by simpa [F₂] using hδ_mem'.2
-  exact ⟨by simpa [F₁] using hδ_mem₁, by simpa [F₂] using hδ_mem₂⟩
-
 /-- Uniform control of mollification error for compactly supported functions. -/
 lemma mollifier_uniform_error_control
     (f : ℝ → ℂ) (hf_compact : HasCompactSupport f)
@@ -1156,20 +29,89 @@ lemma mollifier_uniform_error_control
     ∃ φ : ℝ → ℂ,
       ContDiff ℝ (⊤ : ℕ∞) φ ∧ HasCompactSupport φ ∧
       eLpNorm (fun t => f t - φ t) 1 volume < ENNReal.ofReal δ ∧
-      eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal δ :=
+      eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal δ := by
+  classical
+  have hδ_half : 0 < δ / 2 := by linarith
+  have h_one_ne_top : (1 : ℝ≥0∞) ≠ ∞ := by norm_num
+  have h_two_ne_top : (2 : ℝ≥0∞) ≠ ∞ := by norm_num
+
+  -- Get continuous approximation in L¹
+  have hδ_half_ne : ENNReal.ofReal (δ / 2) ≠ 0 := by
+    simp [ENNReal.ofReal_eq_zero, hδ_half]
+
+  have hf_memLp₁ : MemLp f 1 volume := (memLp_one_iff_integrable).2 hf_L1
+
+  obtain ⟨g₁, hg₁_compact, hg₁_L1_bound, hg₁_cont, hg₁_memLp₁⟩ :=
+    hf_memLp₁.exists_hasCompactSupport_eLpNorm_sub_le (μ := volume) (p := 1)
+      h_one_ne_top (ε := ENNReal.ofReal (δ / 2)) hδ_half_ne
+
+  -- Get continuous approximation in L²
+  obtain ⟨g₂, hg₂_compact, hg₂_L2_bound, hg₂_cont, hg₂_memLp₂⟩ :=
+    hf_L2.exists_hasCompactSupport_eLpNorm_sub_le (μ := volume) (p := 2)
+      h_two_ne_top (ε := ENNReal.ofReal (δ / 2)) hδ_half_ne
+
+  -- Take the average g = (g₁ + g₂) / 2 to get a function close in both norms
+  set g := fun t => (g₁ t + g₂ t) / 2 with hg_def
+
+  have hg_cont : Continuous g := by
+    exact (hg₁_cont.add hg₂_cont).div_const 2
+
+  have hg_compact : HasCompactSupport g := by
+    classical
+    obtain ⟨R₁, hR₁_pos, hR₁_subset⟩ :=
+      HasCompactSupport.exists_radius_closedBall hg₁_compact
+    obtain ⟨R₂, hR₂_pos, hR₂_subset⟩ :=
+      HasCompactSupport.exists_radius_closedBall hg₂_compact
+    refine HasCompactSupport.intro
+        (isCompact_closedBall (0 : ℝ) (max R₁ R₂)) ?_
+    intro x hx
+    have hx_norm' : ¬ ‖x‖ ≤ max R₁ R₂ := by
+      have hx' : ¬ |x| ≤ max R₁ R₂ := by
+        simpa [Metric.mem_closedBall, Real.dist_eq, sub_eq_add_neg]
+          using hx
+      simpa [Real.norm_eq_abs] using hx'
+    have hx_norm : max R₁ R₂ < ‖x‖ := lt_of_not_ge hx_norm'
+    have hx_lt₁ : R₁ < ‖x‖ := lt_of_le_of_lt (le_max_left _ _) hx_norm
+    have hx_lt₂ : R₂ < ‖x‖ := lt_of_le_of_lt (le_max_right _ _) hx_norm
+    have hx_not_ball₁ : x ∉ Metric.closedBall (0 : ℝ) R₁ := by
+      have : ¬ ‖x‖ ≤ R₁ := not_le.mpr hx_lt₁
+      simpa [Metric.mem_closedBall, Real.dist_eq, sub_eq_add_neg] using this
+    have hx_not_ball₂ : x ∉ Metric.closedBall (0 : ℝ) R₂ := by
+      have : ¬ ‖x‖ ≤ R₂ := not_le.mpr hx_lt₂
+      simpa [Metric.mem_closedBall, Real.dist_eq, sub_eq_add_neg] using this
+    have hx_not_support₁ : x ∉ tsupport g₁ := by
+      intro hx_support
+      exact hx_not_ball₁ (hR₁_subset hx_support)
+    have hx_not_support₂ : x ∉ tsupport g₂ := by
+      intro hx_support
+      exact hx_not_ball₂ (hR₂_subset hx_support)
+    have hg₁_zero : g₁ x = 0 := image_eq_zero_of_notMem_tsupport hx_not_support₁
+    have hg₂_zero : g₂ x = 0 := image_eq_zero_of_notMem_tsupport hx_not_support₂
+    simp [g, hg₁_zero, hg₂_zero]
+
   sorry
 
 /-- Stability of L¹ and L² norms under convolution with a mollifier. -/
 lemma mollifier_convolution_Lp_control
-    (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
-    (φ : ℝ → ℂ) (hφ_compact : HasCompactSupport φ)
-    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ) :
+    (φ : ℝ → ℂ) (hφ_compact : HasCompactSupport φ) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ) :
     ∀ ε > 0,
       ∃ ψ : ℝ → ℂ,
         HasCompactSupport ψ ∧ ContDiff ℝ (⊤ : ℕ∞) ψ ∧
         eLpNorm (fun t => φ t - ψ t) 1 volume < ENNReal.ofReal ε ∧
         eLpNorm (fun t => φ t - ψ t) 2 volume < ENNReal.ofReal ε :=
-  sorry
+  by
+  classical
+  intro ε hε
+  have hpos : 0 < ENNReal.ofReal ε := ENNReal.ofReal_pos.mpr hε
+  refine ⟨φ, hφ_compact, hφ_smooth, ?_, ?_⟩
+  · have hzero :
+        eLpNorm (fun t => φ t - φ t) 1 volume = 0 := by
+        simp
+    simpa [hzero] using hpos
+  · have hzero :
+        eLpNorm (fun t => φ t - φ t) 2 volume = 0 := by
+        simp
+    simpa [hzero] using hpos
 
 lemma smooth_compact_support_L1_L2_mollification
     (f : ℝ → ℂ) (hf_compact : HasCompactSupport f)
@@ -1179,18 +121,11 @@ lemma smooth_compact_support_L1_L2_mollification
       HasCompactSupport g ∧ ContDiff ℝ (⊤ : ℕ∞) g ∧
       eLpNorm (fun t => f t - g t) 1 volume < ENNReal.ofReal ε ∧
       eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal ε := by
-  sorry
-
-/-- Meyers–Serrin density theorem (real line version): smooth compactly supported
-functions are dense in `Integrable ∩ MemLp 2`. -/
-lemma meyers_serrin_L1_L2_density
-    (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
-    (ε : ℝ) (hε : 0 < ε) :
-    ∃ g : ℝ → ℂ,
-      HasCompactSupport g ∧ ContDiff ℝ (⊤ : ℕ∞) g ∧
-      eLpNorm (fun t => f t - g t) 1 volume < ENNReal.ofReal ε ∧
-      eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal ε := by
-  sorry
+  classical
+  obtain ⟨g, hg_smooth, hg_compact, hg_L1, hg_L2⟩ :=
+    mollifier_uniform_error_control (f := f) (hf_compact := hf_compact)
+      (hf_L1 := hf_L1) (hf_L2 := hf_L2) (hδ_pos := hε)
+  exact ⟨g, hg_compact, hg_smooth, hg_L1, hg_L2⟩
 
 /-- Approximating an `L¹ ∩ L²` function by a smooth compactly supported function in both norms. -/
 lemma exists_smooth_compact_support_L1_L2_close
@@ -1383,7 +318,36 @@ lemma exists_smooth_compact_support_L1_L2_close
       ContDiff ℝ (⊤ : ℕ∞) g ∧ HasCompactSupport g ∧
       eLpNorm (fun t => f_R t - g t) 1 volume < ENNReal.ofReal (ε / 2) ∧
       eLpNorm (fun t => f_R t - g t) 2 volume < ENNReal.ofReal (ε / 2) := by
-    sorry -- This uses mollification/convolution with a smooth bump function
+    classical
+    have hfR_eq_indicator :
+        f_R = fun t : ℝ =>
+          Set.indicator {t : ℝ | |t| ≤ R} (fun t => f t) t := by
+      funext t
+      simp [f_R, hf_R_def, Set.indicator, Set.mem_setOf_eq]
+    have hfR_integrable : Integrable f_R := by
+      simpa [hfR_eq_indicator] using
+        integrable_indicator_ball_of_integrable hf_L1 R
+    have hfR_memLp_two : MemLp f_R 2 volume := by
+      have hs_meas : MeasurableSet {t : ℝ | |t| ≤ R} := by
+        have :
+            {t : ℝ | |t| ≤ R}
+              = Metric.closedBall (0 : ℝ) R := by
+          ext t
+          simp [Metric.mem_closedBall, Real.dist_eq, abs_sub_comm]
+        simpa [this]
+          using (measurableSet_closedBall :
+            MeasurableSet (Metric.closedBall (0 : ℝ) R))
+      have h_indicator :
+          MemLp
+            (fun t : ℝ =>
+              Set.indicator {t : ℝ | |t| ≤ R} (fun t => f t) t) 2 volume :=
+        MemLp.indicator (μ := volume) (s := {t : ℝ | |t| ≤ R}) hs_meas hf_L2
+      simpa [hfR_eq_indicator] using h_indicator
+    rcases
+        smooth_compact_support_L1_L2_mollification f_R hf_R_compact
+          hfR_integrable hfR_memLp_two (ε / 2) h_half_pos with
+      ⟨g, hg_compact, hg_smooth, hg_L1, hg_L2⟩
+    exact ⟨g, hg_smooth, hg_compact, hg_L1, hg_L2⟩
 
   obtain ⟨g, hg_smooth, hg_compact, hg_L1_error, hg_L2_error⟩ := h_smooth_approx
 
@@ -1670,33 +634,139 @@ lemma continuous_integral_norm_sq_of_L2_tendsto
       Filter.atTop (𝓝 (0 : ℝ≥0∞))) :
     Filter.Tendsto (fun n => ∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume)
       Filter.atTop (𝓝 (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume)) := by
-  sorry
+  classical
+  -- Helper: relate the squared L² norm with the integral of the squared pointwise norm.
+  have h_sq_integral :
+      ∀ {f : ℝ → ℂ} (hf : MemLp f 2 volume),
+        ((eLpNorm f 2 volume).toReal) ^ 2
+          = ∫ t : ℝ, ‖f t‖ ^ 2 ∂volume := by
+    intro f hf
+    classical
+    have hp0 : (2 : ℝ≥0∞) ≠ 0 := by norm_num
+    have hp_top : (2 : ℝ≥0∞) ≠ ∞ := by simp
+    have h₁ :=
+      congrArg ENNReal.toReal
+        (MemLp.eLpNorm_eq_integral_rpow_norm (μ := volume)
+          (f := f) hp0 hp_top hf)
+    set B : ℝ :=
+        (∫ t : ℝ, ‖f t‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume)
+          ^ (ENNReal.toReal (2 : ℝ≥0∞))⁻¹ with hB
+    have h_two : ENNReal.toReal (2 : ℝ≥0∞) = (2 : ℝ) := by simp
+    have h_base_nonneg :
+        0 ≤ ∫ t : ℝ, ‖f t‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume := by
+      refine integral_nonneg ?_
+      intro t
+      have := sq_nonneg ‖f t‖
+      simpa [h_two, pow_two] using this
+    have hB_nonneg : 0 ≤ B := by
+      have h_rpow_nonneg :
+          0 ≤
+              (∫ t : ℝ, ‖f t‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume)
+                ^ (ENNReal.toReal (2 : ℝ≥0∞))⁻¹ :=
+        Real.rpow_nonneg h_base_nonneg _
+      simpa [B, hB]
+        using h_rpow_nonneg
+    have h_toReal_ofReal :
+        (eLpNorm f 2 volume).toReal
+          = (ENNReal.ofReal B).toReal := by
+      simpa [B, hB] using h₁
+    have h_toReal : (eLpNorm f 2 volume).toReal = B := by
+      simpa [ENNReal.toReal_ofReal, hB_nonneg] using h_toReal_ofReal
+    have hB_simpl :
+        B = (∫ t : ℝ, ‖f t‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ) := by
+      simp [B, hB, h_two, one_div]
+    have h_nonneg :
+        0 ≤ ∫ t : ℝ, ‖f t‖ ^ 2 ∂volume := by
+      simpa [h_two, pow_two] using h_base_nonneg
+    have h_sq :
+        ((∫ t : ℝ, ‖f t‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ)) ^ 2
+          = ∫ t : ℝ, ‖f t‖ ^ 2 ∂volume := by
+      have := Real.mul_self_sqrt h_nonneg
+      simpa [pow_two, Real.sqrt_eq_rpow, one_div]
+        using this
+    calc
+     (eLpNorm f 2 volume).toReal ^ 2
+          = ((∫ t : ℝ, ‖f t‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ)) ^ 2 := by
+              simp [h_toReal, hB_simpl]
+      _ = ∫ t : ℝ, ‖f t‖ ^ 2 ∂volume := h_sq
 
-/--
-Placeholder: convergence of Fourier transforms in `L²` when the original
-functions converge in both `L¹` and `L²`.
+  -- Define the L²-elements associated to `φ n` and `g`.
+  set Fn : ℕ → Lp ℂ (2 : ℝ≥0∞) volume :=
+    fun n => (hφ_L2 n).toLp (φ n)
+  set F : Lp ℂ (2 : ℝ≥0∞) volume := hg_L2.toLp g
 
-The eventual goal is to show that if `φ n → g` in `L¹ ∩ L²`, then the Fourier
-transforms also converge in `L²`.
--/
-lemma fourierIntegral_L2_convergence
-    {φ : ℕ → SchwartzMap ℝ ℂ} {g : ℝ → ℂ}
-    (hg_L1 : Integrable g)
-    (hg_L2 : MemLp g 2 volume)
-    (hφ_L1 : ∀ n, Integrable (fun t : ℝ => φ n t))
-    (hφ_L2 : ∀ n, MemLp (fun t : ℝ => φ n t) 2 volume)
-    (hφ_tendsto_L1 : Filter.Tendsto
-      (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 1 volume) Filter.atTop (𝓝 0))
-    (hφ_tendsto_L2 : Filter.Tendsto
-      (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 2 volume) Filter.atTop (𝓝 0)) :
-    Filter.Tendsto
-      (fun n =>
-        eLpNorm
-          (fun ξ : ℝ =>
-            fourierIntegral g ξ - fourierIntegral (fun t : ℝ => φ n t) ξ)
-          2 volume)
-      Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
-  sorry
+  -- The norms of the differences go to zero.
+  have h_mem_diff : ∀ n, MemLp (fun t : ℝ => g t - φ n t) 2 volume :=
+    fun n => hg_L2.sub (hφ_L2 n)
+  have h_diff_ne_top : ∀ n,
+      eLpNorm (fun t : ℝ => g t - φ n t) 2 volume ≠ ∞ :=
+    fun n => (h_mem_diff n).eLpNorm_ne_top
+  have h_toReal_zero :
+      Filter.Tendsto
+        (fun n =>
+          (eLpNorm (fun t : ℝ => g t - φ n t) 2 volume).toReal)
+        Filter.atTop (𝓝 0) := by
+    have := hφ_tendsto
+    have hzero : (0 : ℝ≥0∞) ≠ ∞ := ENNReal.zero_ne_top
+    exact
+      ((ENNReal.tendsto_toReal_iff (fi := Filter.atTop)
+            (f := fun n =>
+              eLpNorm (fun t : ℝ => g t - φ n t) 2 volume)
+            h_diff_ne_top hzero).symm).1 this
+  have h_norm_diff_zero :
+      Filter.Tendsto (fun n => ‖Fn n - F‖) Filter.atTop (𝓝 0) := by
+    have h_eq_norm : ∀ n,
+        ‖Fn n - F‖
+          = (eLpNorm (fun t : ℝ => g t - φ n t) 2 volume).toReal := by
+      intro n
+      have h_sub_eq :
+          ((hφ_L2 n).sub hg_L2).toLp (fun t : ℝ => φ n t - g t)
+            = Fn n - F := by
+        simpa [Fn, F] using MemLp.toLp_sub (hφ_L2 n) hg_L2
+      have h_symm :
+          eLpNorm (fun t : ℝ => φ n t - g t) 2 volume
+            = eLpNorm (fun t : ℝ => g t - φ n t) 2 volume := by
+        simpa [Pi.sub_apply]
+          using
+            (eLpNorm_sub_comm (f := fun t : ℝ => φ n t)
+              (g := fun t : ℝ => g t)
+              (p := (2 : ℝ≥0∞)) (μ := volume))
+      calc
+        ‖Fn n - F‖
+            = ‖((hφ_L2 n).sub hg_L2).toLp (fun t : ℝ => φ n t - g t)‖ := by
+                simp [h_sub_eq]
+        _ = (eLpNorm (fun t : ℝ => φ n t - g t) 2 volume).toReal := by
+                simp
+        _ = (eLpNorm (fun t : ℝ => g t - φ n t) 2 volume).toReal := by
+                simp [h_symm]
+    simpa [h_eq_norm] using h_toReal_zero
+
+  -- Hence `Fn` converges to `F` in `L²`.
+  have h_tendsto_Lp : Filter.Tendsto Fn Filter.atTop (𝓝 F) :=
+    (tendsto_iff_norm_sub_tendsto_zero).2 h_norm_diff_zero
+
+  -- Norms (and their squares) converge.
+  have h_norm_tendsto : Filter.Tendsto (fun n => ‖Fn n‖) Filter.atTop (𝓝 ‖F‖) :=
+    (continuous_norm.tendsto F).comp h_tendsto_Lp
+  have h_norm_sq_tendsto :
+      Filter.Tendsto (fun n => ‖Fn n‖ ^ 2) Filter.atTop (𝓝 (‖F‖ ^ 2)) :=
+    (continuous_pow 2).tendsto (‖F‖) |>.comp h_norm_tendsto
+
+  -- Rewrite the squared norms in terms of the desired integrals.
+  have h_fn_sq : ∀ n,
+      ‖Fn n‖ ^ 2 = ∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume := by
+    intro n
+    have := h_sq_integral (hf := hφ_L2 n)
+    have h_norm := Lp.norm_toLp (f := φ n) (hf := hφ_L2 n)
+    simpa [Fn, pow_two] using this.trans (by simp [Fn, pow_two])
+  have h_g_sq : ‖F‖ ^ 2 = ∫ t : ℝ, ‖g t‖ ^ 2 ∂volume := by
+    have := h_sq_integral (hf := hg_L2)
+    simpa [F, pow_two] using this
+
+  -- Conclude by transporting the limit along these equalities.
+  have h_limit := h_norm_sq_tendsto.congr'
+      (Filter.Eventually.of_forall h_fn_sq)
+  simpa [h_g_sq] using h_limit
 
 /--
 Placeholder: the Fourier transform of an `L¹ ∩ L²` function lies in `L²`.
@@ -1707,7 +777,493 @@ lemmas are established.
 lemma fourierIntegral_memLp_L1_L2
     {g : ℝ → ℂ} (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
     MemLp (fun ξ : ℝ => fourierIntegral g ξ) 2 volume := by
-  sorry
+  -- Strategy: Approximate g by Schwartz functions φ_n in L¹ ∩ L²
+  -- For Schwartz functions, we know F[φ_n] ∈ L²
+  -- Show that F[φ_n] is Cauchy in L², hence converges to some F_∞ ∈ L²
+  -- That limit is F[g]
+
+  -- For each n, approximate g by a Schwartz function within 1/n
+  have h_pos : ∀ (n : ℕ), 0 < 1 / ((n : ℝ) + 1) := by
+    intro n
+    apply div_pos (by norm_num : (0 : ℝ) < 1)
+    have : (0 : ℝ) ≤ n := Nat.cast_nonneg n
+    linarith
+  choose φ hφ_L1 hφ_L2 using fun (n : ℕ) =>
+    exists_schwartz_L1_L2_close g hg_L1 hg_L2 (1 / ((n : ℝ) + 1)) (h_pos n)
+
+  -- Each φ n is a Schwartz function, so its Fourier transform is in L²
+  have hφ_fourier_L2 : ∀ n, MemLp (fun ξ => fourierIntegral (fun t => φ n t) ξ) 2 volume :=
+    fun n => fourierIntegral_memLp_of_schwartz (φ n)
+
+  -- The Fourier transforms F[φ n] form a Cauchy sequence in L²
+  -- Key: φ_m - φ_n is also a Schwartz function, so we can apply Schwartz Plancherel
+
+  -- Step 1: Show φ_n is Cauchy in L²
+  have hφ_cauchy_L2 : ∀ ε > 0, ∃ N, ∀ m n, N ≤ m → N ≤ n →
+      eLpNorm (fun t => (φ m) t - (φ n) t) 2 volume < ENNReal.ofReal ε := by
+    intro ε hε
+    -- Choose N large enough that 2/(N+1) < ε
+    have : ∃ N : ℕ, 2 / ((N : ℝ) + 1) < ε := by
+      use (Nat.ceil (2 / ε) + 1)
+      have h_ceil : 2 / ε ≤ Nat.ceil (2 / ε) := Nat.le_ceil (2 / ε)
+      have h_lt : 2 / ε < (Nat.ceil (2 / ε) : ℝ) + 1 + 1 := by linarith
+      calc 2 / (↑(Nat.ceil (2 / ε) + 1) + 1)
+          < 2 / (2 / ε) := by
+            apply div_lt_div_of_pos_left (by norm_num : (0 : ℝ) < 2)
+            · apply div_pos (by norm_num : (0 : ℝ) < 2) hε
+            · simp [Nat.cast_add, add_comm, add_left_comm, add_assoc];
+              simpa [add_comm, add_left_comm, add_assoc] using h_lt
+        _ = ε := by field_simp
+    obtain ⟨N, hN⟩ := this
+    use N
+    intro m n hm hn
+    -- Triangle inequality: ‖φ_m - φ_n‖₂ ≤ ‖φ_m - g‖₂ + ‖g - φ_n‖₂
+    calc eLpNorm (fun t => (φ m) t - (φ n) t) 2 volume
+        ≤ eLpNorm (fun t => (φ m) t - g t) 2 volume
+            + eLpNorm (fun t => g t - (φ n) t) 2 volume := by
+          have h_eq : (fun t => (φ m) t - (φ n) t)
+              = (fun t => ((φ m) t - g t) + (g t - (φ n) t)) := by
+            ext t; ring
+          rw [h_eq]
+          apply eLpNorm_add_le
+          · exact (SchwartzMap.integrable (φ m)).aestronglyMeasurable.sub hg_L1.aestronglyMeasurable
+          · exact hg_L1.aestronglyMeasurable.sub (SchwartzMap.integrable (φ n)).aestronglyMeasurable
+          · norm_num
+      _ < ENNReal.ofReal (1 / ((m : ℝ) + 1)) + ENNReal.ofReal (1 / ((n : ℝ) + 1)) := by
+          apply ENNReal.add_lt_add
+          · -- ‖φ_m - g‖₂ = ‖g - φ_m‖₂ < 1/(m+1)
+            have h_symm : eLpNorm (fun t => (φ m) t - g t) 2 volume
+                = eLpNorm (fun t => g t - (φ m) t) 2 volume := by
+              apply eLpNorm_sub_comm
+            have h_bound := hφ_L2 m
+            simpa [h_symm]
+              using h_bound
+          · have h_bound := hφ_L2 n
+            simpa using h_bound
+      _ = ENNReal.ofReal (1 / ((m : ℝ) + 1) + 1 / ((n : ℝ) + 1)) := by
+          have hm_nonneg : 0 ≤ 1 / ((m : ℝ) + 1) := by
+            apply div_nonneg (by norm_num : (0 : ℝ) ≤ 1)
+            exact add_nonneg (Nat.cast_nonneg m) zero_le_one
+          have hn_nonneg : 0 ≤ 1 / ((n : ℝ) + 1) := by
+            apply div_nonneg (by norm_num : (0 : ℝ) ≤ 1)
+            exact add_nonneg (Nat.cast_nonneg n) zero_le_one
+          exact (ENNReal.ofReal_add hm_nonneg hn_nonneg).symm
+      _ < ENNReal.ofReal ε := by
+          have h_sum_nonneg : 0 ≤ 1 / ((m : ℝ) + 1) + 1 / ((n : ℝ) + 1) := by
+            apply add_nonneg
+            · apply div_nonneg; norm_num; exact add_nonneg (Nat.cast_nonneg m) zero_le_one
+            · apply div_nonneg; norm_num; exact add_nonneg (Nat.cast_nonneg n) zero_le_one
+          rw [ENNReal.ofReal_lt_ofReal_iff_of_nonneg h_sum_nonneg]
+          have hm' : 1 / ((m : ℝ) + 1) ≤ 1 / ((N : ℝ) + 1) := by
+            apply div_le_div_of_nonneg_left
+            · norm_num
+            · exact add_pos_of_nonneg_of_pos (Nat.cast_nonneg N) zero_lt_one
+            · have := hm
+              exact add_le_add (by exact_mod_cast this) le_rfl
+          have hn' : 1 / ((n : ℝ) + 1) ≤ 1 / ((N : ℝ) + 1) := by
+            apply div_le_div_of_nonneg_left
+            · norm_num
+            · exact add_pos_of_nonneg_of_pos (Nat.cast_nonneg N) zero_lt_one
+            · have := hn
+              exact add_le_add (by exact_mod_cast this) le_rfl
+          calc 1 / ((m : ℝ) + 1) + 1 / ((n : ℝ) + 1)
+              ≤ 1 / ((N : ℝ) + 1) + 1 / ((N : ℝ) + 1) := by linarith
+            _ = 2 / ((N : ℝ) + 1) := by ring
+            _ < ε := hN
+
+  -- Step 2: Apply Schwartz Plancherel to φ_m - φ_n
+  have hF_cauchy_L2 : ∀ ε > 0, ∃ N, ∀ m n, N ≤ m → N ≤ n →
+      eLpNorm (fun ξ => fourierIntegral (fun t => (φ m) t) ξ
+                      - fourierIntegral (fun t => (φ n) t) ξ) 2 volume
+        < ENNReal.ofReal ε := by
+    intro ε hε
+    obtain ⟨N, hN⟩ := hφ_cauchy_L2 ε hε
+    use N
+    intro m n hm hn
+    -- F[φ_m] - F[φ_n] = F[φ_m - φ_n] by linearity
+    have h_diff_eq : (fun ξ => fourierIntegral (fun t => (φ m) t) ξ
+                              - fourierIntegral (fun t => (φ n) t) ξ)
+        = (fun ξ => fourierIntegral (fun t => (φ m) t - (φ n) t) ξ) := by
+      ext ξ
+      have h_sub := fourierIntegral_sub
+        (f := fun t => (φ m) t) (g := fun t => (φ n) t)
+        (hf := SchwartzMap.integrable (φ m))
+        (hg := SchwartzMap.integrable (φ n))
+        (ξ := ξ)
+      simp at h_sub
+      exact h_sub.symm
+
+    rw [h_diff_eq]
+
+    -- Now apply Schwartz Plancherel to (φ m - φ n)
+    -- φ m - φ n is a SchwartzMap, so we can use fourier_plancherel
+    have h_plancherel : ∫ t : ℝ, ‖(φ m - φ n) t‖ ^ 2 ∂volume
+        = ∫ ξ : ℝ, ‖fourierIntegral (fun t => (φ m - φ n) t) ξ‖ ^ 2 ∂volume := by
+      exact fourier_plancherel (φ m - φ n)
+
+    -- Convert integral equality to eLpNorm equality
+    have h_eLpNorm_eq : eLpNorm (fun ξ => fourierIntegral (fun t => (φ m - φ n) t) ξ) 2 volume
+        = eLpNorm (fun t => (φ m - φ n) t) 2 volume := by
+      -- This is exactly the `L²` isometry for Schwartz functions.
+      simpa [sub_eq_add_neg] using fourierIntegral_eLpNorm_eq (φ := φ m - φ n)
+
+    -- Use the Cauchy property of φ_n
+    have h_eq1 : (fun ξ => fourierIntegral (fun t => (φ m) t - (φ n) t) ξ)
+        = (fun ξ => fourierIntegral (fun t => (φ m - φ n) t) ξ) := by
+      ext ξ
+      rfl
+    have h_eq2 : (fun t => (φ m - φ n) t) = (fun t => (φ m) t - (φ n) t) := by
+      ext t
+      rfl
+
+    calc eLpNorm (fun ξ => fourierIntegral (fun t => (φ m) t - (φ n) t) ξ) 2 volume
+        = eLpNorm (fun ξ => fourierIntegral (fun t => (φ m - φ n) t) ξ) 2 volume := by
+          rw [h_eq1]
+      _ = eLpNorm (fun t => (φ m - φ n) t) 2 volume := h_eLpNorm_eq
+      _ = eLpNorm (fun t => (φ m) t - (φ n) t) 2 volume := by
+          rw [h_eq2]
+      _ < ENNReal.ofReal ε := hN m n hm hn
+
+  -- Step 3: Use L² completeness - F[φ_n] converges to some F_∞ ∈ L²
+  -- Step 4: F[φ_n](ξ) → F[g](ξ) pointwise (from L¹ convergence)
+  -- Step 5: Therefore F_∞ = F[g] a.e., so F[g] ∈ L²
+
+  -- Step 3: the sequence of Fourier transforms is Cauchy in `L²`, hence converges.
+  classical
+  set ψFun : ℕ → ℝ → ℂ := fun n ξ => fourierIntegral (fun t : ℝ => φ n t) ξ
+  have hψ_mem : ∀ n, MemLp (ψFun n) 2 volume := fun n => hφ_fourier_L2 n
+  set ψLp : ℕ → Lp ℂ (2 : ℝ≥0∞) volume := fun n => (hψ_mem n).toLp (ψFun n)
+
+  -- `ψLp` is Cauchy thanks to the previous estimate.
+  have hψ_cauchy : CauchySeq ψLp := by
+    refine Metric.cauchySeq_iff.2 ?_
+    intro ε hε
+    obtain ⟨N, hN⟩ := hF_cauchy_L2 ε hε
+    refine ⟨N, ?_⟩
+    intro m hm n hn
+    have hψ_def :
+        ψLp m - ψLp n
+          = ((hψ_mem m).sub (hψ_mem n)).toLp
+              (fun ξ : ℝ => ψFun m ξ - ψFun n ξ) := by
+      simpa [ψLp, ψFun]
+        using (MemLp.toLp_sub (hψ_mem m) (hψ_mem n)).symm
+    have h_norm_eq :
+        ‖ψLp m - ψLp n‖
+          = (eLpNorm (fun ξ : ℝ => ψFun m ξ - ψFun n ξ) 2 volume).toReal := by
+      simp [hψ_def]
+    have hψ_mn :
+        eLpNorm (fun ξ : ℝ => ψFun m ξ - ψFun n ξ) 2 volume
+          = eLpNorm (fun t : ℝ => φ m t - φ n t) 2 volume := by
+      have hsub :
+          (fun ξ : ℝ => ψFun m ξ - ψFun n ξ)
+            = fun ξ : ℝ =>
+                fourierIntegral (fun t : ℝ => φ m t - φ n t) ξ := by
+        funext ξ
+        simpa [ψFun, sub_eq_add_neg]
+          using (fourierIntegral_sub
+            (f := fun t : ℝ => φ m t)
+            (g := fun t : ℝ => φ n t)
+            (hf := SchwartzMap.integrable (φ m))
+            (hg := SchwartzMap.integrable (φ n))
+            (ξ := ξ)).symm
+      simpa [ψFun, hsub]
+        using fourierIntegral_eLpNorm_eq (φ := φ m - φ n)
+    have h_norm_le : ‖ψLp m - ψLp n‖
+        < ε := by
+      have hε' := hN m n hm hn
+      have hε_time :
+          eLpNorm (fun t : ℝ => φ m t - φ n t) 2 volume
+            < ENNReal.ofReal ε := by
+        rw [← hψ_mn]
+        exact hε'
+      have h_real_lt :
+          (eLpNorm (fun t : ℝ => φ m t - φ n t) 2 volume).toReal < ε :=
+        by
+          have hfin : eLpNorm (fun t : ℝ => φ m t - φ n t) 2 volume ≠ ∞ :=
+            (SchwartzMap.memLp (φ m - φ n)
+              (p := (2 : ℝ≥0∞)) (μ := volume)).eLpNorm_ne_top
+          have hlt :
+              (eLpNorm (fun t : ℝ => φ m t - φ n t) 2 volume).toReal
+                < (ENNReal.ofReal ε).toReal :=
+            (ENNReal.toReal_lt_toReal hfin ENNReal.ofReal_ne_top).2 hε_time
+          have hε_nonneg : 0 ≤ ε := le_of_lt hε
+          simpa [ENNReal.toReal_ofReal hε_nonneg] using hlt
+      simpa [h_norm_eq, hψ_mn]
+        using h_real_lt
+    exact h_norm_le
+
+  -- Completeness of `Lp` furnishes a limit element.
+  obtain ⟨ψ_lim, hψ_lim⟩ := cauchySeq_tendsto_of_complete hψ_cauchy
+
+  -- The approximating sequence converges pointwise to the Fourier transform of `g`.
+  have hφ_tendsto_L1 :
+      Filter.Tendsto (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 1 volume)
+        Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+    classical
+    set gseq : ℕ → ℝ≥0∞ :=
+      fun n => eLpNorm (fun t : ℝ => g t - φ n t) 1 volume
+    have h_ne_top : ∀ n, gseq n ≠ ∞ := by
+      intro n
+      have h_lt := hφ_L1 n
+      have h_fin : gseq n < ∞ := lt_of_lt_of_le h_lt le_top
+      exact ne_of_lt h_fin
+    have h_nonneg : ∀ n, 0 ≤ (gseq n).toReal := by
+      intro n; exact ENNReal.toReal_nonneg
+    have h_upper : ∀ n, (gseq n).toReal ≤ 1 / ((n : ℝ) + 1) := by
+      intro n
+      have hpos : 0 ≤ 1 / ((n : ℝ) + 1) := by
+        have : 0 < ((n : ℝ) + 1) := by
+          exact add_pos_of_nonneg_of_pos (Nat.cast_nonneg _) zero_lt_one
+        exact div_nonneg zero_le_one this.le
+      have h_le : gseq n ≤ ENNReal.ofReal (1 / ((n : ℝ) + 1)) :=
+        (le_of_lt (hφ_L1 n))
+      exact ENNReal.toReal_le_of_le_ofReal hpos h_le
+    have h_tendsto_aux :
+        Filter.Tendsto (fun n : ℕ => 1 / ((n : ℝ) + 1))
+          Filter.atTop (𝓝 (0 : ℝ)) := by
+      simpa [Nat.cast_add, Nat.cast_one] using tendsto_one_div_add_atTop_nhds_zero_nat
+    have h_tendsto_real :
+        Filter.Tendsto (fun n : ℕ => (gseq n).toReal)
+          Filter.atTop (𝓝 0) :=
+      squeeze_zero h_nonneg h_upper h_tendsto_aux
+    have h_tendsto :
+        Filter.Tendsto gseq Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+      rw [ENNReal.tendsto_atTop_zero]
+      intro ε hε_pos
+      by_cases hε_top : ε = ∞
+      · refine ⟨0, fun n _ => ?_⟩
+        simp [gseq, hε_top]
+      · have hε_finite : ε ≠ ∞ := hε_top
+        have hε_lt_top : ε < ∞ := lt_of_le_of_ne le_top hε_finite
+        have hε_toReal_pos : (0 : ℝ) < ε.toReal := by
+          rw [ENNReal.toReal_pos_iff]
+          exact ⟨hε_pos, hε_lt_top⟩
+        have h_eventually :
+            ∀ᶠ n in Filter.atTop, (gseq n).toReal < ε.toReal :=
+          Filter.Tendsto.eventually_lt h_tendsto_real tendsto_const_nhds hε_toReal_pos
+        obtain ⟨N, hN⟩ := Filter.eventually_atTop.1 h_eventually
+        refine ⟨N, fun n hn => ?_⟩
+        have h_toReal_lt : (gseq n).toReal < ε.toReal := hN n hn
+        have h_ne_top' : gseq n ≠ ∞ := h_ne_top n
+        have h_lt : gseq n < ε :=
+          (ENNReal.toReal_lt_toReal h_ne_top' hε_finite).mp h_toReal_lt
+        exact le_of_lt h_lt
+    simpa [gseq] using h_tendsto
+
+  have hφ_tendsto_L2 :
+      Filter.Tendsto (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 2 volume)
+        Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+    classical
+    set gseq : ℕ → ℝ≥0∞ :=
+      fun n => eLpNorm (fun t : ℝ => g t - φ n t) 2 volume
+    have h_ne_top : ∀ n, gseq n ≠ ∞ := by
+      intro n
+      have h_lt := hφ_L2 n
+      exact ne_of_lt (lt_of_lt_of_le h_lt le_top)
+    have h_nonneg : ∀ n, 0 ≤ (gseq n).toReal := by
+      intro _; exact ENNReal.toReal_nonneg
+    have h_upper : ∀ n, (gseq n).toReal ≤ 1 / ((n : ℝ) + 1) := by
+      intro n
+      have hpos : 0 ≤ 1 / ((n : ℝ) + 1) := by
+        have : 0 < (n : ℝ) + 1 :=
+          add_pos_of_nonneg_of_pos (Nat.cast_nonneg _) zero_lt_one
+        exact div_nonneg zero_le_one this.le
+      exact ENNReal.toReal_le_of_le_ofReal hpos (le_of_lt (hφ_L2 n))
+    have h_tendsto_aux :
+        Filter.Tendsto (fun n : ℕ => 1 / ((n : ℝ) + 1))
+          Filter.atTop (𝓝 (0 : ℝ)) := by
+      simpa [Nat.cast_add, Nat.cast_one]
+        using tendsto_one_div_add_atTop_nhds_zero_nat
+    have h_tendsto_real :
+        Filter.Tendsto (fun n : ℕ => (gseq n).toReal)
+          Filter.atTop (𝓝 0) :=
+      squeeze_zero h_nonneg h_upper h_tendsto_aux
+    have h_tendsto :
+        Filter.Tendsto gseq Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+      rw [ENNReal.tendsto_atTop_zero]
+      intro ε hε_pos
+      by_cases hε_top : ε = ∞
+      · refine ⟨0, fun _ _ => ?_⟩
+        simp [gseq, hε_top]
+      · have hε_finite : ε ≠ ∞ := hε_top
+        have hε_lt_top : ε < ∞ := lt_of_le_of_ne le_top hε_finite
+        have hε_toReal_pos : (0 : ℝ) < ε.toReal := by
+          rw [ENNReal.toReal_pos_iff]
+          exact ⟨hε_pos, hε_lt_top⟩
+        have h_eventually :
+            ∀ᶠ n in Filter.atTop, (gseq n).toReal < ε.toReal :=
+          Filter.Tendsto.eventually_lt h_tendsto_real tendsto_const_nhds
+            hε_toReal_pos
+        obtain ⟨N, hN⟩ := Filter.eventually_atTop.1 h_eventually
+        refine ⟨N, fun n hn => ?_⟩
+        have h_toReal_lt : (gseq n).toReal < ε.toReal := hN n hn
+        have h_lt : gseq n < ε :=
+          (ENNReal.toReal_lt_toReal (h_ne_top n) hε_finite).mp h_toReal_lt
+        exact le_of_lt h_lt
+    simpa [gseq] using h_tendsto
+
+  have h_fourier_pointwise : ∀ ξ : ℝ,
+      Filter.Tendsto (fun n => ψFun n ξ) Filter.atTop
+        (𝓝 (fourierIntegral g ξ)) := by
+    intro ξ
+    exact fourierIntegral_tendsto_of_schwartz_approx hg_L1
+      (fun n => (SchwartzMap.integrable (φ n))) hφ_tendsto_L1 ξ
+
+  -- Define the square norms for Fatou's lemma.
+  set F : ℕ → ℝ → ℝ≥0∞ := fun n ξ =>
+    ENNReal.ofReal (‖ψFun n ξ‖ ^ 2)
+  set F_infty : ℝ → ℝ≥0∞ :=
+    fun ξ => ENNReal.ofReal (‖fourierIntegral g ξ‖ ^ 2)
+
+  have h_meas : ∀ n, Measurable (F n) := by
+    intro n
+    have h_contReal : Continuous fun ξ : ℝ =>
+        Real.fourierIntegral (fun t : ℝ => φ n t) ξ :=
+      VectorFourier.fourierIntegral_continuous (V := ℝ) (W := ℝ)
+        (μ := volume) (e := Real.fourierChar) (L := innerₗ ℝ)
+        (f := fun t : ℝ => φ n t)
+        Real.continuous_fourierChar
+        (by
+          simpa [innerₗ]
+            using
+              (continuous_inner : Continuous fun p : ℝ × ℝ => inner (𝕜 := ℝ) p.1 p.2))
+        (SchwartzMap.integrable (φ n))
+    have h_cont : Continuous (fun ξ : ℝ => ψFun n ξ) := by
+      simpa [ψFun, fourierIntegral_eq_real]
+        using h_contReal
+    have h_meas_sq : Measurable fun ξ : ℝ => ‖ψFun n ξ‖ ^ 2 :=
+      ((continuous_pow 2).comp h_cont.norm).measurable
+    exact ENNReal.measurable_ofReal.comp h_meas_sq
+
+  have h_F_tendsto : ∀ ξ,
+      Filter.Tendsto (fun n => F n ξ) Filter.atTop (𝓝 (F_infty ξ)) := by
+    intro ξ
+    have h_outer :
+        Filter.Tendsto (fun z : ℂ => ENNReal.ofReal (‖z‖ ^ 2))
+          (𝓝 (fourierIntegral g ξ)) (𝓝 (F_infty ξ)) := by
+      have h_cont : Continuous fun z : ℂ => ENNReal.ofReal (‖z‖ ^ 2) :=
+        ENNReal.continuous_ofReal.comp
+          ((continuous_pow 2).comp continuous_norm)
+      simpa [F_infty]
+        using h_cont.tendsto (fourierIntegral g ξ)
+    exact h_outer.comp (h_fourier_pointwise ξ)
+
+  have h_fun_eq :
+      (fun ξ => Filter.liminf (fun n => F n ξ) Filter.atTop) = F_infty := by
+    funext ξ
+    have h := Filter.Tendsto.liminf_eq (h_F_tendsto ξ)
+    simpa [F_infty] using h
+
+  have h_liminf_le :
+      ∫⁻ ξ, F_infty ξ ∂volume ≤
+        Filter.liminf (fun n => ∫⁻ ξ, F n ξ ∂volume) Filter.atTop :=
+    by
+      have h :=
+        MeasureTheory.lintegral_liminf_le (μ := volume) (f := F) h_meas
+      simpa [h_fun_eq] using h
+
+  -- Identify the `liminf` using Plancherel on the approximations.
+  have h_integral_eq :
+      ∀ n, ∫⁻ ξ, F n ξ ∂volume
+          = ENNReal.ofReal (∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume) := by
+    classical
+    intro n
+    have h_fourier_sq_integrable :
+        Integrable (fun ξ : ℝ => ‖ψFun n ξ‖ ^ 2) volume := by
+      have :=
+        (memLp_two_iff_integrable_sq_norm
+            (μ := volume)
+            (f := fun ξ : ℝ => ψFun n ξ)
+            (hψ_mem n).1).1 (hψ_mem n)
+      simpa [pow_two] using this
+    have h_plancherel :
+        ∫ ξ : ℝ, ‖ψFun n ξ‖ ^ 2 ∂volume
+          = ∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume := by
+      simpa [ψFun]
+        using
+          (fourier_plancherel (φ n)).symm
+    have h_fourier_eq :
+        ∫⁻ ξ : ℝ, ENNReal.ofReal (‖ψFun n ξ‖ ^ 2) ∂volume
+          = ENNReal.ofReal (∫ ξ : ℝ, ‖ψFun n ξ‖ ^ 2 ∂volume) :=
+      (MeasureTheory.ofReal_integral_eq_lintegral_ofReal
+          h_fourier_sq_integrable
+          (ae_of_all _ fun _ => sq_nonneg _)).symm
+    have h_integrand_id :
+        ∫⁻ ξ : ℝ, F n ξ ∂volume
+          = ∫⁻ ξ : ℝ, ENNReal.ofReal (‖ψFun n ξ‖ ^ 2) ∂volume := by
+      refine lintegral_congr_ae ?_
+      refine Filter.Eventually.of_forall ?_
+      intro ξ; simp [F, ψFun, pow_two]
+    have h_target :
+        ENNReal.ofReal (∫ ξ : ℝ, ‖ψFun n ξ‖ ^ 2 ∂volume)
+          = ENNReal.ofReal (∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume) := by
+      simpa [ψFun] using congrArg ENNReal.ofReal h_plancherel
+    calc
+      ∫⁻ ξ : ℝ, F n ξ ∂volume
+          = ∫⁻ ξ : ℝ, ENNReal.ofReal (‖ψFun n ξ‖ ^ 2) ∂volume := h_integrand_id
+      _ = ENNReal.ofReal (∫ ξ : ℝ, ‖ψFun n ξ‖ ^ 2 ∂volume) := h_fourier_eq
+      _ = ENNReal.ofReal (∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume) := h_target
+
+  -- Convergence of the time-side norms.
+  have h_time_tendsto : Filter.Tendsto
+      (fun n => ∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume)
+      Filter.atTop (𝓝 (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume)) := by
+    refine continuous_integral_norm_sq_of_L2_tendsto hg_L2 (fun n =>
+      (SchwartzMap.memLp (φ n) (p := (2 : ℝ≥0∞)) (μ := volume))) ?_
+    exact hφ_tendsto_L2
+
+  have h_freq_liminf :
+      Filter.liminf (fun n => ∫⁻ ξ, F n ξ ∂volume)
+          Filter.atTop
+        = ENNReal.ofReal (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume) := by
+    have h_ofReal :
+        Filter.Tendsto (fun n => ENNReal.ofReal (∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume))
+          Filter.atTop
+          (𝓝 (ENNReal.ofReal (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume))) :=
+      (ENNReal.continuous_ofReal.tendsto _).comp h_time_tendsto
+    have h := Filter.Tendsto.liminf_eq h_ofReal
+    simpa [h_integral_eq]
+
+  have h_cont_fourier_real :
+      Continuous fun ξ : ℝ => Real.fourierIntegral g ξ :=
+    VectorFourier.fourierIntegral_continuous (V := ℝ) (W := ℝ)
+      (μ := volume) (e := Real.fourierChar) (L := innerₗ ℝ)
+      (f := g)
+      Real.continuous_fourierChar
+      (by
+        simpa [innerₗ]
+          using
+            (continuous_inner : Continuous fun p : ℝ × ℝ => inner (𝕜 := ℝ) p.1 p.2))
+      hg_L1
+  have h_cont_fourier :
+      Continuous fun ξ : ℝ => fourierIntegral g ξ := by
+    simpa [fourierIntegral_eq_real] using h_cont_fourier_real
+  have h_fourier_meas :
+      AEStronglyMeasurable (fun ξ : ℝ => fourierIntegral g ξ) volume := by
+    simpa [fourierIntegral_eq_real] using h_cont_fourier.aestronglyMeasurable
+
+  have h_integrable_sq :
+      Integrable (fun ξ : ℝ => ‖fourierIntegral g ξ‖ ^ 2) volume := by
+    have h_nonneg :
+        0 ≤ᵐ[volume] fun ξ : ℝ => ‖fourierIntegral g ξ‖ ^ 2 :=
+      Filter.Eventually.of_forall fun _ => sq_nonneg _
+    have h_bound :
+        ∫⁻ ξ : ℝ, ENNReal.ofReal (‖fourierIntegral g ξ‖ ^ 2) ∂volume
+          ≤ ENNReal.ofReal (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume) := by
+      simpa [F_infty, h_freq_liminf] using h_liminf_le
+    have h_lintegral_lt_top :
+        (∫⁻ ξ : ℝ, ENNReal.ofReal (‖fourierIntegral g ξ‖ ^ 2) ∂volume) < ∞ :=
+      lt_of_le_of_lt h_bound ENNReal.ofReal_lt_top
+    have h_sq_meas :
+        AEStronglyMeasurable (fun ξ : ℝ => ‖fourierIntegral g ξ‖ ^ 2) volume :=
+      ((continuous_pow 2).comp h_cont_fourier.norm).aestronglyMeasurable
+    refine ⟨h_sq_meas, (hasFiniteIntegral_iff_ofReal h_nonneg).2 h_lintegral_lt_top⟩
+
+  exact
+    (memLp_two_iff_integrable_sq_norm
+        (μ := volume)
+        (f := fun ξ : ℝ => fourierIntegral g ξ)
+        h_fourier_meas).2 h_integrable_sq
 
 /-- Fourier-Plancherel theorem for L¹ ∩ L² functions.
 
@@ -1718,14 +1274,15 @@ Unlike the invalid `fourierIntegral_l2_norm_INVALID`, this version has both:
 
 With both assumptions, we can prove:
 1. fourierIntegral g ∈ L² (by Plancherel)
-2. ∫ ‖g‖² = (1/(2π)) * ∫ ‖fourierIntegral g‖²
+2. ∫ ‖g‖² = ∫ ‖fourierIntegral g‖²
 
-This is the standard textbook version of Plancherel for L¹ ∩ L². -/
+The Fourier transform convention used is fourierKernel ξ t = exp(-2πiξt),
+which gives Plancherel's identity without normalization constants. -/
 lemma fourier_plancherel_L1_L2 (g : ℝ → ℂ)
     (hg_L1 : Integrable g)
     (hg_L2 : MemLp g 2 volume) :
     ∫ t : ℝ, ‖g t‖ ^ 2 ∂volume
-      = (1 / (2 * Real.pi)) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume := by
+      = ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume := by
   classical
   -- Strategy: Approximate `g` first by a smooth compactly supported function in both norms,
   -- then convert it into a Schwartz function using mollification.
@@ -1818,21 +1375,313 @@ lemma fourier_plancherel_L1_L2 (g : ℝ → ℂ)
   have h_right_tendsto : Filter.Tendsto
       (fun n => ∫ ξ : ℝ, ‖fourierIntegral (fun t => φ n t) ξ‖ ^ 2 ∂volume)
       Filter.atTop (𝓝 (∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume)) := by
-    -- Combine pointwise convergence with uniform L² control given by Plancherel.
-    have h_bound :
-        ∀ n,
-          ∫ ξ : ℝ, ‖fourierIntegral (fun t => φ n t) ξ‖ ^ 2 ∂volume
-            = ∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume :=
+    -- Alternative approach: Use Schwartz Plancherel to rewrite the left side,
+    -- then use the already-proven convergence h_left_tendsto
+
+    -- For each n: ∫‖F[φ_n]‖² = ∫‖φ_n‖² (by Schwartz Plancherel)
+    have h_eq : ∀ n,
+        ∫ ξ : ℝ, ‖fourierIntegral (fun t => φ n t) ξ‖ ^ 2 ∂volume
+          = ∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume :=
       fun n => (h_schwartz_plancherel n).symm
-    have h :=
-      continuous_integral_norm_sq_of_L2_tendsto
-        (g := fun ξ => fourierIntegral g ξ)
-        (φ := fun n ξ => fourierIntegral (fun t => φ n t) ξ)
-        (fourierIntegral_memLp_L1_L2 (g := g) hg_L1 hg_L2)
-        (fun n => fourierIntegral_memLp_of_schwartz (φ n))
-        (fourierIntegral_L2_convergence (g := g) (φ := φ)
-          hg_L1 hg_L2 hφ_L1 hφ_L2 hφ_tendsto_L1 hφ_tendsto_L2)
-    simpa using h
+
+    -- Rewrite using Schwartz Plancherel: ∫‖F[φ_n]‖² = ∫‖φ_n‖²
+    -- So the sequence ∫‖F[φ_n]‖² has the same limit as ∫‖φ_n‖², which is ∫‖g‖²
+    have h_rewrite : Filter.Tendsto
+        (fun n => ∫ ξ : ℝ, ‖fourierIntegral (fun t => φ n t) ξ‖ ^ 2 ∂volume)
+        Filter.atTop (𝓝 (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume)) := by
+      apply Filter.Tendsto.congr' _ h_left_tendsto
+      apply Filter.Eventually.of_forall
+      intro n
+      exact (h_eq n).symm
+
+    -- Strategy: Show ∫‖F[φ_n]‖² → ∫‖F[g]‖² using a different approach
+    -- We know: ∫‖F[φ_n]‖² → ∫‖g‖² (from h_rewrite)
+    -- We want: ∫‖F[φ_n]‖² → ∫‖F[g]‖²
+    -- Therefore: ∫‖g‖² = ∫‖F[g]‖² (by uniqueness of limits)
+
+    -- Key insight: F[φ_n] is Cauchy in L² because φ_n is Cauchy in L²
+    -- For Schwartz φ, ψ: ‖F[φ] - F[ψ]‖₂ = ‖F[φ - ψ]‖₂ = ‖φ - ψ‖₂
+
+    -- Alternative approach: Use the fact that we already know where the limit should be
+    -- We have h_rewrite: ∫‖F[φ_n]‖² → ∫‖g‖²
+    -- We want to show: ∫‖F[φ_n]‖² → ∫‖F[g]‖²
+    -- By uniqueness of limits, this would give us ∫‖g‖² = ∫‖F[g]‖²
+
+    -- The key observation: We can use lower semicontinuity
+    -- For any subsequence, we have convergence, so the limit is unique
+
+    -- Key insight: We will show that the limit must be ∫‖F[g]‖²
+    -- by using the structure of the overall proof.
+
+    -- We have:
+    -- 1. Pointwise convergence: F[φ_n](ξ) → F[g](ξ) for all ξ
+    -- 2. Integral convergence: ∫‖F[φ_n]‖² → ∫‖g‖² (from h_rewrite)
+    -- 3. F[g] ∈ L²
+
+    have hFg_L2 : MemLp (fun ξ => fourierIntegral g ξ) 2 volume :=
+      fourierIntegral_memLp_L1_L2 hg_L1 hg_L2
+
+    -- Strategy: Show eLpNorm(F[φ_n] - F[g]) → 0 using Plancherel
+    -- Then use continuous_integral_norm_sq_of_L2_tendsto
+
+    have hF_tendsto_L2 : Filter.Tendsto
+        (fun n => eLpNorm (fun ξ => fourierIntegral g ξ -
+                                    fourierIntegral (fun t => φ n t) ξ) 2 volume)
+        Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+      -- Strategy: Use the Cauchy property of F[φ_n] from Schwartz Plancherel,
+      -- completeness of L², and pointwise convergence to identify the limit.
+
+      -- Step 1: F[φ_n] is Cauchy in L² (using fourierIntegral_cauchySeq_of_schwartz_tendsto)
+      have hF_cauchy : CauchySeq (fun n =>
+          (fourierIntegral_memLp_L1_L2 (schwartz_integrable (φ n))
+            (SchwartzMap.memLp (φ n) (p := (2 : ℝ≥0∞)) (μ := volume))).toLp
+          (fun ξ => fourierIntegral (fun t => φ n t) ξ)) := by
+        exact fourierIntegral_cauchySeq_of_schwartz_tendsto hg_L2
+          (fun n => schwartz_integrable (φ n))
+          (fun n => SchwartzMap.memLp (φ n) (p := (2 : ℝ≥0∞)) (μ := volume))
+          hφ_tendsto_L2
+
+      -- Step 2: By completeness of Lp, the Cauchy sequence converges to some limit
+      classical
+      obtain ⟨F_lim, hF_lim⟩ := cauchySeq_tendsto_of_complete hF_cauchy
+
+      -- Step 3: Show that F_lim =ᵃᵉ F[g]
+      -- We need to use:
+      -- (a) L² convergence implies a.e. convergence along a subsequence
+      --     (Mathlib: exists_seq_tendsto_ae)
+      -- (b) We have pointwise convergence F[φ_n](ξ) → F[g](ξ) for all ξ
+      -- (c) Uniqueness of a.e. limits
+
+      -- The strategy would be:
+      -- 1. Extract a.e. representation of F_lim using MemLp.coeFn_toLp
+      -- 2. Use exists_seq_tendsto_ae to get a subsequence converging a.e.
+      -- 3. Show this subsequence also converges pointwise to F[g]
+      -- 4. Conclude F_lim =ᵃᵉ F[g] by uniqueness of a.e. limits
+
+      -- Step 4: Convert L² convergence to the desired form
+      -- From hF_lim: F[φ_n] → F_lim in Lp
+      -- and F_lim =ᵃᵉ F[g]
+      -- we can conclude: eLpNorm(F[g] - F[φ_n], 2) → 0
+
+      -- The main technical difficulty is relating:
+      -- - Lp elements (abstract equivalence classes)
+      -- - Concrete functions (F[φ_n] and F[g])
+      -- This requires careful use of MemLp.coeFn_toLp and a.e. equality
+
+      classical
+      -- Package the Fourier transforms of the approximants as L² functions.
+      set ψFun : ℕ → ℝ → ℂ := fun n ξ => fourierIntegral (fun t => φ n t) ξ
+      have hψ_mem : ∀ n, MemLp (ψFun n) 2 volume := fun n =>
+        fourierIntegral_memLp_L1_L2 (schwartz_integrable (φ n))
+          (SchwartzMap.memLp (φ n) (p := (2 : ℝ≥0∞)) (μ := volume))
+      let ψLp : ℕ → Lp ℂ 2 volume := fun n => (hψ_mem n).toLp (ψFun n)
+      have hψ_tendsto : Filter.Tendsto ψLp Filter.atTop (𝓝 F_lim) := by
+        simpa [ψLp, ψFun, hψ_mem] using hF_lim
+
+      -- Identify the limit candidate with the Fourier transform of `g`.
+      let ψ_gLp : Lp ℂ 2 volume := hFg_L2.toLp (fun ξ => fourierIntegral g ξ)
+
+      -- Relate the chosen `ψLp` with the version used in the weak-convergence lemmas.
+      have hψLp_schwartz : ∀ n,
+          ψLp n
+            = (fourierIntegral_memLp_of_schwartz (φ n)).toLp
+                (fun ξ : ℝ => fourierIntegral (fun t => φ n t) ξ) := by
+        intro n
+        refine (MemLp.toLp_eq_toLp_iff (hψ_mem n)
+            (fourierIntegral_memLp_of_schwartz (φ n))).mpr ?_
+        exact Filter.EventuallyEq.rfl
+
+      -- Weak convergence of Fourier transforms against Schwartz test functions.
+      have h_weak_base :=
+        weak_limit_fourierIntegral_of_schwartz_tendsto
+          (hf_L2 := hg_L2)
+          (hφ_L1 := fun n => schwartz_integrable (φ n))
+          (hφ_L2 :=
+            fun n => SchwartzMap.memLp (φ n) (p := (2 : ℝ≥0∞)) (μ := volume))
+          hφ_tendsto_L2
+
+      have h_weak_limit :
+          ∀ ψ : SchwartzMap ℝ ℂ,
+            Filter.Tendsto (fun n =>
+                @inner ℂ (Lp ℂ 2 volume) _
+                  ((fourierIntegral_memLp_of_schwartz ψ).toLp
+                    (fun ξ => fourierIntegral (fun t => ψ t) ξ))
+                  (ψLp n))
+              Filter.atTop
+              (𝓝 (∫ t : ℝ, g t * conj (ψ t) ∂volume)) := by
+        intro ψ
+        have h := h_weak_base ψ
+        refine h.congr' ?_
+        exact Filter.Eventually.of_forall fun n => by
+          simp [ψLp, hψLp_schwartz n]
+
+      -- Identify the weak limits on the frequency side with Fourier integrals.
+      have h_freq_tendsto :=
+        weak_convergence_fourierIntegral_of_schwartz_approx
+          (φ := φ) (f := g) hg_L1 ψLp
+          (fun n => hψLp_schwartz n) h_weak_limit
+
+      -- Strong convergence of `ψLp` implies the same weak limits.
+      have h_strong_tendsto :=
+        strong_L2_implies_weak_convergence_schwartz ψLp F_lim hψ_tendsto
+
+      -- Equate the two limiting values for every Schwartz test function.
+      have h_integral_eq : ∀ ψ : SchwartzMap ℝ ℂ,
+          ∫ x, F_lim x * (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume
+              = ∫ x, fourierIntegral g x *
+                  (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume := by
+        intro ψ
+        exact tendsto_nhds_unique (h_strong_tendsto ψ) (h_freq_tendsto ψ)
+
+      -- Use the equality of pairings with Schwartz functions to identify the limit.
+      have h_inner_zero : ∀ ψ : SchwartzMap ℝ ℂ,
+          @inner ℂ (Lp ℂ 2 volume) _ (F_lim - ψ_gLp)
+              ((SchwartzMap.memLp ψ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
+                (fun x => ψ x)) = 0 := by
+        intro ψ
+        set ψTimeMem :=
+          SchwartzMap.memLp ψ (p := (2 : ℝ≥0∞)) (μ := volume)
+        set ψTimeLp : Lp ℂ 2 volume := ψTimeMem.toLp (fun x => ψ x)
+        have hψ_coe : (fun x => ψTimeLp x) =ᵐ[volume] fun x => ψ x :=
+          MemLp.coeFn_toLp ψTimeMem
+        have hψ_star :
+            (fun x => star (ψTimeLp x))
+              =ᵐ[volume] fun x => (starRingEnd ℂ) (SchwartzMap.toFun ψ x) :=
+          hψ_coe.mono <| by
+            intro x hx
+            simpa [SchwartzMap.toFun] using congrArg star hx
+        have h_inner_F_lim :
+            @inner ℂ (Lp ℂ 2 volume) _ ψTimeLp F_lim
+              = ∫ x : ℝ, F_lim x *
+                  (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume := by
+          have h_def :=
+            (MeasureTheory.L2.inner_def (𝕜 := ℂ) (μ := volume)
+              (f := ψTimeLp) (g := F_lim))
+          have h_mul :
+              (fun x : ℝ =>
+                  @inner ℂ ℂ _ (ψTimeLp x) (F_lim x))
+                = fun x : ℝ => F_lim x * star (ψTimeLp x) := by
+            funext x
+            simp only [RCLike.inner_apply, starRingEnd_apply]
+          have h_int := by
+            simpa [h_mul, mul_comm] using h_def
+          refine h_int.trans ?_
+          refine integral_congr_ae ?_
+          exact hψ_star.mono (by
+            intro x hx
+            simpa [SchwartzMap.toFun]
+              using congrArg (fun y => F_lim x * y) hx)
+        have hψg_coe :
+            (fun x => ψ_gLp x) =ᵐ[volume] fun x => fourierIntegral g x :=
+          MemLp.coeFn_toLp hFg_L2
+        have h_inner_ψg :
+            @inner ℂ (Lp ℂ 2 volume) _ ψTimeLp ψ_gLp
+              = ∫ x : ℝ, (fourierIntegral g x) *
+                  (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume := by
+          have h_def :=
+            (MeasureTheory.L2.inner_def (𝕜 := ℂ) (μ := volume)
+              (f := ψTimeLp) (g := ψ_gLp))
+          have h_mul :
+              (fun x : ℝ =>
+                  @inner ℂ ℂ _ (ψTimeLp x) (ψ_gLp x))
+                = fun x : ℝ => ψ_gLp x * star (ψTimeLp x) := by
+            funext x
+            simp only [RCLike.inner_apply, starRingEnd_apply]
+          have h_int := by
+            simpa [h_mul, mul_comm] using h_def
+          refine h_int.trans ?_
+          refine integral_congr_ae ?_
+          refine (Filter.EventuallyEq.mul hψg_coe hψ_star).mono ?_
+          intro x hx
+          simpa [SchwartzMap.toFun, mul_comm] using hx
+        have h_inner_eq := by
+          simpa [h_inner_F_lim, h_inner_ψg] using h_integral_eq ψ
+        have h_int_diff :
+            (∫ x : ℝ, F_lim x *
+                  (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume) -
+                ∫ x : ℝ, fourierIntegral g x *
+                    (starRingEnd ℂ) (SchwartzMap.toFun ψ x) ∂volume = 0 :=
+          sub_eq_zero.mpr h_inner_eq
+        have h_inner_diff :
+            @inner ℂ (Lp ℂ 2 volume) _ ψTimeLp (F_lim - ψ_gLp) = 0 := by
+          simpa [inner_sub_right, h_inner_F_lim, h_inner_ψg] using h_int_diff
+        have h_inner_diff' :
+            @inner ℂ (Lp ℂ 2 volume) _ (F_lim - ψ_gLp) ψTimeLp = 0 := by
+          simpa [inner_conj_symm]
+            using congrArg (starRingEnd ℂ) h_inner_diff
+        exact h_inner_diff'
+
+      have h_diff_zero : F_lim - ψ_gLp = 0 :=
+        L2_eq_zero_of_inner_schwartz h_inner_zero
+      have hF_lim_eq : F_lim = ψ_gLp := sub_eq_zero.mp h_diff_zero
+
+      -- Convert strong convergence of `ψLp` to convergence towards `ψ_gLp`.
+      have hψ_tendsto' : Filter.Tendsto ψLp Filter.atTop (𝓝 ψ_gLp) := by
+        simpa [ψ_gLp, hF_lim_eq] using hψ_tendsto
+      have h_dist_tendsto_zero : Filter.Tendsto
+          (fun n => dist (ψLp n) ψ_gLp) Filter.atTop (𝓝 (0 : ℝ)) :=
+        (tendsto_iff_dist_tendsto_zero).1 hψ_tendsto'
+
+      -- Relate distances in L² to the `eLpNorm` of the pointwise difference.
+      have h_dist_eq : ∀ n,
+          dist (ψLp n) ψ_gLp
+              = (eLpNorm
+                    (fun ξ : ℝ => fourierIntegral g ξ - ψFun n ξ) 2 volume).toReal :=
+        by
+          intro n
+          have hcalc :
+              ψLp n - ψ_gLp
+                  = ((hψ_mem n).sub hFg_L2).toLp
+                      (fun ξ : ℝ => ψFun n ξ - fourierIntegral g ξ) := by
+            simpa [ψLp, ψ_gLp, ψFun]
+              using (MemLp.toLp_sub (hψ_mem n) hFg_L2).symm
+          have hnorm :=
+            Lp.norm_toLp (μ := volume)
+              (f := fun ξ : ℝ => ψFun n ξ - fourierIntegral g ξ)
+              ((hψ_mem n).sub hFg_L2)
+          have hswap :=
+            eLpNorm_sub_comm (f := fun ξ : ℝ => ψFun n ξ)
+              (g := fun ξ : ℝ => fourierIntegral g ξ)
+              (p := (2 : ℝ≥0∞)) (μ := volume)
+          calc
+            dist (ψLp n) ψ_gLp
+                = ‖ψLp n - ψ_gLp‖ := by simp [dist_eq_norm]
+            _ = ‖((hψ_mem n).sub hFg_L2).toLp
+                    (fun ξ : ℝ => ψFun n ξ - fourierIntegral g ξ)‖ := by
+                  simp [ψLp, ψ_gLp, ψFun, hcalc]
+            _ =
+                (eLpNorm (fun ξ : ℝ => ψFun n ξ - fourierIntegral g ξ) 2 volume).toReal := by
+                  simp [ψFun]
+            _ =
+                (eLpNorm (fun ξ : ℝ => fourierIntegral g ξ - ψFun n ξ) 2 volume).toReal := by
+                  simpa [ψFun] using congrArg ENNReal.toReal hswap
+
+      have h_toReal_tendsto : Filter.Tendsto
+          (fun n =>
+            (eLpNorm (fun ξ : ℝ => fourierIntegral g ξ - ψFun n ξ) 2 volume).toReal)
+          Filter.atTop (𝓝 (0 : ℝ)) := by
+        simpa [h_dist_eq] using h_dist_tendsto_zero
+
+      have h_noninf : ∀ n,
+          eLpNorm (fun ξ : ℝ => fourierIntegral g ξ - ψFun n ξ) 2 volume ≠ ∞ :=
+        fun n => (hFg_L2.sub (hψ_mem n)).2.ne
+
+      have h_ENNReal_tendsto : Filter.Tendsto
+          (fun n => eLpNorm (fun ξ : ℝ => fourierIntegral g ξ - ψFun n ξ) 2 volume)
+          Filter.atTop (𝓝 (0 : ℝ≥0∞)) :=
+        (ENNReal.tendsto_toReal_iff h_noninf (by simp)).mp
+          (by simpa [ψFun] using h_toReal_tendsto)
+
+      simpa [ψFun]
+        using h_ENNReal_tendsto
+
+    -- Now apply continuous_integral_norm_sq_of_L2_tendsto
+    have hF_memLp : ∀ n, MemLp (fun ξ => fourierIntegral (fun t => φ n t) ξ) 2 volume := by
+      intro n
+      exact fourierIntegral_memLp_L1_L2 (schwartz_integrable (φ n))
+        (SchwartzMap.memLp (φ n) (p := (2 : ℝ≥0∞)) (μ := volume))
+
+    exact continuous_integral_norm_sq_of_L2_tendsto hFg_L2 hF_memLp hF_tendsto_L2
 
   -- Combine the limits with the sequence-wise Plancherel identity.
   have h_scaled_tendsto : Filter.Tendsto
@@ -1854,16 +1703,6 @@ lemma fourier_plancherel_L1_L2 (g : ℝ → ℂ)
       (Filter.Eventually.of_forall fun n => (h_eq_seq n).symm)
       h_scaled_tendsto'
 
-  have h_limit_eq :=
-    tendsto_nhds_unique h_scaled_tendsto h_scaled_tendsto''
-
-  have h_limit_scaled :
-      ∫ t : ℝ, ‖g t‖ ^ 2 ∂volume
-        = (1 / (2 * Real.pi)) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume := by
-    -- Placeholder: adjust the normalisation factor once the precise Fourier
-    -- transform constants are settled.
-    sorry
-
-  simpa using h_limit_scaled
+  exact tendsto_nhds_unique h_scaled_tendsto h_scaled_tendsto''
 
 end Frourio

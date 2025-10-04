@@ -2148,36 +2148,6 @@ end Frourio
 
 namespace Frourio
 
-
-lemma mollifier_convolution_L1_tendsto (f : ℝ → ℂ)
-    (hf_compact : HasCompactSupport f) (hf_L1 : Integrable f) (hf_cont : Continuous f) :
-    Filter.Tendsto (fun δ : ℝ =>
-        eLpNorm (fun t => f t -
-          ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume)
-      (nhdsWithin (0 : ℝ) (Set.Ioi 0)) (𝓝 0)  := proven
-
-
-lemma mollifier_convolution_L2_tendsto (f : ℝ → ℂ)
-    (hf_compact : HasCompactSupport f) (hf_L1 : Integrable f) (hf_cont : Continuous f) :
-    Filter.Tendsto (fun δ : ℝ =>
-        eLpNorm (fun t => f t -
-          ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 2 volume)
-      (nhdsWithin (0 : ℝ) (Set.Ioi 0)) (𝓝 0)  := proven
-
-lemma mollifier_convolution_L1_L2_small
-    (f : ℝ → ℂ) (hf_compact : HasCompactSupport f)
-    (hf_L1 : Integrable f) (hf_cont : Continuous f) :
-    ∀ ε > 0,
-      ∃ δ > 0,
-        eLpNorm
-            (fun t =>
-              f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume
-              < ENNReal.ofReal ε ∧
-        eLpNorm
-            (fun t =>
-              f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 2 volume
-              < ENNReal.ofReal ε  := proven
-
 lemma mollifier_uniform_error_control
     (f : ℝ → ℂ) (hf_compact : HasCompactSupport f)
     (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
@@ -2188,14 +2158,12 @@ lemma mollifier_uniform_error_control
       eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal δ  := sorry
 
 lemma mollifier_convolution_Lp_control
-    (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
-    (φ : ℝ → ℂ) (hφ_compact : HasCompactSupport φ)
-    (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ) :
+    (φ : ℝ → ℂ) (hφ_compact : HasCompactSupport φ) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ) :
     ∀ ε > 0,
       ∃ ψ : ℝ → ℂ,
         HasCompactSupport ψ ∧ ContDiff ℝ (⊤ : ℕ∞) ψ ∧
         eLpNorm (fun t => φ t - ψ t) 1 volume < ENNReal.ofReal ε ∧
-        eLpNorm (fun t => φ t - ψ t) 2 volume < ENNReal.ofReal ε  := sorry
+        eLpNorm (fun t => φ t - ψ t) 2 volume < ENNReal.ofReal ε  := proven
 
 
 lemma smooth_compact_support_L1_L2_mollification
@@ -2205,15 +2173,7 @@ lemma smooth_compact_support_L1_L2_mollification
     ∃ g : ℝ → ℂ,
       HasCompactSupport g ∧ ContDiff ℝ (⊤ : ℕ∞) g ∧
       eLpNorm (fun t => f t - g t) 1 volume < ENNReal.ofReal ε ∧
-      eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal ε  := sorry
-
-lemma meyers_serrin_L1_L2_density
-    (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
-    (ε : ℝ) (hε : 0 < ε) :
-    ∃ g : ℝ → ℂ,
-      HasCompactSupport g ∧ ContDiff ℝ (⊤ : ℕ∞) g ∧
-      eLpNorm (fun t => f t - g t) 1 volume < ENNReal.ofReal ε ∧
-      eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal ε  := sorry
+      eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal ε  := proven
 
 lemma exists_smooth_compact_support_L1_L2_close
     (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
@@ -2221,7 +2181,7 @@ lemma exists_smooth_compact_support_L1_L2_close
     ∃ g : ℝ → ℂ,
       HasCompactSupport g ∧ ContDiff ℝ (⊤ : ℕ∞) g ∧
       eLpNorm (fun t : ℝ => f t - g t) 1 volume < ENNReal.ofReal ε ∧
-      eLpNorm (fun t : ℝ => f t - g t) 2 volume < ENNReal.ofReal ε  := sorry
+      eLpNorm (fun t : ℝ => f t - g t) 2 volume < ENNReal.ofReal ε  := proven
 
 lemma exists_schwartz_L1_L2_close
     (f : ℝ → ℂ) (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
@@ -2248,35 +2208,17 @@ lemma continuous_integral_norm_sq_of_L2_tendsto
       (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 2 volume)
       Filter.atTop (𝓝 (0 : ℝ≥0∞))) :
     Filter.Tendsto (fun n => ∫ t : ℝ, ‖φ n t‖ ^ 2 ∂volume)
-      Filter.atTop (𝓝 (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume))  := sorry
-
-lemma fourierIntegral_L2_convergence
-    {φ : ℕ → SchwartzMap ℝ ℂ} {g : ℝ → ℂ}
-    (hg_L1 : Integrable g)
-    (hg_L2 : MemLp g 2 volume)
-    (hφ_L1 : ∀ n, Integrable (fun t : ℝ => φ n t))
-    (hφ_L2 : ∀ n, MemLp (fun t : ℝ => φ n t) 2 volume)
-    (hφ_tendsto_L1 : Filter.Tendsto
-      (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 1 volume) Filter.atTop (𝓝 0))
-    (hφ_tendsto_L2 : Filter.Tendsto
-      (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 2 volume) Filter.atTop (𝓝 0)) :
-    Filter.Tendsto
-      (fun n =>
-        eLpNorm
-          (fun ξ : ℝ =>
-            fourierIntegral g ξ - fourierIntegral (fun t : ℝ => φ n t) ξ)
-          2 volume)
-      Filter.atTop (𝓝 (0 : ℝ≥0∞))  := sorry
+      Filter.atTop (𝓝 (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume))  := proven
 
 lemma fourierIntegral_memLp_L1_L2
     {g : ℝ → ℂ} (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
-    MemLp (fun ξ : ℝ => fourierIntegral g ξ) 2 volume  := sorry
+    MemLp (fun ξ : ℝ => fourierIntegral g ξ) 2 volume  := proven
 
 lemma fourier_plancherel_L1_L2 (g : ℝ → ℂ)
     (hg_L1 : Integrable g)
     (hg_L2 : MemLp g 2 volume) :
     ∫ t : ℝ, ‖g t‖ ^ 2 ∂volume
-      = (1 / (2 * Real.pi)) * ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume  := sorry
+      = ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume  := proven
 
 end Frourio
 
@@ -2759,6 +2701,52 @@ lemma mollifier_convolution_L1_contract
     (f : ℝ → ℂ) (δ : ℝ) (hf_meas : AEStronglyMeasurable f volume) (hf_L1 : Integrable f volume):
     eLpNorm (fun t : ℝ => ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume
       ≤ eLpNorm f 1 volume  := proven
+
+end Frourio
+
+
+## ./Frourio/Analysis/FourierPlancherelL2/FourierPlancherelL2Core3.lean
+
+namespace Frourio
+
+
+lemma mollifier_convolution_L1_tendsto (f : ℝ → ℂ)
+    (hf_compact : HasCompactSupport f) (hf_L1 : Integrable f) (hf_cont : Continuous f) :
+    Filter.Tendsto (fun δ : ℝ =>
+        eLpNorm (fun t => f t -
+          ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume)
+      (nhdsWithin (0 : ℝ) (Set.Ioi 0)) (𝓝 0)  := proven
+
+
+lemma mollifier_convolution_L2_tendsto (f : ℝ → ℂ)
+    (hf_compact : HasCompactSupport f) (hf_L1 : Integrable f) (hf_cont : Continuous f) :
+    Filter.Tendsto (fun δ : ℝ =>
+        eLpNorm (fun t => f t -
+          ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 2 volume)
+      (nhdsWithin (0 : ℝ) (Set.Ioi 0)) (𝓝 0)  := proven
+
+lemma mollifier_convolution_L1_L2_small
+    (f : ℝ → ℂ) (hf_compact : HasCompactSupport f)
+    (hf_L1 : Integrable f) (hf_cont : Continuous f) :
+    ∀ ε > 0,
+      ∃ δ > 0,
+        eLpNorm
+            (fun t =>
+              f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 1 volume
+              < ENNReal.ofReal ε ∧
+        eLpNorm
+            (fun t =>
+              f t - ∫ y, (create_mollifier δ y : ℂ) * f (t - y) ∂volume) 2 volume
+              < ENNReal.ofReal ε  := proven
+
+
+lemma eLpNorm_one_le_mul_two_of_support_closedBall
+    {h : ℝ → ℂ} {R : ℝ}
+    (h_mem : MemLp h 2 volume)
+    (h_support : ∀ ⦃t : ℝ⦄, R < ‖t‖ → h t = 0) :
+    eLpNorm h 1 volume
+      ≤ (volume (Metric.closedBall (0 : ℝ) R)) ^ (1 / 2 : ℝ)
+          * eLpNorm h 2 volume  := proven
 
 end Frourio
 
@@ -5124,7 +5112,7 @@ lemma logpull_mellin_l2_relation (σ : ℝ) (f : Hσ σ)
     (h_weighted_L2 : MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume)
     (h_integrable : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
     ∫ t : ℝ, ‖LogPull σ f t‖^2 * Real.exp t ∂volume =
-    (1 / (2 * Real.pi))^2 * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume  := proven
+    (1 / (2 * Real.pi)) * ∫ τ : ℝ, ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)‖^2 ∂volume  := proven
 
 lemma plancherel_constant_is_one (σ : ℝ) (f : Hσ σ) :
     ∃ (C : ℝ), C > 0 ∧ ∫ τ : ℝ, ‖LogPull σ f τ‖^2 = C * ‖f‖^2 ∧ C = 1  := proven
@@ -10125,4 +10113,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 98
+Total files processed: 99
