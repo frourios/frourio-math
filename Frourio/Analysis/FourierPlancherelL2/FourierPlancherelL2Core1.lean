@@ -252,28 +252,13 @@ lemma integrable_tail_small {f : ℝ → ℂ} (hf : Integrable f) :
   simpa [tail] using hM_tail_lt
 
 /-- Hölder's inequality on a ball: L¹ norm bounded by L² norm times measure to the 1/2. -/
-lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_ball
-    {f : ℝ → ℂ} (hf : MemLp f 2 volume) (R : ℝ) :
-    ∫ t in {t : ℝ | |t| ≤ R}, ‖f t‖ ∂volume ≤
-      (volume {t : ℝ | |t| ≤ R}).toReal ^ (1/2 : ℝ) *
-      (eLpNorm f 2 volume).toReal := by
+lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_set
+    {f : ℝ → ℂ} (hf : MemLp f 2 volume) {s : Set ℝ}
+    (hs_meas : MeasurableSet s) (hs_finite : volume s ≠ ∞) :
+    ∫ t in s, ‖f t‖ ∂volume ≤
+      (volume s).toReal ^ (1 / 2 : ℝ) * (eLpNorm f 2 volume).toReal := by
   classical
-  set s : Set ℝ := {t : ℝ | |t| ≤ R}
   set χ : ℝ → ℝ := s.indicator fun _ => (1 : ℝ)
-
-  have h_ball_eq_closedBall : s = Metric.closedBall (0 : ℝ) R := by
-    ext t
-    simp [s, Metric.mem_closedBall, Real.norm_eq_abs, Real.dist_eq, abs_sub_comm]
-
-  have h_meas : MeasurableSet s := by
-    simpa [h_ball_eq_closedBall] using (measurableSet_closedBall :
-      MeasurableSet (Metric.closedBall (0 : ℝ) R))
-
-  have h_volume : volume s = ENNReal.ofReal (2 * R) := by
-    simp [s, h_ball_eq_closedBall]
-
-  have h_volume_ne_top : volume s ≠ ∞ := by
-    simp [h_volume]
 
   have hf_nonneg : 0 ≤ᵐ[volume] fun t => ‖f t‖ :=
     Filter.Eventually.of_forall fun _ => norm_nonneg _
@@ -289,8 +274,8 @@ lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_ball
 
   have hχ_mem : MemLp χ (ENNReal.ofReal (2 : ℝ)) volume := by
     refine memLp_indicator_const (μ := volume)
-      (p := ENNReal.ofReal (2 : ℝ)) h_meas (1 : ℝ) ?_
-    exact Or.inr h_volume_ne_top
+      (p := ENNReal.ofReal (2 : ℝ)) hs_meas (1 : ℝ) ?_
+    exact Or.inr hs_finite
 
   have hpq : (2 : ℝ).HolderConjugate (2 : ℝ) := HolderConjugate.two_two
 
@@ -309,7 +294,7 @@ lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_ball
       ∫ t, ‖f t‖ * χ t ∂volume = ∫ t in s, ‖f t‖ ∂volume := by
     simpa [h_indicator_mul] using
       MeasureTheory.integral_indicator (μ := volume)
-        (f := fun t => ‖f t‖) h_meas
+        (f := fun t => ‖f t‖) hs_meas
 
   have h_chi_sq_eq : ∀ᵐ t ∂volume, χ t ^ (2 : ℝ) = χ t :=
     Filter.Eventually.of_forall fun t => by
@@ -323,7 +308,7 @@ lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_ball
   have h_int_chi : ∫ t, χ t ∂volume = (volume s).toReal := by
     simpa [χ] using
       MeasureTheory.integral_indicator (μ := volume)
-        (f := fun _ : ℝ => (1 : ℝ)) h_meas
+        (f := fun _ : ℝ => (1 : ℝ)) hs_meas
 
   have h_rhs_chi :
       (∫ t, χ t ^ (2 : ℝ) ∂volume) ^ (1 / 2 : ℝ)
@@ -370,7 +355,27 @@ lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_ball
     simp_rw [h_rhs_f, h_rhs_chi, one_div] at htmp
     simpa [mul_comm] using htmp
 
-  simpa [s, mul_comm] using h_result
+  simpa [mul_comm] using h_result
+
+lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_ball
+    {f : ℝ → ℂ} (hf : MemLp f 2 volume) (R : ℝ) :
+    ∫ t in {t : ℝ | |t| ≤ R}, ‖f t‖ ∂volume ≤
+      (volume {t : ℝ | |t| ≤ R}).toReal ^ (1 / 2 : ℝ) *
+      (eLpNorm f 2 volume).toReal := by
+  classical
+  have h_ball_eq_closedBall :
+      {t : ℝ | |t| ≤ R} = Metric.closedBall (0 : ℝ) R := by
+    ext t
+    simp [Metric.mem_closedBall, Real.norm_eq_abs, Real.dist_eq, abs_sub_comm]
+  have h_meas : MeasurableSet {t : ℝ | |t| ≤ R} := by
+    simpa [h_ball_eq_closedBall] using (measurableSet_closedBall :
+      MeasurableSet (Metric.closedBall (0 : ℝ) R))
+  have h_volume_ne_top : volume {t : ℝ | |t| ≤ R} ≠ ∞ := by
+    simp [h_ball_eq_closedBall]
+  have h_general :=
+    eLpNorm_one_le_measure_mul_eLpNorm_two_of_set
+      (s := {t : ℝ | |t| ≤ R}) hf h_meas h_volume_ne_top
+  simpa [mul_comm] using h_general
 
 /-- The Lebesgue measure of a ball in ℝ. -/
 lemma volume_ball_eq (R : ℝ) :

@@ -4,6 +4,7 @@ import Frourio.Analysis.Gaussian
 import Frourio.Analysis.HilbertSpace
 import Frourio.Analysis.MellinParsevalCore
 import Frourio.Analysis.SchwartzDensity.SchwartzDensity
+import Frourio.Analysis.SchwartzDensityLp.SchwartzDensityLp
 import Mathlib.Analysis.Distribution.FourierSchwartz
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Topology.Basic
@@ -21,6 +22,344 @@ noncomputable section
 namespace Frourio
 open Schwartz
 
+lemma complex_half_enNorm :
+    ‖(1 / 2 : ℂ)‖ₑ = ENNReal.ofReal (1 / 2 : ℝ) := by
+  -- Step 1: 1/2は非負実数
+  have h_half_nonneg : 0 ≤ (1 / 2 : ℝ) := by norm_num
+  -- Step 2: 複素数1/2は実数1/2と見なせる
+  have h_complex_eq_real : (1 / 2 : ℂ) = ((1 / 2 : ℝ) : ℂ) := by norm_num
+  -- Step 3: 実数の複素数としてのノルムは絶対値
+  have h_norm_real : ‖((1 / 2 : ℝ) : ℂ)‖ = |1 / 2| := by
+    have : ((1 / 2 : ℝ) : ℂ) = Complex.ofReal (1 / 2) := rfl
+    rw [this, Complex.norm_ofReal]
+  -- Step 4: 1/2の絶対値は1/2
+  have h_abs : |1 / 2| = (1 / 2 : ℝ) := abs_of_nonneg h_half_nonneg
+  -- Step 5: 複素数1/2のノルムは実数1/2
+  have h_norm_eq : ‖(1 / 2 : ℂ)‖ = (1 / 2 : ℝ) := by
+    rw [h_complex_eq_real, h_norm_real, h_abs]
+  -- Step 6: NNNormとして等式を確立
+  -- Step 7: ENormに変換
+  have h_nnnorm_eq : ‖(1 / 2 : ℂ)‖₊ = Real.toNNReal (1 / 2 : ℝ) := by
+    ext
+    simp [nnnorm, h_norm_eq, Real.toNNReal_of_nonneg h_half_nonneg]
+  calc ‖(1 / 2 : ℂ)‖ₑ
+      = (‖(1 / 2 : ℂ)‖₊ : ℝ≥0∞) := enorm_eq_nnnorm _
+    _ = (Real.toNNReal (1 / 2 : ℝ) : ℝ≥0∞) := by rw [h_nnnorm_eq]
+    _ = ENNReal.ofReal (1 / 2 : ℝ) := by
+        rw [ENNReal.ofReal, Real.toNNReal_of_nonneg h_half_nonneg]
+
+-- Note: This lemma requires f to have compact support, which allows us to use
+-- Cauchy-Schwarz to relate L¹ and L² norms: ‖h‖₁ ≤ ‖h‖₂ · √(vol(supp h))
+-- For compactly supported f, we can choose g with small L² error, then the L¹ error
+-- is controlled by the product of L² error and √(vol(supp(f-g))).
+lemma mollifier_uniform_error_control_step1
+    (f : ℝ → ℂ) (_hf_compact : HasCompactSupport f)
+    (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
+    {δ : ℝ} (hδ_pos : 0 < δ) :
+    ∃ g : ℝ → ℂ,
+      HasCompactSupport g ∧ Continuous g ∧
+      eLpNorm (fun t => f t - g t) 1 volume < ENNReal.ofReal (δ / 4) ∧
+      eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal (δ / 4) := by
+  classical
+  have hδ_quarter_pos : 0 < δ / 4 := by
+    have : (0 : ℝ) < 4 := by norm_num
+    exact div_pos hδ_pos this
+  have hδ_eighth_pos : 0 < δ / 8 := by
+    have : (0 : ℝ) < 8 := by norm_num
+    exact div_pos hδ_pos this
+  have hδ_eighth_ne : ENNReal.ofReal (δ / 8) ≠ 0 := by
+    have h_pos : 0 < ENNReal.ofReal (δ / 8) := by
+      simpa [ENNReal.ofReal_pos] using hδ_eighth_pos
+    exact ne_of_gt h_pos
+  have hδ_sixteenth_pos : 0 < δ / 16 := by
+    have : (0 : ℝ) < 16 := by norm_num
+    exact div_pos hδ_pos this
+  have hδ_sixteenth_ne : ENNReal.ofReal (δ / 16) ≠ 0 := by
+    have h_pos : 0 < ENNReal.ofReal (δ / 16) := by
+      simpa [ENNReal.ofReal_pos] using hδ_sixteenth_pos
+    exact ne_of_gt h_pos
+
+  have hf_memLp₁ : MemLp f 1 volume := (memLp_one_iff_integrable).mpr hf_L1
+
+  /- Step 1: choose a large radius so that the tails of `f` outside the ball are small
+     in both L¹ and L². -/
+  have hδ_sq_pos : 0 < (δ / 8) ^ 2 := by
+    have h := hδ_eighth_pos
+    have : 0 < δ / 8 := h
+    simpa [pow_two] using mul_pos this this
+  have hδ_min_pos : 0 < min (δ / 8) ((δ / 8) ^ 2) := by
+    by_cases h_le : δ / 8 ≤ (δ / 8) ^ 2
+    · have h := hδ_eighth_pos
+      simpa [min_eq_left h_le] using h
+    · have h_le' : (δ / 8) ^ 2 ≤ δ / 8 := le_of_not_ge h_le
+      simpa [min_eq_right h_le'] using hδ_sq_pos
+  obtain ⟨R, hR_pos, h_int_L1, h_int_L2⟩ :=
+    integrable_memLp_tail_small hf_L1 hf_L2
+      (δ := min (δ / 8) ((δ / 8) ^ 2)) hδ_min_pos
+  have h_tail_L1 :
+      eLpNorm (fun t => f t - Set.indicator {t : ℝ | |t| ≤ R} f t) 1 volume
+        < ENNReal.ofReal (δ / 8) := by
+    have h_int_lt :
+        ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ∂volume < δ / 8 :=
+      lt_of_lt_of_le h_int_L1 (min_le_left _ _)
+    exact eLpNorm_one_tail_indicator_sub (f := f) hf_L1 (R := R) h_int_lt
+  have h_tail_L2 :
+      eLpNorm (fun t => f t - Set.indicator {t : ℝ | |t| ≤ R} f t) 2 volume
+        < ENNReal.ofReal (δ / 8) := by
+    have h_int_sq_lt :
+        ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ^ 2 ∂volume < (δ / 8) ^ 2 :=
+      lt_of_lt_of_le h_int_L2 (min_le_right _ _)
+    exact
+      eLpNorm_two_tail_indicator_sub (f := f) hf_L2 (R := R)
+        (δ := δ / 8) hδ_eighth_pos h_int_sq_lt
+
+  set f_R : ℝ → ℂ := fun t => if |t| ≤ R then f t else 0 with hfR_def
+
+  have hfR_indicator : f_R = fun t => Set.indicator {t : ℝ | |t| ≤ R} f t := by
+    classical
+    funext t
+    by_cases h : |t| ≤ R
+    · simp [f_R, hfR_def, h]
+    · simp [f_R, hfR_def, h]
+
+  have hf_R_compact : HasCompactSupport f_R := by
+    classical
+    refine HasCompactSupport.intro (K := Metric.closedBall (0 : ℝ) R)
+      (isCompact_closedBall _ _) ?_
+    intro x hx
+    have hx_abs : ¬ |x| ≤ R := by
+      have hx_dist : ¬ dist x (0 : ℝ) ≤ R := by
+        simpa [Metric.mem_closedBall, Real.dist_eq, abs_sub_comm] using hx
+      simpa [Real.dist_eq, abs_sub_comm] using hx_dist
+    simp [f_R, hfR_def, hx_abs]
+  have hf_R_integrable : Integrable f_R := by
+    simpa [hfR_indicator]
+      using integrable_indicator_ball_of_integrable hf_L1 R
+  have hf_R_memLp₁ : MemLp f_R 1 volume := (memLp_one_iff_integrable).2 hf_R_integrable
+  have hf_R_memLp₂ : MemLp f_R 2 volume := by
+    classical
+    have h_meas : MeasurableSet {t : ℝ | |t| ≤ R} :=
+      (isClosed_le _root_.continuous_abs continuous_const).measurableSet
+    simpa [hfR_indicator]
+      using (hf_L2.indicator (μ := volume) h_meas)
+
+  have hL1_trunc : eLpNorm (fun t => f t - f_R t) 1 volume < ENNReal.ofReal (δ / 8) := by
+    simpa [hfR_indicator] using h_tail_L1
+  have hL2_trunc : eLpNorm (fun t => f t - f_R t) 2 volume < ENNReal.ofReal (δ / 8) := by
+    simpa [hfR_indicator] using h_tail_L2
+
+  /- Step 2: approximate the truncated function by a continuous compactly supported
+     function while controlling both L¹ and L² errors. -/
+  have h_density :
+      ∃ g : ℝ → ℂ,
+        HasCompactSupport g ∧ Continuous g ∧ MemLp g 2 volume ∧
+        eLpNorm (fun t => f_R t - g t) 1 volume < ENNReal.ofReal (δ / 8) ∧
+        eLpNorm (fun t => f_R t - g t) 2 volume < ENNReal.ofReal (δ / 8) := by
+    classical
+    have hδ_eighth_pos' : 0 < δ / 8 := by
+      have : (0 : ℝ) < 8 := by norm_num
+      exact div_pos hδ_pos this
+    have hδ_sixteenth_pos' : 0 < δ / 16 := by
+      have : (0 : ℝ) < 16 := by norm_num
+      exact div_pos hδ_pos this
+
+    -- First approximate in L¹.
+    have h_L1_approx :=
+      hf_R_memLp₁.exists_hasCompactSupport_eLpNorm_sub_le
+        (μ := volume) (p := (1 : ℝ≥0∞)) (by norm_num : (1 : ℝ≥0∞) ≠ ∞)
+        (ε := ENNReal.ofReal (δ / 16))
+        (by
+          have : 0 < ENNReal.ofReal (δ / 16) := by
+            simpa using ENNReal.ofReal_pos.mpr hδ_sixteenth_pos'
+          exact ne_of_gt this)
+    obtain ⟨g₁, hg₁_compact, hg₁_bound, hg₁_cont, hg₁_memLp₁⟩ := h_L1_approx
+    have hg₁_memLp₂ : MemLp g₁ 2 volume :=
+      hg₁_cont.memLp_of_hasCompactSupport (μ := volume) (p := (2 : ℝ≥0∞)) hg₁_compact
+    have hg₁_L1_lt :
+        eLpNorm (fun t => f_R t - g₁ t) 1 volume < ENNReal.ofReal (δ / 8) := by
+      refine lt_of_le_of_lt hg₁_bound ?_
+      have h_real : δ / 16 < δ / 8 := by
+        have h_base : (1 / 16 : ℝ) < 1 / 8 := by norm_num
+        have : δ * (1 / 16 : ℝ) < δ * (1 / 8 : ℝ) :=
+          mul_lt_mul_of_pos_left h_base hδ_pos
+        simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using this
+      have h_lt : ENNReal.ofReal (δ / 16) < ENNReal.ofReal (δ / 8) :=
+        (ENNReal.ofReal_lt_ofReal_iff hδ_eighth_pos').2 h_real
+      simpa using h_lt
+
+    -- CORRECT STRATEGY:
+    -- Use the density theorem for simultaneous L¹ and L² approximation
+    -- This is continuous_compactSupport_dense_L1_L2_real from SchwartzDensityLp
+
+    -- We need to convert f_R (which is ℝ → ℂ) to the right form
+    -- f_R ∈ L¹(ℝ) ∩ L²(ℝ), so we can apply the density theorem
+
+    have hf_R_integrable : Integrable f_R volume := by
+      exact (memLp_one_iff_integrable).mp hf_R_memLp₁
+
+    -- Apply the density theorem with ε = δ/8
+    have h_approx := continuous_compactSupport_dense_L1_L2_real
+      f_R hf_R_integrable hf_R_memLp₂ hδ_eighth_pos'
+
+    obtain ⟨g, hg_cont, hg_compact, hg_memLp₂, hg_fR_L1, hg_fR_L2⟩ := h_approx
+
+    use g
+    exact ⟨hg_compact, hg_cont, hg_memLp₂, hg_fR_L1, hg_fR_L2⟩
+
+  -- Now use h_density to construct the final result
+  obtain ⟨g, hg_compact, hg_cont, hg_memLp₂, hg_fR_L1, hg_fR_L2⟩ := h_density
+
+  use g
+  refine ⟨hg_compact, hg_cont, ?_, ?_⟩
+  · -- L¹ bound for ‖f - g‖₁
+    have h_eq : (fun t => f t - g t) = (fun t => (f t - f_R t) + (f_R t - g t)) := by
+      ext t; ring
+    have hg_integrable : Integrable g := hg_cont.integrable_of_hasCompactSupport hg_compact
+    have hg_memLp₁ : MemLp g 1 volume := (memLp_one_iff_integrable).mpr hg_integrable
+    calc eLpNorm (fun t => f t - g t) 1 volume
+        = eLpNorm (fun t => (f t - f_R t) + (f_R t - g t)) 1 volume := by rw [h_eq]
+      _ ≤ eLpNorm (fun t => f t - f_R t) 1 volume + eLpNorm (fun t => f_R t - g t) 1 volume := by
+          apply eLpNorm_add_le
+          · exact (MemLp.sub hf_memLp₁ hf_R_memLp₁).aestronglyMeasurable
+          · exact (MemLp.sub hf_R_memLp₁ hg_memLp₁).aestronglyMeasurable
+          · norm_num
+      _ < ENNReal.ofReal (δ / 8) + ENNReal.ofReal (δ / 8) := by
+          exact ENNReal.add_lt_add hL1_trunc hg_fR_L1
+      _ = ENNReal.ofReal (δ / 4) := by
+          rw [← ENNReal.ofReal_add (by linarith : 0 ≤ δ / 8) (by linarith : 0 ≤ δ / 8)]
+          congr 1
+          ring
+  · -- L² bound for ‖f - g‖₂
+    have h_eq : (fun t => f t - g t) = (fun t => (f t - f_R t) + (f_R t - g t)) := by
+      ext t; ring
+    calc eLpNorm (fun t => f t - g t) 2 volume
+        = eLpNorm (fun t => (f t - f_R t) + (f_R t - g t)) 2 volume := by rw [h_eq]
+      _ ≤ eLpNorm (fun t => f t - f_R t) 2 volume + eLpNorm (fun t => f_R t - g t) 2 volume := by
+          apply eLpNorm_add_le
+          · exact (MemLp.sub hf_L2 hf_R_memLp₂).aestronglyMeasurable
+          · exact (MemLp.sub hf_R_memLp₂ hg_memLp₂).aestronglyMeasurable
+          · norm_num
+      _ < ENNReal.ofReal (δ / 8) + ENNReal.ofReal (δ / 8) := by
+          exact ENNReal.add_lt_add hL2_trunc hg_fR_L2
+      _ = ENNReal.ofReal (δ / 4) := by
+          rw [← ENNReal.ofReal_add (by linarith : 0 ≤ δ / 8) (by linarith : 0 ≤ δ / 8)]
+          congr 1
+          ring
+
+lemma mollifier_uniform_error_control_step2
+    {g : ℝ → ℂ} (hg_compact : HasCompactSupport g) (hg_cont : Continuous g) :
+    Integrable g ∧ MemLp g 2 volume := by
+  classical
+  have hg_integrable : Integrable g :=
+    hg_cont.integrable_of_hasCompactSupport hg_compact
+  have hg_memLp_two : MemLp g 2 volume :=
+    (hg_cont.memLp_of_hasCompactSupport (μ := volume) (p := (2 : ℝ≥0∞)) hg_compact)
+  exact ⟨hg_integrable, hg_memLp_two⟩
+
+lemma mollifier_uniform_error_control_step3
+    {g : ℝ → ℂ} (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) {δ : ℝ} (hδ_pos : 0 < δ) :
+    ∃ φ : ℝ → ℂ,
+      HasCompactSupport φ ∧ ContDiff ℝ (⊤ : ℕ∞) φ ∧
+      eLpNorm (fun t => g t - φ t) 1 volume < ENNReal.ofReal (δ / 4) ∧
+      eLpNorm (fun t => g t - φ t) 2 volume < ENNReal.ofReal (δ / 4) := by
+  classical
+  have hδ_quarter_pos : 0 < δ / 4 := by
+    have : (0 : ℝ) < 4 := by norm_num
+    exact div_pos hδ_pos this
+  obtain ⟨φ, hφ_smooth, hφ_compact, hφ_L1, hφ_L2⟩ :=
+    smooth_compactSupport_dense_L1_L2_real (f := g)
+      (hf_L1 := hg_L1) (hf_L2 := hg_L2) (ε := δ / 4) hδ_quarter_pos
+  have hφ_smooth' : ContDiff ℝ (⊤ : ℕ∞) φ := by
+    simpa using
+      (hφ_smooth.of_le (show ((⊤ : ℕ∞) : WithTop ℕ∞) ≤ (⊤ : WithTop ℕ∞) from le_top))
+  refine ⟨φ, hφ_compact, hφ_smooth', ?_, ?_⟩
+  · simpa using hφ_L1
+  · simpa using hφ_L2
+
+lemma mollifier_uniform_error_control_step4
+    {f g φ : ℝ → ℂ} {δ : ℝ}
+    (hf_meas : AEStronglyMeasurable f volume)
+    (hg_meas : AEStronglyMeasurable g volume)
+    (hφ_meas : AEStronglyMeasurable φ volume)
+    (hδ_pos : 0 < δ)
+    (hfφ₁ : eLpNorm (fun t => f t - g t) 1 volume < ENNReal.ofReal (δ / 4))
+    (hfφ₂ : eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal (δ / 4))
+    (hgφ₁ : eLpNorm (fun t => g t - φ t) 1 volume < ENNReal.ofReal (δ / 4))
+    (hgφ₂ : eLpNorm (fun t => g t - φ t) 2 volume < ENNReal.ofReal (δ / 4)) :
+    eLpNorm (fun t => f t - φ t) 1 volume < ENNReal.ofReal (δ / 2) ∧
+    eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal (δ / 2) := by
+  classical
+  have hfg_meas : AEStronglyMeasurable (fun t => f t - g t) volume :=
+    hf_meas.sub hg_meas
+  have hgφ_meas : AEStronglyMeasurable (fun t => g t - φ t) volume :=
+    hg_meas.sub hφ_meas
+  have h_quarter_nonneg : 0 ≤ δ / 4 := by
+    have hδ_nonneg : 0 ≤ δ := le_of_lt hδ_pos
+    have h_four_pos : 0 < (4 : ℝ) := by norm_num
+    exact div_nonneg hδ_nonneg h_four_pos.le
+  have h_quarter_sum :
+      ENNReal.ofReal (δ / 4) + ENNReal.ofReal (δ / 4) = ENNReal.ofReal (δ / 2) := by
+    have h_eq : δ / 4 + δ / 4 = δ / 2 := by ring
+    simpa [h_eq] using (ENNReal.ofReal_add h_quarter_nonneg h_quarter_nonneg).symm
+
+  have h_eq₁ :
+      ((fun t => f t - g t) + fun t => g t - φ t)
+        = fun t => f t - φ t := by
+    funext t
+    simp [Pi.add_apply, sub_eq_add_neg, add_comm, add_left_comm, add_assoc]
+
+  have h_triangle₁ :
+      eLpNorm (fun t => f t - φ t) 1 volume
+        ≤ eLpNorm (fun t => f t - g t) 1 volume
+            + eLpNorm (fun t => g t - φ t) 1 volume := by
+    have :=
+      eLpNorm_add_le (μ := volume) (p := (1 : ℝ≥0∞))
+        (f := fun t => f t - g t) (g := fun t => g t - φ t)
+        hfg_meas hgφ_meas (le_rfl : (1 : ℝ≥0∞) ≤ (1 : ℝ≥0∞))
+    simpa [h_eq₁]
+      using this
+
+  have h_sum_lt₁ :
+      eLpNorm (fun t => f t - g t) 1 volume
+          + eLpNorm (fun t => g t - φ t) 1 volume
+        < ENNReal.ofReal (δ / 4) + ENNReal.ofReal (δ / 4) :=
+    ENNReal.add_lt_add hfφ₁ hgφ₁
+
+  have h_L1 :
+      eLpNorm (fun t => f t - φ t) 1 volume < ENNReal.ofReal (δ / 2) := by
+    refine lt_of_le_of_lt h_triangle₁ ?_
+    simpa [h_quarter_sum]
+      using h_sum_lt₁
+
+  have h_eq₂ :
+      ((fun t => f t - g t) + fun t => g t - φ t)
+        = fun t => f t - φ t := h_eq₁
+
+  have h_triangle₂ :
+      eLpNorm (fun t => f t - φ t) 2 volume
+        ≤ eLpNorm (fun t => f t - g t) 2 volume
+            + eLpNorm (fun t => g t - φ t) 2 volume := by
+    have :=
+      eLpNorm_add_le (μ := volume) (p := (2 : ℝ≥0∞))
+        (f := fun t => f t - g t) (g := fun t => g t - φ t)
+        hfg_meas hgφ_meas (show (1 : ℝ≥0∞) ≤ (2 : ℝ≥0∞) by norm_num)
+    simpa [h_eq₂]
+      using this
+
+  have h_sum_lt₂ :
+      eLpNorm (fun t => f t - g t) 2 volume
+          + eLpNorm (fun t => g t - φ t) 2 volume
+        < ENNReal.ofReal (δ / 4) + ENNReal.ofReal (δ / 4) :=
+    ENNReal.add_lt_add hfφ₂ hgφ₂
+
+  have h_L2 :
+      eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal (δ / 2) := by
+    refine lt_of_le_of_lt h_triangle₂ ?_
+    simpa [h_quarter_sum]
+      using h_sum_lt₂
+
+  exact ⟨h_L1, h_L2⟩
+
 /-- Uniform control of mollification error for compactly supported functions. -/
 lemma mollifier_uniform_error_control
     (f : ℝ → ℂ) (hf_compact : HasCompactSupport f)
@@ -31,65 +370,29 @@ lemma mollifier_uniform_error_control
       eLpNorm (fun t => f t - φ t) 1 volume < ENNReal.ofReal δ ∧
       eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal δ := by
   classical
-  have hδ_half : 0 < δ / 2 := by linarith
-  have h_one_ne_top : (1 : ℝ≥0∞) ≠ ∞ := by norm_num
-  have h_two_ne_top : (2 : ℝ≥0∞) ≠ ∞ := by norm_num
-
-  -- Get continuous approximation in L¹
-  have hδ_half_ne : ENNReal.ofReal (δ / 2) ≠ 0 := by
-    simp [ENNReal.ofReal_eq_zero, hδ_half]
-
-  have hf_memLp₁ : MemLp f 1 volume := (memLp_one_iff_integrable).2 hf_L1
-
-  obtain ⟨g₁, hg₁_compact, hg₁_L1_bound, hg₁_cont, hg₁_memLp₁⟩ :=
-    hf_memLp₁.exists_hasCompactSupport_eLpNorm_sub_le (μ := volume) (p := 1)
-      h_one_ne_top (ε := ENNReal.ofReal (δ / 2)) hδ_half_ne
-
-  -- Get continuous approximation in L²
-  obtain ⟨g₂, hg₂_compact, hg₂_L2_bound, hg₂_cont, hg₂_memLp₂⟩ :=
-    hf_L2.exists_hasCompactSupport_eLpNorm_sub_le (μ := volume) (p := 2)
-      h_two_ne_top (ε := ENNReal.ofReal (δ / 2)) hδ_half_ne
-
-  -- Take the average g = (g₁ + g₂) / 2 to get a function close in both norms
-  set g := fun t => (g₁ t + g₂ t) / 2 with hg_def
-
-  have hg_cont : Continuous g := by
-    exact (hg₁_cont.add hg₂_cont).div_const 2
-
-  have hg_compact : HasCompactSupport g := by
-    classical
-    obtain ⟨R₁, hR₁_pos, hR₁_subset⟩ :=
-      HasCompactSupport.exists_radius_closedBall hg₁_compact
-    obtain ⟨R₂, hR₂_pos, hR₂_subset⟩ :=
-      HasCompactSupport.exists_radius_closedBall hg₂_compact
-    refine HasCompactSupport.intro
-        (isCompact_closedBall (0 : ℝ) (max R₁ R₂)) ?_
-    intro x hx
-    have hx_norm' : ¬ ‖x‖ ≤ max R₁ R₂ := by
-      have hx' : ¬ |x| ≤ max R₁ R₂ := by
-        simpa [Metric.mem_closedBall, Real.dist_eq, sub_eq_add_neg]
-          using hx
-      simpa [Real.norm_eq_abs] using hx'
-    have hx_norm : max R₁ R₂ < ‖x‖ := lt_of_not_ge hx_norm'
-    have hx_lt₁ : R₁ < ‖x‖ := lt_of_le_of_lt (le_max_left _ _) hx_norm
-    have hx_lt₂ : R₂ < ‖x‖ := lt_of_le_of_lt (le_max_right _ _) hx_norm
-    have hx_not_ball₁ : x ∉ Metric.closedBall (0 : ℝ) R₁ := by
-      have : ¬ ‖x‖ ≤ R₁ := not_le.mpr hx_lt₁
-      simpa [Metric.mem_closedBall, Real.dist_eq, sub_eq_add_neg] using this
-    have hx_not_ball₂ : x ∉ Metric.closedBall (0 : ℝ) R₂ := by
-      have : ¬ ‖x‖ ≤ R₂ := not_le.mpr hx_lt₂
-      simpa [Metric.mem_closedBall, Real.dist_eq, sub_eq_add_neg] using this
-    have hx_not_support₁ : x ∉ tsupport g₁ := by
-      intro hx_support
-      exact hx_not_ball₁ (hR₁_subset hx_support)
-    have hx_not_support₂ : x ∉ tsupport g₂ := by
-      intro hx_support
-      exact hx_not_ball₂ (hR₂_subset hx_support)
-    have hg₁_zero : g₁ x = 0 := image_eq_zero_of_notMem_tsupport hx_not_support₁
-    have hg₂_zero : g₂ x = 0 := image_eq_zero_of_notMem_tsupport hx_not_support₂
-    simp [g, hg₁_zero, hg₂_zero]
-
-  sorry
+  have h2δ_pos : 0 < 2 * δ := by linarith
+  obtain ⟨g, hg_compact, hg_cont, hg_L1_error, hg_L2_error⟩ :=
+    mollifier_uniform_error_control_step1 f hf_compact hf_L1 hf_L2 h2δ_pos
+  obtain ⟨hg_integrable, hg_memLp⟩ :=
+    mollifier_uniform_error_control_step2 (g := g) hg_compact hg_cont
+  obtain ⟨φ, hφ_compact, hφ_smooth, hφ_L1_error, hφ_L2_error⟩ :=
+    mollifier_uniform_error_control_step3 hg_integrable hg_memLp h2δ_pos
+  have hf_meas : AEStronglyMeasurable f volume := hf_L1.aestronglyMeasurable
+  have hg_meas : AEStronglyMeasurable g volume := hg_cont.aestronglyMeasurable
+  have hφ_smooth' : ContDiff ℝ (⊤ : ℕ∞) φ := by simpa using hφ_smooth
+  have hφ_cont : Continuous φ := hφ_smooth'.continuous
+  have hφ_meas : AEStronglyMeasurable φ volume := hφ_cont.aestronglyMeasurable
+  obtain ⟨h_total_L1, h_total_L2⟩ :=
+    mollifier_uniform_error_control_step4
+      (f := f) (g := g) (φ := φ) (δ := 2 * δ)
+      hf_meas hg_meas hφ_meas h2δ_pos
+      hg_L1_error hg_L2_error hφ_L1_error hφ_L2_error
+  have h_half : (2 * δ) / 2 = δ := by ring
+  have h_L1 : eLpNorm (fun t => f t - φ t) 1 volume < ENNReal.ofReal δ := by
+    simpa [h_half] using h_total_L1
+  have h_L2 : eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal δ := by
+    simpa [h_half] using h_total_L2
+  refine ⟨φ, hφ_smooth', hφ_compact, h_L1, h_L2⟩
 
 /-- Stability of L¹ and L² norms under convolution with a mollifier. -/
 lemma mollifier_convolution_Lp_control
