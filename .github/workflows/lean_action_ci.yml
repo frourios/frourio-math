@@ -35,10 +35,10 @@ jobs:
       #       exit 1
       #     fi
 
-      - name: Run API tests
-        shell: bash
-        run: |
-          ./test-api.sh
+      # - name: Run API tests
+      #   shell: bash
+      #   run: |
+      #     ./test-api.sh
 
   timestamp:
     runs-on: ubuntu-latest

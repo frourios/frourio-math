@@ -1,42 +1,151 @@
-/-
-Copyright (c) 2025 Frourio Math Project. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Frourio Math Project
--/
+import Frourio.Analysis.SchwartzDensityLp.SchwartzDensityLpCore
 import Mathlib.Analysis.Distribution.SchwartzSpace
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.Topology.Algebra.Support
-
-/-!
-# Density of Schwartz functions in Lp spaces
-
-This file contains fundamental density theorems about Schwartz functions
-in Lp spaces, which are standard results in harmonic analysis.
-
-## Main results
-
-- `schwartz_dense_Lp`: Schwartz functions are dense in Lp(ℝⁿ) for 1 ≤ p < ∞
-- `schwartz_dense_L1_L2_simultaneous`: Simultaneous approximation in L¹ and L²
-- `continuous_compactSupport_dense_Lp`: Cc(ℝⁿ) is dense in Lp
-- `smooth_compactSupport_dense_Lp`: C∞c(ℝⁿ) is dense in Lp
-
-## References
-
-Standard textbooks covering these results:
-- Stein & Shakarchi, "Functional Analysis", Chapter 4
-- Folland, "Real Analysis", Chapter 8
-- Rudin, "Functional Analysis", Chapter 1
-- Grafakos, "Classical Fourier Analysis", Chapter 2
-- Reed & Simon, "Methods of Modern Mathematical Physics I", Section II.3
-
-The density of Schwartz functions (or C∞c) in Lp is a cornerstone result
-used throughout harmonic analysis and PDE theory.
--/
+import Mathlib.MeasureTheory.Function.ContinuousMapDense
+import Mathlib.Analysis.Calculus.BumpFunction.FiniteDimension
+import Mathlib.Analysis.Calculus.BumpFunction.Normed
+import Mathlib.Analysis.Calculus.BumpFunction.Convolution
+import Mathlib.Analysis.Calculus.BumpFunction.SmoothApprox
 
 open MeasureTheory SchwartzMap
-open scoped ENNReal
+open scoped ENNReal ContDiff
 
 variable {n : ℕ}
+
+/-- Cutting off a smooth function so that it has compact support while keeping control of the
+`Lᵖ` error. -/
+theorem smooth_cutoff_compactSupport_Lp
+    (p : ℝ≥0∞)
+    (φ : (Fin n → ℝ) → ℂ)
+    (hφ_smooth : ContDiff ℝ (∞ : WithTop ℕ∞) φ)
+    (hφ_memLp : MemLp φ p volume)
+    {R : ℝ} (hR_pos : 0 < R)
+    {ε : ℝ} (hε : 0 < ε) :
+    ∃ ψ : (Fin n → ℝ) → ℂ,
+      ContDiff ℝ (∞ : WithTop ℕ∞) ψ ∧ HasCompactSupport ψ ∧ MemLp ψ p volume ∧
+      eLpNorm (fun x => φ x - ψ x) p volume < ENNReal.ofReal ε := by
+  sorry
+
+/--
+**C∞ compactly supported functions are dense in Lp.**
+
+This is Corollary 8.15 in Folland, "Real Analysis".
+Also appears in Reed & Simon, "Methods of Modern Mathematical Physics I", Theorem II.17.
+
+For any f ∈ Lp(ℝⁿ) with 1 ≤ p < ∞ and any ε > 0, there exists
+a C∞ function g with compact support such that ‖f - g‖_p < ε.
+
+## Proof strategy
+
+This follows from continuous compactly supported density plus mollification:
+1. First approximate f by continuous compactly supported g
+2. Then mollify g (convolve with smooth approximation to identity)
+3. For small mollification parameter, the smooth approximation is close in Lp
+-/
+theorem smooth_compactSupport_dense_Lp
+    (p : ℝ≥0∞)
+    (hp : 1 ≤ p)
+    (hp_ne_top : p ≠ ∞)
+    (f : (Fin n → ℝ) → ℂ)
+    (hf : MemLp f p (volume : Measure (Fin n → ℝ)))
+    {ε : ℝ}
+    (hε : 0 < ε) :
+    ∃ g : (Fin n → ℝ) → ℂ,
+      ContDiff ℝ (∞ : WithTop ℕ∞) g ∧
+      HasCompactSupport g ∧
+      MemLp g p volume ∧
+      eLpNorm (f - g) p volume < ENNReal.ofReal ε := by
+  classical
+  haveI := (inferInstance : R1Space (Fin n → ℝ))
+  haveI := (inferInstance : WeaklyLocallyCompactSpace (Fin n → ℝ))
+  haveI := (inferInstance : MeasureTheory.Measure.Regular (volume : Measure (Fin n → ℝ)))
+
+  -- First approximate by a continuous compactly supported function in Lᵖ.
+  have hε_half_pos : 0 < ε / 2 := by
+    have : (0 : ℝ) < 2 := by norm_num
+    exact div_pos hε this
+  obtain ⟨g₀, hg₀_cont, hg₀_compact, hg₀_memLp, hg₀_close⟩ :=
+    continuous_compactSupport_dense_Lp (p := p) (hp_ne_top := hp_ne_top)
+      (f := f) (hf := hf) (ε := ε / 2) hε_half_pos
+
+  -- Smooth the compactly supported continuous function.
+  have h_smooth_approx :
+      ∃ g₁ : (Fin n → ℝ) → ℂ,
+        ContDiff ℝ (∞ : WithTop ℕ∞) g₁ ∧ HasCompactSupport g₁ ∧ MemLp g₁ p volume ∧
+          eLpNorm (g₀ - g₁) p volume < ENNReal.ofReal (ε / 2) := by
+    have hε_quarter_pos : 0 < ε / 4 := by
+      have : (0 : ℝ) < 4 := by norm_num
+      exact div_pos hε this
+    obtain ⟨φ, hφ_smooth, hφ_close, hφ_memLp⟩ :=
+      mollifier_compactSupport_Lp_approx (p := p) (hp_one := hp)
+        (g := g₀) hg₀_cont hg₀_compact (ε := ε / 4) hε_quarter_pos
+    obtain ⟨ψ, hψ_smooth, hψ_compact, hψ_memLp, hψ_close⟩ :=
+      smooth_cutoff_compactSupport_Lp (p := p) (φ := φ) hφ_smooth hφ_memLp
+        (R := (1 : ℝ)) (hR_pos := by norm_num) (ε := ε / 4) hε_quarter_pos
+    have h_add_le :
+        eLpNorm
+            ((fun x => g₀ x - φ x) + fun x => φ x - ψ x) p volume
+          ≤ eLpNorm (fun x => g₀ x - φ x) p volume
+              + eLpNorm (fun x => φ x - ψ x) p volume :=
+      eLpNorm_add_le (μ := volume) (p := p)
+        (f := fun x => g₀ x - φ x) (g := fun x => φ x - ψ x)
+        (hf :=
+          (hg₀_memLp.aestronglyMeasurable.sub hφ_memLp.aestronglyMeasurable))
+        (hg :=
+          (hφ_memLp.aestronglyMeasurable.sub hψ_memLp.aestronglyMeasurable))
+        hp
+    have h_fun_eq :
+        (fun x => g₀ x - ψ x)
+          = (fun x => g₀ x - φ x) + fun x => φ x - ψ x := by
+      funext x; simp [sub_eq_add_neg, add_comm, add_left_comm, add_assoc]
+    have h_triangle' :
+        eLpNorm (fun x => g₀ x - ψ x) p volume
+          ≤ eLpNorm (fun x => g₀ x - φ x) p volume
+              + eLpNorm (fun x => φ x - ψ x) p volume := by
+      simpa [h_fun_eq] using h_add_le
+    have h_sum_lt :
+        eLpNorm (fun x => g₀ x - φ x) p volume
+            + eLpNorm (fun x => φ x - ψ x) p volume
+          < ENNReal.ofReal (ε / 4) + ENNReal.ofReal (ε / 4) :=
+      ENNReal.add_lt_add hφ_close hψ_close
+    have h_nonneg : 0 ≤ ε / 4 := by
+      have : (0 : ℝ) ≤ ε := le_of_lt hε
+      exact div_nonneg this (by norm_num : (0 : ℝ) ≤ 4)
+    have h_sum_eq :
+        ENNReal.ofReal (ε / 4) + ENNReal.ofReal (ε / 4)
+          = ENNReal.ofReal (ε / 2) := by
+      have h_add := ENNReal.ofReal_add h_nonneg h_nonneg
+      have h_eq : ε / 2 = ε / 4 + ε / 4 := by ring
+      calc
+        ENNReal.ofReal (ε / 4) + ENNReal.ofReal (ε / 4)
+            = ENNReal.ofReal (ε / 4 + ε / 4) := by
+              simpa [add_comm, add_left_comm, add_assoc] using h_add.symm
+        _ = ENNReal.ofReal (ε / 2) := by simp [h_eq]
+    have h_goal_lt :
+        eLpNorm (fun x => g₀ x - φ x) p volume
+            + eLpNorm (fun x => φ x - ψ x) p volume
+          < ENNReal.ofReal (ε / 2) := by
+      simpa [h_sum_eq] using h_sum_lt
+    have h_total_lt :
+        eLpNorm (fun x => g₀ x - ψ x) p volume < ENNReal.ofReal (ε / 2) :=
+      lt_of_le_of_lt h_triangle' h_goal_lt
+    exact ⟨ψ, hψ_smooth, hψ_compact, hψ_memLp, h_total_lt⟩
+  obtain ⟨g₁, hg₁_smooth, hg₁_compact, hg₁_memLp, hg₁_close⟩ := h_smooth_approx
+
+  -- Combine the two approximations via the triangle inequality in Lᵖ.
+  have h_triangle :
+      eLpNorm (f - g₁) p volume
+        ≤ eLpNorm (f - g₀) p volume + eLpNorm (g₀ - g₁) p volume := by
+    -- Standard triangle inequality in Lᵖ.
+    sorry
+
+  have h_target_lt :
+      eLpNorm (f - g₁) p volume < ENNReal.ofReal ε := by
+    -- Use the previous bounds and arithmetic on ε/2.
+    sorry
+
+  refine ⟨g₁, hg₁_smooth, hg₁_compact, hg₁_memLp, h_target_lt⟩
 
 /--
 **Schwartz functions are dense in Lp for 1 ≤ p < ∞.**
@@ -104,61 +213,6 @@ theorem schwartz_dense_L1_L2_simultaneous
   sorry
 
 /--
-**Continuous compactly supported functions are dense in Lp.**
-
-This is Theorem 3.14 in Rudin, "Real and Complex Analysis".
-Also Theorem 8.14 in Folland, "Real Analysis".
-
-For any f ∈ Lp(ℝⁿ) with 1 ≤ p < ∞ and any ε > 0, there exists
-a continuous function g with compact support such that ‖f - g‖_p < ε.
--/
-theorem continuous_compactSupport_dense_Lp
-    (p : ℝ≥0∞)
-    (hp : 1 ≤ p)
-    (hp_ne_top : p ≠ ∞)
-    (f : (Fin n → ℝ) → ℂ)
-    (hf : MemLp f p (volume : Measure (Fin n → ℝ)))
-    {ε : ℝ}
-    (hε : 0 < ε) :
-    ∃ g : (Fin n → ℝ) → ℂ,
-      Continuous g ∧
-      HasCompactSupport g ∧
-      MemLp g p volume ∧
-      eLpNorm (f - g) p volume < ENNReal.ofReal ε := by
-  sorry
-
-/--
-**C∞ compactly supported functions are dense in Lp.**
-
-This is Corollary 8.15 in Folland, "Real Analysis".
-Also appears in Reed & Simon, "Methods of Modern Mathematical Physics I", Theorem II.17.
-
-For any f ∈ Lp(ℝⁿ) with 1 ≤ p < ∞ and any ε > 0, there exists
-a C∞ function g with compact support such that ‖f - g‖_p < ε.
-
-## Proof strategy
-
-This follows from continuous compactly supported density plus mollification:
-1. First approximate f by continuous compactly supported g
-2. Then mollify g (convolve with smooth approximation to identity)
-3. For small mollification parameter, the smooth approximation is close in Lp
--/
-theorem smooth_compactSupport_dense_Lp
-    (p : ℝ≥0∞)
-    (hp : 1 ≤ p)
-    (hp_ne_top : p ≠ ∞)
-    (f : (Fin n → ℝ) → ℂ)
-    (hf : MemLp f p (volume : Measure (Fin n → ℝ)))
-    {ε : ℝ}
-    (hε : 0 < ε) :
-    ∃ g : (Fin n → ℝ) → ℂ,
-      ContDiff ℝ ⊤ g ∧
-      HasCompactSupport g ∧
-      MemLp g p volume ∧
-      eLpNorm (f - g) p volume < ENNReal.ofReal ε := by
-  sorry
-
-/--
 **Variant for ℝ (n=1 case) with simultaneous L¹ and L² control.**
 
 This is the specific instance needed for the Plancherel theorem on ℝ.
@@ -173,7 +227,7 @@ theorem smooth_compactSupport_dense_L1_L2_real
     {ε : ℝ}
     (hε : 0 < ε) :
     ∃ g : ℝ → ℂ,
-      ContDiff ℝ ⊤ g ∧
+      ContDiff ℝ (∞ : WithTop ℕ∞) g ∧
       HasCompactSupport g ∧
       eLpNorm (f - g) 1 volume < ENNReal.ofReal ε ∧
       eLpNorm (f - g) 2 volume < ENNReal.ofReal ε := by
@@ -244,7 +298,7 @@ theorem smooth_compactSupport_dense_Lp_nonneg
     {ε : ℝ}
     (hε : 0 < ε) :
     ∃ g : (Fin n → ℝ) → ℝ,
-      ContDiff ℝ ⊤ g ∧
+      ContDiff ℝ (∞ : WithTop ℕ∞) g ∧
       HasCompactSupport g ∧
       (∀ x, 0 ≤ g x) ∧
       eLpNorm (fun x => f x - g x) p volume < ENNReal.ofReal ε := by

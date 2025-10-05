@@ -2144,9 +2144,54 @@ lemma fourier_plancherel (f : SchwartzMap ℝ ℂ) :
 end Frourio
 
 
+## ./Frourio/Analysis/FourierPlancherelL2/CauchySchwarzCompactSupport.lean
+
+No definitions found
+
+
 ## ./Frourio/Analysis/FourierPlancherelL2/FourierPlancherelL2.lean
 
 namespace Frourio
+
+
+lemma complex_half_enNorm :
+    ‖(1 / 2 : ℂ)‖ₑ = ENNReal.ofReal (1 / 2 : ℝ)  := proven
+
+lemma mollifier_uniform_error_control_step1
+    (f : ℝ → ℂ) (_hf_compact : HasCompactSupport f)
+    (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume)
+    {δ : ℝ} (hδ_pos : 0 < δ) :
+    ∃ g : ℝ → ℂ,
+      HasCompactSupport g ∧ Continuous g ∧
+      eLpNorm (fun t => f t - g t) 1 volume < ENNReal.ofReal (δ / 4) ∧
+      eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal (δ / 4)  := proven
+
+
+lemma mollifier_uniform_error_control_step2
+    {g : ℝ → ℂ} (hg_compact : HasCompactSupport g) (hg_cont : Continuous g) :
+    Integrable g ∧ MemLp g 2 volume  := proven
+
+
+lemma mollifier_uniform_error_control_step3
+    {g : ℝ → ℂ} (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) {δ : ℝ} (hδ_pos : 0 < δ) :
+    ∃ φ : ℝ → ℂ,
+      HasCompactSupport φ ∧ ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) φ ∧
+      eLpNorm (fun t => g t - φ t) 1 volume < ENNReal.ofReal (δ / 4) ∧
+      eLpNorm (fun t => g t - φ t) 2 volume < ENNReal.ofReal (δ / 4)  := proven
+
+
+lemma mollifier_uniform_error_control_step4
+    {f g φ : ℝ → ℂ} {δ : ℝ}
+    (hf_meas : AEStronglyMeasurable f volume)
+    (hg_meas : AEStronglyMeasurable g volume)
+    (hφ_meas : AEStronglyMeasurable φ volume)
+    (hδ_pos : 0 < δ)
+    (hfφ₁ : eLpNorm (fun t => f t - g t) 1 volume < ENNReal.ofReal (δ / 4))
+    (hfφ₂ : eLpNorm (fun t => f t - g t) 2 volume < ENNReal.ofReal (δ / 4))
+    (hgφ₁ : eLpNorm (fun t => g t - φ t) 1 volume < ENNReal.ofReal (δ / 4))
+    (hgφ₂ : eLpNorm (fun t => g t - φ t) 2 volume < ENNReal.ofReal (δ / 4)) :
+    eLpNorm (fun t => f t - φ t) 1 volume < ENNReal.ofReal (δ / 2) ∧
+    eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal (δ / 2)  := proven
 
 lemma mollifier_uniform_error_control
     (f : ℝ → ℂ) (hf_compact : HasCompactSupport f)
@@ -2155,7 +2200,7 @@ lemma mollifier_uniform_error_control
     ∃ φ : ℝ → ℂ,
       ContDiff ℝ (⊤ : ℕ∞) φ ∧ HasCompactSupport φ ∧
       eLpNorm (fun t => f t - φ t) 1 volume < ENNReal.ofReal δ ∧
-      eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal δ  := sorry
+      eLpNorm (fun t => f t - φ t) 2 volume < ENNReal.ofReal δ  := proven
 
 lemma mollifier_convolution_Lp_control
     (φ : ℝ → ℂ) (hφ_compact : HasCompactSupport φ) (hφ_smooth : ContDiff ℝ (⊤ : ℕ∞) φ) :
@@ -2434,10 +2479,17 @@ lemma ae_eq_of_memLp_schwartz_pairings
 lemma integrable_tail_small {f : ℝ → ℂ} (hf : Integrable f) :
     ∀ δ > 0, ∃ R > 0, ∫ t in {t : ℝ | R ≤ |t|}, ‖f t‖ ∂volume < δ  := proven
 
+lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_set
+    {f : ℝ → ℂ} (hf : MemLp f 2 volume) {s : Set ℝ}
+    (hs_meas : MeasurableSet s) (hs_finite : volume s ≠ ∞) :
+    ∫ t in s, ‖f t‖ ∂volume ≤
+      (volume s).toReal ^ (1 / 2 : ℝ) * (eLpNorm f 2 volume).toReal  := proven
+
+
 lemma eLpNorm_one_le_measure_mul_eLpNorm_two_of_ball
     {f : ℝ → ℂ} (hf : MemLp f 2 volume) (R : ℝ) :
     ∫ t in {t : ℝ | |t| ≤ R}, ‖f t‖ ∂volume ≤
-      (volume {t : ℝ | |t| ≤ R}).toReal ^ (1/2 : ℝ) *
+      (volume {t : ℝ | |t| ≤ R}).toReal ^ (1 / 2 : ℝ) *
       (eLpNorm f 2 volume).toReal  := proven
 
 lemma volume_ball_eq (R : ℝ) :
@@ -6973,6 +7025,204 @@ lemma weightedMeasure_eq_withDensity (σ : ℝ) :
 end Frourio
 
 
+## ./Frourio/Analysis/SchwartzDensityLp/SchwartzDensityLp.lean
+
+theorem smooth_cutoff_compactSupport_Lp
+    (p : ℝ≥0∞)
+    (φ : (Fin n → ℝ) → ℂ)
+    (hφ_smooth : ContDiff ℝ (∞ : WithTop ℕ∞) φ)
+    (hφ_memLp : MemLp φ p volume)
+    {R : ℝ} (hR_pos : 0 < R)
+    {ε : ℝ} (hε : 0 < ε) :
+    ∃ ψ : (Fin n → ℝ) → ℂ,
+      ContDiff ℝ (∞ : WithTop ℕ∞) ψ ∧ HasCompactSupport ψ ∧ MemLp ψ p volume ∧
+      eLpNorm (fun x => φ x - ψ x) p volume < ENNReal.ofReal ε  := sorry
+
+theorem smooth_compactSupport_dense_Lp
+    (p : ℝ≥0∞)
+    (hp : 1 ≤ p)
+    (hp_ne_top : p ≠ ∞)
+    (f : (Fin n → ℝ) → ℂ)
+    (hf : MemLp f p (volume : Measure (Fin n → ℝ)))
+    {ε : ℝ}
+    (hε : 0 < ε) :
+    ∃ g : (Fin n → ℝ) → ℂ,
+      ContDiff ℝ (∞ : WithTop ℕ∞) g ∧
+      HasCompactSupport g ∧
+      MemLp g p volume ∧
+      eLpNorm (f - g) p volume < ENNReal.ofReal ε  := sorry
+
+theorem schwartz_dense_Lp
+    (p : ℝ≥0∞)
+    (hp : 1 ≤ p)
+    (hp_ne_top : p ≠ ∞)
+    (f : (Fin n → ℝ) → ℂ)
+    (hf : MemLp f p (volume : Measure (Fin n → ℝ)))
+    {ε : ℝ}
+    (hε : 0 < ε) :
+    ∃ φ : 𝓢((Fin n → ℝ), ℂ),
+      eLpNorm (fun x => f x - φ x) p volume < ENNReal.ofReal ε  := sorry
+
+theorem schwartz_dense_L1_L2_simultaneous
+    (f : (Fin n → ℝ) → ℂ)
+    (hf_L1 : MemLp f 1 (volume : Measure (Fin n → ℝ)))
+    (hf_L2 : MemLp f 2 (volume : Measure (Fin n → ℝ)))
+    {ε : ℝ}
+    (hε : 0 < ε) :
+    ∃ φ : 𝓢((Fin n → ℝ), ℂ),
+      eLpNorm (fun x => f x - φ x) 1 volume < ENNReal.ofReal ε ∧
+      eLpNorm (fun x => f x - φ x) 2 volume < ENNReal.ofReal ε  := sorry
+
+theorem smooth_compactSupport_dense_L1_L2_real
+    (f : ℝ → ℂ)
+    (hf_L1 : Integrable f volume)
+    (hf_L2 : MemLp f 2 volume)
+    {ε : ℝ}
+    (hε : 0 < ε) :
+    ∃ g : ℝ → ℂ,
+      ContDiff ℝ (∞ : WithTop ℕ∞) g ∧
+      HasCompactSupport g ∧
+      eLpNorm (f - g) 1 volume < ENNReal.ofReal ε ∧
+      eLpNorm (f - g) 2 volume < ENNReal.ofReal ε  := sorry
+
+theorem continuous_compactSupport_dense_L1_L2_real
+    (f : ℝ → ℂ)
+    (hf_L1 : Integrable f volume)
+    (hf_L2 : MemLp f 2 volume)
+    {ε : ℝ}
+    (hε : 0 < ε) :
+    ∃ g : ℝ → ℂ,
+      Continuous g ∧
+      HasCompactSupport g ∧
+      MemLp g 2 volume ∧
+      eLpNorm (f - g) 1 volume < ENNReal.ofReal ε ∧
+      eLpNorm (f - g) 2 volume < ENNReal.ofReal ε  := sorry
+
+theorem lusin_type_approximation_Lp
+    (p : ℝ≥0∞)
+    (hp : 1 ≤ p)
+    (hp_ne_top : p ≠ ∞)
+    (f : (Fin n → ℝ) → ℂ)
+    (hf : MemLp f p (volume : Measure (Fin n → ℝ)))
+    {ε δ : ℝ}
+    (hε : 0 < ε)
+    (hδ : 0 < δ) :
+    ∃ g : (Fin n → ℝ) → ℂ,
+      Continuous g ∧
+      HasCompactSupport g ∧
+      eLpNorm (f - g) p volume < ENNReal.ofReal ε ∧
+      volume {x | f x ≠ g x} < ENNReal.ofReal δ  := sorry
+
+theorem smooth_compactSupport_dense_Lp_nonneg
+    (p : ℝ≥0∞)
+    (hp : 1 ≤ p)
+    (hp_ne_top : p ≠ ∞)
+    (f : (Fin n → ℝ) → ℝ)
+    (hf : MemLp f p (volume : Measure (Fin n → ℝ)))
+    (hf_nonneg : ∀ᵐ x ∂volume, 0 ≤ f x)
+    {ε : ℝ}
+    (hε : 0 < ε) :
+    ∃ g : (Fin n → ℝ) → ℝ,
+      ContDiff ℝ (∞ : WithTop ℕ∞) g ∧
+      HasCompactSupport g ∧
+      (∀ x, 0 ≤ g x) ∧
+      eLpNorm (fun x => f x - g x) p volume < ENNReal.ofReal ε  := sorry
+
+
+## ./Frourio/Analysis/SchwartzDensityLp/SchwartzDensityLpCore.lean
+
+theorem continuous_compactSupport_dense_Lp
+    (p : ℝ≥0∞)
+    (hp_ne_top : p ≠ ∞)
+    (f : (Fin n → ℝ) → ℂ)
+    (hf : MemLp f p (volume : Measure (Fin n → ℝ)))
+    {ε : ℝ}
+    (hε : 0 < ε) :
+    ∃ g : (Fin n → ℝ) → ℂ,
+      Continuous g ∧
+      HasCompactSupport g ∧
+      MemLp g p volume ∧
+      eLpNorm (f - g) p volume < ENNReal.ofReal ε  := proven
+
+lemma tsupport_subset_closedBall
+    (g : (Fin n → ℝ) → ℂ) (hg_compact : HasCompactSupport g) :
+    ∃ R : ℝ, tsupport g ⊆ Metric.closedBall (0 : Fin n → ℝ) R ∧ 1 ≤ R  := proven
+
+
+lemma contDiff_implies_aestronglyMeasurable
+    {φ₀ : (Fin n → ℝ) → ℂ} {m : ℕ∞}
+    (hφ₀_smooth : ContDiff ℝ m φ₀) :
+    AEStronglyMeasurable φ₀ (volume : Measure (Fin n → ℝ))  := proven
+
+
+lemma aestronglyMeasurable_sub_of_continuous
+    {g φ₀ : (Fin n → ℝ) → ℂ}
+    (hg_cont : Continuous g)
+    (hφ₀_aesm : AEStronglyMeasurable φ₀ (volume : Measure (Fin n → ℝ))) :
+    AEStronglyMeasurable (fun x => g x - φ₀ x) volume  := proven
+
+
+lemma aestronglyMeasurable_sub_of_aesm_continuous
+    {φ₀ ψ : (Fin n → ℝ) → ℂ}
+    (hφ₀_aesm : AEStronglyMeasurable φ₀ (volume : Measure (Fin n → ℝ)))
+    (hψ_cont : Continuous ψ) :
+    AEStronglyMeasurable (fun x => φ₀ x - ψ x) volume  := proven
+
+
+lemma continuous_compactSupport_memLp
+    {ψ : (Fin n → ℝ) → ℂ}
+    (hψ_cont : Continuous ψ)
+    (hψ_support : HasCompactSupport ψ)
+    (p : ℝ≥0∞) :
+    MemLp ψ p (volume : Measure (Fin n → ℝ))  := proven
+
+
+lemma aestronglyMeasurable_sub_continuous_contDiff
+    {g φ₀ : (Fin n → ℝ) → ℂ} {m : ℕ∞}
+    (hg_cont : Continuous g)
+    (hφ₀_smooth : ContDiff ℝ m φ₀) :
+    AEStronglyMeasurable (fun x => g x - φ₀ x) (volume : Measure (Fin n → ℝ))  := proven
+
+
+lemma aestronglyMeasurable_sub_contDiff_continuous
+    {φ₀ ψ : (Fin n → ℝ) → ℂ} {m : ℕ∞}
+    (hφ₀_smooth : ContDiff ℝ m φ₀)
+    (hψ_cont : Continuous ψ) :
+    AEStronglyMeasurable (fun x => φ₀ x - ψ x) (volume : Measure (Fin n → ℝ))  := proven
+
+
+lemma sub_eq_add_sub {α : Type*} [AddCommGroup α] (g φ₀ ψ : (Fin n → ℝ) → α) :
+    (fun x => g x - ψ x) = (fun x => g x - φ₀ x) + fun x => φ₀ x - ψ x  := proven
+
+
+lemma eLpNorm_triangle_ineq_lt
+    {g φ₀ ψ : (Fin n → ℝ) → ℂ}
+    (p : ℝ≥0∞)
+    (hp_one : 1 ≤ p)
+    (hg_cont : Continuous g)
+    (hφ₀_smooth : ContDiff ℝ ∞ φ₀)
+    (hψ_cont : Continuous ψ)
+    {ε : ℝ}
+    (h_term_support : eLpNorm (fun x => g x - φ₀ x) p volume < ENNReal.ofReal (ε / 2))
+    (h_term_cutoff : eLpNorm (fun x => φ₀ x - ψ x) p volume < ENNReal.ofReal (ε / 2))
+    (hε_half : 0 < ε / 2) :
+    eLpNorm (fun x => g x - ψ x) p volume < ENNReal.ofReal ε  := proven
+
+
+lemma phi0_eq_zero_outside_enlarged_ball
+    (φ₀ : (Fin n → ℝ) → ℂ) (R : ℝ)
+    (h_support : tsupport φ₀ ⊆ Metric.closedBall (0 : Fin n → ℝ) (R + 1)) :
+    ∀ ⦃x : Fin n → ℝ⦄, R + 1 < ‖x‖ → φ₀ x = 0  := proven
+
+theorem mollifier_compactSupport_Lp_approx
+    (p : ℝ≥0∞) (hp_one : 1 ≤ p) (g : (Fin n → ℝ) → ℂ)
+    (hg_cont : Continuous g) (hg_compact : HasCompactSupport g) {ε : ℝ} (hε : 0 < ε) :
+    ∃ φ : (Fin n → ℝ) → ℂ,
+      ContDiff ℝ (∞ : WithTop ℕ∞) φ ∧
+      eLpNorm (fun x => g x - φ x) p volume < ENNReal.ofReal ε ∧
+      MemLp φ p volume  := proven
+
+
 ## ./Frourio/Analysis/Slope.lean
 
 namespace Frourio
@@ -10113,4 +10363,4 @@ theorem RH_implies_FW (σ : ℝ) : RH → FW_criterion σ  := proven
 end Frourio
 
 
-Total files processed: 99
+Total files processed: 102

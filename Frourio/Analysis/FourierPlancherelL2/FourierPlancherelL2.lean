@@ -259,7 +259,7 @@ lemma mollifier_uniform_error_control_step2
 lemma mollifier_uniform_error_control_step3
     {g : ℝ → ℂ} (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) {δ : ℝ} (hδ_pos : 0 < δ) :
     ∃ φ : ℝ → ℂ,
-      HasCompactSupport φ ∧ ContDiff ℝ (⊤ : ℕ∞) φ ∧
+      HasCompactSupport φ ∧ ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) φ ∧
       eLpNorm (fun t => g t - φ t) 1 volume < ENNReal.ofReal (δ / 4) ∧
       eLpNorm (fun t => g t - φ t) 2 volume < ENNReal.ofReal (δ / 4) := by
   classical
@@ -269,9 +269,8 @@ lemma mollifier_uniform_error_control_step3
   obtain ⟨φ, hφ_smooth, hφ_compact, hφ_L1, hφ_L2⟩ :=
     smooth_compactSupport_dense_L1_L2_real (f := g)
       (hf_L1 := hg_L1) (hf_L2 := hg_L2) (ε := δ / 4) hδ_quarter_pos
-  have hφ_smooth' : ContDiff ℝ (⊤ : ℕ∞) φ := by
-    simpa using
-      (hφ_smooth.of_le (show ((⊤ : ℕ∞) : WithTop ℕ∞) ≤ (⊤ : WithTop ℕ∞) from le_top))
+  have hφ_smooth' : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) φ := by
+    simpa using hφ_smooth
   refine ⟨φ, hφ_compact, hφ_smooth', ?_, ?_⟩
   · simpa using hφ_L1
   · simpa using hφ_L2
