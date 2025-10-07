@@ -19,6 +19,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
       - uses: leanprover-community/docgen-action@v1
+        with:
+          blueprint: true
       - name: Make scripts executable
         run: |
           chmod +x ./lean-api.sh || true
