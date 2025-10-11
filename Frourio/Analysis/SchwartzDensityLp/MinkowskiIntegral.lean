@@ -1,4 +1,5 @@
 import Mathlib.Analysis.Convolution
+import Mathlib.Analysis.Convex.Integral
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Frourio.Analysis.HolderInequality.HolderInequality
@@ -22,10 +23,10 @@ This inequality is crucial for proving:
 
 ## Main results
 
-- `minkowski_integral_inequality`: The main Minkowski integral inequality
-- `minkowski_integral_inequality_ennreal`: Version with extended non-negative reals
-- `minkowski_integral_inequality_one`: Special case p = 1
-- `minkowski_integral_inequality_two`: Special case p = 2
+- `minkowski_integral_inequality_one`: Special case `p = 1`
+- `minkowski_integral_inequality_one_ennreal`: L¹-version phrased with `eLpNorm`
+- `minkowski_integral_inequality`: The general inequality for `1 ≤ p < ∞`
+- `minkowski_integral_inequality_ennreal`: General version phrased with `eLpNorm`
 
 ## References
 
@@ -48,8 +49,7 @@ open scoped ENNReal
 
 variable {α β : Type*} [MeasurableSpace α] [MeasurableSpace β]
 variable {μ : Measure α} {ν : Measure β}
-variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
-  [MeasurableSpace E] [BorelSpace E]
+variable {E : Type*} [NormedAddCommGroup E]
 
 section MinkowskiBasic
 
@@ -64,7 +64,7 @@ For any measurable function F : α × β → E,
 This is essentially the triangle inequality for integrals.
 -/
 theorem minkowski_integral_inequality_one
-    (F : α → β → E)
+    (F : α → β → E) [NormedSpace ℝ E]
     (hF : Integrable (Function.uncurry F) (μ.prod ν)) :
     ‖∫ x, ∫ y, F x y ∂ν ∂μ‖ ≤ ∫ x, ∫ y, ‖F x y‖ ∂ν ∂μ := by
   classical
@@ -86,7 +86,7 @@ theorem minkowski_integral_inequality_one
 This version works with extended non-negative reals and uses `eLpNorm`.
 -/
 theorem minkowski_integral_inequality_one_ennreal
-    (F : α → β → E)
+    (F : α → β → E) [NormedSpace ℝ E]
     (hF : AEStronglyMeasurable (Function.uncurry F) (μ.prod ν)) :
     eLpNorm (fun x => ∫ y, F x y ∂ν) 1 μ ≤
     ∫⁻ x, ∫⁻ y, (‖F x y‖₊ : ℝ≥0∞) ∂ν ∂μ := by
@@ -117,10 +117,7 @@ For 1 ≤ p < ∞ and measurable F : α × β → E,
 This is the key inequality for proving Young's inequality for convolution.
 -/
 theorem minkowski_integral_inequality
-    (p : ℝ≥0∞)
-    (hp : 1 ≤ p)
-    (hp_ne_top : p ≠ ∞)
-    (F : α → β → E)
+    [NormedSpace ℝ E] (p : ℝ≥0∞) (hp : 1 ≤ p) (hp_ne_top : p ≠ ∞) (F : α → β → E)
     (hF : AEStronglyMeasurable (Function.uncurry F) (μ.prod ν))
     (hF_prod : Integrable (Function.uncurry F) (μ.prod ν))
     (hF_int : ∀ᵐ y ∂ν, Integrable (fun x => F x y) μ)
@@ -223,7 +220,7 @@ theorem minkowski_integral_inequality
           exact hq
     have hg_mem : MemLp g p μ :=
       SchwartzDensityLp.memLp_norm_integral (μ := μ) (ν := ν) (p := p)
-        hp hp_ne_top hF hF_prod hF_int hF_memLp hF_norm
+        hp hp_ne_top hF hF_prod hF_memLp hF_norm
     have h_pairing_bound :
         ∀ φ : α → ℝ,
           MemLp φ q μ →
@@ -263,20 +260,25 @@ theorem minkowski_integral_inequality
 This version uses lintegral (extended integration) throughout.
 -/
 theorem minkowski_integral_inequality_ennreal
-    (p : ℝ≥0∞)
-    (hp : 1 ≤ p)
-    (hp_ne_top : p ≠ ∞)
-    (F : α → β → E)
+    [NormedSpace ℝ E] (p : ℝ≥0∞) (hp : 1 ≤ p) (hp_ne_top : p ≠ ∞) (F : α → β → E)
     (hF : AEStronglyMeasurable (Function.uncurry F) (μ.prod ν))
     (hF_prod : Integrable (Function.uncurry F) (μ.prod ν))
-    (hF_memLp : ∀ᵐ y ∂ν, MemLp (fun x => F x y) p μ) :
+    (hF_memLp : ∀ᵐ y ∂ν, MemLp (fun x => F x y) p μ)
+    (hF_norm : Integrable (fun y => (eLpNorm (fun x => F x y) p μ).toReal) ν) :
     eLpNorm (fun x => ∫ y, F x y ∂ν) p μ ≤
     ENNReal.ofReal (∫ y, (eLpNorm (fun x => F x y) p μ).toReal ∂ν) := by
-  sorry
+  classical
+  have hF_int : ∀ᵐ y ∂ν, Integrable (fun x => F x y) μ := by
+    simpa [Function.uncurry]
+      using (hF_prod.prod_left_ae (μ := μ) (ν := ν))
+  exact
+    minkowski_integral_inequality p hp hp_ne_top F hF hF_prod hF_int hF_memLp hF_norm
 
 end MinkowskiGeneral
 
 section MinkowskiSpecialCases
+
+variable [SFinite μ] [SFinite ν]
 
 /--
 **Minkowski's integral inequality for p = 2 (Hilbert space case).**
@@ -284,7 +286,7 @@ section MinkowskiSpecialCases
 This case is simpler because L² has inner product structure.
 -/
 theorem minkowski_integral_inequality_two
-    (F : α → β → E)
+    [NormedSpace ℝ E] (F : α → β → E)
     (hF : AEStronglyMeasurable (Function.uncurry F) (μ.prod ν))
     (hF_prod : Integrable (Function.uncurry F) (μ.prod ν))
     (hF_int : ∀ᵐ y ∂ν, Integrable (fun x => F x y) μ)
@@ -292,7 +294,12 @@ theorem minkowski_integral_inequality_two
     (hF_norm : Integrable (fun y => (eLpNorm (fun x => F x y) 2 μ).toReal) ν) :
     eLpNorm (fun x => ∫ y, F x y ∂ν) 2 μ ≤
     ENNReal.ofReal (∫ y, (eLpNorm (fun x => F x y) 2 μ).toReal ∂ν) := by
-  sorry
+  classical
+  have hp : (1 : ℝ≥0∞) ≤ (2 : ℝ≥0∞) := by norm_num
+  have hp_ne_top : (2 : ℝ≥0∞) ≠ ∞ := by simp
+  exact
+    minkowski_integral_inequality (μ := μ) (ν := ν)
+      (p := (2 : ℝ≥0∞)) hp hp_ne_top F hF hF_prod hF_int hF_memLp hF_norm
 
 /--
 **Minkowski's integral inequality for finite measures.**
@@ -300,16 +307,189 @@ theorem minkowski_integral_inequality_two
 When both measures are finite, the hypotheses can be simplified.
 -/
 theorem minkowski_integral_inequality_finite
-    (p : ℝ≥0∞)
-    (hp : 1 ≤ p)
-    (hp_ne_top : p ≠ ∞)
+    (p : ℝ≥0∞) (hp : 1 ≤ p) (hp_ne_top : p ≠ ∞)
+    [MeasurableSpace E] [BorelSpace E] [NormedSpace ℝ E]
     [IsFiniteMeasure μ] [IsFiniteMeasure ν]
-    (F : α → β → E)
-    (hF : AEStronglyMeasurable (Function.uncurry F) (μ.prod ν))
+    (F : α → β → E) (hF : AEStronglyMeasurable (Function.uncurry F) (μ.prod ν))
     (hF_bound : ∀ᵐ (p : α × β) ∂(μ.prod ν), ‖F p.1 p.2‖ ≤ 1) :
     eLpNorm (fun x => ∫ y, F x y ∂ν) p μ ≤
     ENNReal.ofReal (∫ y, (eLpNorm (fun x => F x y) p μ).toReal ∂ν) := by
-  sorry
+  classical
+  -- Replace `F` with a globally strongly measurable representative `Fmk`.
+  set Fmk : α → β → E := fun x y => hF.mk (Function.uncurry F) (x, y)
+  have h_eq_mk : Function.uncurry F =ᵐ[μ.prod ν] Function.uncurry Fmk := by
+    simpa [Fmk, Function.uncurry] using hF.ae_eq_mk
+  have hFmk_meas : AEStronglyMeasurable (Function.uncurry Fmk) (μ.prod ν) := by
+    simpa [Fmk, Function.uncurry] using hF.stronglyMeasurable_mk.aestronglyMeasurable
+  -- Pointwise bound transfers to the measurable representative.
+  have hFmk_bound : ∀ᵐ z ∂μ.prod ν, ‖Fmk z.1 z.2‖ ≤ (1 : ℝ) := by
+    filter_upwards [hF_bound, h_eq_mk] with z hz h_eq
+    have h_eq_z : F z.1 z.2 = Fmk z.1 z.2 := by
+      simpa [Function.uncurry] using h_eq
+    simpa [h_eq_z]
+      using hz
+  -- Measurability of the level set required for `ae_ae_comm`.
+  have h_bound_set :
+      MeasurableSet {z : α × β | ‖Fmk z.1 z.2‖ ≤ (1 : ℝ)} := by
+    have h_meas : Measurable fun z : α × β => (‖Fmk z.1 z.2‖ : ℝ) := by
+      simpa [Fmk, Function.uncurry]
+        using hF.stronglyMeasurable_mk.norm.measurable
+    simpa [Set.preimage, Set.Iic]
+      using h_meas measurableSet_Iic
+  -- Extract the fibrewise bound in both orders.
+  have hFmk_bound_x :
+      ∀ᵐ x ∂μ, ∀ᵐ y ∂ν, ‖Fmk x y‖ ≤ (1 : ℝ) :=
+    (Measure.ae_prod_iff_ae_ae (μ := μ) (ν := ν) h_bound_set).1 hFmk_bound
+  have hFmk_bound_y :
+      ∀ᵐ y ∂ν, ∀ᵐ x ∂μ, ‖Fmk x y‖ ≤ (1 : ℝ) :=
+    (Measure.ae_ae_comm (μ := μ) (ν := ν)
+        (p := fun x y => ‖Fmk x y‖ ≤ (1 : ℝ)) h_bound_set).1 hFmk_bound_x
+  -- Basic integrability of the representative on the product space.
+  have h_const_prod : Integrable (fun _ : α × β => (1 : ℝ)) (μ.prod ν) := integrable_const _
+  have hFmk_prod : Integrable (Function.uncurry Fmk) (μ.prod ν) := by
+    refine Integrable.mono' (μ := μ.prod ν)
+      (f := Function.uncurry Fmk)
+      (g := fun _ : α × β => (1 : ℝ))
+      h_const_prod
+      hFmk_meas ?_
+    simpa [Function.uncurry, Fmk]
+      using hFmk_bound
+  -- Preparatory measurability facts for the fibres of `Fmk`.
+  have hFmk_swap :
+      AEStronglyMeasurable (fun z : β × α => Fmk z.2 z.1) (ν.prod μ) := by
+    have := hF.stronglyMeasurable_mk
+    exact (this.comp_measurable measurable_swap).aestronglyMeasurable
+  have hFmk_meas_y :
+      ∀ᵐ y ∂ν, AEStronglyMeasurable (fun x => Fmk x y) μ := by
+    refine (MeasureTheory.AEStronglyMeasurable.prodMk_left
+      (μ := ν) (ν := μ) hFmk_swap).mono ?_
+    intro y hy
+    simpa [Fmk]
+      using hy
+  -- Fibrewise integrability and membership in `L^p` follow from the bound.
+  have hFmk_int : ∀ᵐ y ∂ν, Integrable (fun x => Fmk x y) μ := by
+    refine (hFmk_meas_y.and hFmk_bound_y).mono ?_
+    intro y hy
+    rcases hy with ⟨hy_meas, hy_bound⟩
+    refine Integrable.mono' (μ := μ)
+      (f := fun x => Fmk x y)
+      (g := fun _ : α => (1 : ℝ))
+      (integrable_const _)
+      hy_meas ?_
+    simpa using hy_bound
+  have hFmk_memLp : ∀ᵐ y ∂ν, MemLp (fun x => Fmk x y) p μ := by
+    refine (hFmk_meas_y.and hFmk_bound_y).mono ?_
+    intro y hy
+    rcases hy with ⟨hy_meas, hy_bound⟩
+    exact MemLp.of_bound hy_meas (1 : ℝ) hy_bound
+  -- Uniform bound on the fibrewise `L^p` norms.
+  have hp_ne_zero : p ≠ 0 :=
+    (lt_of_lt_of_le (zero_lt_one : (0 : ℝ≥0∞) < 1) hp).ne'
+  have hp_toReal_pos : 0 < p.toReal :=
+    ENNReal.toReal_pos hp_ne_zero hp_ne_top
+  have h_exp_nonneg : 0 ≤ p.toReal⁻¹ := inv_nonneg.mpr hp_toReal_pos.le
+  have hμ_lt_top : μ Set.univ < ∞ := measure_lt_top _ _
+  have hC_lt_top : μ Set.univ ^ p.toReal⁻¹ < ∞ :=
+    ENNReal.rpow_lt_top_of_nonneg h_exp_nonneg hμ_lt_top.ne
+  have h_bound_eLp :
+      ∀ᵐ y ∂ν, eLpNorm (fun x => Fmk x y) p μ ≤ μ Set.univ ^ p.toReal⁻¹ := by
+    refine hFmk_bound_y.mono ?_
+    intro y hy
+    simpa using eLpNorm_le_of_ae_bound hy
+  have h_bound_eLp_real :
+      ∀ᵐ y ∂ν,
+        (eLpNorm (fun x => Fmk x y) p μ).toReal
+          ≤ (μ Set.univ ^ p.toReal⁻¹).toReal := by
+    refine h_bound_eLp.mono ?_
+    intro y hy
+    have h_eLp_lt_top :
+        eLpNorm (fun x => Fmk x y) p μ < ∞ := lt_of_le_of_lt hy hC_lt_top
+    exact (ENNReal.toReal_le_toReal h_eLp_lt_top.ne hC_lt_top.ne).2 hy
+  have h_integrand_aemeasurable :
+      AEMeasurable
+        (fun z : α × β => (‖Fmk z.1 z.2‖ₑ) ^ p.toReal) (μ.prod ν) := by
+    have := hFmk_meas.aemeasurable.enorm.pow_const p.toReal
+    simpa [Function.uncurry] using this
+  have h_lintegral_aemeasurable :
+      AEMeasurable
+        (fun y => ∫⁻ x, (‖Fmk x y‖ₑ) ^ p.toReal ∂μ) ν :=
+    h_integrand_aemeasurable.lintegral_prod_left'
+  have h_eLp_aemeasurable :
+      AEMeasurable (fun y => eLpNorm (fun x => Fmk x y) p μ) ν := by
+    have hp_ne_zero' : p ≠ 0 := hp_ne_zero
+    have hp_ne_top' : p ≠ ∞ := hp_ne_top
+    have h_pow_meas : Measurable fun t : ℝ≥0∞ => t ^ (1 / p.toReal) :=
+      (measurable_id.pow_const (1 / p.toReal))
+    have := h_pow_meas.comp_aemeasurable h_lintegral_aemeasurable
+    refine this.congr ?_
+    refine Filter.Eventually.of_forall ?_
+    intro y
+    simp [eLpNorm_eq_lintegral_rpow_enorm (μ := μ)
+      (f := fun x => Fmk x y) hp_ne_zero' hp_ne_top']
+  have h_meas_toReal :
+      AEStronglyMeasurable (fun y => (eLpNorm (fun x => Fmk x y) p μ).toReal) ν :=
+    (h_eLp_aemeasurable.ennreal_toReal).aestronglyMeasurable
+  have h_bound_eLp_norm :
+      ∀ᵐ y ∂ν,
+        ‖(eLpNorm (fun x => Fmk x y) p μ).toReal‖
+          ≤ (μ Set.univ ^ p.toReal⁻¹).toReal := by
+    refine h_bound_eLp_real.mono ?_
+    intro y hy
+    have h_nonneg : 0 ≤ (eLpNorm (fun x => Fmk x y) p μ).toReal :=
+      ENNReal.toReal_nonneg
+    simpa [Real.norm_of_nonneg h_nonneg]
+      using hy
+  have hFmk_norm :
+      Integrable (fun y => (eLpNorm (fun x => Fmk x y) p μ).toReal) ν := by
+    refine Integrable.mono' (μ := ν)
+      (f := fun y => (eLpNorm (fun x => Fmk x y) p μ).toReal)
+      (g := fun _ : β => (μ Set.univ ^ p.toReal⁻¹).toReal)
+      (integrable_const _)
+      h_meas_toReal
+      h_bound_eLp_norm
+  -- Apply the general inequality to the strongly measurable representative.
+  have h_mk_result :=
+    minkowski_integral_inequality (μ := μ) (ν := ν)
+      (p := p) hp hp_ne_top Fmk hFmk_meas hFmk_prod hFmk_int hFmk_memLp hFmk_norm
+  -- Identify both sides with the original function using the a.e. equality.
+  have h_int_congr :
+      ∀ᵐ x ∂μ, ∫ y, F x y ∂ν = ∫ y, Fmk x y ∂ν := by
+    have h_eq_ae :
+        ∀ᵐ x ∂μ, F x =ᵐ[ν] Fmk x :=
+      (Measure.ae_ae_eq_of_ae_eq_uncurry (μ := μ) (ν := ν) h_eq_mk)
+    refine h_eq_ae.mono ?_
+    intro x hx
+    exact integral_congr_ae hx
+  have h_lhs_eq :
+      eLpNorm (fun x => ∫ y, F x y ∂ν) p μ
+          = eLpNorm (fun x => ∫ y, Fmk x y ∂ν) p μ :=
+    eLpNorm_congr_norm_ae <|
+      h_int_congr.mono fun _ hx => by simp [hx]
+  have h_rhs_eq :
+      ∀ᵐ y ∂ν,
+          (eLpNorm (fun x => F x y) p μ).toReal
+            = (eLpNorm (fun x => Fmk x y) p μ).toReal := by
+    -- For ae y, the eLpNorms are equal because F = Fmk ae on the product
+    have h_eq_prod : ∀ᵐ (p : α × β) ∂(μ.prod ν), F p.1 p.2 = Fmk p.1 p.2 := by
+      filter_upwards [h_eq_mk] with p hp
+      simpa [Function.uncurry] using hp
+    -- Swap to get ν × μ order
+    have h_swap_fn : (fun q : β × α => F q.2 q.1) =ᵐ[ν.prod μ] (fun q => Fmk q.2 q.1) := by
+      have h_comp := (Measure.measurePreserving_swap (μ := ν)
+        (ν := μ)).quasiMeasurePreserving.ae_eq_comp h_eq_prod
+      simpa [Function.comp, Prod.swap] using h_comp
+    -- Apply curry to extract y-fibres
+    have h_curry_swap := Measure.ae_ae_eq_curry_of_prod (μ := ν) (ν := μ) h_swap_fn
+    refine h_curry_swap.mono fun y hy => ?_
+    have : (fun x => F x y) =ᵐ[μ] (fun x => Fmk x y) := by simpa [Function.curry] using hy
+    simp [eLpNorm_congr_ae this]
+  have h_rhs_eq_integral :
+      ∫ y, (eLpNorm (fun x => F x y) p μ).toReal ∂ν
+        = ∫ y, (eLpNorm (fun x => Fmk x y) p μ).toReal ∂ν :=
+    integral_congr_ae h_rhs_eq
+  -- Transport the inequality from `Fmk` back to the original `F`.
+  simpa [h_lhs_eq, h_rhs_eq_integral]
+    using h_mk_result
 
 end MinkowskiSpecialCases
 
@@ -318,13 +498,10 @@ section MinkowskiConvolution
 /--
 **Minkowski's inequality applied to convolution kernels.**
 
-This is the form most directly used in proving Young's inequality.
-
-For f : α → E and g : α → ℝ≥0 (non-negative weight),
-  ‖∫ f(x - y) g(y) dy‖_{L^p(dx)} ≤ ∫ ‖f(· - y)‖_{L^p} g(y) dy
+We specialise the abstract inequality to the kernel `(x, y) ↦ (g y) • f (x - y)`.
 -/
 theorem minkowski_inequality_convolution
-    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G] [AddGroup G]
+    {G : Type*} [NormedSpace ℝ E] [NormedAddCommGroup G] [MeasurableSpace G] [AddGroup G]
     [MeasurableAdd₂ G] [MeasurableNeg G]
     (μ : Measure G)
     [SFinite μ] [μ.IsAddRightInvariant]
@@ -333,18 +510,57 @@ theorem minkowski_inequality_convolution
     (hp_ne_top : p ≠ ∞)
     (f : G → E)
     (g : G → ℝ)
-    (hf : AEStronglyMeasurable f μ)
-    (hg : Integrable g μ)
-    (hg_nonneg : ∀ x, 0 ≤ g x)
-    (hfg : ∀ᵐ y ∂μ, Integrable (fun x => (g y) • f (x - y)) μ) :
+    (h_meas : AEStronglyMeasurable
+      (fun q : G × G => (g q.2) • f (q.1 - q.2)) (μ.prod μ))
+    (h_prod : Integrable (fun q : G × G => (g q.2) • f (q.1 - q.2)) (μ.prod μ))
+    (h_int : ∀ᵐ y ∂μ, Integrable (fun x => (g y) • f (x - y)) μ)
+    (h_memLp : ∀ᵐ y ∂μ, MemLp (fun x => (g y) • f (x - y)) p μ)
+    (h_norm : Integrable
+      (fun y => (eLpNorm (fun x => (g y) • f (x - y)) p μ).toReal) μ) :
     eLpNorm (fun x => ∫ y, (g y) • f (x - y) ∂μ) p μ ≤
     ENNReal.ofReal (∫ y, |g y| * (eLpNorm (fun x => f (x - y)) p μ).toReal ∂μ) := by
-  sorry
+  classical
+  have h_minkowski :=
+    minkowski_integral_inequality (μ := μ) (ν := μ) (p := p)
+      hp hp_ne_top (fun x y => (g y) • f (x - y))
+      h_meas h_prod h_int h_memLp h_norm
+  have h_scaling :
+      ∀ y,
+        eLpNorm (fun x => (g y) • f (x - y)) p μ =
+          ENNReal.ofReal |g y| * eLpNorm (fun x => f (x - y)) p μ := by
+    intro y
+    have :=
+      eLpNorm_const_smul (μ := μ) (p := p) (c := g y)
+        (f := fun x => f (x - y))
+    simpa [Real.norm_eq_abs, (ofReal_norm_eq_enorm (g y)).symm]
+      using this
+  set h_left : G → ℝ :=
+      fun y => (eLpNorm (fun x => (g y) • f (x - y)) p μ).toReal
+    with h_left_def
+  set h_right : G → ℝ :=
+      fun y => |g y| * (eLpNorm (fun x => f (x - y)) p μ).toReal
+    with h_right_def
+  have h_pointwise : h_left =ᵐ[μ] h_right := by
+    refine Filter.Eventually.of_forall ?_
+    intro y
+    have h_eq := h_scaling y
+    have h_toReal := congrArg ENNReal.toReal h_eq
+    simpa [h_left_def, h_right_def, ENNReal.toReal_mul,
+        ENNReal.toReal_ofReal, abs_nonneg] using h_toReal
+  have h_integral_eq : ∫ y, h_left y ∂μ = ∫ y, h_right y ∂μ :=
+    integral_congr_ae h_pointwise
+  have h_minkowski_left :
+      eLpNorm (fun x => ∫ y, (g y) • f (x - y) ∂μ) p μ ≤
+        ENNReal.ofReal (∫ y, h_left y ∂μ) := by
+    simpa [h_left_def] using h_minkowski
+  have h_result :
+      eLpNorm (fun x => ∫ y, (g y) • f (x - y) ∂μ) p μ ≤
+        ENNReal.ofReal (∫ y, h_right y ∂μ) := by
+    simpa [h_right_def, h_integral_eq] using h_minkowski_left
+  simpa [h_right_def] using h_result
 
 /--
-**Simplified version for scalar-valued functions.**
-
-When both f and g are scalar-valued, the statement simplifies.
+**Scalar kernel version.**
 -/
 theorem minkowski_inequality_convolution_scalar
     {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G] [AddGroup G]
@@ -355,12 +571,33 @@ theorem minkowski_inequality_convolution_scalar
     (hp : 1 ≤ p)
     (hp_ne_top : p ≠ ∞)
     (f g : G → ℝ)
-    (hf : AEStronglyMeasurable f μ)
-    (hg : Integrable g μ)
-    (hg_nonneg : ∀ x, 0 ≤ g x) :
+    (h_meas : AEStronglyMeasurable
+      (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ))
+    (h_prod : Integrable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ))
+    (h_int : ∀ᵐ y ∂μ, Integrable (fun x => f (x - y) * g y) μ)
+    (h_memLp : ∀ᵐ y ∂μ, MemLp (fun x => f (x - y) * g y) p μ)
+    (h_norm : Integrable
+      (fun y => (eLpNorm (fun x => f (x - y) * g y) p μ).toReal) μ) :
     eLpNorm (fun x => ∫ y, f (x - y) * g y ∂μ) p μ ≤
     ENNReal.ofReal (∫ y, |g y| * (eLpNorm (fun x => f (x - y)) p μ).toReal ∂μ) := by
-  sorry
+  classical
+  have h_meas' : AEStronglyMeasurable
+      (fun q : G × G => (g q.2) • f (q.1 - q.2)) (μ.prod μ) := by
+    simpa [smul_eq_mul, mul_comm] using h_meas
+  have h_prod' : Integrable (fun q : G × G => (g q.2) • f (q.1 - q.2)) (μ.prod μ) := by
+    simpa [smul_eq_mul, mul_comm] using h_prod
+  have h_int' : ∀ᵐ y ∂μ, Integrable (fun x => (g y) • f (x - y)) μ := by
+    simpa [smul_eq_mul, mul_comm] using h_int
+  have h_memLp' : ∀ᵐ y ∂μ, MemLp (fun x => (g y) • f (x - y)) p μ := by
+    simpa [smul_eq_mul, mul_comm] using h_memLp
+  have h_norm' : Integrable
+      (fun y => (eLpNorm (fun x => (g y) • f (x - y)) p μ).toReal) μ := by
+    simpa [smul_eq_mul, mul_comm] using h_norm
+  have h_general :=
+    minkowski_inequality_convolution (μ := μ) (p := p)
+      hp hp_ne_top (f := f) (g := g)
+      h_meas' h_prod' h_int' h_memLp' h_norm'
+  simpa [smul_eq_mul, mul_comm] using h_general
 
 end MinkowskiConvolution
 
@@ -369,16 +606,23 @@ section AuxiliaryLemmas
 /--
 **Jensen's inequality for integrals with convex functions.**
 
-This is used in the proof of Minkowski's inequality.
+Assuming `μ` is a probability measure and both `f` and `φ ∘ f` are integrable, Jensen yields the
+stated inequality. This formulation is sufficient for the applications in this file.
 -/
 theorem jensen_integral_convex
+    [IsProbabilityMeasure μ]
     {f : α → ℝ}
-    (hf : Integrable f μ)
-    (φ : ℝ → ℝ)
-    (hφ : ConvexOn ℝ (Set.univ) φ)
-    (hφ_cont : Continuous φ) :
+    (hf : Integrable f μ) (φ : ℝ → ℝ) (hφ : ConvexOn ℝ (Set.univ) φ) (hφ_cont : Continuous φ)
+    (hφ_int : Integrable (fun x => φ (f x)) μ) :
     φ (∫ x, f x ∂μ) ≤ ∫ x, φ (f x) ∂μ := by
-  sorry
+  classical
+  have h_contOn : ContinuousOn φ (Set.univ : Set ℝ) := hφ_cont.continuousOn
+  have h_closed : IsClosed (Set.univ : Set ℝ) := isClosed_univ
+  have h_mem : ∀ᵐ x ∂μ, f x ∈ (Set.univ : Set ℝ) :=
+    ae_of_all _ fun _ => trivial
+  simpa [Function.comp] using
+    hφ.map_integral_le (μ := μ) (f := f) (g := φ)
+      h_contOn h_closed h_mem hf hφ_int
 
 /--
 **Power function is convex for p ≥ 1.**
@@ -386,26 +630,63 @@ theorem jensen_integral_convex
 The function x ↦ |x|^p is convex for p ≥ 1.
 -/
 theorem abs_pow_convex
-    {p : ℝ}
-    (hp : 1 ≤ p) :
+    {p : ℝ} (hp : 1 ≤ p) :
     ConvexOn ℝ (Set.univ) (fun x : ℝ => |x| ^ p) := by
-  sorry
+  classical
+  have hp_nonneg : 0 ≤ p := (zero_le_one.trans hp)
+  -- The image of `x ↦ ‖x‖` is the nonnegative reals.
+  have h_range : Set.range (fun x : ℝ => |x|) = Set.Ici (0 : ℝ) := by
+    ext x
+    constructor
+    · rintro ⟨y, rfl⟩
+      simp [Set.mem_Ici]
+    · intro hx
+      have hx' : 0 ≤ x := by simpa [Set.mem_Ici] using hx
+      refine ⟨x, ?_⟩
+      simp [abs_of_nonneg hx']
+  have h_image_range :
+      (fun x : ℝ => ‖x‖) '' (Set.univ : Set ℝ) = Set.range (fun x : ℝ => |x|) := by
+    simp [Set.image_univ, Real.norm_eq_abs]
+  -- Convexity of the base function `x ↦ ‖x‖`.
+  have h_base : ConvexOn ℝ (Set.univ : Set ℝ) fun x : ℝ => ‖x‖ := convexOn_univ_norm
+  -- Convexity of the exponent function on the nonnegative reals.
+  have h_exp :
+      ConvexOn ℝ ((fun x : ℝ => ‖x‖) '' (Set.univ : Set ℝ))
+        (fun t : ℝ => t ^ p) := by
+    simpa [h_image_range, h_range] using (convexOn_rpow (p := p) hp)
+  -- Monotonicity of the exponent function on the relevant image.
+  have h_mono :
+      MonotoneOn (fun t : ℝ => t ^ p)
+        ((fun x : ℝ => ‖x‖) '' (Set.univ : Set ℝ)) := by
+    simpa [h_image_range, h_range] using
+      (Real.monotoneOn_rpow_Ici_of_exponent_nonneg (r := p) hp_nonneg)
+  -- Compose the two convex functions.
+  have h_comp :
+      ConvexOn ℝ (Set.univ : Set ℝ)
+        (fun x : ℝ => (‖x‖) ^ p) :=
+    ConvexOn.comp h_exp h_base h_mono
+  simpa [Real.norm_eq_abs] using h_comp
 
 /--
 **Translation preserves L^p norm for Haar measure.**
 
 For Haar measure, ‖f(· - y)‖_p = ‖f‖_p for all y.
 -/
-theorem eLpNorm_comp_sub_right
+theorem eLpNorm_comp_add_right
     {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G] [AddGroup G]
     [MeasurableAdd₂ G] [MeasurableNeg G]
     (μ : Measure G)
     [SFinite μ] [μ.IsAddRightInvariant]
     (f : G → E)
     (y : G)
-    (p : ℝ≥0∞) :
-    eLpNorm (fun x => f (x - y)) p μ = eLpNorm f p μ := by
-  sorry
+    (p : ℝ≥0∞)
+    (hf : AEStronglyMeasurable f μ) :
+    eLpNorm (fun x => f (x + y)) p μ = eLpNorm f p μ := by
+  classical
+  have h_pres : MeasurePreserving (fun x : G => x + y) μ μ :=
+    measurePreserving_add_right (μ := μ) y
+  simpa [Function.comp] using
+    (eLpNorm_comp_measurePreserving (μ := μ) (ν := μ) (p := p) hf h_pres)
 
 /--
 **Fubini for non-negative convolution integrals.**
@@ -422,6 +703,39 @@ theorem lintegral_convolution_swap
     (hg : AEMeasurable g μ) :
     ∫⁻ x, ∫⁻ y, f (x - y) * g y ∂μ ∂μ =
     ∫⁻ y, ∫⁻ x, f (x - y) * g y ∂μ ∂μ := by
-  sorry
+  classical
+  have hf_prod :
+      AEMeasurable (Function.uncurry fun x y : G => f (x - y)) (μ.prod μ) := by
+    have h_sub_qmp :
+        Measure.QuasiMeasurePreserving (fun z : G × G => z.1 - z.2)
+          (μ.prod μ) μ := by
+      have h_measPres :
+          MeasurePreserving (fun z : G × G => (z.1 - z.2, z.2))
+            (μ.prod μ) (μ.prod μ) :=
+        measurePreserving_sub_prod (μ := μ) (ν := μ)
+      have h_fst :
+          Measure.QuasiMeasurePreserving (fun z : G × G => z.1)
+            (μ.prod μ) μ :=
+        MeasureTheory.Measure.quasiMeasurePreserving_fst (μ := μ) (ν := μ)
+      simpa [Function.comp, sub_eq_add_neg, add_comm, add_left_comm]
+        using h_fst.comp h_measPres.quasiMeasurePreserving
+    have hf_prod' :
+        AEMeasurable (fun z : G × G => f (z.1 - z.2)) (μ.prod μ) :=
+      hf.comp_quasiMeasurePreserving h_sub_qmp
+    simpa [Function.uncurry] using hf_prod'
+  have hg_prod :
+      AEMeasurable (Function.uncurry fun _ y : G => g y) (μ.prod μ) := by
+    have hg_prod' :
+        AEMeasurable (fun z : G × G => g z.2) (μ.prod μ) :=
+      hg.comp_quasiMeasurePreserving
+        (MeasureTheory.Measure.quasiMeasurePreserving_snd (μ := μ) (ν := μ))
+    simpa [Function.uncurry] using hg_prod'
+  have h_prod_meas :
+      AEMeasurable (Function.uncurry fun x y : G => f (x - y) * g y) (μ.prod μ) := by
+    have := hf_prod.mul hg_prod
+    simpa [Function.uncurry, mul_comm, mul_left_comm, mul_assoc]
+      using this
+  simpa using
+    MeasureTheory.lintegral_lintegral_swap (μ := μ) (ν := μ) h_prod_meas
 
 end AuxiliaryLemmas

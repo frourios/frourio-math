@@ -53,7 +53,7 @@ A function ψ is a mollifier if it is smooth, compactly supported,
 normalized, and non-negative.
 -/
 structure IsApproximateIdentity (ψ : (Fin n → ℝ) → ℝ) : Prop where
-  smooth : ContDiff ℝ ⊤ ψ
+  smooth : ContDiff ℝ (∞ : WithTop ℕ∞) ψ
   compact_support : HasCompactSupport ψ
   normalized : ∫ x, ψ x = 1
   nonneg : ∀ x, 0 ≤ ψ x
@@ -240,7 +240,7 @@ Any normalized bump function supported in B_1 is an approximate identity.
 -/
 theorem bump_function_is_approximate_identity
     (ψ : (Fin n → ℝ) → ℝ)
-    (hψ_smooth : ContDiff ℝ ⊤ ψ)
+    (hψ_smooth : ContDiff ℝ (∞ : WithTop ℕ∞) ψ)
     (hψ_compact : HasCompactSupport ψ)
     (hψ_nonneg : ∀ x, 0 ≤ ψ x)
     (hψ_supp : tsupport ψ ⊆ Metric.closedBall (0 : Fin n → ℝ) 1)

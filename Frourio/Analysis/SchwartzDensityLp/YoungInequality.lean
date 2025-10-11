@@ -1,6 +1,7 @@
+import Frourio.Analysis.SchwartzDensityLp.ConvolutionTheory
+import Frourio.Analysis.SchwartzDensityLp.MinkowskiIntegral
 import Mathlib.Analysis.Convolution
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
-import Frourio.Analysis.SchwartzDensityLp.ConvolutionTheory
 
 /-!
 # Young's Inequality for Convolution
@@ -55,7 +56,74 @@ theorem young_convolution_inequality
     MemLp (fun x => ∫ y, f (x - y) * g y) r volume ∧
     eLpNorm (fun x => ∫ y, f (x - y) * g y) r volume ≤
       eLpNorm f p volume * eLpNorm g q volume := by
-  sorry
+  -- Young's inequality proof strategy:
+  --
+  -- Key idea: Use Hölder's inequality and Minkowski's integral inequality
+  --
+  -- Step 1: For each x, estimate |∫ f(x-y) g(y) dy|
+  -- Using Hölder: |∫ f(x-y) g(y) dy| ≤ (∫ |f(x-y)|^p' dy)^(1/p') · (∫ |g(y)|^q' dy)^(1/q')
+  -- where 1/p' + 1/q' = 1
+  --
+  -- Step 2: Take L^r norm over x and apply Minkowski's integral inequality
+  --
+  -- The difficulty is that we need to relate the exponents p', q', r
+  -- to the original p, q, r via the condition 1/p + 1/q = 1 + 1/r
+
+  -- First, establish basic properties
+  have hf_ae : AEStronglyMeasurable f volume := hf.aestronglyMeasurable
+  have hg_ae : AEStronglyMeasurable g volume := hg.aestronglyMeasurable
+  have hf_lt_top : eLpNorm f p volume < ⊤ := hf.eLpNorm_lt_top
+  have hg_lt_top : eLpNorm g q volume < ⊤ := hg.eLpNorm_lt_top
+
+  -- Strategy: We'll prove this in several steps
+  --
+  -- Step 1: Show the convolution is AEStronglyMeasurable
+  -- This requires showing that for each x, the integrand y ↦ f(x-y)g(y) is integrable
+
+  -- For the integrand at each x, we can use Hölder's inequality
+  -- |∫ f(x-y) g(y) dy| ≤ ‖f(x-·)‖_p · ‖g‖_q
+
+  -- But we need conjugate exponents that work with the condition 1/p + 1/q = 1 + 1/r
+
+  -- Standard proof uses the following approach:
+  -- Write |f * g(x)| ≤ ∫ |f(x-y)| |g(y)| dy
+  -- Then estimate ‖f * g‖_r^r = ∫ |f * g(x)|^r dx
+
+  -- After manipulation with Fubini and Hölder, this becomes the desired inequality
+
+  -- The critical step that's missing in Mathlib:
+  -- **Minkowski's integral inequality**: For F(x,y) measurable,
+  --   ‖∫ F(·,y) dν(y)‖_{L^r(μ)} ≤ ∫ ‖F(·,y)‖_{L^r(μ)} dν(y)
+
+  -- Alternative approach using the definition directly:
+  constructor
+  · -- Prove MemLp
+    sorry -- This requires:
+          -- 1. AEStronglyMeasurable: convolution of AE measurable functions
+          -- 2. eLpNorm < ⊤: the actual inequality we're proving
+  · -- Prove the inequality
+    -- We'll attempt to write out the key steps
+
+    -- By definition of eLpNorm for r ≠ 0, ∞:
+    -- ‖f * g‖_r = (∫ |f * g(x)|^r dx)^(1/r)
+
+    -- We need to bound ∫ |f * g(x)|^r dx
+    -- where f * g(x) = ∫ f(x-y) g(y) dy
+
+    -- Key insight: Use the exponent relation
+    -- From 1/p + 1/q = 1 + 1/r, we get 1/r = 1/p + 1/q - 1
+    -- So r = pq/(p+q-pq) when p, q < ∞
+
+    -- The proof requires a careful case analysis:
+    -- Case 1: r = ∞ (then 1/p + 1/q = 1, so p and q are conjugate)
+    -- Case 2: 1 < r < ∞
+    -- Case 3: r = 1 (then 1/p + 1/q = 2)
+
+    -- For each case, the proof technique is different
+
+    sorry -- Missing: Minkowski's integral inequality
+          --        + Careful case analysis by r
+          --        + Complex manipulations with Fubini/Tonelli
 
 end YoungGeneral
 
@@ -75,7 +143,20 @@ theorem young_L1_L1
     Integrable (fun x => ∫ y, f (x - y) * g y) volume ∧
     eLpNorm (fun x => ∫ y, f (x - y) * g y) 1 volume ≤
       eLpNorm f 1 volume * eLpNorm g 1 volume := by
-  sorry
+  -- For L¹ × L¹ → L¹, this is the simplest case
+  -- The proof uses Fubini and the basic triangle inequality
+
+  have hf_ae : AEStronglyMeasurable f volume := hf.aestronglyMeasurable
+  have hg_ae : AEStronglyMeasurable g volume := hg.aestronglyMeasurable
+
+  constructor
+  · -- Prove integrability of the convolution
+    -- TODO: fill in the actual proof.
+    sorry
+
+  · -- Prove the inequality
+    -- TODO: fill in the actual proof.
+    sorry -- The inequality is essentially proven in the integrability part
 
 /--
 **Young's inequality for L² × L¹ → L².**
@@ -137,6 +218,28 @@ theorem convolution_diff_bound_L1
     eLpNorm (fun x =>
       (∫ y, f₁ (x - y) * ψ y) - (∫ y, f₂ (x - y) * ψ y)) 1 volume ≤
       eLpNorm (fun x => f₁ x - f₂ x) 1 volume * eLpNorm ψ 1 volume := by
+  sorry
+
+/--
+**Bound on difference of convolutions with a normalized mollifier (L¹ case).**
+
+If ψ is a non-negative mollifier with unit mass, convolution with the scaled
+ψ does not increase the L¹ distance between two functions.
+-/
+theorem mollifier_convolution_diff_L1
+    (g f₀ : (Fin n → ℝ) → ℂ)
+    (ψ : (Fin n → ℝ) → ℝ)
+    (hg : Integrable g volume)
+    (hf₀ : Integrable f₀ volume)
+    (hψ_compact : HasCompactSupport ψ)
+    (hψ_nonneg : ∀ x, 0 ≤ ψ x)
+    (hψ_int : ∫ x, ψ x = 1) :
+    ∀ η : ℝ, 0 < η → η < 1 →
+      eLpNorm (fun x =>
+        (∫ y, g (x - y) * (↑(η^(-(n : ℝ)) * ψ (fun i => y i / η)) : ℂ)) -
+        (∫ y, f₀ (x - y) * (↑(η^(-(n : ℝ)) * ψ (fun i => y i / η)) : ℂ)))
+        1 volume ≤
+      eLpNorm (fun x => g x - f₀ x) 1 volume := by
   sorry
 
 /--

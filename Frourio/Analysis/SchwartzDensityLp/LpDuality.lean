@@ -25,14 +25,13 @@ work.
 -/
 
 open scoped ENNReal
-open MeasureTheory
+open MeasureTheory Real Topology
 
 namespace SchwartzDensityLp
 
 variable {α : Type*} [MeasurableSpace α] {μ : Measure α}
 variable {β : Type*} [MeasurableSpace β] {ν : Measure β}
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
-  [MeasurableSpace E] [BorelSpace E]
 
 /-- Hölder's inequality expressed as a dual pairing between `L^p` and `L^q`. -/
 theorem lp_duality_pairing
@@ -747,15 +746,11 @@ theorem lp_duality_norm_le_of_pairing_bound
     exact this
 
 lemma eLpNorm_norm_integral_lt_top
-    {β : Type*} [MeasurableSpace β] {ν : Measure β}
-    [NormedAddCommGroup E] [NormedSpace ℝ E]
-    [MeasurableSpace E] [BorelSpace E]
     [SFinite μ] [SFinite ν]
     (p : ℝ≥0∞) (hp : 1 < p) (hp_ne_top : p ≠ ∞)
     {F : α → β → E}
     (hF_meas : AEStronglyMeasurable (Function.uncurry F) (μ.prod ν))
     (hF_prod : Integrable (Function.uncurry F) (μ.prod ν))
-    (hF_int : ∀ᵐ y ∂ν, Integrable (fun x => F x y) μ)
     (hF_memLp : ∀ᵐ y ∂ν, MemLp (fun x => F x y) p μ)
     (hF_norm : Integrable (fun y => (eLpNorm (fun x => F x y) p μ).toReal) ν) :
     eLpNorm (fun x => ‖∫ y, F x y ∂ν‖) p μ < ∞ := by
@@ -1181,8 +1176,168 @@ lemma eLpNorm_norm_integral_lt_top
     refine (ENNReal.toReal_le_toReal h_fin hB_fin).1 ?_
     simpa [ENNReal.toReal_ofReal hB_nonneg] using h_trunc_norm_le N
   have h_goal : eLpNorm g p μ ≤ ENNReal.ofReal B := by
-    -- TODO: pass to the limit using the monotone convergence of the truncations.
-    sorry
+    classical
+    -- Choose a measurable non-negative representative of `g`.
+    set gTilde := hg_meas.aemeasurable.mk g with hgTilde_def
+    set g0 : α → ℝ := fun x => max (gTilde x) 0 with hg0_def
+    have hg_ae' : g =ᵐ[μ] gTilde := hg_meas.aemeasurable.ae_eq_mk
+    have hg0_ae : g =ᵐ[μ] g0 :=
+      hg_ae'.mono fun x hx => by
+        have hx_nonneg : 0 ≤ g x := hg_nonneg x
+        have hx_nonneg' : 0 ≤ gTilde x := by simpa [hx] using hx_nonneg
+        have hmax : max (g x) 0 = g x := by simpa [max_eq_left] using hx_nonneg
+        simp [g0, hg0_def, hx, hmax, hx_nonneg']
+    have h_eLp_congr : eLpNorm g p μ = eLpNorm g0 p μ :=
+      eLpNorm_congr_ae hg0_ae
+    have hgTilde_meas : Measurable gTilde := hg_meas.aemeasurable.measurable_mk
+    have hg0_meas : Measurable g0 := hgTilde_meas.max measurable_const
+    have hg0_nonneg : ∀ x, 0 ≤ g0 x := by
+      intro x; exact le_max_right _ _
+    -- Truncate the measurable representative and compare with the original truncations.
+    let trunc0 : ℕ → α → ℝ := fun N x => min (g0 x) (N : ℝ)
+    have h_trunc_ae : ∀ N, trunc N =ᵐ[μ] trunc0 N := by
+      intro N
+      exact hg0_ae.mono (by intro x hx; simp [trunc, trunc0, hx])
+    have h_trunc0_meas : ∀ N, Measurable (trunc0 N) := by
+      intro N; exact (hg0_meas.min measurable_const)
+    have h_trunc0_nonneg : ∀ N x, 0 ≤ trunc0 N x := by
+      intro N x; dsimp [trunc0]
+      have hN_nonneg : 0 ≤ (N : ℝ) := by exact_mod_cast Nat.zero_le N
+      exact le_min (hg0_nonneg x) hN_nonneg
+    have h_trunc0_le : ∀ N x, trunc0 N x ≤ g0 x := by
+      intro N x; dsimp [trunc0]; exact min_le_left _ _
+    have h_trunc0_eLp_le : ∀ N : ℕ,
+        eLpNorm (trunc0 N) p μ ≤ ENNReal.ofReal B := by
+      intro N
+      have h_bound := h_trunc_eLp_le N
+      have h_eq :
+          eLpNorm (trunc N) p μ = eLpNorm (trunc0 N) p μ :=
+        eLpNorm_congr_ae (μ := μ) (p := p)
+          (f := trunc N) (g := trunc0 N) (h_trunc_ae N)
+      simpa [h_eq] using h_bound
+    -- Work with the `L^p` densities of the truncations.
+    set F0 : ℕ → α → ℝ≥0∞ := fun N x => ‖trunc0 N x‖ₑ ^ pr
+      with hF0_def
+    have hF0_meas : ∀ N, Measurable (F0 N) := by
+      intro N
+      have h_abs : Measurable fun x => |trunc0 N x| :=
+        ((_root_.continuous_abs : Continuous fun t : ℝ => |t|).measurable.comp
+          (h_trunc0_meas N))
+      have h_enorm : Measurable fun x => ‖trunc0 N x‖ₑ := by
+        simpa [Real.enorm_eq_ofReal_abs, Real.norm_eq_abs] using
+          (ENNReal.measurable_ofReal.comp h_abs)
+      have h_pow :
+          Measurable fun x => ‖trunc0 N x‖ₑ ^ pr :=
+        (ENNReal.continuous_rpow_const (y := pr)).measurable.comp h_enorm
+      simpa [F0, hF0_def] using h_pow
+    have hF0_mono : Monotone F0 := by
+      intro m n hmn x
+      have h_trunc_le : trunc0 m x ≤ trunc0 n x := by
+        dsimp [trunc0]
+        exact min_le_min le_rfl (by exact_mod_cast hmn)
+      have h_nonneg_m : 0 ≤ trunc0 m x := h_trunc0_nonneg m x
+      have h_nonneg_n : 0 ≤ trunc0 n x := h_trunc0_nonneg n x
+      have : ENNReal.ofReal (trunc0 m x) ≤ ENNReal.ofReal (trunc0 n x) :=
+        ENNReal.ofReal_le_ofReal h_trunc_le
+      have h_le_enorm : ‖trunc0 m x‖ₑ ≤ ‖trunc0 n x‖ₑ := by
+        simpa [Real.enorm_eq_ofReal_abs, Real.norm_eq_abs,
+          abs_of_nonneg h_nonneg_m, abs_of_nonneg h_nonneg_n]
+          using this
+      exact ENNReal.rpow_le_rpow h_le_enorm hp_toReal_pos.le
+    have hF0_iSup :
+        (fun x => ‖g0 x‖ₑ ^ pr) = fun x => ⨆ N, F0 N x := by
+      funext x
+      have h_le : ∀ N, F0 N x ≤ ‖g0 x‖ₑ ^ pr := by
+        intro N
+        have h_trunc_le' : trunc0 N x ≤ g0 x := h_trunc0_le N x
+        have h_nonneg_N : 0 ≤ trunc0 N x := h_trunc0_nonneg N x
+        have h_nonneg_g0 : 0 ≤ g0 x := hg0_nonneg x
+        have : ENNReal.ofReal (trunc0 N x) ≤ ENNReal.ofReal (g0 x) :=
+          ENNReal.ofReal_le_ofReal h_trunc_le'
+        have h_base : ‖trunc0 N x‖ₑ ≤ ‖g0 x‖ₑ := by
+          simpa [Real.enorm_eq_ofReal_abs, Real.norm_eq_abs,
+            abs_of_nonneg h_nonneg_N, abs_of_nonneg h_nonneg_g0]
+            using this
+        exact ENNReal.rpow_le_rpow h_base hp_toReal_pos.le
+      apply le_antisymm
+      · obtain ⟨N, hN⟩ := exists_nat_ge (g0 x)
+        have h_min : min (g0 x) (N : ℝ) = g0 x := by
+          exact min_eq_left (by exact_mod_cast hN)
+        have h_trunc_eq : trunc0 N x = g0 x := by simp [trunc0, h_min]
+        refine le_iSup_of_le N ?_
+        have h_nonneg : 0 ≤ g0 x := hg0_nonneg x
+        simp [F0, hF0_def, h_trunc_eq, Real.enorm_eq_ofReal_abs, Real.norm_eq_abs,
+          abs_of_nonneg h_nonneg]
+      · exact iSup_le h_le
+    have h_lintegral_eq :
+        ∫⁻ x, ‖g0 x‖ₑ ^ pr ∂μ = ⨆ N, ∫⁻ x, F0 N x ∂μ := by
+      simpa [hF0_iSup] using
+        MeasureTheory.lintegral_iSup (μ := μ) hF0_meas hF0_mono
+    have h_int_eq :
+        ∀ N : ℕ, ∫⁻ x, F0 N x ∂μ = (eLpNorm (trunc0 N) p μ) ^ pr := by
+      intro N
+      set A := ∫⁻ x, ‖trunc0 N x‖ₑ ^ pr ∂μ
+      have h_eLp :=
+        MeasureTheory.eLpNorm_eq_lintegral_rpow_enorm
+          (μ := μ) (p := p) (f := trunc0 N)
+          (hp_ne_zero := hp_ne_zero) (hp_ne_top := hp_ne_top)
+      have h_pr_ne_zero : pr ≠ 0 := ne_of_gt hp_toReal_pos
+      have h_mul : pr⁻¹ * pr = 1 := by
+        simp [h_pr_ne_zero]
+      have hA : eLpNorm (trunc0 N) p μ = A ^ (1 / pr) := by
+        simpa [F0, hF0_def, A] using h_eLp
+      have hA_inv : eLpNorm (trunc0 N) p μ = A ^ pr⁻¹ := by
+        simpa [one_div] using hA
+      have h_left : (A ^ pr⁻¹) ^ pr = A := by
+        have h_rpow := (ENNReal.rpow_mul A pr⁻¹ pr).symm
+        simpa [h_mul] using h_rpow
+      have hA_pow : (eLpNorm (trunc0 N) p μ) ^ pr = A := by
+        simpa [hA_inv] using h_left
+      simpa [F0, hF0_def, A] using hA_pow.symm
+    have h_int_le :
+        ∫⁻ x, ‖g0 x‖ₑ ^ pr ∂μ ≤ (ENNReal.ofReal B) ^ pr := by
+      calc
+        ∫⁻ x, ‖g0 x‖ₑ ^ pr ∂μ
+            = ⨆ N, ∫⁻ x, F0 N x ∂μ := h_lintegral_eq
+        _ ≤ (ENNReal.ofReal B) ^ pr :=
+          iSup_le fun N => by
+            have h_le := ENNReal.rpow_le_rpow (h_trunc0_eLp_le N) hp_toReal_pos.le
+            simpa [h_int_eq N] using h_le
+    have h_bound_lt_top : (ENNReal.ofReal B) ^ pr < ∞ := by
+      have : (ENNReal.ofReal B) < ∞ := by simp
+      exact ENNReal.rpow_lt_top_of_nonneg hp_toReal_pos.le this.ne
+    have h_int_lt_top :
+        (∫⁻ x, ‖g0 x‖ₑ ^ pr ∂μ) < ∞ := lt_of_le_of_lt h_int_le h_bound_lt_top
+    have h_eLp_repr :=
+      MeasureTheory.eLpNorm_eq_lintegral_rpow_enorm
+        (μ := μ) (p := p) (f := g0)
+        (hp_ne_zero := hp_ne_zero) (hp_ne_top := hp_ne_top)
+    have h_eLp_value : eLpNorm g0 p μ =
+        (∫⁻ x, ‖g0 x‖ₑ ^ pr ∂μ) ^ pr⁻¹ := by
+      simpa [F0, hF0_def, one_div] using h_eLp_repr
+    have h_inv_nonneg : 0 ≤ pr⁻¹ := by
+      have h_pos : 0 < pr⁻¹ := by
+        simpa [one_div] using inv_pos.mpr hp_toReal_pos
+      exact h_pos.le
+    have h_pow_le :=
+      ENNReal.rpow_le_rpow h_int_le h_inv_nonneg
+    have h_pow_eq :
+        ((ENNReal.ofReal B) ^ pr) ^ pr⁻¹ = ENNReal.ofReal B := by
+      have h_pr_ne_zero : pr ≠ 0 := ne_of_gt hp_toReal_pos
+      have h_mul : pr * pr⁻¹ = 1 := by
+        simp [h_pr_ne_zero]
+      have h_rpow :=
+        (ENNReal.rpow_mul (ENNReal.ofReal B) pr pr⁻¹).symm
+      have h_rpow' :
+          ((ENNReal.ofReal B) ^ pr) ^ pr⁻¹
+            = (ENNReal.ofReal B) ^ 1 := by
+        simpa [h_mul] using h_rpow
+      simpa using h_rpow'
+    have h_goal0 : eLpNorm g0 p μ ≤ ENNReal.ofReal B := by
+      have h_base : (∫⁻ x, ‖g0 x‖ₑ ^ pr ∂μ) ^ pr⁻¹
+          ≤ ((ENNReal.ofReal B) ^ pr) ^ pr⁻¹ := h_pow_le
+      simpa [h_eLp_value, h_pow_eq] using h_base
+    simpa [h_eLp_congr] using h_goal0
   have h_fin : eLpNorm g p μ < ∞ := lt_of_le_of_lt h_goal (by simp)
   simpa [g] using h_fin
 
@@ -1197,19 +1352,66 @@ lemma memLp_norm_integral
     {F : α → β → E}
     (hF_meas : AEStronglyMeasurable (Function.uncurry F) (μ.prod ν))
     (hF_prod : Integrable (Function.uncurry F) (μ.prod ν))
-    (hF_int : ∀ᵐ y ∂ν, Integrable (fun x => F x y) μ)
     (hF_memLp : ∀ᵐ y ∂ν, MemLp (fun x => F x y) p μ)
     (hF_norm : Integrable (fun y => (eLpNorm (fun x => F x y) p μ).toReal) ν) :
     MemLp (fun x => ‖∫ y, F x y ∂ν‖) p μ := by
-  -- TODO: fill in proof once the Minkowski argument is finalised.
-  sorry
-
-/-- If `f ∈ L^p`, then the pointwise norm of `f` is integrable. -/
-lemma MemLp.integrable_norm
-    {f : α → E} {p : ℝ≥0∞}
-    (hf : MemLp f p μ) : Integrable (fun x => ‖f x‖) μ := by
   classical
-  -- Placeholder for the standard argument relying on `MemLp.integrable_norm_rpow`.
-  sorry
+  -- Basic measurability facts for the fibrewise integral and its norm.
+  have h_integral_meas :
+      AEStronglyMeasurable (fun x => ∫ y, F x y ∂ν) μ := by
+    simpa using
+      (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+        (μ := μ) (ν := ν) (f := Function.uncurry F) hF_meas)
+  have h_norm_meas :
+      AEStronglyMeasurable (fun x => ‖∫ y, F x y ∂ν‖) μ :=
+    h_integral_meas.norm
+  -- Extract the information on fibrewise integrability provided by `hF_prod`.
+  have h_prod_info :=
+    (integrable_prod_iff (μ := μ) (ν := ν)
+      (f := Function.uncurry F) hF_meas).mp hF_prod
+  have hF_int_left :
+      ∀ᵐ x ∂μ, Integrable (fun y => F x y) ν := by
+    simpa [Function.uncurry] using h_prod_info.1
+  have h_majorant_int :
+      Integrable (fun x => ∫ y, ‖F x y‖ ∂ν) μ := by
+    simpa [Function.uncurry] using h_prod_info.2
+  -- Pointwise domination of the norm by the integral of fibrewise norms.
+  have h_pointwise :
+      (fun x => ‖∫ y, F x y ∂ν‖)
+        ≤ᵐ[μ]
+          fun x => ∫ y, ‖F x y‖ ∂ν := by
+    refine hF_int_left.mono ?_
+    intro x hx
+    have hx_bound :=
+      norm_integral_le_integral_norm (μ := ν) (f := fun y => F x y)
+    simpa using hx_bound
+  -- The pointwise domination yields integrability of the normed integral.
+  have h_norm_integrable :
+      Integrable (fun x => ‖∫ y, F x y ∂ν‖) μ := by
+    refine Integrable.mono' h_majorant_int h_norm_meas ?_
+    simpa using h_pointwise
+  -- Work with the scalar helper `g`.
+  set g : α → ℝ := fun x => ‖∫ y, F x y ∂ν‖
+  have hg_meas : AEStronglyMeasurable g μ := h_norm_meas
+  have hg_int : Integrable g μ := by
+    simpa [g] using h_norm_integrable
+  by_cases hp_eq_one : p = (1 : ℝ≥0∞)
+  · subst hp_eq_one
+    -- For `p = 1`, membership in `L¹` is equivalent to integrability.
+    have hg_mem : MemLp g (1 : ℝ≥0∞) μ :=
+      (memLp_one_iff_integrable : MemLp g (1 : ℝ≥0∞) μ ↔ Integrable g μ).2 hg_int
+    simpa [g] using hg_mem
+  -- For `p > 1`, the previous finiteness lemma applies directly.
+  · have hp_ne_one : p ≠ (1 : ℝ≥0∞) := hp_eq_one
+    have hp_one_lt : 1 < p :=
+      lt_of_le_of_ne' hp (by simpa [eq_comm] using hp_ne_one)
+    have hp_pos : (0 : ℝ≥0∞) < p :=
+      lt_of_le_of_lt (by simp : (0 : ℝ≥0∞) ≤ 1) hp_one_lt
+    have hp_ne_zero : p ≠ 0 := ne_of_gt hp_pos
+    have h_lt_top :=
+      eLpNorm_norm_integral_lt_top (μ := μ) (ν := ν) (p := p)
+        hp_one_lt hp_ne_top hF_meas hF_prod hF_memLp hF_norm
+    have hg_mem : MemLp g p μ := ⟨hg_meas, by simpa [g] using h_lt_top⟩
+    simpa [g] using hg_mem
 
 end SchwartzDensityLp
