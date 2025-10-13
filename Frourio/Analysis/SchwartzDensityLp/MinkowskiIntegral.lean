@@ -1,5 +1,6 @@
 import Mathlib.Analysis.Convolution
 import Mathlib.Analysis.Convex.Integral
+import Mathlib.MeasureTheory.Function.L1Space.Integrable
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Frourio.Analysis.HolderInequality.HolderInequality
@@ -563,7 +564,7 @@ theorem minkowski_inequality_convolution
 **Scalar kernel version.**
 -/
 theorem minkowski_inequality_convolution_scalar
-    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G] [AddGroup G]
+    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
     [MeasurableAdd₂ G] [MeasurableNeg G]
     (μ : Measure G)
     [SFinite μ] [μ.IsAddRightInvariant]
@@ -600,6 +601,377 @@ theorem minkowski_inequality_convolution_scalar
   simpa [smul_eq_mul, mul_comm] using h_general
 
 end MinkowskiConvolution
+
+section ConvolutionPreparatory
+
+variable {G : Type*}
+variable [NormedAddCommGroup G] [MeasurableSpace G]
+variable [MeasurableAdd₂ G] [MeasurableNeg G]
+variable (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant]
+
+/--
+Almost everywhere measurability of the convolution kernel produced from `L^p` data. This lemma
+packages the hypotheses needed to apply Minkowski's integral inequality in the Young inequality
+arguments.
+-/
+lemma convolution_kernel_aestronglyMeasurable
+    (f g : G → ℂ)
+    (hf : AEStronglyMeasurable f μ) (hg : AEStronglyMeasurable g μ) :
+    AEStronglyMeasurable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ) := by
+  classical
+  have hf_aemeas : AEMeasurable f μ := hf.aemeasurable
+  have hg_aemeas : AEMeasurable g μ := hg.aemeasurable
+  have h_sub_qmp :
+      Measure.QuasiMeasurePreserving (fun q : G × G => q.1 - q.2)
+        (μ.prod μ) μ := by
+    have h_sub_prod :
+        MeasurePreserving (fun q : G × G => (q.1 - q.2, q.2))
+          (μ.prod μ) (μ.prod μ) :=
+      measurePreserving_sub_prod (μ := μ) (ν := μ)
+    have h_fst_qmp :
+        Measure.QuasiMeasurePreserving (fun q : G × G => q.1)
+          (μ.prod μ) μ :=
+      MeasureTheory.Measure.quasiMeasurePreserving_fst (μ := μ) (ν := μ)
+    have h_comp := h_fst_qmp.comp h_sub_prod.quasiMeasurePreserving
+    simpa [Function.comp, sub_eq_add_neg, add_comm, add_left_comm]
+      using h_comp
+  have hf_prod_aemeas :
+      AEMeasurable (fun q : G × G => f (q.1 - q.2)) (μ.prod μ) :=
+    hf_aemeas.comp_quasiMeasurePreserving h_sub_qmp
+  have hg_prod_aemeas :
+      AEMeasurable (fun q : G × G => g q.2) (μ.prod μ) :=
+    hg_aemeas.comp_quasiMeasurePreserving
+      (MeasureTheory.Measure.quasiMeasurePreserving_snd (μ := μ) (ν := μ))
+  have h_mul_aemeas :
+      AEMeasurable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ) := by
+    have := hf_prod_aemeas.mul hg_prod_aemeas
+    simpa [mul_comm, mul_left_comm, mul_assoc] using this
+  exact h_mul_aemeas.aestronglyMeasurable
+
+/--
+Integrability of the convolution kernel assuming the factors themselves are integrable. This is the
+basic input needed for the convolution estimates below.
+-/
+lemma convolution_kernel_integrable
+    (f g : G → ℂ)
+    (hf : Integrable f μ) (hg : Integrable g μ) :
+    Integrable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ) := by
+  classical
+  -- Basic measurability for the kernel
+  have h_meas : AEStronglyMeasurable
+      (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ) :=
+    convolution_kernel_aestronglyMeasurable (μ := μ)
+      f g hf.aestronglyMeasurable hg.aestronglyMeasurable
+  -- Work with the nonnegative integrand built from the norms of `f` and `g`.
+  set Af : G → ℝ≥0∞ := fun x => ‖f x‖ₑ
+  set Ag : G → ℝ≥0∞ := fun y => ‖g y‖ₑ
+  have hAf_aemeas : AEMeasurable Af μ :=
+    hf.aestronglyMeasurable.enorm
+  have hAg_aemeas : AEMeasurable Ag μ :=
+    hg.aestronglyMeasurable.enorm
+  have hAf_lt_top : (∫⁻ x, Af x ∂μ) < ∞ := by
+    simpa [Af, HasFiniteIntegral]
+      using hf.hasFiniteIntegral
+  have hAg_lt_top : (∫⁻ y, Ag y ∂μ) < ∞ := by
+    simpa [Ag, HasFiniteIntegral]
+      using hg.hasFiniteIntegral
+  -- Express the norm of the kernel pointwise in terms of `Af` and `Ag`.
+  have h_norm_rewrite :
+      (∫⁻ q : G × G, ‖f (q.1 - q.2) * g q.2‖ₑ ∂(μ.prod μ))
+        = ∫⁻ q : G × G, Af (q.1 - q.2) * Ag q.2 ∂(μ.prod μ) := by
+    refine lintegral_congr_ae ?_
+    refine Filter.Eventually.of_forall ?_
+    intro q
+    simp [Af, Ag, norm_mul, ENNReal.ofReal_mul, mul_comm, mul_left_comm, mul_assoc]
+  -- Change variables via the measure-preserving map `(x, y) ↦ (x - y, y)`.
+  set τ : G × G → G × G := fun q => (q.1 - q.2, q.2)
+  have h_pres : MeasurePreserving τ (μ.prod μ) (μ.prod μ) :=
+    measurePreserving_sub_prod (μ := μ) (ν := μ)
+  have h_map : Measure.map τ (μ.prod μ) = μ.prod μ := h_pres.map_eq
+  have hAf_prod_aemeas :
+      AEMeasurable (fun q : G × G => Af q.1) (μ.prod μ) :=
+    hAf_aemeas.comp_quasiMeasurePreserving
+      (MeasureTheory.Measure.quasiMeasurePreserving_fst (μ := μ) (ν := μ))
+  have hAg_prod_aemeas :
+      AEMeasurable (fun q : G × G => Ag q.2) (μ.prod μ) :=
+    hAg_aemeas.comp_quasiMeasurePreserving
+      (MeasureTheory.Measure.quasiMeasurePreserving_snd (μ := μ) (ν := μ))
+  have h_prod_aemeas :
+      AEMeasurable (fun q : G × G => Af q.1 * Ag q.2) (μ.prod μ) :=
+    hAf_prod_aemeas.mul hAg_prod_aemeas
+  have h_change :
+      ∫⁻ q : G × G, Af (q.1 - q.2) * Ag q.2 ∂(μ.prod μ)
+        = ∫⁻ q : G × G, Af q.1 * Ag q.2 ∂(μ.prod μ) := by
+    have h_integrand_map :
+        AEMeasurable (fun q : G × G => Af q.1 * Ag q.2)
+          (Measure.map τ (μ.prod μ)) := by
+      simpa [h_map]
+        using h_prod_aemeas
+    have h_comp :=
+      lintegral_map' h_integrand_map
+        (aemeasurable_id'.comp_measurable h_pres.measurable)
+    have h_comp' :
+        ∫⁻ q, Af q.1 * Ag q.2 ∂(μ.prod μ)
+          = ∫⁻ q, Af (τ q).1 * Ag (τ q).2 ∂(μ.prod μ) := by
+      simpa [τ, h_map]
+        using h_comp
+    simpa [τ]
+      using h_comp'.symm
+  -- Evaluate the remaining product integral via Tonelli.
+  have h_tonelli :=
+    MeasureTheory.lintegral_prod (μ := μ) (ν := μ)
+      (f := fun q : G × G => Af q.1 * Ag q.2) h_prod_aemeas
+  have h_const_mul :
+      ∀ x : G, ∫⁻ y, Af x * Ag y ∂μ = Af x * ∫⁻ y, Ag y ∂μ := by
+    intro x
+    simpa using
+      (lintegral_const_mul'' (μ := μ)
+        (r := Af x) (f := Ag) hAg_aemeas)
+  have h_split :
+      ∫⁻ q : G × G, Af q.1 * Ag q.2 ∂(μ.prod μ)
+        = ∫⁻ x : G, ∫⁻ y : G, Af x * Ag y ∂μ ∂μ := by
+    simpa [Function.uncurry]
+      using h_tonelli
+  have h_point :
+      (fun x : G => ∫⁻ y, Af x * Ag y ∂μ)
+        = fun x : G => Af x * ∫⁻ y, Ag y ∂μ := by
+    funext x
+    exact h_const_mul x
+  have h_outer :
+      ∫⁻ x : G, Af x * ∫⁻ y : G, Ag y ∂μ ∂μ
+        = (∫⁻ y, Ag y ∂μ) * ∫⁻ x, Af x ∂μ := by
+    simpa [mul_comm]
+      using
+        (lintegral_mul_const'' (μ := μ)
+          (r := ∫⁻ y, Ag y ∂μ) (f := Af) hAf_aemeas)
+  have h_lintegral_prod :
+      ∫⁻ q : G × G, Af q.1 * Ag q.2 ∂(μ.prod μ)
+        = (∫⁻ x, Af x ∂μ) * (∫⁻ y, Ag y ∂μ) := by
+    calc
+      ∫⁻ q : G × G, Af q.1 * Ag q.2 ∂(μ.prod μ)
+          = ∫⁻ x : G, ∫⁻ y : G, Af x * Ag y ∂μ ∂μ := h_split
+      _ = ∫⁻ x : G, Af x * ∫⁻ y : G, Ag y ∂μ ∂μ := by
+            simp [h_point]
+      _ = (∫⁻ y, Ag y ∂μ) * ∫⁻ x, Af x ∂μ := h_outer
+      _ = (∫⁻ x, Af x ∂μ) * (∫⁻ y, Ag y ∂μ) := by
+            simp [mul_comm]
+  -- Collect the previous computations to bound the kernel integral.
+  have h_kernel_lintegral :
+      (∫⁻ q : G × G, ‖f (q.1 - q.2) * g q.2‖ₑ ∂(μ.prod μ))
+        = (∫⁻ x, Af x ∂μ) * (∫⁻ y, Ag y ∂μ) := by
+    calc
+      ∫⁻ q, ‖f (q.1 - q.2) * g q.2‖ₑ ∂(μ.prod μ)
+          = ∫⁻ q, Af (q.1 - q.2) * Ag q.2 ∂(μ.prod μ) := h_norm_rewrite
+      _ = ∫⁻ q, Af q.1 * Ag q.2 ∂(μ.prod μ) := h_change
+      _ = (∫⁻ x, Af x ∂μ) * (∫⁻ y, Ag y ∂μ) := h_lintegral_prod
+  have h_aux :
+      (∫⁻ q : G × G, Af (q.1 - q.2) * Ag q.2 ∂(μ.prod μ)) < ∞ := by
+    simpa [h_change, h_lintegral_prod]
+      using ENNReal.mul_lt_top hAf_lt_top hAg_lt_top
+  have h_kernel_fin :
+      (∫⁻ q : G × G, ‖f (q.1 - q.2) * g q.2‖ₑ ∂(μ.prod μ)) < ∞ := by
+    simpa [h_norm_rewrite]
+      using h_aux
+  exact ⟨h_meas, h_kernel_fin⟩
+
+/--
+Norm control for the fibrewise convolution kernels required in Minkowski's inequality. This will be
+used to verify the integrability of the `L^p`-norms appearing in the convolution estimates.
+-/
+lemma convolution_kernel_norm_integrable
+    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G] [MeasurableAdd₂ G]
+    (μ : Measure G) [μ.IsAddRightInvariant]
+    (f g : G → ℂ)
+    (p : ℝ≥0∞)
+    (hf : MemLp f p μ) (hg : Integrable g μ) :
+    Integrable
+      (fun y => (eLpNorm (fun x => f (x - y) * g y) p μ).toReal) μ := by
+  classical
+  -- Record basic integrability information coming from the `MemLp` hypotheses.
+  have hg_norm_integrable : Integrable (fun y => ‖g y‖) μ := by
+    simpa using hg.norm
+  -- Translation invariance shows the fiberwise `L^p` norm of `f` does not depend on `y`.
+  have h_shift : ∀ y : G, eLpNorm (fun x => f (x - y)) p μ = eLpNorm f p μ := by
+    intro y
+    have h_pres : MeasurePreserving (fun x : G => x - y) μ μ := by
+      simpa [sub_eq_add_neg, add_comm, add_left_comm, add_assoc]
+        using measurePreserving_add_right (μ := μ) (-y)
+    simpa [Function.comp, sub_eq_add_neg]
+      using
+        (eLpNorm_comp_measurePreserving (μ := μ) (ν := μ) (p := p)
+          hf.aestronglyMeasurable h_pres)
+  -- Scaling out the constant `g y` from the fibrewise integral.
+  have h_scaling :
+      ∀ y : G,
+        eLpNorm (fun x => f (x - y) * g y) p μ =
+          ENNReal.ofReal ‖g y‖ * eLpNorm (fun x => f (x - y)) p μ := by
+    intro y
+    simpa [smul_eq_mul, mul_comm]
+      using
+        (eLpNorm_const_smul (μ := μ) (p := p) (c := g y)
+          (f := fun x => f (x - y)))
+  -- Identify the integrand explicitly as `|g y|` times a constant.
+  set C : ℝ := (eLpNorm f p μ).toReal
+  have h_pointwise :
+      ∀ᵐ y ∂μ,
+        (eLpNorm (fun x => f (x - y) * g y) p μ).toReal = C * ‖g y‖ := by
+    refine Filter.Eventually.of_forall ?_
+    intro y
+    have h_prod :
+        eLpNorm (fun x => f (x - y) * g y) p μ
+            = ENNReal.ofReal ‖g y‖ * eLpNorm f p μ := by
+      simpa [h_shift y] using h_scaling y
+    have h_mul_toReal :
+        (ENNReal.ofReal ‖g y‖ * eLpNorm f p μ).toReal
+            = ‖g y‖ * C := by
+      have h_ofReal_ne_top : (ENNReal.ofReal ‖g y‖) ≠ ∞ := by simp
+      calc
+        (ENNReal.ofReal ‖g y‖ * eLpNorm f p μ).toReal
+            = (ENNReal.ofReal ‖g y‖).toReal * (eLpNorm f p μ).toReal := by
+              simp [ENNReal.toReal_mul, h_ofReal_ne_top, hf.eLpNorm_ne_top]
+        _ = ‖g y‖ * C := by simp [C]
+    calc
+      (eLpNorm (fun x => f (x - y) * g y) p μ).toReal
+          = (ENNReal.ofReal ‖g y‖ * eLpNorm f p μ).toReal := by simp [h_prod]
+      _ = ‖g y‖ * C := h_mul_toReal
+      _ = C * ‖g y‖ := by simp [mul_comm]
+  -- The right-hand side is integrable because it is a constant multiple of `|g y|`.
+  set majorant : G → ℝ := fun y => C * ‖g y‖
+  have h_majorant_integrable : Integrable majorant μ := by
+    simpa [majorant, mul_comm, mul_left_comm, mul_assoc]
+      using hg_norm_integrable.mul_const C
+  -- Conclude by identifying both functions almost everywhere.
+  have h_ae_eq :
+      (fun y => (eLpNorm (fun x => f (x - y) * g y) p μ).toReal)
+        =ᵐ[μ] majorant :=
+    h_pointwise.mono fun y hy => by
+      have h_majorant : C * ‖g y‖ = majorant y := by
+        simp [majorant]
+      exact hy.trans h_majorant
+  exact h_majorant_integrable.congr h_ae_eq.symm
+
+lemma memLp_convolution_left_of_memLp
+    [IsFiniteMeasure μ] {p : ℝ≥0∞} {f : G → ℂ} (hf : MemLp f p μ) :
+    MemLp (fun q : G × G => f (q.1 - q.2)) p (μ.prod μ) := by
+  classical
+  have hμ_ne_top : μ Set.univ ≠ ∞ := by
+    exact ne_of_lt (measure_lt_top μ Set.univ)
+  let τ : G × G → G × G := fun q => (q.1 - q.2, q.2)
+  have hτ_pres : MeasurePreserving τ (μ.prod μ) (μ.prod μ) := by
+    simpa [τ] using (measurePreserving_sub_prod (μ := μ) (ν := μ))
+  have h_map_fst :
+      Measure.map Prod.fst (μ.prod μ) = (μ Set.univ) • μ := by
+    simp
+  have hf_scaled : MemLp f p ((μ Set.univ) • μ) :=
+    hf.smul_measure hμ_ne_top
+  have hf_prod_fst : MemLp (fun q : G × G => f q.1) p (μ.prod μ) := by
+    have hf_map : MemLp f p (Measure.map Prod.fst (μ.prod μ)) := by
+      simpa [h_map_fst] using hf_scaled
+    have hf_meas : AEStronglyMeasurable f (Measure.map Prod.fst (μ.prod μ)) :=
+      hf_map.aestronglyMeasurable
+    have hfst_meas : AEMeasurable Prod.fst (μ.prod μ) :=
+      measurable_fst.aemeasurable
+    have :=
+      (memLp_map_measure_iff (μ := μ.prod μ) (p := p)
+          (g := f) (f := Prod.fst) hf_meas hfst_meas).1 hf_map
+    simpa using this
+  have hf_comp :
+      MemLp ((fun q : G × G => f q.1) ∘ τ) p (μ.prod μ) :=
+    hf_prod_fst.comp_measurePreserving hτ_pres
+  simpa [Function.comp, τ, sub_eq_add_neg] using hf_comp
+
+lemma memLp_convolution_right_of_memLp
+    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [IsFiniteMeasure μ]
+    {q : ℝ≥0∞} {g : G → ℂ} (hg : MemLp g q μ) :
+    MemLp (fun r : G × G => g r.2) q (μ.prod μ) := by
+  classical
+  have hμ_ne_top : μ Set.univ ≠ ∞ := by
+    exact (measure_lt_top μ Set.univ).ne
+  have h_map_snd : Measure.map Prod.snd (μ.prod μ) = (μ Set.univ) • μ := by
+    simp
+  have hg_scaled : MemLp g q ((μ Set.univ) • μ) :=
+    hg.smul_measure hμ_ne_top
+  have hg_map : MemLp g q (Measure.map Prod.snd (μ.prod μ)) := by
+    simpa [h_map_snd] using hg_scaled
+  have hg_meas : AEStronglyMeasurable g (Measure.map Prod.snd (μ.prod μ)) :=
+    hg_map.aestronglyMeasurable
+  have hsnd_meas : AEMeasurable Prod.snd (μ.prod μ) :=
+    measurable_snd.aemeasurable
+  have :=
+      (memLp_map_measure_iff (μ := μ.prod μ) (p := q)
+        (g := g) (f := Prod.snd) hg_meas hsnd_meas).1 hg_map
+  simpa using this
+
+lemma convolution_kernel_integrable_of_memLp
+    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [IsFiniteMeasure μ]
+    [μ.IsAddRightInvariant] {p q : ℝ≥0∞} (hp : 1 ≤ p) (hq : 1 ≤ q)
+    {f g : G → ℂ} (hf : MemLp f p μ) (hg : MemLp g q μ) :
+    Integrable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ) := by
+  classical
+  have hf_L1 : MemLp f 1 μ := hf.mono_exponent (p := (1 : ℝ≥0∞)) (q := p) hp
+  have hg_L1 : MemLp g 1 μ := hg.mono_exponent (p := (1 : ℝ≥0∞)) (q := q) hq
+  have hf_int : Integrable f μ := (memLp_one_iff_integrable).1 hf_L1
+  have hg_int : Integrable g μ := (memLp_one_iff_integrable).1 hg_L1
+  have h := convolution_kernel_integrable (μ := μ) (f := f) (g := g) hf_int hg_int
+  change Integrable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ)
+  exact h
+
+lemma convolution_kernel_fiber_integrable_of_memLp
+    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [IsFiniteMeasure μ]
+    [μ.IsAddRightInvariant] {p q : ℝ≥0∞} (hp : 1 ≤ p) (hq : 1 ≤ q)
+    {f g : G → ℂ} (hf : MemLp f p μ) (hg : MemLp g q μ) :
+    ∀ᵐ y ∂μ, Integrable (fun x => f (x - y) * g y) μ := by
+  classical
+  have hf_L1 : MemLp f 1 μ := hf.mono_exponent (p := (1 : ℝ≥0∞)) (q := p) hp
+  have hg_L1 : MemLp g 1 μ := hg.mono_exponent (p := (1 : ℝ≥0∞)) (q := q) hq
+  have hf_int : Integrable f μ := (memLp_one_iff_integrable).1 hf_L1
+  have hg_int : Integrable g μ := (memLp_one_iff_integrable).1 hg_L1
+  have h_kernel : Integrable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ) :=
+    convolution_kernel_integrable (μ := μ) (f := f) (g := g) hf_int hg_int
+  have h_fiber := Integrable.prod_left_ae (μ := μ) (ν := μ) h_kernel
+  refine h_fiber.mono ?_
+  intro y hy
+  simpa [sub_eq_add_neg] using hy
+
+lemma convolution_kernel_fiber_memLp_of_memLp
+    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant] [μ.IsNegInvariant]
+    {p q : ℝ≥0∞} {f g : G → ℂ} (hf : MemLp f p μ) (hg : MemLp g q μ) :
+    ∀ᵐ y ∂μ, MemLp (fun x => f (x - y) * g y) p μ := by
+  classical
+  refine Filter.Eventually.of_forall ?_
+  intro y
+  have hg_meas : AEStronglyMeasurable g μ := hg.aestronglyMeasurable
+  have h_pres : MeasurePreserving (fun x : G => x - y) μ μ := by
+    simpa [sub_eq_add_neg, add_comm, add_left_comm, add_assoc]
+      using measurePreserving_add_right (μ := μ) (-y)
+  have h_translate : MemLp (fun x : G => f (x - y)) p μ :=
+    hf.comp_measurePreserving h_pres
+  have h_const : MemLp (fun x : G => g y * f (x - y)) p μ :=
+    h_translate.const_mul (g y)
+  simpa [mul_comm, sub_eq_add_neg, mul_left_comm, mul_assoc] using h_const
+
+lemma convolution_kernel_norm_integrable_of_memLp
+    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [IsFiniteMeasure μ]
+    [μ.IsAddRightInvariant] {p q : ℝ≥0∞} (hq : 1 ≤ q)
+    {f g : G → ℂ} (hf : MemLp f p μ) (hg : MemLp g q μ) :
+    Integrable (fun y => (eLpNorm (fun x => f (x - y) * g y) p μ).toReal) μ := by
+  classical
+  have hg_L1 : MemLp g 1 μ := hg.mono_exponent (p := (1 : ℝ≥0∞)) (q := q) hq
+  have hg_int : Integrable g μ := (memLp_one_iff_integrable).1 hg_L1
+  simpa [sub_eq_add_neg] using
+    convolution_kernel_norm_integrable (μ := μ) (f := f) (g := g) (p := p) hf hg_int
+
+end ConvolutionPreparatory
 
 section AuxiliaryLemmas
 

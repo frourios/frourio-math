@@ -20,8 +20,6 @@ The main declarations are:
   dual pairing between `L^p` and `L^q`.
 * `lp_duality_attains_sup`: existence of an almost-optimal dual element
   realising the operator norm of a non-zero `L^p` element.
-All statements currently end with `sorry`, to be filled in by future
-work.
 -/
 
 open scoped ENNReal
@@ -1413,5 +1411,108 @@ lemma memLp_norm_integral
         hp_one_lt hp_ne_top hF_meas hF_prod hF_memLp hF_norm
     have hg_mem : MemLp g p μ := ⟨hg_meas, by simpa [g] using h_lt_top⟩
     simpa [g] using hg_mem
+
+section DualSupBounds
+
+open scoped ENNReal
+
+variable {α : Type*} [MeasurableSpace α] {μ : Measure α}
+variable {p q : ℝ≥0∞}
+
+/--
+Control the `L^p` norm of a function by bounding its pairings against the unit ball of `L^q`.
+This lemma will be used to deduce quantitative estimates from duality arguments.
+-/
+lemma eLpNorm_le_of_dual_bound
+    (hp : 1 < p) (hq : 1 < q) (hpq : IsConjugateExponent p q)
+    (hp_ne_top : p ≠ ∞)
+    {f : α → ℝ}
+    (hf : MemLp f p μ)
+    {C : ℝ}
+    (hbound :
+      ∀ g : α → ℝ,
+        MemLp g q μ → (eLpNorm g q μ).toReal ≤ 1 →
+          |∫ x, f x * g x ∂μ| ≤ C) :
+    (eLpNorm f p μ).toReal ≤ C := by
+  classical
+  have _ := hp_ne_top
+  have hB :
+      ∀ g : α → ℝ,
+        MemLp g q μ →
+        (eLpNorm g q μ).toReal ≤ 1 →
+        Integrable (fun x => f x * g x) μ →
+        |∫ x, f x * g x ∂μ| ≤ C := by
+    intro g hg hnorm _
+    exact hbound g hg hnorm
+  simpa using
+    lp_duality_norm_le_of_pairing_bound (μ := μ)
+      (p := p) (q := q) hp hq hpq (f := f) hf (B := C) hB
+
+/--
+Dual representation of the `L^p` norm via the unit ball of `L^q`.
+-/
+lemma eLpNorm_toReal_supremum
+    (hp : 1 < p) (hq : 1 < q) (hpq : IsConjugateExponent p q)
+    (hp_ne_top : p ≠ ∞)
+    {f : α → ℝ} (hf : MemLp f p μ) :
+    (eLpNorm f p μ).toReal =
+      sSup
+        {t : ℝ |
+          ∃ g : α → ℝ,
+            MemLp g q μ ∧
+            (eLpNorm g q μ).toReal ≤ 1 ∧
+            t = ∫ x, f x * g x ∂μ} := by
+  classical
+  have _ := hp_ne_top
+  set S :=
+    {t : ℝ |
+      ∃ g : α → ℝ,
+        MemLp g q μ ∧
+        (eLpNorm g q μ).toReal ≤ 1 ∧
+        t = ∫ x, f x * g x ∂μ} with hS_def
+  have h_zero_mem : 0 ∈ S := by
+    refine ⟨fun _ => 0, MemLp.zero, ?_, by simp⟩
+    simp
+  have hS_upper : ∀ t ∈ S, t ≤ (eLpNorm f p μ).toReal := by
+    intro t ht
+    rcases ht with ⟨g, hg_mem, hg_norm_le, rfl⟩
+    have h_nonneg : 0 ≤ (eLpNorm f p μ).toReal := ENNReal.toReal_nonneg
+    have h_pair :=
+      lp_duality_pairing (μ := μ) (p := p) (q := q) hp hq hpq hf hg_mem
+    have h_abs_bound :
+        |∫ x, f x * g x ∂μ| ≤
+          (eLpNorm f p μ).toReal * (eLpNorm g q μ).toReal := by
+      simpa [Real.norm_eq_abs] using h_pair
+    have h_mul_le :
+        (eLpNorm f p μ).toReal * (eLpNorm g q μ).toReal ≤ (eLpNorm f p μ).toReal :=
+      mul_le_of_le_one_right h_nonneg hg_norm_le
+    calc
+      ∫ x, f x * g x ∂μ
+          ≤ |∫ x, f x * g x ∂μ| := by exact le_abs_self _
+      _ ≤ (eLpNorm f p μ).toReal := h_abs_bound.trans h_mul_le
+  have hS_bdd : BddAbove S := ⟨(eLpNorm f p μ).toReal, hS_upper⟩
+  have _ : S.Nonempty := ⟨0, h_zero_mem⟩
+  have h_sup_le : sSup S ≤ (eLpNorm f p μ).toReal := by
+    apply csSup_le
+    · exact ⟨0, h_zero_mem⟩
+    · intro t ht
+      exact hS_upper t ht
+  have h_le_sup : (eLpNorm f p μ).toReal ≤ sSup S := by
+    by_cases hzero : (eLpNorm f p μ).toReal = 0
+    · have := le_csSup hS_bdd h_zero_mem
+      simpa [hzero] using this
+    · have hf_ne_zero : (eLpNorm f p μ).toReal ≠ 0 := hzero
+      obtain ⟨g, hg_mem, hg_norm_one, _, hg_eq⟩ :=
+        lp_duality_exists_norm_one_attainer (μ := μ)
+          (p := p) (q := q) hp hq hpq hf hf_ne_zero
+      have h_mem : (eLpNorm f p μ).toReal ∈ S := by
+        refine ⟨g, hg_mem, ?_, ?_⟩
+        · simp [hg_norm_one]
+        · simp [hg_eq]
+      exact le_csSup hS_bdd h_mem
+  have h_eq := le_antisymm h_le_sup h_sup_le
+  simpa [S] using h_eq
+
+end DualSupBounds
 
 end SchwartzDensityLp

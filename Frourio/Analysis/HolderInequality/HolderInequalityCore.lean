@@ -726,16 +726,9 @@ This version assumes we are in the genuine Hölder regime `1 < p, q < ∞` and w
 lintegrals of non-negative extended real-valued functions.
 -/
 theorem holder_inequality_ennreal
-    (p q : ℝ≥0∞)
-    (hpq : IsConjugateExponent p q)
-    (hp : 1 < p) (hp_top : p < ∞)
-    (f : α → ℝ≥0∞) (g : α → ℝ≥0∞)
-    (hf : AEMeasurable f μ)
-    (hg : AEMeasurable g μ)
-    (_hf_finite : ∫⁻ x, f x ^ p.toReal ∂μ < ∞)
-    (_hg_finite : ∫⁻ x, g x ^ q.toReal ∂μ < ∞) :
-    ∫⁻ x, f x * g x ∂μ ≤
-      (∫⁻ x, f x ^ p.toReal ∂μ) ^ (1 / p.toReal) *
+    (p q : ℝ≥0∞) (hpq : IsConjugateExponent p q) (hp : 1 < p) (hp_top : p < ∞)
+    (f : α → ℝ≥0∞) (g : α → ℝ≥0∞) (hf : AEMeasurable f μ) (hg : AEMeasurable g μ) :
+    ∫⁻ x, f x * g x ∂μ ≤ (∫⁻ x, f x ^ p.toReal ∂μ) ^ (1 / p.toReal) *
       (∫⁻ x, g x ^ q.toReal ∂μ) ^ (1 / q.toReal) := by
   classical
   rcases hpq with h|h|h
@@ -838,6 +831,75 @@ theorem holder_inequality_explicit
   have h_conj : IsConjugateExponent p q :=
     Or.inr <| Or.inr ⟨hp_lt_one, hp_lt_top, hq_lt_one, hq_lt_top, hpq⟩
   exact holder_inequality (μ := μ) (p := p) (q := q) h_conj f g hf hg
+
+/--
+**Hölder's inequality phrased with extended nonnegative reals.**
+
+This version allows the exponents `p` and `q` to take the value `∞` and expresses the
+conclusion directly on lintegrals of norms.
+-/
+lemma holder_inequality_lintegral_norm
+    {μ : Measure α} {f g : α → ℂ} {p q : ℝ≥0∞} {α : Type*} [MeasurableSpace α]
+    (hp : 1 ≤ p) (hq : 1 ≤ q)
+    (hpq : 1 / p + 1 / q = 1)
+    (hf : MemLp f p μ) (hg : MemLp g q μ) :
+    ∫⁻ x, (‖f x‖ₑ * ‖g x‖ₑ) ∂μ ≤
+      eLpNorm f p μ * eLpNorm g q μ := by
+  classical
+  -- Deduce the auxiliary hypotheses required by the explicit Hölder inequality.
+  have hp_top : p ≠ ∞ ∨ q = 1 := by
+    by_cases hp_inf : p = ∞
+    · right
+      have h_inv : 1 / q = 1 := by
+        simpa [hp_inf, one_div, ENNReal.inv_eq_zero] using hpq
+      simpa [one_div] using h_inv
+    · exact Or.inl hp_inf
+  have hq_top : q ≠ ∞ ∨ p = 1 := by
+    by_cases hq_inf : q = ∞
+    · right
+      have h_inv : 1 / p = 1 := by
+        simpa [hq_inf, one_div, ENNReal.inv_eq_zero, add_comm] using hpq
+      simpa [one_div] using h_inv
+    · exact Or.inl hq_inf
+  -- Apply the explicit Hölder inequality for Bochner integrals.
+  obtain ⟨h_int, h_le⟩ :=
+    holder_inequality_explicit (μ := μ) (p := p) (q := q)
+      hp hq hp_top hq_top hpq f g hf hg
+  -- Express the lintegral in terms of the Bochner integral.
+  have h_nonneg : 0 ≤ᵐ[μ] fun x => ‖f x‖ * ‖g x‖ :=
+    Filter.Eventually.of_forall fun _ => mul_nonneg (norm_nonneg _) (norm_nonneg _)
+  have h_lintegral :
+      ∫⁻ x, ‖f x‖ₑ * ‖g x‖ₑ ∂μ =
+        ENNReal.ofReal (∫ x, ‖f x‖ * ‖g x‖ ∂μ) := by
+    have h_ofReal :=
+      (MeasureTheory.ofReal_integral_eq_lintegral_ofReal h_int h_nonneg).symm
+    have h_integrand :
+        (fun x => ENNReal.ofReal (‖f x‖ * ‖g x‖)) =
+          fun x => ‖f x‖ₑ * ‖g x‖ₑ := by
+      ext x
+      simp [ENNReal.ofReal_mul, ofReal_norm_eq_enorm, norm_nonneg]
+    simpa [h_integrand]
+      using h_ofReal
+  -- Convert the real inequality to the desired ENNReal inequality.
+  have h_ofReal_le :
+      ENNReal.ofReal (∫ x, ‖f x‖ * ‖g x‖ ∂μ) ≤
+        ENNReal.ofReal ((eLpNorm f p μ).toReal * (eLpNorm g q μ).toReal) := by
+    exact (ENNReal.ofReal_le_ofReal_iff
+      (mul_nonneg ENNReal.toReal_nonneg ENNReal.toReal_nonneg)).2 h_le
+  have hf_fin : eLpNorm f p μ ≠ ∞ := hf.eLpNorm_ne_top
+  have hg_fin : eLpNorm g q μ ≠ ∞ := hg.eLpNorm_ne_top
+  have h_rhs :
+      ENNReal.ofReal ((eLpNorm f p μ).toReal * (eLpNorm g q μ).toReal)
+        = eLpNorm f p μ * eLpNorm g q μ := by
+    have hf_nonneg : 0 ≤ (eLpNorm f p μ).toReal := ENNReal.toReal_nonneg
+    have hg_nonneg : 0 ≤ (eLpNorm g q μ).toReal := ENNReal.toReal_nonneg
+    simp [ENNReal.ofReal_mul, hf_nonneg, hg_nonneg,
+      ENNReal.ofReal_toReal hf_fin, ENNReal.ofReal_toReal hg_fin]
+  calc
+    ∫⁻ x, ‖f x‖ₑ * ‖g x‖ₑ ∂μ
+        = ENNReal.ofReal (∫ x, ‖f x‖ * ‖g x‖ ∂μ) := h_lintegral
+    _ ≤ ENNReal.ofReal ((eLpNorm f p μ).toReal * (eLpNorm g q μ).toReal) := h_ofReal_le
+    _ = eLpNorm f p μ * eLpNorm g q μ := h_rhs
 
 end HolderGeneral
 
