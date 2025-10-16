@@ -3,6 +3,7 @@ import Frourio.Analysis.SchwartzDensityLp.MinkowskiIntegral
 import Frourio.Analysis.SchwartzDensityLp.YoungInequalityCore
 import Mathlib.Analysis.Convolution
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
+import Mathlib.MeasureTheory.Group.Measure
 
 /-!
 # Young's Inequality for Convolution
@@ -151,6 +152,56 @@ theorem young_convolution_inequality
     hkernel_aemeas.aestronglyMeasurable
   have hf_norm : MemLp (fun x => ‖f x‖) p volume := hf.norm
   have hg_norm : MemLp (fun x => ‖g x‖) q volume := hg.norm
+  have h_conv_meas : AEStronglyMeasurable conv volume := by
+    simpa [conv, hconv_def, kernel, hkernel_def] using
+      (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+        (μ := volume) (ν := volume) (f := kernel) hkernel_meas)
+
+  haveI : (volume : Measure (Fin n → ℝ)).IsNegInvariant := by
+    classical
+    let μ : Measure (Fin n → ℝ) := volume
+    refine ⟨?_⟩
+    set T :=
+      (-1 : ℝ) •
+        (LinearMap.id : (Fin n → ℝ) →ₗ[ℝ] (Fin n → ℝ))
+    have h_det_eq :
+        LinearMap.det T =
+          (-1 : ℝ) ^ Module.finrank ℝ (Fin n → ℝ) := by
+      simpa [T]
+        using
+          (LinearMap.det_smul (-1 : ℝ)
+            (LinearMap.id : (Fin n → ℝ) →ₗ[ℝ] (Fin n → ℝ)))
+    have h_abs_det : abs (LinearMap.det T) = (1 : ℝ) := by
+      simp [h_det_eq]
+    have h_det_ne_zero : LinearMap.det T ≠ 0 := by
+      have h_abs_ne : abs (LinearMap.det T) ≠ 0 := by
+        simp [h_abs_det]
+      exact abs_ne_zero.mp h_abs_ne
+    have h_map_aux :=
+      Real.map_linearMap_volume_pi_eq_smul_volume_pi
+        (f := T) h_det_ne_zero
+    have h_abs_inv : abs ((LinearMap.det T)⁻¹) = (1 : ℝ) := by
+      have := abs_inv (LinearMap.det T)
+      simpa [h_abs_det, h_det_ne_zero]
+        using this
+    have h_scalar :
+        ENNReal.ofReal (abs ((LinearMap.det T)⁻¹)) = (1 : ℝ≥0∞) := by
+      simp [h_abs_inv]
+    have h_map_aux' :
+        Measure.map (fun y : (Fin n → ℝ) => -y) μ
+          = ENNReal.ofReal (abs ((LinearMap.det T)⁻¹)) • μ := by
+      simpa [T, LinearMap.smul_apply, Pi.smul_apply]
+        using h_map_aux
+    have h_map :
+        Measure.map (fun y : (Fin n → ℝ) => -y) μ = μ := by
+      simpa [h_scalar] using h_map_aux'
+    have h_map_neg :
+        Measure.map (Neg.neg : (Fin n → ℝ) → (Fin n → ℝ)) μ = μ := by
+      simpa [Neg.neg] using h_map
+    have h_neg_eq :
+        Measure.neg (μ := μ) = μ := by
+      simpa [Measure.neg] using h_map_neg
+    simpa [μ] using h_neg_eq
 
   -- When `r = ⊤`, the exponent relation forces `p` and `q` to be conjugate.
   have h_conjugate_of_top : r = ⊤ → ENNReal.HolderConjugate p q := by
@@ -212,60 +263,10 @@ theorem young_convolution_inequality
               ≤ (eLpNorm f p volume).toReal * (eLpNorm g q volume).toReal := by
       intro x
       classical
-      let μ : Measure (Fin n → ℝ) := volume
-      haveI : μ.IsNegInvariant := by
-        refine ⟨?_⟩
-        set T :=
-          (-1 : ℝ) •
-            (LinearMap.id : (Fin n → ℝ) →ₗ[ℝ] (Fin n → ℝ))
-        have h_det_eq :
-            LinearMap.det T =
-              (-1 : ℝ) ^ Module.finrank ℝ (Fin n → ℝ) := by
-          simpa [T]
-            using
-              (LinearMap.det_smul (-1 : ℝ)
-                (LinearMap.id : (Fin n → ℝ) →ₗ[ℝ] (Fin n → ℝ)))
-        have h_abs_det :
-            abs (LinearMap.det T) = (1 : ℝ) := by
-          simp [h_det_eq]
-        have h_det_ne_zero : LinearMap.det T ≠ 0 := by
-          have h_abs_ne : abs (LinearMap.det T) ≠ 0 := by
-            simp [h_abs_det]
-          exact abs_ne_zero.mp h_abs_ne
-        have h_map_aux :=
-          Real.map_linearMap_volume_pi_eq_smul_volume_pi
-            (f := T) h_det_ne_zero
-        have h_abs_inv : abs ((LinearMap.det T)⁻¹) = (1 : ℝ) := by
-          have := abs_inv (LinearMap.det T)
-          simpa [h_abs_det, h_det_ne_zero]
-            using this
-        have h_scalar :
-            ENNReal.ofReal (abs ((LinearMap.det T)⁻¹)) = (1 : ℝ≥0∞) := by
-          simp [h_abs_inv]
-        have h_map_aux' :
-            Measure.map (fun y : (Fin n → ℝ) => -y) μ
-              = ENNReal.ofReal (abs ((LinearMap.det T)⁻¹)) • μ := by
-          simpa [T, LinearMap.smul_apply, Pi.smul_apply]
-            using h_map_aux
-        have h_map :
-            Measure.map (fun y : (Fin n → ℝ) => -y) μ = μ := by
-          simpa [h_scalar] using h_map_aux'
-        have h_map_neg :
-            Measure.map (Neg.neg : (Fin n → ℝ) → (Fin n → ℝ)) μ = μ := by
-          simpa [Neg.neg] using h_map
-        have h_neg_eq :
-            Measure.neg (μ := μ) = μ := by
-          simpa [Measure.neg]
-            using h_map_neg
-        exact h_neg_eq
       simpa using
         holder_inequality_convolution (μ := volume) (p := p) (q := q)
           (f := fun z => ‖f z‖) (g := fun z => ‖g z‖)
           hpq hf_norm hg_norm x
-    have h_conv_meas : AEStronglyMeasurable conv volume := by
-      simpa [conv, hconv_def, kernel, hkernel_def] using
-        (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
-          (μ := volume) (ν := volume) (f := kernel) hkernel_meas)
     set C :=
       (eLpNorm f p volume).toReal * (eLpNorm g q volume).toReal with hC_def
     have h_conv_pointwise : ∀ x, ‖conv x‖ ≤ C := by
@@ -332,8 +333,25 @@ theorem young_convolution_inequality
       eLpNorm conv r volume ≤ ENNReal.ofReal C := h_eLpNorm_le
       _ = eLpNorm f p volume * eLpNorm g q volume := h_rhs_eq
   · have hr_ne_top : r ≠ ⊤ := hr_top
-    -- TODO: handle the finite exponent case `r ≠ ⊤`
-    sorry
+    have h_conv_bound :
+        eLpNorm conv r volume ≤
+          eLpNorm f p volume * eLpNorm g q volume := by
+      simpa [conv, hconv_def]
+        using
+          eLpNorm_convolution_le_mul
+            (μ := volume) (f := f) (g := g)
+            (p := p) (q := q) (r := r)
+            hp hq hpqr hr_ne_top hf hg
+    have h_rhs_lt_top :
+        eLpNorm f p volume * eLpNorm g q volume < ⊤ :=
+      ENNReal.mul_lt_top hf_lt_top hg_lt_top
+    have h_conv_lt_top : eLpNorm conv r volume < ⊤ :=
+      lt_of_le_of_lt h_conv_bound h_rhs_lt_top
+    have h_memLp_r : MemLp conv r volume := by
+      refine ⟨h_conv_meas, ?_⟩
+      simpa [conv, hconv_def] using h_conv_lt_top
+    refine ⟨h_memLp_r, ?_⟩
+    simpa [conv, hconv_def] using h_conv_bound
 
 end YoungGeneral
 

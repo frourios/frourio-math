@@ -1233,7 +1233,13 @@ theorem mollifier_converges_L1_compactSupport
     ∀ ε > 0, ∃ δ > 0, ∀ η : ℝ, 0 < η → η < δ →
       eLpNorm (fun x => f x - ∫ y, f (x - y) * (scaledMollifier ψ η y)) 1 volume <
         ENNReal.ofReal ε := by
-  sorry
+  classical
+  have hf_memLp : MemLp f 1 volume :=
+    (memLp_one_iff_integrable (μ := volume)).2 hf
+  have h_one_le_one : (1 : ℝ≥0∞) ≤ (1 : ℝ≥0∞) := by rfl
+  have h_one_ne_top : (1 : ℝ≥0∞) ≠ ∞ := by norm_num
+  simpa using
+    mollifier_converges_Lp f ψ (1 : ℝ≥0∞) h_one_le_one h_one_ne_top hf_memLp hψ
 
 /--
 **Mollifier convergence in L² for compact support functions.**
@@ -1250,6 +1256,10 @@ theorem mollifier_converges_L2_compactSupport
     ∀ ε > 0, ∃ δ > 0, ∀ η : ℝ, 0 < η → η < δ →
       eLpNorm (fun x => f x - ∫ y, f (x - y) * (scaledMollifier ψ η y)) 2 volume <
         ENNReal.ofReal ε := by
-  sorry
+  classical
+  have h_one_two : (1 : ℝ≥0∞) ≤ (2 : ℝ≥0∞) := by norm_num
+  have h_two_ne_top : (2 : ℝ≥0∞) ≠ ∞ := by norm_num
+  simpa using
+    mollifier_converges_Lp f ψ (2 : ℝ≥0∞) h_one_two h_two_ne_top hf hψ
 
 end ConvergenceLp

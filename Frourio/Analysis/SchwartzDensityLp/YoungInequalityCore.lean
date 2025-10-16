@@ -410,40 +410,16 @@ lemma convolution_memLp_of_memLp_finiteMeasure
     simpa [convAdd, sub_eq_add_neg] using h_conv_lt_top'
   exact ⟨h_conv_meas, h_conv_lt_top⟩
 
-lemma convolution_memLp_of_memLp
-    (f g : G → ℂ)
-    (p q r : ℝ≥0∞)
-    (hp : 1 ≤ p) (hq : 1 ≤ q)
-    (hpqr : 1 / p + 1 / q = 1 + 1 / r)
-    (hr_ne_top : r ≠ ∞)
-    (hf : MemLp f p μ) (hf_r : MemLp f r μ) (hg : MemLp g q μ)
-    (h_kernel_int : Integrable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ)) :
-    MemLp (fun x => ∫ y, f (x - y) * g y ∂μ) r μ := by
+lemma sfiniteSeq_partial_le_smul
+    (μ : Measure G) [SFinite μ] :
+    ∀ N,
+      (∑ k ∈ Finset.range (N + 1), MeasureTheory.sfiniteSeq μ k)
+        ≤ ((N + 1 : ℝ≥0∞) • μ) := by
   classical
   set μn : ℕ → Measure G := MeasureTheory.sfiniteSeq μ
-  have hμn_fin : ∀ n, IsFiniteMeasure (μn n) := fun n => inferInstance
-  have hμ_sum : Measure.sum μn = μ := MeasureTheory.sum_sfiniteSeq μ
   let μpartial : ℕ → Measure G := fun N => ∑ k ∈ Finset.range (N + 1), μn k
-  have hμpartial_succ : ∀ N, μpartial (N + 1) = μpartial N + μn (N + 1) := by
-    intro N
-    classical
-    simp [μpartial, Nat.succ_eq_add_one, Finset.range_succ, add_comm, add_left_comm, add_assoc]
-  have hμpartial_fin : ∀ N, IsFiniteMeasure (μpartial N) := by
-    intro N
-    classical
-    refine Nat.rec ?base ?step N
-    · simpa [μpartial] using hμn_fin 0
-    · intro k hk
-      have hk_add : IsFiniteMeasure (μpartial k + μn (k + 1)) := by infer_instance
-      simpa [hμpartial_succ, Nat.succ_eq_add_one] using hk_add
-  have hμpartial_le_succ : ∀ N, μpartial N ≤ μpartial (N + 1) := by
-    intro N s
-    classical
-    have hnonneg : 0 ≤ μn (N + 1) s := bot_le
-    simp [hμpartial_succ, Nat.succ_eq_add_one, Measure.add_apply]
-  have hμpartial_mono : Monotone μpartial :=
-    monotone_nat_of_le_succ hμpartial_le_succ
-  have hμpartial_le_smul : ∀ N, μpartial N ≤ ((N + 1 : ℝ≥0∞) • μ) := by
+  have hμpartial :
+      ∀ N, μpartial N ≤ ((N + 1 : ℝ≥0∞) • μ) := by
     intro N s hs
     classical
     intro hμ
@@ -468,8 +444,1523 @@ lemma convolution_memLp_of_memLp
     have hhs_ne_top : (↑hs : ℝ≥0∞) ≠ ∞ := by simp
     refine ⟨(μpartial N s).toNNReal, ?_, ?_⟩
     · simp [hμpartial_ne_top]
-    · have := (ENNReal.toNNReal_le_toNNReal hμpartial_ne_top hhs_ne_top).2 hμpartial_le_hs
+    · have := (ENNReal.toNNReal_le_toNNReal hμpartial_ne_top hhs_ne_top).2
+        hμpartial_le_hs
       simpa using this
+  intro N
+  simpa [μpartial] using hμpartial N
+
+lemma sfiniteSeq_partial_tendsto
+    (μ : Measure G) [SFinite μ] :
+    ∀ ⦃s : Set G⦄, MeasurableSet s →
+      Tendsto
+        (fun N =>
+          (∑ k ∈ Finset.range (N + 1), MeasureTheory.sfiniteSeq μ k) s)
+        atTop
+        (𝓝 (μ s)) := by
+  classical
+  set μn : ℕ → Measure G := MeasureTheory.sfiniteSeq μ
+  have hμ_sum : Measure.sum μn = μ := MeasureTheory.sum_sfiniteSeq μ
+  let μpartial : ℕ → Measure G := fun N => ∑ k ∈ Finset.range (N + 1), μn k
+  intro s hs
+  have h_sum_eval := congrArg (fun ν : Measure G => ν s) hμ_sum
+  have hμ_tsum : ∑' n, μn n s = μ s := by
+    simpa [Measure.sum_apply _ hs, μn] using h_sum_eval
+  have h_seq :
+      Tendsto (fun N => μpartial N s) atTop (𝓝 (∑' n, μn n s)) := by
+    simpa [μpartial, Measure.finset_sum_apply, Nat.succ_eq_add_one]
+      using
+        (ENNReal.tendsto_nat_tsum (fun n => μn n s)).comp (tendsto_add_atTop_nat 1)
+  simpa [μpartial, hμ_tsum]
+    using h_seq
+
+lemma sfiniteSeq_partial_prod_le_smul
+    (μ : Measure G) [SFinite μ] :
+    ∀ N,
+      (∑ k ∈ Finset.range (N + 1), MeasureTheory.sfiniteSeq μ k).prod
+          (∑ k ∈ Finset.range (N + 1), MeasureTheory.sfiniteSeq μ k)
+        ≤ (((N + 1 : ℝ≥0∞) * (N + 1 : ℝ≥0∞)) • (μ.prod μ)) := by
+  classical
+  set μn : ℕ → Measure G := MeasureTheory.sfiniteSeq μ
+  let μpartial : ℕ → Measure G := fun N => ∑ k ∈ Finset.range (N + 1), μn k
+  have hμpartial_le_smul := sfiniteSeq_partial_le_smul (μ := μ)
+  intro N
+  classical
+  set c : ℝ≥0∞ := (N + 1 : ℝ≥0∞)
+  have hμ_le : μpartial N ≤ c • μ := by
+    simpa [μpartial, μn, c] using hμpartial_le_smul N
+  refine fun s => ?_
+  classical
+  set S := toMeasurable (μ.prod μ) s with hS_def
+  have hS_meas : MeasurableSet S := measurableSet_toMeasurable _ _
+  have hs_subset : s ⊆ S := by
+    simpa [S] using subset_toMeasurable (μ.prod μ) s
+  have h_goal :
+      (μpartial N).prod (μpartial N) S ≤ ((c * c) • (μ.prod μ)) S := by
+    have h_prod_apply_partial :
+        (μpartial N).prod (μpartial N) S =
+          ∫⁻ x, μpartial N (Prod.mk x ⁻¹' S) ∂ μpartial N :=
+      Measure.prod_apply (μ := μpartial N) (ν := μpartial N) hS_meas
+    have h_prod_apply :
+        (μ.prod μ) S = ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
+      Measure.prod_apply (μ := μ) (ν := μ) hS_meas
+    have h_pointwise :
+        (fun x => μpartial N (Prod.mk x ⁻¹' S)) ≤
+          fun x => c * μ (Prod.mk x ⁻¹' S) := by
+      intro x
+      have := hμ_le (Prod.mk x ⁻¹' S)
+      simpa [c, Measure.smul_apply] using this
+    have h_step1 :
+        (∫⁻ x, μpartial N (Prod.mk x ⁻¹' S) ∂ μpartial N)
+          ≤ ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μpartial N :=
+      lintegral_mono h_pointwise
+    have h_step2 :
+        ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μpartial N ≤
+          ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ (c • μ) :=
+      lintegral_mono' hμ_le fun _ => le_rfl
+    have h_step4 :
+        ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μ =
+          c * ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
+      lintegral_const_mul c (measurable_measure_prodMk_left hS_meas)
+    calc
+      (μpartial N).prod (μpartial N) S
+          = ∫⁻ x, μpartial N (Prod.mk x ⁻¹' S) ∂ μpartial N :=
+        h_prod_apply_partial
+      _ ≤ ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μpartial N := h_step1
+      _ ≤ ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ (c • μ) := h_step2
+      _ = c * ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μ := by
+        simp [lintegral_smul_measure, mul_comm, mul_left_comm, mul_assoc]
+      _ = c * (c * ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ) := by
+        simp [h_step4, mul_comm, mul_left_comm, mul_assoc]
+      _ = (c * c) * (μ.prod μ) S := by
+        simp [h_prod_apply, mul_comm, mul_left_comm, mul_assoc]
+      _ = ((c * c) • (μ.prod μ)) S := by
+        simp [Measure.smul_apply, mul_comm, mul_left_comm, mul_assoc]
+  have h_total :
+      (μpartial N).prod (μpartial N) s ≤ ((c * c) • (μ.prod μ)) S :=
+    (measure_mono (μ := (μpartial N).prod (μpartial N)) hs_subset).trans h_goal
+  simpa [μpartial, μn, c, S, Measure.smul_apply, measure_toMeasurable,
+    mul_comm, mul_left_comm, mul_assoc]
+    using h_total
+
+lemma sfiniteSeq_partial_translate_norm_bound
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant] [μ.IsNegInvariant]
+    {r : ℝ≥0∞}
+    (f : G → ℂ)
+    (μpartial : ℕ → Measure G)
+    (hf : MemLp f r μ)
+    (h_le : ∀ N, μpartial N ≤ ((N + 1 : ℝ≥0∞) • μ)) :
+    ∀ N y,
+      eLpNorm (fun x => f (x - y)) r (μpartial N)
+        ≤ ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal) * eLpNorm f r μ := by
+  classical
+  intro N y
+  have h_le' :=
+    eLpNorm_mono_measure
+      (f := fun x => f (x - y))
+      (μ := ((N + 1 : ℝ≥0∞) • μ))
+      (ν := μpartial N)
+      (p := r)
+      (h_le N)
+  have h_smul :=
+    eLpNorm_smul_measure_of_ne_zero
+      (μ := μ)
+      (p := r)
+      (f := fun x => f (x - y))
+      (c := (N + 1 : ℝ≥0∞))
+      (by
+        have h_pos : (0 : ℝ≥0∞) < (N + 1 : ℝ≥0∞) := by
+          exact_mod_cast (Nat.succ_pos N)
+        exact ne_of_gt h_pos)
+  have h_translate :=
+    eLpNorm_comp_add_right
+      (μ := μ) (f := f) (p := r) (y := -y) hf.aestronglyMeasurable
+  have h_step := h_le'.trans (le_of_eq h_smul)
+  simpa [smul_eq_mul, sub_eq_add_neg,
+    h_translate, mul_comm, mul_left_comm, mul_assoc]
+    using h_step
+
+lemma sfiniteSeq_partial_integrable_norm_mul
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant] [μ.IsNegInvariant]
+    {r : ℝ≥0∞}
+    (hr : 1 ≤ r) (hr_ne_top : r ≠ ∞)
+    (f g : G → ℂ)
+    (μpartial : ℕ → Measure G)
+    (hf : MemLp f r μ)
+    (hg_partial_int : ∀ N, Integrable g (μpartial N))
+    (hμpartial_fin : ∀ N, IsFiniteMeasure (μpartial N))
+    (hμpartial_prod_ac : ∀ N, (μpartial N).prod (μpartial N) ≪ μ.prod μ)
+    (h_translate_norm_bound_toReal :
+      ∀ N y,
+        (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ≤
+          ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal) :
+    ∀ N,
+      Integrable
+        (fun y => ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal)
+        (μpartial N) := by
+  classical
+  intro N
+  set C :=
+      ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal with hC_def
+  have h_C_nonneg : 0 ≤ C := by
+    have h_nonneg :
+        0 ≤ (((N + 1 : ℝ≥0∞) ^ (1 / r).toReal) * eLpNorm f r μ).toReal :=
+      ENNReal.toReal_nonneg
+    simpa [hC_def] using h_nonneg
+  have h_bound :
+      ∀ y,
+        ‖‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal‖ ≤
+          ‖g y‖ * C := by
+    intro y
+    have h_toReal_nonneg :
+        0 ≤ (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal :=
+      ENNReal.toReal_nonneg
+    have h_mul_nonneg :
+        0 ≤ ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal :=
+      mul_nonneg (norm_nonneg _) h_toReal_nonneg
+    have h_upper := h_translate_norm_bound_toReal N y
+    have h_mul_upper :
+        ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ≤
+          ‖g y‖ * C :=
+      mul_le_mul_of_nonneg_left h_upper (norm_nonneg _)
+    have h_abs_eq :
+        ‖‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal‖ =
+          ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal := by
+      simp [abs_of_nonneg h_mul_nonneg]
+    have h_rhs_nonneg : 0 ≤ ‖g y‖ * C :=
+      mul_nonneg (norm_nonneg _) h_C_nonneg
+    simpa [h_abs_eq, abs_of_nonneg h_rhs_nonneg] using h_mul_upper
+  have h_bound_integrable :
+      Integrable (fun y => ‖g y‖ * C) (μpartial N) := by
+    simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
+      using ((hg_partial_int N).norm.mul_const C)
+  refine (h_bound_integrable.mono' ?_ ?_)
+  · classical
+    have hf_meas : AEStronglyMeasurable f μ := hf.aestronglyMeasurable
+    set f₀ := hf_meas.mk f with hf₀_def
+    have hf₀_meas : StronglyMeasurable f₀ := hf_meas.stronglyMeasurable_mk
+    have hf₀_ae_eq : f =ᵐ[μ] f₀ := hf_meas.ae_eq_mk
+    have hf₀_ae_eq_prod :
+        (fun q : G × G => f (q.1 - q.2))
+          =ᵐ[μ.prod μ]
+          fun q : G × G => f₀ (q.1 - q.2) := by
+      have h_sub_qmp :
+          Measure.QuasiMeasurePreserving (fun z : G × G => z.1 - z.2)
+            (μ.prod μ) μ := by
+        have h_measPres :
+            MeasurePreserving (fun z : G × G => (z.1 - z.2, z.2))
+              (μ.prod μ) (μ.prod μ) :=
+          measurePreserving_sub_prod (μ := μ) (ν := μ)
+        have h_fst :
+            Measure.QuasiMeasurePreserving (fun z : G × G => z.1)
+              (μ.prod μ) μ :=
+          MeasureTheory.Measure.quasiMeasurePreserving_fst (μ := μ) (ν := μ)
+        simpa [Function.comp, sub_eq_add_neg, add_comm, add_left_comm]
+          using h_fst.comp h_measPres.quasiMeasurePreserving
+      exact h_sub_qmp.ae_eq_comp hf₀_ae_eq
+    have hf₀_ae_eq_prod_partial :
+        (fun q : G × G => f (q.1 - q.2))
+          =ᵐ[(μpartial N).prod (μpartial N)]
+          fun q : G × G => f₀ (q.1 - q.2) :=
+      (hμpartial_prod_ac N) hf₀_ae_eq_prod
+    have hf₀_ae_eq_prod_partial_uncurry :
+        Function.uncurry (fun x y => f (x - y))
+          =ᵐ[(μpartial N).prod (μpartial N)]
+          Function.uncurry (fun x y => f₀ (x - y)) := by
+      simpa [Function.uncurry] using hf₀_ae_eq_prod_partial
+    have hf₀_ae_eq_prod_partial_uncurry_swap :
+        Function.uncurry (fun y x => f (x - y))
+          =ᵐ[(μpartial N).prod (μpartial N)]
+          Function.uncurry (fun y x => f₀ (x - y)) := by
+      have h_comp :=
+        (Measure.measurePreserving_swap
+            (μ := μpartial N) (ν := μpartial N)).quasiMeasurePreserving.ae_eq_comp
+          hf₀_ae_eq_prod_partial_uncurry
+      simpa [Function.comp, Function.uncurry, Prod.swap, sub_eq_add_neg]
+        using h_comp
+    have h_kernel_ae :
+        ∀ᵐ y ∂ μpartial N,
+          (fun x => f (x - y)) =ᵐ[μpartial N] fun x => f₀ (x - y) := by
+      have h_curry :=
+        Measure.ae_ae_eq_curry_of_prod
+          (μ := μpartial N) (ν := μpartial N)
+          hf₀_ae_eq_prod_partial_uncurry_swap
+      refine h_curry.mono ?_
+      intro y hy
+      simpa [Function.curry, sub_eq_add_neg] using hy
+    have h_eLp_ae :
+        ∀ᵐ y ∂ μpartial N,
+          eLpNorm (fun x => f (x - y)) r (μpartial N) =
+            eLpNorm (fun x => f₀ (x - y)) r (μpartial N) :=
+      h_kernel_ae.mono fun _ hy => eLpNorm_congr_ae hy
+    have h_eLp_toReal_ae :
+        (fun y =>
+            (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal)
+          =ᵐ[μpartial N]
+          fun y =>
+            (eLpNorm (fun x => f₀ (x - y)) r (μpartial N)).toReal :=
+      h_eLp_ae.mono fun _ hy => by simp [hy]
+    haveI : IsFiniteMeasure (μpartial N) := hμpartial_fin N
+    have h_sub_meas :
+        Measurable fun z : G × G => z.1 - z.2 :=
+      measurable_fst.sub measurable_snd
+    have hF_sm :
+        StronglyMeasurable (fun z : G × G => f₀ (z.1 - z.2)) :=
+      hf₀_meas.comp_measurable h_sub_meas
+    have h_integrand_aemeasurable :
+        AEMeasurable
+          (fun z : G × G => (‖f₀ (z.1 - z.2)‖ₑ) ^ r.toReal)
+          ((μpartial N).prod (μpartial N)) := by
+      simpa using (hF_sm.aemeasurable.enorm.pow_const r.toReal)
+    have h_lintegral_aemeasurable :
+        AEMeasurable
+          (fun y =>
+            ∫⁻ x, (‖f₀ (x - y)‖ₑ) ^ r.toReal ∂ μpartial N)
+          (μpartial N) :=
+      h_integrand_aemeasurable.lintegral_prod_left'
+    have hr_pos : (0 : ℝ≥0∞) < r := lt_of_lt_of_le (by simp) hr
+    have hr_ne_zero : r ≠ 0 := ne_of_gt hr_pos
+    have h_eLp_aemeasurable :
+        AEMeasurable
+          (fun y => eLpNorm (fun x => f₀ (x - y)) r (μpartial N))
+          (μpartial N) := by
+      have h_pow_meas : Measurable fun t : ℝ≥0∞ => t ^ (1 / r.toReal) :=
+        (measurable_id.pow_const (1 / r.toReal))
+      have := h_pow_meas.comp_aemeasurable h_lintegral_aemeasurable
+      refine this.congr ?_
+      refine Filter.Eventually.of_forall ?_
+      intro y
+      simp [eLpNorm_eq_lintegral_rpow_enorm (μ := μpartial N)
+        (f := fun x => f₀ (x - y)) hr_ne_zero hr_ne_top]
+    have h_eLp_toReal_meas :
+        AEStronglyMeasurable
+          (fun y =>
+            (eLpNorm (fun x => f₀ (x - y)) r (μpartial N)).toReal)
+          (μpartial N) :=
+      (h_eLp_aemeasurable.ennreal_toReal).aestronglyMeasurable
+    have hg_norm_meas :
+        AEStronglyMeasurable (fun y => ‖g y‖) (μpartial N) :=
+      (hg_partial_int N).aestronglyMeasurable.norm
+    have h_prod_meas_aux :
+        AEStronglyMeasurable
+          (fun y =>
+            ‖g y‖ * (eLpNorm (fun x => f₀ (x - y)) r (μpartial N)).toReal)
+          (μpartial N) :=
+      hg_norm_meas.mul h_eLp_toReal_meas
+    rcases h_prod_meas_aux with ⟨φ, hφ_meas, hφ_ae⟩
+    refine ⟨φ, hφ_meas, ?_⟩
+    have h_prod_ae :
+        (fun y =>
+            ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal)
+          =ᵐ[μpartial N]
+          fun y =>
+            ‖g y‖ * (eLpNorm (fun x => f₀ (x - y)) r (μpartial N)).toReal :=
+      h_eLp_toReal_ae.mono fun _ hy => by simp [hy]
+    exact h_prod_ae.trans hφ_ae
+  · refine (Filter.Eventually.of_forall ?_)
+    intro y
+    simpa using h_bound y
+
+lemma sfiniteSeq_partial_integral_norm_mul_le
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant] [μ.IsNegInvariant]
+    {r : ℝ≥0∞}
+    (f g : G → ℂ)
+    (μpartial : ℕ → Measure G)
+    (hg_partial_int : ∀ N, Integrable g (μpartial N))
+    (h_norm_partial :
+      ∀ N,
+        Integrable
+          (fun y => ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal)
+          (μpartial N))
+    (h_translate_norm_bound_toReal :
+      ∀ N y,
+        (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ≤
+          ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal) :
+    ∀ N,
+      ∫ y, ‖g y‖ *
+          (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N ≤
+        ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal *
+          ∫ y, ‖g y‖ ∂ μpartial N := by
+  classical
+  intro N
+  set C :=
+      ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal with hC_def
+  have hC_nonneg : 0 ≤ C := by
+    have h_nonneg :
+        0 ≤ (((N + 1 : ℝ≥0∞) ^ (1 / r).toReal) * eLpNorm f r μ).toReal :=
+      ENNReal.toReal_nonneg
+    simpa [hC_def] using h_nonneg
+  have h_pointwise :
+      ∀ y,
+        ‖g y‖ *
+            (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ≤
+          ‖g y‖ * C := by
+    intro y
+    have h_upper := h_translate_norm_bound_toReal N y
+    have h_mul_upper :=
+      mul_le_mul_of_nonneg_left h_upper (norm_nonneg (g y))
+    simpa [hC_def] using h_mul_upper
+  have h_integrand_int := h_norm_partial N
+  have h_const_int :
+      Integrable (fun y => ‖g y‖ * C) (μpartial N) := by
+    have := (hg_partial_int N).norm.mul_const C
+    simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
+      using this
+  have h_le :=
+    integral_mono_ae
+      h_integrand_int
+      h_const_int
+      (Filter.Eventually.of_forall h_pointwise)
+  have h_const_eval :
+      ∫ y, ‖g y‖ * C ∂ μpartial N
+        = C * ∫ y, ‖g y‖ ∂ μpartial N := by
+    simpa [mul_comm, mul_left_comm, mul_assoc] using
+      (integral_mul_const (μ := μpartial N) (r := C) (f := fun y => ‖g y‖))
+  have h_result :
+      ∫ y, ‖g y‖ *
+          (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N ≤
+        C * ∫ y, ‖g y‖ ∂ μpartial N := by
+    simpa [h_const_eval]
+      using h_le
+  simpa [hC_def] using h_result
+
+lemma convolution_partial_minkowski_bound
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (ν : Measure G) [IsFiniteMeasure ν]
+    {r : ℝ≥0∞}
+    (hr : 1 ≤ r) (hr_ne_top : r ≠ ∞)
+    (f g : G → ℂ)
+    (h_kernel_meas :
+      AEStronglyMeasurable
+        (fun q : G × G => f (q.1 - q.2) * g q.2) (ν.prod ν))
+    (h_kernel_int :
+      Integrable (fun q : G × G => f (q.1 - q.2) * g q.2) (ν.prod ν))
+    (h_fiber_int : ∀ᵐ y ∂ν, Integrable (fun x => f (x - y) * g y) ν)
+    (h_fiber_mem : ∀ᵐ y ∂ν, MemLp (fun x => f (x - y) * g y) r ν)
+    (h_scaling :
+      ∀ y : G,
+        eLpNorm (fun x => f (x - y) * g y) r ν =
+          ENNReal.ofReal ‖g y‖ * eLpNorm (fun x => f (x - y)) r ν)
+    (h_norm_integrable :
+      Integrable (fun y => ‖g y‖ * (eLpNorm (fun x => f (x - y)) r ν).toReal) ν) :
+    eLpNorm (fun x => ∫ y, f (x - y) * g y ∂ν) r ν ≤
+      ENNReal.ofReal
+        (∫ y, ‖g y‖ * (eLpNorm (fun x => f (x - y)) r ν).toReal ∂ν) := by
+  classical
+  have h_pointwise :
+      (fun y =>
+          (eLpNorm (fun x => f (x - y) * g y) r ν).toReal)
+        =ᵐ[ν]
+        fun y =>
+          ‖g y‖ * (eLpNorm (fun x => f (x - y)) r ν).toReal := by
+    refine Filter.Eventually.of_forall ?_
+    intro y
+    have h_eq := h_scaling y
+    have h_toReal := congrArg ENNReal.toReal h_eq
+    have h_nonneg : 0 ≤ ‖g y‖ := norm_nonneg _
+    simpa [ENNReal.toReal_ofReal_mul, h_nonneg] using h_toReal
+  have h_norm_toReal :
+      Integrable
+        (fun y => (eLpNorm (fun x => f (x - y) * g y) r ν).toReal) ν := by
+    refine h_norm_integrable.congr ?_
+    simpa using h_pointwise.symm
+  have h_minkowski :=
+    minkowski_integral_inequality
+      (μ := ν) (ν := ν) (p := r)
+      hr hr_ne_top (fun x y => f (x - y) * g y)
+      h_kernel_meas h_kernel_int h_fiber_int h_fiber_mem h_norm_toReal
+  have h_integral_eq :
+      (∫ y,
+          (eLpNorm (fun x => f (x - y) * g y) r ν).toReal ∂ν)
+        = ∫ y,
+            ‖g y‖ * (eLpNorm (fun x => f (x - y)) r ν).toReal ∂ν :=
+    integral_congr_ae h_pointwise
+  simpa [h_integral_eq]
+    using h_minkowski
+
+lemma convPartial_minkowski_bound
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μpartial : ℕ → Measure G)
+    (f g : G → ℂ)
+    (r : ℝ≥0∞)
+    (convPartial : ℕ → G → ℂ)
+    (h_convPartial :
+      ∀ N, convPartial N = fun x => ∫ y, f (x - y) * g y ∂ μpartial N)
+    (hr : 1 ≤ r) (hr_ne_top : r ≠ ∞)
+    (hμpartial_fin : ∀ N, IsFiniteMeasure (μpartial N))
+    (h_kernel_meas_partial :
+      ∀ N,
+        AEStronglyMeasurable
+          (fun q : G × G => f (q.1 - q.2) * g q.2)
+          ((μpartial N).prod (μpartial N)))
+    (h_kernel_int_partial :
+      ∀ N,
+        Integrable (fun q : G × G => f (q.1 - q.2) * g q.2)
+          ((μpartial N).prod (μpartial N)))
+    (h_kernel_fiber_int_partial :
+      ∀ N,
+        ∀ᵐ y ∂ μpartial N, Integrable (fun x => f (x - y) * g y) (μpartial N))
+    (h_kernel_fiber_mem_partial :
+      ∀ N,
+        ∀ᵐ y ∂ μpartial N,
+          MemLp (fun x => f (x - y) * g y) r (μpartial N))
+    (h_norm_partial :
+      ∀ N,
+        Integrable (fun y =>
+            ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal)
+          (μpartial N)) :
+    ∀ N,
+      eLpNorm (convPartial N) r (μpartial N) ≤
+        ENNReal.ofReal
+          (∫ y,
+              ‖g y‖ *
+                (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N) := by
+  classical
+  intro N
+  haveI : IsFiniteMeasure (μpartial N) := hμpartial_fin N
+  have h_scaling :
+      ∀ y : G,
+        eLpNorm (fun x => f (x - y) * g y) r (μpartial N) =
+          ENNReal.ofReal ‖g y‖ *
+            eLpNorm (fun x => f (x - y)) r (μpartial N) := by
+    intro y
+    have h_smul :
+        (fun x : G => f (x - y) * g y) =
+          fun x : G => (g y) • f (x - y) := by
+      funext x
+      simp [mul_comm, smul_eq_mul, sub_eq_add_neg]
+    simpa [h_smul] using
+      eLpNorm_const_smul (μ := μpartial N) (p := r)
+        (c := g y) (f := fun x => f (x - y))
+  have h_bound :=
+    convolution_partial_minkowski_bound
+      (ν := μpartial N) (r := r)
+      (hr := hr) (hr_ne_top := hr_ne_top)
+      (f := f) (g := g)
+      (h_kernel_meas := h_kernel_meas_partial N)
+      (h_kernel_int := h_kernel_int_partial N)
+      (h_fiber_int := h_kernel_fiber_int_partial N)
+      (h_fiber_mem := h_kernel_fiber_mem_partial N)
+      (h_scaling := h_scaling)
+      (h_norm_integrable := h_norm_partial N)
+  simpa [h_convPartial N]
+    using h_bound
+
+lemma convPartial_bound
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) (μpartial : ℕ → Measure G)
+    (f g : G → ℂ) (r : ℝ≥0∞)
+    (convPartial : ℕ → G → ℂ)
+    (h_minkowski_partial :
+      ∀ N,
+        eLpNorm (convPartial N) r (μpartial N) ≤
+          ENNReal.ofReal
+            (∫ y,
+                ‖g y‖ *
+                  (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal
+                ∂ μpartial N))
+    (h_norm_partial_le :
+      ∀ N,
+        ∫ y,
+            ‖g y‖ *
+              (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal
+              ∂ μpartial N ≤
+          ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal *
+            ∫ y, ‖g y‖ ∂ μpartial N) :
+    ∀ N,
+      eLpNorm (convPartial N) r (μpartial N) ≤
+        ENNReal.ofReal
+          ((((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal) *
+            ∫ y, ‖g y‖ ∂ μpartial N) := by
+  classical
+  intro N
+  have h_mink := h_minkowski_partial N
+  have h_le := h_norm_partial_le N
+  set C :=
+      ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal
+    with hC_def
+  have h_ofReal_le :
+      ENNReal.ofReal
+          (∫ y,
+              ‖g y‖ *
+                (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal
+              ∂ μpartial N)
+        ≤ ENNReal.ofReal (C * ∫ y, ‖g y‖ ∂ μpartial N) := by
+    refine ENNReal.ofReal_le_ofReal ?_
+    simpa [hC_def, mul_comm, mul_left_comm, mul_assoc] using h_le
+  exact h_mink.trans <| by
+    simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
+      using h_ofReal_le
+
+lemma convPartial_succ_eq
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) (μpartial μn : ℕ → Measure G)
+    (f g : G → ℂ)
+    (convPartial convPiece : ℕ → G → ℂ)
+    (h_convPartial :
+      ∀ N, convPartial N = fun x => ∫ y, f (x - y) * g y ∂ μpartial N)
+    (h_convPiece :
+      ∀ N, convPiece N = fun x => ∫ y, f (x - y) * g y ∂ μn N)
+    (hμpartial_succ : ∀ N, μpartial (N + 1) = μpartial N + μn (N + 1))
+    (h_kernel_fiber_int_partial_measure :
+      ∀ N, ∀ᵐ x ∂ μ, Integrable (fun y => f (x - y) * g y) (μpartial N))
+    (h_kernel_fiber_int_piece :
+      ∀ N, ∀ᵐ x ∂ μ, Integrable (fun y => f (x - y) * g y) (μn N)) :
+    ∀ N,
+      convPartial (N + 1)
+        =ᵐ[μ]
+          fun x => convPartial N x + convPiece (N + 1) x := by
+  classical
+  intro N
+  have h_int_succ := h_kernel_fiber_int_partial_measure (N + 1)
+  have h_int_prev := h_kernel_fiber_int_partial_measure N
+  have h_int_piece := h_kernel_fiber_int_piece (N + 1)
+  refine (h_int_succ.and (h_int_prev.and h_int_piece)).mono ?_
+  intro x hx
+  rcases hx with ⟨hx_succ, hx_rest⟩
+  rcases hx_rest with ⟨hx_prev, hx_piece⟩
+  have h_measure := hμpartial_succ N
+  have h_integral_add :
+      ∫ y, f (x - y) * g y ∂ μpartial (N + 1)
+        = ∫ y, f (x - y) * g y ∂ μpartial N
+            + ∫ y, f (x - y) * g y ∂ μn (N + 1) := by
+    simpa [h_measure, Nat.succ_eq_add_one]
+      using MeasureTheory.integral_add_measure hx_prev hx_piece
+  simp [h_convPartial (N + 1), h_convPartial N, h_convPiece (N + 1),
+    h_integral_add, Nat.succ_eq_add_one]
+
+lemma convPartial_sum_eq
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) (μpartial μn : ℕ → Measure G)
+    (f g : G → ℂ)
+    (convPartial convPiece : ℕ → G → ℂ)
+    (h_convPartial :
+      ∀ N, convPartial N = fun x => ∫ y, f (x - y) * g y ∂ μpartial N)
+    (h_convPiece :
+      ∀ N, convPiece N = fun x => ∫ y, f (x - y) * g y ∂ μn N)
+    (hμpartial_zero : μpartial 0 = μn 0)
+    (hμpartial_succ : ∀ N, μpartial (N + 1) = μpartial N + μn (N + 1))
+    (h_kernel_fiber_int_partial_measure :
+      ∀ N, ∀ᵐ x ∂ μ, Integrable (fun y => f (x - y) * g y) (μpartial N))
+    (h_kernel_fiber_int_piece :
+      ∀ N, ∀ᵐ x ∂ μ, Integrable (fun y => f (x - y) * g y) (μn N)) :
+    ∀ N,
+      convPartial N
+        =ᵐ[μ]
+          fun x => ∑ k ∈ Finset.range (N + 1), convPiece k x := by
+  classical
+  intro N
+  induction' N with N hN
+  · refine Filter.Eventually.of_forall ?_
+    intro x
+    simp [h_convPartial, h_convPiece, hμpartial_zero]
+  · have h_succ :=
+      convPartial_succ_eq
+        (μ := μ)
+        (μpartial := μpartial)
+        (μn := μn)
+        (f := f)
+        (g := g)
+        (convPartial := convPartial)
+        (convPiece := convPiece)
+        (h_convPartial := h_convPartial)
+        (h_convPiece := h_convPiece)
+        (hμpartial_succ := hμpartial_succ)
+        (h_kernel_fiber_int_partial_measure :=
+          h_kernel_fiber_int_partial_measure)
+        (h_kernel_fiber_int_piece := h_kernel_fiber_int_piece)
+        N
+    refine h_succ.trans ?_
+    refine hN.mono ?_
+    intro x hx
+    have hx' :
+        convPartial N x + convPiece (N + 1) x =
+          (∑ k ∈ Finset.range (N + 1), convPiece k x) + convPiece (N + 1) x := by
+      simp [hx]
+    have hx'' :
+        (∑ k ∈ Finset.range (N + 1), convPiece k x) + convPiece (N + 1) x =
+          ∑ k ∈ Finset.range (N + 1 + 1), convPiece k x := by
+      simp [Finset.sum_range_succ, Nat.succ_eq_add_one, add_comm,
+        add_left_comm, add_assoc]
+    exact hx'.trans hx''
+
+lemma sfiniteSeq_prod_le
+    [MeasurableSpace G]
+    (μ : Measure G) [SFinite μ] :
+    ∀ n, (MeasureTheory.sfiniteSeq μ n).prod (MeasureTheory.sfiniteSeq μ n) ≤ μ.prod μ := by
+  classical
+  set μn := MeasureTheory.sfiniteSeq μ
+  have hμn_le : ∀ n, μn n ≤ μ := fun n =>
+    by simpa [μn, one_smul] using MeasureTheory.sfiniteSeq_le (μ := μ) n
+  intro n
+  refine fun s => ?_
+  classical
+  set S := toMeasurable (μ.prod μ) s with hS_def
+  have hS_meas : MeasurableSet S := measurableSet_toMeasurable _ _
+  have hs_subset : s ⊆ S := by
+    simpa [S] using subset_toMeasurable (μ.prod μ) s
+  have h_prod_apply_piece :
+      (μn n).prod (μn n) S =
+        ∫⁻ x, μn n (Prod.mk x ⁻¹' S) ∂ μn n :=
+    Measure.prod_apply (μ := μn n) (ν := μn n) hS_meas
+  have h_prod_apply :
+      (μ.prod μ) S = ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
+    Measure.prod_apply (μ := μ) (ν := μ) hS_meas
+  have h_pointwise :
+      (fun x => μn n (Prod.mk x ⁻¹' S)) ≤
+        fun x => μ (Prod.mk x ⁻¹' S) := by
+    intro x
+    exact hμn_le n (Prod.mk x ⁻¹' S)
+  have h_step1 :
+      (∫⁻ x, μn n (Prod.mk x ⁻¹' S) ∂ μn n)
+        ≤ ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μn n :=
+    lintegral_mono h_pointwise
+  have h_step2 :
+      (∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μn n)
+        ≤ ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
+    lintegral_mono' (hμn_le n) fun _ => le_rfl
+  have h_goal :
+      (μn n).prod (μn n) S ≤ (μ.prod μ) S := by
+    have h_chain := h_step1.trans h_step2
+    simpa [h_prod_apply_piece, h_prod_apply] using h_chain
+  have h_total :
+      (μn n).prod (μn n) s ≤ (μ.prod μ) S :=
+    (measure_mono (μ := (μn n).prod (μn n)) hs_subset).trans h_goal
+  simpa [μn, S, measure_toMeasurable] using h_total
+
+lemma sfiniteSeq_piece_integrable_norm_mul
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant] [μ.IsNegInvariant]
+    {r : ℝ≥0∞}
+    (hr : 1 ≤ r) (hr_ne_top : r ≠ ∞)
+    (f g : G → ℂ)
+    (μn : ℕ → Measure G)
+    (hf_r : MemLp f r μ)
+    (hg_piece_int : ∀ n, Integrable g (μn n))
+    (hμn_fin : ∀ n, IsFiniteMeasure (μn n))
+    (hμn_prod_ac : ∀ n, (μn n).prod (μn n) ≪ μ.prod μ)
+    (h_translate_norm_bound_toReal_piece :
+      ∀ n y,
+        (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ≤
+          (eLpNorm f r μ).toReal) :
+    ∀ n,
+      Integrable
+        (fun y => ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal)
+        (μn n) := by
+  classical
+  intro n
+  haveI := hμn_fin n
+  set C := (eLpNorm f r μ).toReal with hC_def
+  have hC_nonneg : 0 ≤ C := by
+    have h_nonneg : 0 ≤ (eLpNorm f r μ).toReal := ENNReal.toReal_nonneg
+    simpa [hC_def] using h_nonneg
+  have h_bound :
+      ∀ y,
+        ‖‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal‖ ≤
+          ‖g y‖ * C := by
+    intro y
+    have h_toReal_nonneg :
+        0 ≤ (eLpNorm (fun x => f (x - y)) r (μn n)).toReal :=
+      ENNReal.toReal_nonneg
+    have h_mul_nonneg :
+        0 ≤ ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal :=
+      mul_nonneg (norm_nonneg _) h_toReal_nonneg
+    have h_upper := h_translate_norm_bound_toReal_piece n y
+    have h_mul_upper := mul_le_mul_of_nonneg_left h_upper (norm_nonneg (g y))
+    have h_abs_eq :
+        ‖‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal‖ =
+          ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal := by
+      simpa [abs_of_nonneg h_mul_nonneg]
+    have h_rhs_nonneg : 0 ≤ ‖g y‖ * C :=
+      mul_nonneg (norm_nonneg _) hC_nonneg
+    simpa [h_abs_eq, abs_of_nonneg h_rhs_nonneg, hC_def]
+      using h_mul_upper
+  have h_bound_integrable :
+      Integrable (fun y => ‖g y‖ * C) (μn n) := by
+    have := (hg_piece_int n).norm.mul_const C
+    simpa [hC_def, mul_comm, mul_left_comm, mul_assoc] using this
+  have hf_meas : AEStronglyMeasurable f μ := hf_r.aestronglyMeasurable
+  set f₀ := hf_meas.mk f with hf₀_def
+  have hf₀_meas : StronglyMeasurable f₀ := hf_meas.stronglyMeasurable_mk
+  have hf₀_ae_eq : f =ᵐ[μ] f₀ := hf_meas.ae_eq_mk
+  have hf₀_ae_eq_prod :
+      (fun q : G × G => f (q.1 - q.2))
+        =ᵐ[μ.prod μ]
+        fun q : G × G => f₀ (q.1 - q.2) := by
+    have h_sub_qmp :
+        Measure.QuasiMeasurePreserving (fun z : G × G => z.1 - z.2)
+          (μ.prod μ) μ := by
+      have h_measPres :
+          MeasurePreserving (fun z : G × G => (z.1 - z.2, z.2))
+            (μ.prod μ) (μ.prod μ) :=
+        measurePreserving_sub_prod (μ := μ) (ν := μ)
+      have h_fst :
+          Measure.QuasiMeasurePreserving (fun z : G × G => z.1)
+            (μ.prod μ) μ :=
+        MeasureTheory.Measure.quasiMeasurePreserving_fst (μ := μ) (ν := μ)
+      simpa [Function.comp, sub_eq_add_neg, add_comm, add_left_comm]
+        using h_fst.comp h_measPres.quasiMeasurePreserving
+    exact h_sub_qmp.ae_eq_comp hf₀_ae_eq
+  have hf₀_ae_eq_prod_piece :
+      (fun q : G × G => f (q.1 - q.2))
+        =ᵐ[(μn n).prod (μn n)]
+        fun q : G × G => f₀ (q.1 - q.2) :=
+    (hμn_prod_ac n) hf₀_ae_eq_prod
+  have hf₀_ae_eq_prod_piece_uncurry :
+      Function.uncurry (fun x y => f (x - y))
+        =ᵐ[(μn n).prod (μn n)]
+        Function.uncurry (fun x y => f₀ (x - y)) := by
+    simpa [Function.uncurry] using hf₀_ae_eq_prod_piece
+  have hf₀_ae_eq_prod_piece_uncurry_swap :
+      Function.uncurry (fun y x => f (x - y))
+        =ᵐ[(μn n).prod (μn n)]
+        Function.uncurry (fun y x => f₀ (x - y)) := by
+    have h_comp :=
+      (Measure.measurePreserving_swap
+          (μ := μn n) (ν := μn n)).quasiMeasurePreserving.ae_eq_comp
+        hf₀_ae_eq_prod_piece_uncurry
+    simpa [Function.comp, Function.uncurry, Prod.swap, sub_eq_add_neg]
+      using h_comp
+  have h_kernel_ae_piece :
+      ∀ᵐ y ∂ μn n,
+        (fun x => f (x - y)) =ᵐ[μn n] fun x => f₀ (x - y) := by
+    have h_curry :=
+      Measure.ae_ae_eq_curry_of_prod
+        (μ := μn n) (ν := μn n)
+        hf₀_ae_eq_prod_piece_uncurry_swap
+    refine h_curry.mono ?_
+    intro y hy
+    simpa [Function.curry, sub_eq_add_neg] using hy
+  have h_eLp_ae_piece :
+      ∀ᵐ y ∂ μn n,
+        eLpNorm (fun x => f (x - y)) r (μn n) =
+          eLpNorm (fun x => f₀ (x - y)) r (μn n) :=
+    h_kernel_ae_piece.mono fun _ hy => eLpNorm_congr_ae hy
+  have h_eLp_toReal_ae_piece :
+      (fun y =>
+          (eLpNorm (fun x => f (x - y)) r (μn n)).toReal)
+        =ᵐ[μn n]
+        fun y =>
+          (eLpNorm (fun x => f₀ (x - y)) r (μn n)).toReal :=
+    h_eLp_ae_piece.mono fun _ hy => by simp [hy]
+  have h_sub_meas :
+      Measurable fun z : G × G => z.1 - z.2 :=
+    measurable_fst.sub measurable_snd
+  have hF_sm :
+      StronglyMeasurable (fun z : G × G => f₀ (z.1 - z.2)) :=
+    hf₀_meas.comp_measurable h_sub_meas
+  have h_integrand_aemeasurable_piece :
+      AEMeasurable
+        (fun z : G × G => (‖f₀ (z.1 - z.2)‖ₑ) ^ r.toReal)
+        ((μn n).prod (μn n)) := by
+    simpa using (hF_sm.aemeasurable.enorm.pow_const r.toReal)
+  have h_lintegral_aemeasurable_piece :
+      AEMeasurable
+        (fun y =>
+          ∫⁻ x, (‖f₀ (x - y)‖ₑ) ^ r.toReal ∂ μn n)
+        (μn n) :=
+    h_integrand_aemeasurable_piece.lintegral_prod_left'
+  have hr_pos : (0 : ℝ≥0∞) < r := lt_of_lt_of_le (by simp) hr
+  have hr_ne_zero : r ≠ 0 := ne_of_gt hr_pos
+  have h_eLp_aemeasurable_piece :
+      AEMeasurable
+        (fun y => eLpNorm (fun x => f₀ (x - y)) r (μn n))
+        (μn n) := by
+    have h_pow_meas : Measurable fun t : ℝ≥0∞ => t ^ (1 / r.toReal) :=
+      (measurable_id.pow_const (1 / r.toReal))
+    have := h_pow_meas.comp_aemeasurable h_lintegral_aemeasurable_piece
+    refine this.congr ?_
+    refine Filter.Eventually.of_forall ?_
+    intro y
+    simp [eLpNorm_eq_lintegral_rpow_enorm (μ := μn n)
+      (f := fun x => f₀ (x - y)) hr_ne_zero hr_ne_top]
+  have h_eLp_toReal_meas_piece :
+      AEStronglyMeasurable
+        (fun y =>
+          (eLpNorm (fun x => f₀ (x - y)) r (μn n)).toReal)
+        (μn n) :=
+    (h_eLp_aemeasurable_piece.ennreal_toReal).aestronglyMeasurable
+  have hg_norm_meas_piece :
+      AEStronglyMeasurable (fun y => ‖g y‖) (μn n) :=
+    (hg_piece_int n).aestronglyMeasurable.norm
+  have h_prod_meas_piece :
+      AEStronglyMeasurable
+        (fun y =>
+          ‖g y‖ *
+            (eLpNorm (fun x => f₀ (x - y)) r (μn n)).toReal)
+        (μn n) :=
+    hg_norm_meas_piece.mul h_eLp_toReal_meas_piece
+  rcases h_prod_meas_piece with ⟨φ, hφ_meas, hφ_ae⟩
+  refine (h_bound_integrable.mono' ?_ ?_)
+  · refine ⟨φ, hφ_meas, ?_⟩
+    have h_prod_ae_piece :
+        (fun y =>
+            ‖g y‖ *
+              (eLpNorm (fun x => f (x - y)) r (μn n)).toReal)
+          =ᵐ[μn n]
+          fun y =>
+            ‖g y‖ *
+              (eLpNorm (fun x => f₀ (x - y)) r (μn n)).toReal :=
+      h_eLp_toReal_ae_piece.mono fun _ hy => by simp [hy]
+    exact h_prod_ae_piece.trans hφ_ae
+  · exact Filter.Eventually.of_forall h_bound
+
+lemma sfiniteSeq_piece_minkowski_bound
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant] [μ.IsNegInvariant]
+    {r : ℝ≥0∞}
+    (hr : 1 ≤ r) (hr_ne_top : r ≠ ∞)
+    (f g : G → ℂ)
+    (μn : ℕ → Measure G)
+    (convPiece : ℕ → G → ℂ)
+    (hμn_fin : ∀ n, IsFiniteMeasure (μn n))
+    (h_kernel_meas_piece :
+      ∀ n,
+        AEStronglyMeasurable
+          (fun q : G × G => f (q.1 - q.2) * g q.2)
+          ((μn n).prod (μn n)))
+    (h_kernel_int_piece :
+      ∀ n,
+        Integrable (fun q : G × G => f (q.1 - q.2) * g q.2)
+          ((μn n).prod (μn n)))
+    (h_kernel_fiber_int_piece_left :
+      ∀ n, ∀ᵐ y ∂ μn n,
+          Integrable (fun x => f (x - y) * g y) (μn n))
+    (h_kernel_fiber_mem_piece :
+      ∀ n, ∀ᵐ y ∂ μn n,
+          MemLp (fun x => f (x - y) * g y) r (μn n))
+    (h_norm_piece :
+      ∀ n,
+        Integrable
+          (fun y =>
+              (eLpNorm (fun x => f (x - y) * g y) r (μn n)).toReal)
+          (μn n))
+    (h_pointwise :
+      ∀ n,
+        (fun y =>
+            (eLpNorm (fun x => f (x - y) * g y) r (μn n)).toReal)
+          =ᵐ[μn n]
+          fun y =>
+            ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal)
+    (h_convPiece_def :
+      ∀ n,
+        convPiece n = fun x => ∫ y, f (x - y) * g y ∂ μn n) :
+    ∀ n,
+      eLpNorm (convPiece n) r (μn n) ≤
+        ENNReal.ofReal
+          (∫ y, ‖g y‖ *
+              (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n) := by
+  classical
+  intro n
+  haveI := hμn_fin n
+  have h_scaling :
+      ∀ y : G,
+        eLpNorm (fun x => f (x - y) * g y) r (μn n) =
+          ENNReal.ofReal ‖g y‖ *
+            eLpNorm (fun x => f (x - y)) r (μn n) := by
+    intro y
+    have h_smul :
+        (fun x : G => f (x - y) * g y) =
+          fun x : G => (g y) • f (x - y) := by
+      funext x
+      simp [mul_comm, smul_eq_mul, sub_eq_add_neg]
+    simpa [h_smul] using
+      eLpNorm_const_smul (μ := μn n) (p := r)
+        (c := g y) (f := fun x => f (x - y))
+  have h_pointwise' := h_pointwise n
+  have h_norm_toReal_piece := h_norm_piece n
+  have h_minkowski :=
+    minkowski_integral_inequality
+      (μ := μn n) (ν := μn n) (p := r)
+      hr hr_ne_top (fun x y => f (x - y) * g y)
+      (h_kernel_meas_piece n) (h_kernel_int_piece n)
+      (h_kernel_fiber_int_piece_left n) (h_kernel_fiber_mem_piece n)
+      h_norm_toReal_piece
+  have h_integral_eq_piece :
+      (∫ y,
+          (eLpNorm (fun x => f (x - y) * g y) r (μn n)).toReal ∂ μn n)
+        = ∫ y, ‖g y‖ *
+            (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n :=
+    integral_congr_ae h_pointwise'
+  simpa [h_convPiece_def n, h_integral_eq_piece]
+    using h_minkowski
+
+lemma sfiniteSeq_partial_integral_norm
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (g : G → ℂ)
+    (μpartial μn : ℕ → Measure G)
+    (hμpartial_zero : μpartial 0 = μn 0)
+    (hμpartial_succ : ∀ N, μpartial (N + 1) = μpartial N + μn (N + 1))
+    (hg_partial_int : ∀ N, Integrable g (μpartial N))
+    (hg_piece_int : ∀ n, Integrable g (μn n)) :
+    ∀ N,
+      ∫ y, ‖g y‖ ∂ μpartial N
+        = ∑ k ∈ Finset.range (N + 1), ∫ y, ‖g y‖ ∂ μn k := by
+  classical
+  intro N
+  induction' N with N hN
+  · simp [hμpartial_zero]
+  · have h_add := hμpartial_succ N
+    have h_int_partial : Integrable (fun y => ‖g y‖) (μpartial N) :=
+      (hg_partial_int N).norm
+    have h_int_piece : Integrable (fun y => ‖g y‖) (μn (N + 1)) :=
+      (hg_piece_int (N + 1)).norm
+    have h_integral_add :
+        ∫ y, ‖g y‖ ∂ μpartial (N + 1)
+          = ∫ y, ‖g y‖ ∂ μpartial N
+              + ∫ y, ‖g y‖ ∂ μn (N + 1) := by
+      simpa [h_add, Nat.succ_eq_add_one]
+        using
+          (MeasureTheory.integral_add_measure
+            (μ := μpartial N) (ν := μn (N + 1))
+            (f := fun y => ‖g y‖)
+            h_int_partial h_int_piece)
+    calc
+      ∫ y, ‖g y‖ ∂ μpartial (N + 1)
+          = ∫ y, ‖g y‖ ∂ μpartial N
+              + ∫ y, ‖g y‖ ∂ μn (N + 1) := h_integral_add
+      _ = (∑ k ∈ Finset.range (N + 1), ∫ y, ‖g y‖ ∂ μn k)
+              + ∫ y, ‖g y‖ ∂ μn (N + 1) := by
+            simpa [Nat.succ_eq_add_one] using hN
+      _ = ∑ k ∈ Finset.range (N + 1 + 1), ∫ y, ‖g y‖ ∂ μn k := by
+            simp [Finset.sum_range_succ, Nat.succ_eq_add_one, add_comm,
+              add_left_comm, add_assoc]
+
+lemma sfiniteSeq_partial_le_measure
+    [MeasurableSpace G]
+    (μ : Measure G)
+    (μn μpartial : ℕ → Measure G)
+    (hμ_sum : Measure.sum μn = μ)
+    (hμpartial_def :
+      ∀ N, μpartial N = ∑ k ∈ Finset.range (N + 1), μn k) :
+    ∀ N, μpartial N ≤ μ := by
+  classical
+  intro N s hs
+  intro hμ
+  have h_sum_eval := congrArg (fun ν : Measure G => ν s) hμ_sum.symm
+  have hμ_tsum : μ s = ∑' n, μn n s :=
+    by simpa [Measure.sum_apply_of_countable μn s] using h_sum_eval
+  have h_tsum_value : ∑' n, μn n s = (↑hs : ℝ≥0∞) := by
+    simpa [hμ] using hμ_tsum.symm
+  have h_partial : μpartial N s = ∑ k ∈ Finset.range (N + 1), μn k s := by
+    simpa [hμpartial_def N]
+  have h_sum_le :
+      (∑ k ∈ Finset.range (N + 1), μn k s) ≤ (↑hs : ℝ≥0∞) := by
+    have h_finset :=
+      ENNReal.sum_le_tsum
+        (s := Finset.range (N + 1))
+        (f := fun k : ℕ => μn k s)
+    simpa [h_tsum_value] using h_finset
+  have hμpartial_le' : μpartial N s ≤ (↑hs : ℝ≥0∞) := by
+    simpa [h_partial] using h_sum_le
+  have hμpartial_lt_top : μpartial N s < ∞ :=
+    lt_of_le_of_lt hμpartial_le' (by simp)
+  have hμpartial_ne_top : μpartial N s ≠ ∞ := ne_of_lt hμpartial_lt_top
+  have hhs_ne_top : (↑hs : ℝ≥0∞) ≠ ∞ := by simp
+  refine ⟨(μpartial N s).toNNReal, ?_, ?_⟩
+  · simp [hμpartial_ne_top]
+  · have :=
+      (ENNReal.toNNReal_le_toNNReal hμpartial_ne_top hhs_ne_top).2 hμpartial_le'
+    simpa using this
+
+lemma sfiniteSeq_piece_norm_le
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ]
+    {r : ℝ≥0∞}
+    (f g : G → ℂ)
+    (μn : ℕ → Measure G)
+    (hf_r : MemLp f r μ)
+    (hg_piece_int : ∀ n, Integrable g (μn n))
+    (h_norm_piece :
+      ∀ n,
+        Integrable
+          (fun y => ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal)
+          (μn n))
+    (h_translate_norm_bound_toReal_piece :
+      ∀ n y,
+        (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ≤
+          (eLpNorm f r μ).toReal) :
+    ∀ n,
+      ∫ y, ‖g y‖ *
+            (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n ≤
+        (eLpNorm f r μ).toReal * ∫ y, ‖g y‖ ∂ μn n := by
+  classical
+  intro n
+  set C := (eLpNorm f r μ).toReal with hC_def
+  have hC_nonneg : 0 ≤ C := by
+    have h_nonneg : 0 ≤ (eLpNorm f r μ).toReal := ENNReal.toReal_nonneg
+    simp [hC_def]
+  have h_pointwise :
+      ∀ y,
+        ‖g y‖ *
+            (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ≤
+          ‖g y‖ * C := by
+    intro y
+    have h_upper := h_translate_norm_bound_toReal_piece n y
+    have h_nonneg : 0 ≤ ‖g y‖ := norm_nonneg _
+    have h_mul_upper := mul_le_mul_of_nonneg_left h_upper h_nonneg
+    simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
+      using h_mul_upper
+  have h_integrand_int := h_norm_piece n
+  have h_const_int :
+      Integrable (fun y => ‖g y‖ * C) (μn n) := by
+    have := (hg_piece_int n).norm.mul_const C
+    simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
+      using this
+  have h_le :=
+    integral_mono_ae
+      h_integrand_int
+      h_const_int
+      (Filter.Eventually.of_forall h_pointwise)
+  have h_const_eval₁ :
+      ∫ y, ‖g y‖ * C ∂ μn n =
+        (∫ y, ‖g y‖ ∂ μn n) * C := by
+    simpa [mul_comm, mul_left_comm, mul_assoc]
+      using
+        (integral_mul_const (μ := μn n) (r := C)
+          (f := fun y => ‖g y‖))
+  have h_const_eval :
+      ∫ y, ‖g y‖ * C ∂ μn n =
+        C * ∫ y, ‖g y‖ ∂ μn n := by
+    calc
+      _ = (∫ y, ‖g y‖ ∂ μn n) * C := h_const_eval₁
+      _ = C * ∫ y, ‖g y‖ ∂ μn n := by
+        simp [mul_comm, mul_left_comm, mul_assoc]
+  have h_le' :
+      ∫ y, ‖g y‖ *
+            (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n ≤
+        C * ∫ y, ‖g y‖ ∂ μn n := by
+    calc
+      _ ≤ ∫ y, ‖g y‖ * C ∂ μn n := h_le
+      _ = (∫ y, ‖g y‖ ∂ μn n) * C := h_const_eval₁
+      _ = C * ∫ y, ‖g y‖ ∂ μn n := by
+        simp [mul_comm, mul_left_comm, mul_assoc]
+  simpa [hC_def, h_const_eval, mul_comm, mul_left_comm, mul_assoc]
+    using h_le'
+
+lemma sfiniteSeq_piece_conv_bound
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ]
+    {r : ℝ≥0∞}
+    (f g : G → ℂ)
+    (μn : ℕ → Measure G)
+    (convPiece : ℕ → G → ℂ)
+    (hf_r : MemLp f r μ)
+    (hg_piece_int : ∀ n, Integrable g (μn n))
+    (h_minkowski_piece :
+      ∀ n,
+        eLpNorm (convPiece n) r (μn n) ≤
+          ENNReal.ofReal
+            (∫ y, ‖g y‖ *
+                (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n))
+    (h_norm_piece_le :
+      ∀ n,
+        ∫ y, ‖g y‖ *
+              (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n ≤
+          (eLpNorm f r μ).toReal * ∫ y, ‖g y‖ ∂ μn n) :
+    ∀ n,
+      eLpNorm (convPiece n) r (μn n) ≤
+        ENNReal.ofReal
+          ((eLpNorm f r μ).toReal * ∫ y, ‖g y‖ ∂ μn n) := by
+  intro n
+  have h_mink := h_minkowski_piece n
+  have h_le := h_norm_piece_le n
+  have h_rhs_nonneg :
+      0 ≤ (eLpNorm f r μ).toReal * ∫ y, ‖g y‖ ∂ μn n := by
+    have h_nonneg₁ : 0 ≤ (eLpNorm f r μ).toReal := ENNReal.toReal_nonneg
+    have h_nonneg₂ : 0 ≤ ∫ y, ‖g y‖ ∂ μn n := by
+      have h_nonneg_fun : 0 ≤ᵐ[μn n] fun y => ‖g y‖ :=
+        Filter.Eventually.of_forall fun _ => norm_nonneg _
+      exact integral_nonneg_of_ae h_nonneg_fun
+    exact mul_nonneg h_nonneg₁ h_nonneg₂
+  have h_ofReal :
+      ENNReal.ofReal
+          (∫ y, ‖g y‖ *
+              (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n)
+        ≤ ENNReal.ofReal
+          ((eLpNorm f r μ).toReal * ∫ y, ‖g y‖ ∂ μn n) :=
+      (ENNReal.ofReal_le_ofReal_iff h_rhs_nonneg).2 h_le
+  exact h_mink.trans h_ofReal
+
+lemma sfiniteSeq_convPartial_tendsto
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ]
+    (f g : G → ℂ)
+    (μn μpartial : ℕ → Measure G)
+    (convPartial convPiece : ℕ → G → ℂ)
+    (conv : G → ℂ)
+    (hμ_sum : Measure.sum μn = μ)
+    (hμpartial_zero : μpartial 0 = μn 0)
+    (hμpartial_succ : ∀ N, μpartial (N + 1) = μpartial N + μn (N + 1))
+    (hμpartial_le_smul : ∀ N, μpartial N ≤ ((N + 1 : ℝ≥0∞) • μ))
+    (hμn_le : ∀ n, μn n ≤ μ)
+    (h_convPartial_def :
+      ∀ N, convPartial N = fun x => ∫ y, f (x - y) * g y ∂ μpartial N)
+    (h_convPiece_def :
+      ∀ n, convPiece n = fun x => ∫ y, f (x - y) * g y ∂ μn n)
+    (h_conv_def : conv = fun x => ∫ y, f (x - y) * g y ∂ μ)
+    (h_kernel_fiber_int_mu :
+      ∀ᵐ x ∂ μ, Integrable (fun y => f (x - y) * g y) μ) :
+    ∀ᵐ x ∂ μ, Tendsto (fun N => convPartial N x) atTop (𝓝 (conv x)) := by
+  classical
+  refine h_kernel_fiber_int_mu.mono ?_
+  intro x hx_int
+  have hx_convPartial_def :
+      ∀ N,
+        convPartial N x = ∫ y, f (x - y) * g y ∂ μpartial N := fun N => by
+    simpa [h_convPartial_def N]
+  have hx_convPiece_def :
+      ∀ n,
+        convPiece n x = ∫ y, f (x - y) * g y ∂ μn n := fun n => by
+    simpa [h_convPiece_def n]
+  have hx_conv_def' : conv x = ∫ y, f (x - y) * g y ∂ μ := by
+    simpa [h_conv_def]
+  let hxFun : G → ℂ := fun y => f (x - y) * g y
+  have hx_int_partial : ∀ N, Integrable hxFun (μpartial N) := by
+    intro N
+    refine hx_int.of_measure_le_smul (μ := μ) (μ' := μpartial N)
+        (c := (Nat.succ N : ℝ≥0∞)) ?_ ?_
+    · simp
+    · simpa using hμpartial_le_smul N
+  have hx_int_piece : ∀ n, Integrable hxFun (μn n) := by
+    intro n
+    refine hx_int.of_measure_le_smul (μ := μ) (μ' := μn n)
+        (c := (1 : ℝ≥0∞)) ?_ ?_
+    · simp
+    · simpa [one_smul] using hμn_le n
+  have hx_convPartial_succ :
+      ∀ N,
+        convPartial (N + 1) x =
+          convPartial N x + convPiece (N + 1) x := by
+    intro N
+    have h_measure := hμpartial_succ N
+    have h_add :=
+      MeasureTheory.integral_add_measure
+        (μ := μpartial N) (ν := μn (N + 1))
+        (f := hxFun)
+        (hx_int_partial N)
+        (hx_int_piece (N + 1))
+    simpa [hx_convPartial_def, hx_convPiece_def, hxFun, h_measure,
+      Nat.succ_eq_add_one]
+      using h_add
+  have hx_convPartial_sum :
+      ∀ N,
+        convPartial N x =
+          ∑ k ∈ Finset.range (N + 1), convPiece k x := by
+    intro N
+    induction' N with N hN
+    · have hμ := hμpartial_zero
+      simpa [hx_convPartial_def, hx_convPiece_def, Finset.range_one, hμ]
+    · have h_step := hx_convPartial_succ N
+      simpa [Finset.sum_range_succ, Nat.succ_eq_add_one, add_comm,
+        add_left_comm, add_assoc, hN]
+        using h_step
+  have hx_norm_piece_bound :
+      ∀ n, ‖convPiece n x‖ ≤ ∫ y, ‖hxFun y‖ ∂ μn n := by
+    intro n
+    have hx_bound :=
+      norm_integral_le_integral_norm (μ := μn n) (f := hxFun)
+    simpa [hx_convPiece_def, hxFun]
+      using hx_bound
+  have hx_norm_hasSum :
+      HasSum (fun n => ∫ y, ‖hxFun y‖ ∂ μn n)
+        (∫ y, ‖hxFun y‖ ∂ μ) := by
+    have hx_norm_integrable : Integrable (fun y : G => ‖hxFun y‖) μ := hx_int.norm
+    have hx_norm_integrable_sum :
+        Integrable (fun y : G => ‖hxFun y‖) (Measure.sum μn) := by
+      simpa [hμ_sum] using hx_norm_integrable
+    simpa [hμ_sum]
+      using
+        (MeasureTheory.hasSum_integral_measure
+          (μ := μn)
+          (f := fun y : G => (‖hxFun y‖ : ℝ))
+          (hf := hx_norm_integrable_sum))
+  have hx_abs_summable :
+      Summable fun n => ‖convPiece n x‖ :=
+    (Summable.of_nonneg_of_le (fun _ => by positivity)
+        hx_norm_piece_bound hx_norm_hasSum.summable)
+  have hx_summable : Summable fun n => convPiece n x :=
+    hx_abs_summable.of_norm
+  have hx_tsum_eq :
+      (∑' n, convPiece n x) = conv x := by
+    have hx_integrable_sum : Integrable hxFun (Measure.sum μn) := by
+      simpa [hμ_sum] using hx_int
+    have hx_hasSum_measure :=
+      MeasureTheory.hasSum_integral_measure
+        (μ := μn) (f := hxFun) (hf := hx_integrable_sum)
+    have hx_tsum := hx_hasSum_measure.tsum_eq
+    have hx_tsum_value :
+        (∑' n, convPiece n x) = ∫ y, hxFun y ∂ Measure.sum μn := by
+      simpa [hx_convPiece_def, hxFun] using hx_tsum
+    have hx_tsum_to_mu :
+        (∑' n, convPiece n x) = ∫ y, hxFun y ∂ μ := by
+      simpa [hμ_sum] using hx_tsum_value
+    simpa [hx_conv_def', hxFun] using hx_tsum_to_mu
+  have hx_hasSum : HasSum (fun n => convPiece n x) (conv x) := by
+    simpa [hx_tsum_eq] using hx_summable.hasSum
+  have hx_tendsto_range :
+      Tendsto (fun N => ∑ k ∈ Finset.range N, convPiece k x)
+        atTop (𝓝 (conv x)) :=
+    hx_hasSum.tendsto_sum_nat
+  have hx_tendsto_succ :
+      Tendsto (fun N => ∑ k ∈ Finset.range (N + 1), convPiece k x)
+        atTop (𝓝 (conv x)) :=
+    hx_tendsto_range.comp (tendsto_add_atTop_nat 1)
+  have hx_eventually_eq :
+      (fun N => ∑ k ∈ Finset.range (N + 1), convPiece k x)
+        =ᶠ[atTop]
+          fun N => convPartial N x :=
+    Filter.Eventually.of_forall fun N => (hx_convPartial_sum N).symm
+  exact hx_tendsto_succ.congr' hx_eventually_eq
+
+lemma sfiniteSeq_convPartial_aestronglyMeasurable
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ]
+    (f g : G → ℂ)
+    (μpartial : ℕ → Measure G)
+    (convPartial : ℕ → G → ℂ)
+    (hμpartial_fin : ∀ N, IsFiniteMeasure (μpartial N))
+    (hμpartial_le_smul : ∀ N, μpartial N ≤ ((N + 1 : ℝ≥0∞) • μ))
+    (h_kernel_meas :
+      AEStronglyMeasurable
+        (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ))
+    (h_convPartial_def :
+      ∀ N, convPartial N = fun x => ∫ y, f (x - y) * g y ∂ μpartial N) :
+    ∀ N, AEStronglyMeasurable (convPartial N) μ := by
+  classical
+  intro N
+  haveI : IsFiniteMeasure (μpartial N) := hμpartial_fin N
+  set c : ℝ≥0∞ := (N + 1 : ℝ≥0∞)
+  have h_prod_le : μ.prod (μpartial N) ≤ c • (μ.prod μ) := by
+    intro s
+    classical
+    set S := toMeasurable (μ.prod μ) s with hS_def
+    have hS_meas : MeasurableSet S := measurableSet_toMeasurable _ _
+    have hs_subset : s ⊆ S := by
+      simpa [S] using subset_toMeasurable (μ.prod μ) s
+    have h_meas_eq : (c • (μ.prod μ)) S = (c • (μ.prod μ)) s := by
+      simp [Measure.smul_apply, S, measure_toMeasurable, c, mul_comm,
+        mul_left_comm, mul_assoc]
+    have h_prod_le_S :
+        (μ.prod (μpartial N)) S ≤ (c • (μ.prod μ)) S := by
+      have h_prod_apply :
+          (μ.prod (μpartial N)) S =
+            ∫⁻ x, μpartial N (Prod.mk x ⁻¹' S) ∂ μ :=
+        Measure.prod_apply (μ := μ) (ν := μpartial N) hS_meas
+      have h_prod_apply' :
+          (μ.prod μ) S = ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
+        Measure.prod_apply (μ := μ) (ν := μ) hS_meas
+      have h_pointwise :
+          (fun x => μpartial N (Prod.mk x ⁻¹' S)) ≤
+            fun x => c * μ (Prod.mk x ⁻¹' S) := by
+        intro x
+        have h_le := (hμpartial_le_smul N) (Prod.mk x ⁻¹' S)
+        simpa [Measure.smul_apply, c, mul_comm, mul_left_comm, mul_assoc]
+          using h_le
+      have h_integral_le :
+          (∫⁻ x, μpartial N (Prod.mk x ⁻¹' S) ∂ μ)
+            ≤ ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μ :=
+        lintegral_mono h_pointwise
+      have h_const_mul :
+          ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μ =
+            c * ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
+        lintegral_const_mul c (measurable_measure_prodMk_left hS_meas)
+      calc
+        (μ.prod (μpartial N)) S
+            = ∫⁻ x, μpartial N (Prod.mk x ⁻¹' S) ∂ μ := h_prod_apply
+        _ ≤ ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μ := h_integral_le
+        _ = c * ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ := h_const_mul
+        _ = (c • (μ.prod μ)) S := by
+          simp [Measure.smul_apply, h_prod_apply', c, mul_comm, mul_left_comm,
+            mul_assoc]
+    have h_prod_le_s : (μ.prod (μpartial N)) s ≤ (c • (μ.prod μ)) s := by
+      calc
+        (μ.prod (μpartial N)) s
+            ≤ (μ.prod (μpartial N)) S := by
+              exact measure_mono hs_subset
+        _ ≤ (c • (μ.prod μ)) S := h_prod_le_S
+        _ = (c • (μ.prod μ)) s := h_meas_eq
+    simpa [c] using h_prod_le_s
+  have h_prod_ac : μ.prod (μpartial N) ≪ μ.prod μ :=
+    Measure.absolutelyContinuous_of_le_smul h_prod_le
+  have h_kernel_meas' :
+      AEStronglyMeasurable
+        (fun q : G × G => f (q.1 - q.2) * g q.2)
+        (μ.prod (μpartial N)) :=
+    h_kernel_meas.mono_ac h_prod_ac
+  have h_meas :=
+    MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+      (μ := μ)
+      (ν := μpartial N)
+      (f := fun q : G × G => f (q.1 - q.2) * g q.2)
+      h_kernel_meas'
+  simpa [h_convPartial_def N]
+    using h_meas
+
+lemma sfiniteSeq_lintegral_norm_tendsto
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ]
+    (g : G → ℂ)
+    (μn μpartial : ℕ → Measure G)
+    (hμ_sum : Measure.sum μn = μ)
+    (h_lintegral_norm_partial :
+      ∀ N,
+        ∫⁻ y, ‖g y‖ₑ ∂ μpartial N
+          = ∑ k ∈ Finset.range (N + 1), ∫⁻ y, ‖g y‖ₑ ∂ μn k) :
+    Tendsto (fun N => ∫⁻ y, ‖g y‖ₑ ∂ μpartial N) atTop
+      (𝓝 (∫⁻ y, ‖g y‖ₑ ∂ μ)) := by
+  classical
+  let gNorm : G → ℝ≥0∞ := fun y => ‖g y‖ₑ
+  have h_lintegral_norm_sum :
+      (∑' n, ∫⁻ y, gNorm y ∂ μn n) = ∫⁻ y, gNorm y ∂ μ := by
+    classical
+    simpa [hμ_sum]
+      using
+        (MeasureTheory.lintegral_sum_measure
+          (μ := μn)
+          (f := fun y : G => gNorm y)).symm
+  have h_series_tendsto :
+      Tendsto
+        (fun N => ∑ k ∈ Finset.range (N + 1), ∫⁻ y, gNorm y ∂ μn k)
+        atTop
+        (𝓝 (∑' n, ∫⁻ y, gNorm y ∂ μn n)) :=
+    (ENNReal.tendsto_nat_tsum
+      (f := fun n => ∫⁻ y, gNorm y ∂ μn n)).comp
+        (tendsto_add_atTop_nat 1)
+  have h_eval' :
+      (fun N => ∑ k ∈ Finset.range (N + 1), ∫⁻ y, gNorm y ∂ μn k)
+        = fun N => ∫⁻ y, gNorm y ∂ μpartial N := by
+    funext N
+    exact (h_lintegral_norm_partial N).symm
+  have h_series_tendsto_int :
+      Tendsto (fun N => ∫⁻ y, gNorm y ∂ μpartial N) atTop
+        (𝓝 (∑' n, ∫⁻ y, gNorm y ∂ μn n)) := by
+    exact h_eval' ▸ h_series_tendsto
+  have h_target :
+      (𝓝 (∑' n, ∫⁻ y, gNorm y ∂ μn n))
+        = 𝓝 (∫⁻ y, gNorm y ∂ μ) := by
+    change
+        𝓝 (∑' n, ∫⁻ y, ‖g y‖ₑ ∂ μn n)
+          = 𝓝 (∫⁻ y, ‖g y‖ₑ ∂ μ)
+    exact congrArg (fun t => 𝓝 t) h_lintegral_norm_sum
+  have h_series_tendsto_final :
+      Tendsto (fun N => ∫⁻ y, gNorm y ∂ μpartial N) atTop
+        (𝓝 (∫⁻ y, gNorm y ∂ μ)) := by
+    exact h_target ▸ h_series_tendsto_int
+  change
+      Tendsto (fun N => ∫⁻ y, ‖g y‖ₑ ∂ μpartial N) atTop
+        (𝓝 (∫⁻ y, ‖g y‖ₑ ∂ μ))
+  exact h_series_tendsto_final
+
+lemma sfiniteSeq_convPartial_integral_tendsto
+    [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ]
+    (r : ℝ≥0∞)
+    (μn μpartial : ℕ → Measure G)
+    (convPartial : ℕ → G → ℂ)
+    (h_lintegral_convPartial_partial_sum :
+      ∀ N M,
+        ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μpartial M
+          = ∑ k ∈ Finset.range (M + 1),
+              ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn k)
+    (h_lintegral_convPartial_sum :
+      ∀ N,
+        (∑' k, ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn k)
+          = ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μ) :
+    ∀ N,
+      Tendsto
+        (fun M => ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μpartial M)
+        atTop
+        (𝓝 (∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μ)) := by
+  intro N
+  classical
+  have h_series_tendsto :
+      Tendsto
+        (fun M =>
+          ∑ k ∈ Finset.range (M + 1),
+            ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn k)
+        atTop
+        (𝓝
+          (∑' k,
+            ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn k)) := by
+    exact
+      (ENNReal.tendsto_nat_tsum
+        (f := fun k => ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn k)).comp
+        (tendsto_add_atTop_nat 1)
+  have h_eval :
+      (fun M => ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μpartial M)
+        = fun M =>
+            ∑ k ∈ Finset.range (M + 1),
+              ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn k := by
+    funext M
+    exact h_lintegral_convPartial_partial_sum N M
+  have h_eval' :
+      (∑' k, ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn k)
+        = ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μ :=
+    h_lintegral_convPartial_sum N
+  simpa [h_eval, h_eval'] using h_series_tendsto
+
+lemma convolution_memLp_of_memLp
+    (f g : G → ℂ)
+    (p q r : ℝ≥0∞)
+    (hp : 1 ≤ p) (hq : 1 ≤ q)
+    (hpqr : 1 / p + 1 / q = 1 + 1 / r)
+    (hr_ne_top : r ≠ ∞)
+    (hf : MemLp f p μ) (hf_r : MemLp f r μ) (hg : MemLp g q μ)
+    (h_kernel_int : Integrable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ)) :
+    MemLp (fun x => ∫ y, f (x - y) * g y ∂μ) r μ := by
+  classical
+  set μn : ℕ → Measure G := MeasureTheory.sfiniteSeq μ
+  have hμn_fin : ∀ n, IsFiniteMeasure (μn n) := fun n => inferInstance
+  have hμ_sum : Measure.sum μn = μ := MeasureTheory.sum_sfiniteSeq μ
+  let μpartial : ℕ → Measure G := fun N => ∑ k ∈ Finset.range (N + 1), μn k
+  have hμpartial_succ : ∀ N, μpartial (N + 1) = μpartial N + μn (N + 1) := by
+    intro N
+    classical
+    simp [μpartial, Nat.succ_eq_add_one, Finset.range_succ, add_comm, add_left_comm, add_assoc]
+  have hμpartial_def :
+      ∀ N, μpartial N = ∑ k ∈ Finset.range (N + 1), μn k := fun _ => rfl
+  have hμpartial_zero : μpartial 0 = μn 0 := by
+    classical
+    simp [μpartial]
+  have hμpartial_fin : ∀ N, IsFiniteMeasure (μpartial N) := by
+    intro N
+    classical
+    refine Nat.rec ?base ?step N
+    · simpa [μpartial] using hμn_fin 0
+    · intro k hk
+      have hk_add : IsFiniteMeasure (μpartial k + μn (k + 1)) := by infer_instance
+      simpa [hμpartial_succ, Nat.succ_eq_add_one] using hk_add
+  have hμpartial_le_succ : ∀ N, μpartial N ≤ μpartial (N + 1) := by
+    intro N s
+    classical
+    have hnonneg : 0 ≤ μn (N + 1) s := bot_le
+    simp [hμpartial_succ, Nat.succ_eq_add_one, Measure.add_apply]
+  have hμpartial_mono : Monotone μpartial :=
+    monotone_nat_of_le_succ hμpartial_le_succ
+  have hμpartial_le_smul : ∀ N, μpartial N ≤ ((N + 1 : ℝ≥0∞) • μ) := by
+    intro N
+    simpa [μpartial] using (sfiniteSeq_partial_le_smul (μ := μ) N)
   have hf_partial : ∀ N, MemLp f p (μpartial N) := by
     intro N
     refine hf.of_measure_le_smul (μ' := μpartial N) (c := (N + 1 : ℝ≥0∞)) ?_ ?_
@@ -491,16 +1982,7 @@ lemma convolution_memLp_of_memLp
   have hμpartial_tendsto :
       ∀ ⦃s : Set G⦄, MeasurableSet s →
         Tendsto (fun N => μpartial N s) atTop (𝓝 (μ s)) := by
-    intro s hs
-    classical
-    have h_sum_eval := congrArg (fun ν : Measure G => ν s) hμ_sum
-    have hμ_tsum : ∑' n, μn n s = μ s := by
-      simpa [Measure.sum_apply _ hs] using h_sum_eval
-    have h_seq :
-        Tendsto (fun N => μpartial N s) atTop (𝓝 (∑' n, μn n s)) := by
-      simpa [μpartial, Measure.finset_sum_apply, Nat.succ_eq_add_one] using
-        (ENNReal.tendsto_nat_tsum (fun n => μn n s)).comp (tendsto_add_atTop_nat 1)
-    simpa [hμ_tsum] using h_seq
+    exact sfiniteSeq_partial_tendsto (μ := μ)
   have h_inv_p_le_one : p⁻¹ ≤ (1 : ℝ≥0∞) := by
     simpa using (ENNReal.inv_le_inv).2 hp
   have h_inv_q_le_one : q⁻¹ ≤ (1 : ℝ≥0∞) := by
@@ -551,61 +2033,8 @@ lemma convolution_memLp_of_memLp
         (μpartial N).prod (μpartial N) ≤
           (((N + 1 : ℝ≥0∞) * (N + 1 : ℝ≥0∞)) • (μ.prod μ)) := by
     intro N
-    classical
-    set c : ℝ≥0∞ := (N + 1 : ℝ≥0∞)
-    have hμ_le : μpartial N ≤ c • μ := hμpartial_le_smul N
-    refine fun s => ?_
-    classical
-    set S := toMeasurable (μ.prod μ) s with hS_def
-    have hS_meas : MeasurableSet S := measurableSet_toMeasurable _ _
-    have hs_subset : s ⊆ S := by
-      simpa [S] using subset_toMeasurable (μ.prod μ) s
-    have h_goal :
-        (μpartial N).prod (μpartial N) S ≤ ((c * c) • (μ.prod μ)) S := by
-      have h_prod_apply_partial :
-          (μpartial N).prod (μpartial N) S =
-            ∫⁻ x, μpartial N (Prod.mk x ⁻¹' S) ∂ μpartial N :=
-        Measure.prod_apply (μ := μpartial N) (ν := μpartial N) hS_meas
-      have h_prod_apply :
-          (μ.prod μ) S = ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
-        Measure.prod_apply (μ := μ) (ν := μ) hS_meas
-      have h_pointwise :
-          (fun x => μpartial N (Prod.mk x ⁻¹' S)) ≤
-            fun x => c * μ (Prod.mk x ⁻¹' S) := by
-        intro x
-        have := hμ_le (Prod.mk x ⁻¹' S)
-        simpa [c, Measure.smul_apply] using this
-      have h_step1 :
-          (∫⁻ x, μpartial N (Prod.mk x ⁻¹' S) ∂ μpartial N)
-            ≤ ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μpartial N :=
-        lintegral_mono h_pointwise
-      have h_step2 :
-          ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μpartial N ≤
-            ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ (c • μ) :=
-        lintegral_mono' hμ_le fun _ => le_rfl
-      have h_step4 :
-          ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μ =
-            c * ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
-        lintegral_const_mul c (measurable_measure_prodMk_left hS_meas)
-      calc
-        (μpartial N).prod (μpartial N) S
-            = ∫⁻ x, μpartial N (Prod.mk x ⁻¹' S) ∂ μpartial N :=
-          h_prod_apply_partial
-        _ ≤ ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μpartial N := h_step1
-        _ ≤ ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ (c • μ) := h_step2
-        _ = c * ∫⁻ x, c * μ (Prod.mk x ⁻¹' S) ∂ μ := by
-          simp [lintegral_smul_measure, mul_comm, mul_left_comm, mul_assoc]
-        _ = c * (c * ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ) := by
-          simp [h_step4, mul_comm, mul_left_comm, mul_assoc]
-        _ = (c * c) * (μ.prod μ) S := by
-          simp [h_prod_apply, mul_comm, mul_left_comm, mul_assoc]
-        _ = ((c * c) • (μ.prod μ)) S := by
-          simp [Measure.smul_apply, mul_comm, mul_left_comm, mul_assoc]
-    have h_total :
-        (μpartial N).prod (μpartial N) s ≤ ((c * c) • (μ.prod μ)) S :=
-      (measure_mono (μ := (μpartial N).prod (μpartial N)) hs_subset).trans h_goal
-    simpa [S, Measure.smul_apply, measure_toMeasurable, mul_comm, mul_left_comm,
-      mul_assoc, c] using h_total
+    simpa [μpartial, μn]
+      using (sfiniteSeq_partial_prod_le_smul (μ := μ) N)
   have h_kernel_int_partial :
       ∀ N,
         Integrable (fun q : G × G => f (q.1 - q.2) * g q.2)
@@ -669,30 +2098,12 @@ lemma convolution_memLp_of_memLp
           ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal) * eLpNorm f r μ := by
     intro N y
     classical
-    have h_le :=
-      eLpNorm_mono_measure
-        (f := fun x => f (x - y))
-        (μ := ((N + 1 : ℝ≥0∞) • μ))
-        (ν := μpartial N)
-        (p := r)
-        (hμpartial_le_smul N)
-    have h_smul :=
-      eLpNorm_smul_measure_of_ne_zero
-        (μ := μ)
-        (p := r)
-        (f := fun x => f (x - y))
-        (c := (N + 1 : ℝ≥0∞))
-        (by
-          have h_pos : (0 : ℝ≥0∞) < (N + 1 : ℝ≥0∞) := by
-            exact_mod_cast (Nat.succ_pos N)
-          exact ne_of_gt h_pos)
-    have h_translate :=
-      eLpNorm_comp_add_right
-        (μ := μ) (f := f) (p := r) (y := -y) hf_r.aestronglyMeasurable
-    have h_step := h_le.trans (le_of_eq h_smul)
-    simpa [smul_eq_mul, sub_eq_add_neg,
-      h_translate, mul_comm, mul_left_comm, mul_assoc]
-      using h_step
+    exact
+      sfiniteSeq_partial_translate_norm_bound
+        (μ := μ) (r := r) (f := f)
+        (μpartial := μpartial)
+        (hf := hf_r)
+        (h_le := hμpartial_le_smul) N y
   have h_translate_norm_bound_toReal :
       ∀ N y,
         (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ≤
@@ -752,307 +2163,47 @@ lemma convolution_memLp_of_memLp
     have h_zero' :=
       (hμpartial_ac N) h_zero
     exact (ae_iff).2 <| by simpa using h_zero'
-  have h_norm_partial :
-      ∀ N,
-        Integrable
-          (fun y => ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal)
-          (μpartial N) := by
+  have h_norm_partial :=
+    sfiniteSeq_partial_integrable_norm_mul
+      (μ := μ) (hr := hr) (hr_ne_top := hr_ne_top)
+      (f := f) (g := g) (μpartial := μpartial)
+      (hf := hf_r)
+      (hg_partial_int := hg_partial_int)
+      (hμpartial_fin := hμpartial_fin)
+      (hμpartial_prod_ac := hμpartial_prod_ac)
+      (h_translate_norm_bound_toReal := h_translate_norm_bound_toReal)
+  have h_norm_partial_le :=
+    sfiniteSeq_partial_integral_norm_mul_le
+      (μ := μ) (r := r) (f := f) (g := g) (μpartial := μpartial)
+      (hg_partial_int := hg_partial_int)
+      (h_norm_partial := h_norm_partial)
+      (h_translate_norm_bound_toReal := h_translate_norm_bound_toReal)
+  have h_convPartial_def :
+      ∀ N, convPartial N = fun x => ∫ y, f (x - y) * g y ∂ μpartial N := by
     intro N
-    classical
-    set C :=
-        ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal
-      with hC_def
-    have h_C_nonneg : 0 ≤ C := by
-      have h_nonneg :
-          0 ≤ (((N + 1 : ℝ≥0∞) ^ (1 / r).toReal) * eLpNorm f r μ).toReal :=
-        ENNReal.toReal_nonneg
-      simpa [hC_def] using h_nonneg
-    have h_bound :
-        ∀ y,
-          ‖‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal‖ ≤
-            ‖g y‖ * C := by
-      intro y
-      have h_toReal_nonneg :
-          0 ≤ (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal :=
-        ENNReal.toReal_nonneg
-      have h_mul_nonneg :
-          0 ≤ ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal :=
-        mul_nonneg (norm_nonneg _) h_toReal_nonneg
-      have h_upper := h_translate_norm_bound_toReal N y
-      have h_mul_upper :
-          ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ≤
-            ‖g y‖ * C :=
-        mul_le_mul_of_nonneg_left h_upper (norm_nonneg _)
-      have h_abs_eq :
-          ‖‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal‖ =
-            ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal := by
-        simp [abs_of_nonneg h_mul_nonneg]
-      have h_rhs_nonneg : 0 ≤ ‖g y‖ * C :=
-        mul_nonneg (norm_nonneg _) h_C_nonneg
-      simpa [h_abs_eq, abs_of_nonneg h_rhs_nonneg] using h_mul_upper
-    have h_bound_integrable :
-        Integrable (fun y => ‖g y‖ * C) (μpartial N) :=
-      by
-        simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
-          using ((hg_partial_int N).norm.mul_const C)
-    refine (h_bound_integrable.mono' ?_ ?_)
-    · classical
-      have hf_meas : AEStronglyMeasurable f μ := hf_r.aestronglyMeasurable
-      set f₀ := hf_meas.mk f with hf₀_def
-      have hf₀_meas : StronglyMeasurable f₀ := hf_meas.stronglyMeasurable_mk
-      have hf₀_ae_eq : f =ᵐ[μ] f₀ := hf_meas.ae_eq_mk
-      have hf₀_ae_eq_prod :
-          (fun q : G × G => f (q.1 - q.2))
-            =ᵐ[μ.prod μ]
-            fun q : G × G => f₀ (q.1 - q.2) := by
-        have h_sub_qmp :
-            Measure.QuasiMeasurePreserving (fun z : G × G => z.1 - z.2)
-              (μ.prod μ) μ := by
-          have h_measPres :
-              MeasurePreserving (fun z : G × G => (z.1 - z.2, z.2))
-                (μ.prod μ) (μ.prod μ) :=
-            measurePreserving_sub_prod (μ := μ) (ν := μ)
-          have h_fst :
-              Measure.QuasiMeasurePreserving (fun z : G × G => z.1)
-                (μ.prod μ) μ :=
-            MeasureTheory.Measure.quasiMeasurePreserving_fst (μ := μ) (ν := μ)
-          simpa [Function.comp, sub_eq_add_neg, add_comm, add_left_comm]
-            using h_fst.comp h_measPres.quasiMeasurePreserving
-        exact h_sub_qmp.ae_eq_comp hf₀_ae_eq
-      have hf₀_ae_eq_prod_partial :
-          (fun q : G × G => f (q.1 - q.2))
-            =ᵐ[(μpartial N).prod (μpartial N)]
-            fun q : G × G => f₀ (q.1 - q.2) :=
-        (hμpartial_prod_ac N) hf₀_ae_eq_prod
-      have hf₀_ae_eq_prod_partial_uncurry :
-          Function.uncurry (fun x y => f (x - y))
-            =ᵐ[(μpartial N).prod (μpartial N)]
-            Function.uncurry (fun x y => f₀ (x - y)) := by
-        simpa [Function.uncurry] using hf₀_ae_eq_prod_partial
-      have hf₀_ae_eq_prod_partial_uncurry_swap :
-          Function.uncurry (fun y x => f (x - y))
-            =ᵐ[(μpartial N).prod (μpartial N)]
-            Function.uncurry (fun y x => f₀ (x - y)) := by
-        have h_comp :=
-          (Measure.measurePreserving_swap
-              (μ := μpartial N) (ν := μpartial N)).quasiMeasurePreserving.ae_eq_comp
-            hf₀_ae_eq_prod_partial_uncurry
-        simpa [Function.comp, Function.uncurry, Prod.swap, sub_eq_add_neg]
-          using h_comp
-      have h_kernel_ae :
-          ∀ᵐ y ∂ μpartial N,
-            (fun x => f (x - y)) =ᵐ[μpartial N] fun x => f₀ (x - y) := by
-        have h_curry :=
-          Measure.ae_ae_eq_curry_of_prod
-            (μ := μpartial N) (ν := μpartial N)
-            hf₀_ae_eq_prod_partial_uncurry_swap
-        refine h_curry.mono ?_
-        intro y hy
-        simpa [Function.curry, sub_eq_add_neg] using hy
-      have h_eLp_ae :
-          ∀ᵐ y ∂ μpartial N,
-            eLpNorm (fun x => f (x - y)) r (μpartial N) =
-              eLpNorm (fun x => f₀ (x - y)) r (μpartial N) :=
-        h_kernel_ae.mono fun _ hy => eLpNorm_congr_ae hy
-      have h_eLp_toReal_ae :
-          (fun y =>
-              (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal)
-            =ᵐ[μpartial N]
-            fun y =>
-              (eLpNorm (fun x => f₀ (x - y)) r (μpartial N)).toReal :=
-        h_eLp_ae.mono fun _ hy => by simp [hy]
-      haveI : IsFiniteMeasure (μpartial N) := hμpartial_fin N
-      have h_sub_meas :
-          Measurable fun z : G × G => z.1 - z.2 :=
-        measurable_fst.sub measurable_snd
-      have hF_sm :
-          StronglyMeasurable (fun z : G × G => f₀ (z.1 - z.2)) :=
-        hf₀_meas.comp_measurable h_sub_meas
-      have h_integrand_aemeasurable :
-          AEMeasurable
-            (fun z : G × G => (‖f₀ (z.1 - z.2)‖ₑ) ^ r.toReal)
-            ((μpartial N).prod (μpartial N)) := by
-        simpa using (hF_sm.aemeasurable.enorm.pow_const r.toReal)
-      have h_lintegral_aemeasurable :
-          AEMeasurable
-            (fun y =>
-              ∫⁻ x, (‖f₀ (x - y)‖ₑ) ^ r.toReal ∂ μpartial N)
-            (μpartial N) :=
-        h_integrand_aemeasurable.lintegral_prod_left'
-      have hr_pos : (0 : ℝ≥0∞) < r := lt_of_lt_of_le (by simp) hr
-      have hr_ne_zero : r ≠ 0 := ne_of_gt hr_pos
-      have h_eLp_aemeasurable :
-          AEMeasurable
-            (fun y => eLpNorm (fun x => f₀ (x - y)) r (μpartial N))
-            (μpartial N) := by
-        have h_pow_meas : Measurable fun t : ℝ≥0∞ => t ^ (1 / r.toReal) :=
-          (measurable_id.pow_const (1 / r.toReal))
-        have := h_pow_meas.comp_aemeasurable h_lintegral_aemeasurable
-        refine this.congr ?_
-        refine Filter.Eventually.of_forall ?_
-        intro y
-        simp [eLpNorm_eq_lintegral_rpow_enorm (μ := μpartial N)
-          (f := fun x => f₀ (x - y)) hr_ne_zero hr_ne_top]
-      have h_eLp_toReal_meas :
-          AEStronglyMeasurable
-            (fun y =>
-              (eLpNorm (fun x => f₀ (x - y)) r (μpartial N)).toReal)
-            (μpartial N) :=
-        (h_eLp_aemeasurable.ennreal_toReal).aestronglyMeasurable
-      have hg_norm_meas :
-          AEStronglyMeasurable (fun y => ‖g y‖) (μpartial N) :=
-        (hg_partial_int N).aestronglyMeasurable.norm
-      have h_prod_meas_aux :
-          AEStronglyMeasurable
-            (fun y =>
-              ‖g y‖ *
-                (eLpNorm (fun x => f₀ (x - y)) r (μpartial N)).toReal)
-            (μpartial N) :=
-        hg_norm_meas.mul h_eLp_toReal_meas
-      rcases h_prod_meas_aux with ⟨φ, hφ_meas, hφ_ae⟩
-      refine ⟨φ, hφ_meas, ?_⟩
-      have h_prod_ae :
-          (fun y =>
-              ‖g y‖ *
-                (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal)
-            =ᵐ[μpartial N]
-            fun y =>
-              ‖g y‖ *
-                (eLpNorm (fun x => f₀ (x - y)) r (μpartial N)).toReal :=
-        h_eLp_toReal_ae.mono fun _ hy => by simp [hy]
-      exact h_prod_ae.trans hφ_ae
-    · refine (Filter.Eventually.of_forall ?_)
-      intro y
-      simpa using h_bound y
-  have h_norm_partial_le :
-      ∀ N,
-        ∫ y, ‖g y‖ *
-            (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N ≤
-          ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal *
-            ∫ y, ‖g y‖ ∂ μpartial N := by
-    intro N
-    classical
-    set C :=
-        ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal
-      with hC_def
-    have hC_nonneg : 0 ≤ C := by
-      have h_nonneg :
-          0 ≤ (((N + 1 : ℝ≥0∞) ^ (1 / r).toReal) * eLpNorm f r μ).toReal :=
-        ENNReal.toReal_nonneg
-      simpa [hC_def] using h_nonneg
-    have h_pointwise :
-        ∀ y,
-          ‖g y‖ *
-              (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ≤
-            ‖g y‖ * C := by
-      intro y
-      have h_upper := h_translate_norm_bound_toReal N y
-      have h_mul_upper :=
-        mul_le_mul_of_nonneg_left h_upper (norm_nonneg (g y))
-      simpa [hC_def] using h_mul_upper
-    have h_integrand_int := h_norm_partial N
-    have h_const_int :
-        Integrable (fun y => ‖g y‖ * C) (μpartial N) := by
-      have := (hg_partial_int N).norm.mul_const C
-      simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
-        using this
-    have h_le :=
-      integral_mono_ae
-        h_integrand_int
-        h_const_int
-        (Filter.Eventually.of_forall h_pointwise)
-    have h_const_eval :
-        ∫ y, ‖g y‖ * C ∂ μpartial N
-          = C * ∫ y, ‖g y‖ ∂ μpartial N := by
-      simpa [mul_comm, mul_left_comm, mul_assoc] using
-        (integral_mul_const (μ := μpartial N) (r := C) (f := fun y => ‖g y‖))
-    have h_result :
-        ∫ y, ‖g y‖ *
-            (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N ≤
-          C * ∫ y, ‖g y‖ ∂ μpartial N := by
-      simpa [h_const_eval]
-        using h_le
-    simpa [hC_def] using h_result
-  have h_minkowski_partial :
-      ∀ N,
-        eLpNorm (convPartial N) r (μpartial N) ≤
-          ENNReal.ofReal
-            (∫ y, ‖g y‖ *
-                (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N) := by
-    intro N
-    classical
-    haveI := hμpartial_fin N
-    have h_scaling :
-        ∀ y : G,
-          eLpNorm (fun x => f (x - y) * g y) r (μpartial N) =
-            ENNReal.ofReal ‖g y‖ *
-              eLpNorm (fun x => f (x - y)) r (μpartial N) := by
-      intro y
-      have h_smul :
-          (fun x : G => f (x - y) * g y) =
-            fun x : G => (g y) • f (x - y) := by
-        funext x
-        simp [mul_comm, smul_eq_mul, sub_eq_add_neg]
-      simpa [h_smul] using
-        eLpNorm_const_smul (μ := μpartial N) (p := r)
-          (c := g y) (f := fun x => f (x - y))
-    have h_pointwise :
-        (fun y =>
-            (eLpNorm (fun x => f (x - y) * g y) r (μpartial N)).toReal)
-          =ᵐ[μpartial N]
-          fun y =>
-            ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal := by
-      refine Filter.Eventually.of_forall ?_
-      intro y
-      have h_eq := h_scaling y
-      have h_toReal := congrArg ENNReal.toReal h_eq
-      have h_nonneg : 0 ≤ ‖g y‖ := norm_nonneg _
-      simpa [ENNReal.toReal_ofReal_mul, h_nonneg] using h_toReal
-    have h_norm_toReal :
-        Integrable
-          (fun y =>
-            (eLpNorm (fun x => f (x - y) * g y) r (μpartial N)).toReal)
-          (μpartial N) := by
-      refine (h_norm_partial N).congr ?_
-      simpa using h_pointwise.symm
-    have h_minkowski :=
-      minkowski_integral_inequality
-        (μ := μpartial N) (ν := μpartial N) (p := r)
-        hr hr_ne_top (fun x y => f (x - y) * g y)
-        (h_kernel_meas_partial N) (h_kernel_int_partial N)
-        (h_kernel_fiber_int_partial N) (h_kernel_fiber_mem_partial_ae N)
-        h_norm_toReal
-    have h_integral_eq :
-        (∫ y,
-            (eLpNorm (fun x => f (x - y) * g y) r (μpartial N)).toReal ∂ μpartial N)
-          = ∫ y, ‖g y‖ *
-              (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N := by
-      exact integral_congr_ae h_pointwise
-    simpa [convPartial, h_integral_eq]
-      using h_minkowski
-  have h_convPartial_bound :
-      ∀ N,
-        eLpNorm (convPartial N) r (μpartial N) ≤
-          ENNReal.ofReal
-            ((((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal) *
-              ∫ y, ‖g y‖ ∂ μpartial N) := by
-    intro N
-    classical
-    have h_mink := h_minkowski_partial N
-    have h_le := h_norm_partial_le N
-    set C :=
-        ((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal
-      with hC_def
-    have h_ofReal_le :
-        ENNReal.ofReal
-            (∫ y, ‖g y‖ *
-                (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N)
-          ≤ ENNReal.ofReal (C * ∫ y, ‖g y‖ ∂ μpartial N) := by
-      refine ENNReal.ofReal_le_ofReal ?_
-      simpa [hC_def, mul_comm, mul_left_comm, mul_assoc] using h_le
-    exact h_mink.trans <| by
-      simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
-        using h_ofReal_le
+    rfl
+  have h_minkowski_partial :=
+    convPartial_minkowski_bound
+      (μpartial := μpartial) (f := f) (g := g) (r := r)
+      (convPartial := convPartial)
+      (h_convPartial := h_convPartial_def)
+      (hr := hr) (hr_ne_top := hr_ne_top)
+      (hμpartial_fin := hμpartial_fin)
+      (h_kernel_meas_partial := h_kernel_meas_partial)
+      (h_kernel_int_partial := h_kernel_int_partial)
+      (h_kernel_fiber_int_partial := h_kernel_fiber_int_partial)
+      (h_kernel_fiber_mem_partial := h_kernel_fiber_mem_partial_ae)
+      (h_norm_partial := h_norm_partial)
+  have h_convPartial_bound :=
+    convPartial_bound
+      (μ := μ)
+      (μpartial := μpartial)
+      (f := f)
+      (g := g)
+      (r := r)
+      (convPartial := convPartial)
+      (h_minkowski_partial := h_minkowski_partial)
+      (h_norm_partial_le := h_norm_partial_le)
   have h_convPartial_mem :
       ∀ N, MemLp (convPartial N) r (μpartial N) := by
     intro N
@@ -1088,55 +2239,25 @@ lemma convolution_memLp_of_memLp
     refine hx.of_measure_le_smul (μ := μ) (μ' := μn n) (c := (1 : ℝ≥0∞)) ?_ ?_
     · simp
     · simpa [μn, one_smul] using MeasureTheory.sfiniteSeq_le (μ := μ) n
-  have h_convPartial_succ :
-      ∀ N,
-        (convPartial (N + 1))
-          =ᵐ[μ]
-            fun x =>
-              convPartial N x + convPiece (N + 1) x := by
-    intro N
-    classical
-    have h_int_succ := h_kernel_fiber_int_partial_measure (N + 1)
-    have h_int_prev := h_kernel_fiber_int_partial_measure N
-    have h_int_piece := h_kernel_fiber_int_piece (N + 1)
-    refine (h_int_succ.and (h_int_prev.and h_int_piece)).mono ?_
-    intro x hx
-    rcases hx with ⟨hx_succ, hx_rest⟩
-    rcases hx_rest with ⟨hx_prev, hx_piece⟩
-    have h_measure := hμpartial_succ N
-    have h_integral_add :
-        ∫ y, f (x - y) * g y ∂ μpartial (N + 1)
-          = ∫ y, f (x - y) * g y ∂ μpartial N
-              + ∫ y, f (x - y) * g y ∂ μn (N + 1) := by
-      simpa [h_measure, Nat.succ_eq_add_one, convPartial, convPiece]
-        using MeasureTheory.integral_add_measure hx_prev hx_piece
-    simp [convPartial, convPiece, h_integral_add]
-  -- The recursion from the previous step yields an explicit description of `convPartial N` as the
-  -- finite sum of the pieces `convPiece k` for `k ≤ N`.
-  have h_convPartial_sum :
-      ∀ N,
-        convPartial N
-          =ᵐ[μ]
-            fun x => ∑ k ∈ Finset.range (N + 1), convPiece k x := by
-    classical
-    intro N
-    induction' N with N hN
-    · refine Filter.Eventually.of_forall ?_
-      intro x
-      simp [convPartial, convPiece, μpartial, μn]
-    · refine (h_convPartial_succ N).trans ?_
-      refine hN.mono ?_
-      intro x hx
-      have hx' :
-          convPartial N x + convPiece (N + 1) x =
-            (∑ k ∈ Finset.range (N + 1), convPiece k x) + convPiece (N + 1) x := by
-        simp [hx]
-      have hx'' :
-          (∑ k ∈ Finset.range (N + 1), convPiece k x) + convPiece (N + 1) x =
-            ∑ k ∈ Finset.range (N + 1 + 1), convPiece k x := by
-        simp [Finset.sum_range_succ, Nat.succ_eq_add_one, add_comm,
-          add_left_comm, add_assoc]
-      exact hx'.trans hx''
+  have h_convPiece_def :
+      ∀ n, convPiece n = fun x => ∫ y, f (x - y) * g y ∂ μn n := by
+    intro n
+    rfl
+  have h_convPartial_sum :=
+    convPartial_sum_eq
+      (μ := μ)
+      (μpartial := μpartial)
+      (μn := μn)
+      (f := f)
+      (g := g)
+      (convPartial := convPartial)
+      (convPiece := convPiece)
+      (h_convPartial := h_convPartial_def)
+      (h_convPiece := h_convPiece_def)
+      (hμpartial_zero := hμpartial_zero)
+      (hμpartial_succ := hμpartial_succ)
+      (h_kernel_fiber_int_partial_measure := h_kernel_fiber_int_partial_measure)
+      (h_kernel_fiber_int_piece := h_kernel_fiber_int_piece)
   have h_convPartial_partialSum :
       ∀ N,
         convPartial N
@@ -1147,42 +2268,7 @@ lemma convolution_memLp_of_memLp
     by simpa [μn, one_smul] using MeasureTheory.sfiniteSeq_le (μ := μ) n
   have hμn_prod_le : ∀ n, (μn n).prod (μn n) ≤ μ.prod μ := by
     intro n
-    classical
-    refine fun s => ?_
-    classical
-    set S := toMeasurable (μ.prod μ) s with hS_def
-    have hS_meas : MeasurableSet S := measurableSet_toMeasurable _ _
-    have hs_subset : s ⊆ S := by
-      simpa [S] using subset_toMeasurable (μ.prod μ) s
-    have h_prod_apply_piece :
-        (μn n).prod (μn n) S =
-          ∫⁻ x, μn n (Prod.mk x ⁻¹' S) ∂ μn n :=
-      Measure.prod_apply (μ := μn n) (ν := μn n) hS_meas
-    have h_prod_apply :
-        (μ.prod μ) S = ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
-      Measure.prod_apply (μ := μ) (ν := μ) hS_meas
-    have h_pointwise :
-        (fun x => μn n (Prod.mk x ⁻¹' S)) ≤
-          fun x => μ (Prod.mk x ⁻¹' S) := by
-      intro x
-      exact hμn_le n (Prod.mk x ⁻¹' S)
-    have h_step1 :
-        (∫⁻ x, μn n (Prod.mk x ⁻¹' S) ∂ μn n)
-          ≤ ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μn n :=
-      lintegral_mono h_pointwise
-    have h_step2 :
-        (∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μn n)
-          ≤ ∫⁻ x, μ (Prod.mk x ⁻¹' S) ∂ μ :=
-      lintegral_mono' (hμn_le n) fun _ => le_rfl
-    have h_goal :
-        (μn n).prod (μn n) S ≤ (μ.prod μ) S := by
-      have h_chain := h_step1.trans h_step2
-      simpa [h_prod_apply_piece, h_prod_apply]
-        using h_chain
-    have h_total :
-        (μn n).prod (μn n) s ≤ (μ.prod μ) S :=
-      (measure_mono (μ := (μn n).prod (μn n)) hs_subset).trans h_goal
-    simpa [S, measure_toMeasurable] using h_total
+    simpa [μn] using sfiniteSeq_prod_le (μ := μ) n
   have hμn_ac : ∀ n, μn n ≪ μ := by
     intro n
     exact Measure.absolutelyContinuous_of_le_smul
@@ -1315,185 +2401,34 @@ lemma convolution_memLp_of_memLp
       (by simp)
       (by
         simpa [μn, one_smul] using MeasureTheory.sfiniteSeq_le (μ := μ) n)
-  have h_norm_piece :
-      ∀ n,
-        Integrable
-          (fun y => ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal)
-          (μn n) := by
+  have h_norm_piece :=
+    sfiniteSeq_piece_integrable_norm_mul
+      (μ := μ) (r := r)
+      (hr := hr) (hr_ne_top := hr_ne_top)
+      (f := f) (g := g) (μn := μn)
+      (hf_r := hf_r)
+      (hg_piece_int := hg_piece_int)
+      (hμn_fin := hμn_fin)
+      (hμn_prod_ac := hμn_prod_ac)
+      (h_translate_norm_bound_toReal_piece := h_translate_norm_bound_toReal_piece)
+  have h_convPiece_def :
+      ∀ n, convPiece n = fun x => ∫ y, f (x - y) * g y ∂ μn n := by
     intro n
-    classical
-    haveI := hμn_fin n
-    set C := (eLpNorm f r μ).toReal with hC_def
-    have hC_nonneg : 0 ≤ C := by
-      have h_nonneg : 0 ≤ (eLpNorm f r μ).toReal := ENNReal.toReal_nonneg
-      simp [hC_def]
-    have h_bound :
-        ∀ y,
-          ‖‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal‖ ≤
-            ‖g y‖ * C := by
-      intro y
-      have h_toReal_nonneg :
-          0 ≤ (eLpNorm (fun x => f (x - y)) r (μn n)).toReal :=
-        ENNReal.toReal_nonneg
-      have h_mul_nonneg :
-          0 ≤ ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal :=
-        mul_nonneg (norm_nonneg _) h_toReal_nonneg
-      have h_upper := h_translate_norm_bound_toReal_piece n y
-      have h_mul_upper :=
-        mul_le_mul_of_nonneg_left h_upper (norm_nonneg (g y))
-      have h_abs_eq :
-          ‖‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal‖ =
-            ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal := by
-        simp [abs_of_nonneg h_mul_nonneg]
-      have h_rhs_nonneg : 0 ≤ ‖g y‖ * C :=
-        mul_nonneg (norm_nonneg _) hC_nonneg
-      simpa [h_abs_eq, abs_of_nonneg h_rhs_nonneg, hC_def]
-        using h_mul_upper
-    have h_bound_integrable :
-        Integrable (fun y => ‖g y‖ * C) (μn n) := by
-      have := (hg_piece_int n).norm.mul_const C
-      simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
-        using this
-    have hf_meas : AEStronglyMeasurable f μ := hf_r.aestronglyMeasurable
-    set f₀ := hf_meas.mk f with hf₀_def
-    have hf₀_meas : StronglyMeasurable f₀ := hf_meas.stronglyMeasurable_mk
-    have hf₀_ae_eq : f =ᵐ[μ] f₀ := hf_meas.ae_eq_mk
-    have hf₀_ae_eq_prod :
-        (fun q : G × G => f (q.1 - q.2))
-          =ᵐ[μ.prod μ]
-          fun q : G × G => f₀ (q.1 - q.2) := by
-      have h_sub_qmp :
-          Measure.QuasiMeasurePreserving (fun z : G × G => z.1 - z.2)
-            (μ.prod μ) μ := by
-        have h_measPres :
-            MeasurePreserving (fun z : G × G => (z.1 - z.2, z.2))
-              (μ.prod μ) (μ.prod μ) :=
-          measurePreserving_sub_prod (μ := μ) (ν := μ)
-        have h_fst :
-            Measure.QuasiMeasurePreserving (fun z : G × G => z.1)
-              (μ.prod μ) μ :=
-          MeasureTheory.Measure.quasiMeasurePreserving_fst (μ := μ) (ν := μ)
-        simpa [Function.comp, sub_eq_add_neg, add_comm, add_left_comm]
-          using h_fst.comp h_measPres.quasiMeasurePreserving
-      exact h_sub_qmp.ae_eq_comp hf₀_ae_eq
-    have hf₀_ae_eq_prod_piece :
-        (fun q : G × G => f (q.1 - q.2))
-          =ᵐ[(μn n).prod (μn n)]
-          fun q : G × G => f₀ (q.1 - q.2) :=
-      (hμn_prod_ac n) hf₀_ae_eq_prod
-    have hf₀_ae_eq_prod_piece_uncurry :
-        Function.uncurry (fun x y => f (x - y))
-          =ᵐ[(μn n).prod (μn n)]
-          Function.uncurry (fun x y => f₀ (x - y)) := by
-      simpa [Function.uncurry] using hf₀_ae_eq_prod_piece
-    have hf₀_ae_eq_prod_piece_uncurry_swap :
-        Function.uncurry (fun y x => f (x - y))
-          =ᵐ[(μn n).prod (μn n)]
-          Function.uncurry (fun y x => f₀ (x - y)) := by
-      have h_comp :=
-        (Measure.measurePreserving_swap
-            (μ := μn n) (ν := μn n)).quasiMeasurePreserving.ae_eq_comp
-          hf₀_ae_eq_prod_piece_uncurry
-      simpa [Function.comp, Function.uncurry, Prod.swap, sub_eq_add_neg]
-        using h_comp
-    have h_kernel_ae_piece :
-        ∀ᵐ y ∂ μn n,
-          (fun x => f (x - y)) =ᵐ[μn n] fun x => f₀ (x - y) := by
-      have h_curry :=
-        Measure.ae_ae_eq_curry_of_prod
-          (μ := μn n) (ν := μn n)
-          hf₀_ae_eq_prod_piece_uncurry_swap
-      refine h_curry.mono ?_
-      intro y hy
-      simpa [Function.curry, sub_eq_add_neg] using hy
-    have h_eLp_ae_piece :
-        ∀ᵐ y ∂ μn n,
-          eLpNorm (fun x => f (x - y)) r (μn n) =
-            eLpNorm (fun x => f₀ (x - y)) r (μn n) :=
-      h_kernel_ae_piece.mono fun _ hy => eLpNorm_congr_ae hy
-    have h_eLp_toReal_ae_piece :
+    rfl
+  have h_pointwise_piece :
+      ∀ n,
         (fun y =>
-            (eLpNorm (fun x => f (x - y)) r (μn n)).toReal)
+            (eLpNorm (fun x => f (x - y) * g y) r (μn n)).toReal)
           =ᵐ[μn n]
           fun y =>
-            (eLpNorm (fun x => f₀ (x - y)) r (μn n)).toReal :=
-      h_eLp_ae_piece.mono fun _ hy => by simp [hy]
-    have h_sub_meas :
-        Measurable fun z : G × G => z.1 - z.2 :=
-      measurable_fst.sub measurable_snd
-    have hF_sm :
-        StronglyMeasurable (fun z : G × G => f₀ (z.1 - z.2)) :=
-      hf₀_meas.comp_measurable h_sub_meas
-    have h_integrand_aemeasurable_piece :
-        AEMeasurable
-          (fun z : G × G => (‖f₀ (z.1 - z.2)‖ₑ) ^ r.toReal)
-          ((μn n).prod (μn n)) := by
-      simpa using (hF_sm.aemeasurable.enorm.pow_const r.toReal)
-    have h_lintegral_aemeasurable_piece :
-        AEMeasurable
-          (fun y =>
-            ∫⁻ x, (‖f₀ (x - y)‖ₑ) ^ r.toReal ∂ μn n)
-          (μn n) :=
-      h_integrand_aemeasurable_piece.lintegral_prod_left'
-    have hr_pos : (0 : ℝ≥0∞) < r := lt_of_lt_of_le (by simp) hr
-    have hr_ne_zero : r ≠ 0 := ne_of_gt hr_pos
-    have h_eLp_aemeasurable_piece :
-        AEMeasurable
-          (fun y => eLpNorm (fun x => f₀ (x - y)) r (μn n))
-          (μn n) := by
-      have h_pow_meas : Measurable fun t : ℝ≥0∞ => t ^ (1 / r.toReal) :=
-        (measurable_id.pow_const (1 / r.toReal))
-      have := h_pow_meas.comp_aemeasurable h_lintegral_aemeasurable_piece
-      refine this.congr ?_
-      refine Filter.Eventually.of_forall ?_
-      intro y
-      simp [eLpNorm_eq_lintegral_rpow_enorm (μ := μn n)
-        (f := fun x => f₀ (x - y)) hr_ne_zero hr_ne_top]
-    have h_eLp_toReal_meas_piece :
-        AEStronglyMeasurable
-          (fun y =>
-            (eLpNorm (fun x => f₀ (x - y)) r (μn n)).toReal)
-          (μn n) :=
-      (h_eLp_aemeasurable_piece.ennreal_toReal).aestronglyMeasurable
-    have hg_norm_meas_piece :
-        AEStronglyMeasurable (fun y => ‖g y‖) (μn n) :=
-      (hg_piece_int n).aestronglyMeasurable.norm
-    have h_prod_meas_piece :
-        AEStronglyMeasurable
-          (fun y =>
-            ‖g y‖ *
-              (eLpNorm (fun x => f₀ (x - y)) r (μn n)).toReal)
-          (μn n) :=
-      hg_norm_meas_piece.mul h_eLp_toReal_meas_piece
-    rcases h_prod_meas_piece with ⟨φ, hφ_meas, hφ_ae⟩
-    refine (h_bound_integrable.mono' ?_ ?_)
-    · refine ⟨φ, hφ_meas, ?_⟩
-      have h_prod_ae_piece :
-          (fun y =>
-              ‖g y‖ *
-                (eLpNorm (fun x => f (x - y)) r (μn n)).toReal)
-            =ᵐ[μn n]
-            fun y =>
-              ‖g y‖ *
-                (eLpNorm (fun x => f₀ (x - y)) r (μn n)).toReal :=
-        h_eLp_toReal_ae_piece.mono fun _ hy => by simp [hy]
-      exact h_prod_ae_piece.trans hφ_ae
-    · refine Filter.Eventually.of_forall h_bound
-  have h_minkowski_piece :
-      ∀ n,
-        eLpNorm (convPiece n) r (μn n) ≤
-          ENNReal.ofReal
-            (∫ y, ‖g y‖ *
-                (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n) := by
+            ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal := by
     intro n
-    classical
-    haveI := hμn_fin n
+    refine Filter.Eventually.of_forall ?_
+    intro y
     have h_scaling :
-        ∀ y : G,
-          eLpNorm (fun x => f (x - y) * g y) r (μn n) =
-            ENNReal.ofReal ‖g y‖ *
-              eLpNorm (fun x => f (x - y)) r (μn n) := by
-      intro y
+        eLpNorm (fun x => f (x - y) * g y) r (μn n) =
+          ENNReal.ofReal ‖g y‖ *
+            eLpNorm (fun x => f (x - y)) r (μn n) := by
       have h_smul :
           (fun x : G => f (x - y) * g y) =
             fun x : G => (g y) • f (x - y) := by
@@ -1502,40 +2437,33 @@ lemma convolution_memLp_of_memLp
       simpa [h_smul] using
         eLpNorm_const_smul (μ := μn n) (p := r)
           (c := g y) (f := fun x => f (x - y))
-    have h_pointwise :
-        (fun y =>
-            (eLpNorm (fun x => f (x - y) * g y) r (μn n)).toReal)
-          =ᵐ[μn n]
-          fun y =>
-            ‖g y‖ * (eLpNorm (fun x => f (x - y)) r (μn n)).toReal := by
-      refine Filter.Eventually.of_forall ?_
-      intro y
-      have h_eq := h_scaling y
-      have h_toReal := congrArg ENNReal.toReal h_eq
-      have h_nonneg : 0 ≤ ‖g y‖ := norm_nonneg _
-      simpa [ENNReal.toReal_ofReal_mul, h_nonneg] using h_toReal
-    have h_norm_toReal_piece :
+    have h_toReal := congrArg ENNReal.toReal h_scaling
+    have h_nonneg : 0 ≤ ‖g y‖ := norm_nonneg _
+    simpa [ENNReal.toReal_ofReal_mul, h_nonneg]
+      using h_toReal
+  have h_norm_piece_pointwise :
+      ∀ n,
         Integrable
           (fun y =>
             (eLpNorm (fun x => f (x - y) * g y) r (μn n)).toReal)
           (μn n) := by
-      refine (h_norm_piece n).congr ?_
-      simpa using h_pointwise.symm
-    have h_minkowski :=
-      minkowski_integral_inequality
-        (μ := μn n) (ν := μn n) (p := r)
-        hr hr_ne_top (fun x y => f (x - y) * g y)
-        (h_kernel_meas_piece n) (h_kernel_int_piece n)
-        (h_kernel_fiber_int_piece_left n) (h_kernel_fiber_mem_piece n)
-        h_norm_toReal_piece
-    have h_integral_eq_piece :
-        (∫ y,
-            (eLpNorm (fun x => f (x - y) * g y) r (μn n)).toReal ∂ μn n)
-          = ∫ y, ‖g y‖ *
-              (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n :=
-      integral_congr_ae h_pointwise
-    simpa [convPiece, h_integral_eq_piece]
-      using h_minkowski
+    intro n
+    refine (h_norm_piece n).congr ?_
+    simpa using (h_pointwise_piece n).symm
+  have h_minkowski_piece :=
+    sfiniteSeq_piece_minkowski_bound
+      (μ := μ) (r := r)
+      (hr := hr) (hr_ne_top := hr_ne_top)
+      (f := f) (g := g) (μn := μn)
+      (convPiece := convPiece)
+      (hμn_fin := hμn_fin)
+      (h_kernel_meas_piece := h_kernel_meas_piece)
+      (h_kernel_int_piece := h_kernel_int_piece)
+      (h_kernel_fiber_int_piece_left := h_kernel_fiber_int_piece_left)
+      (h_kernel_fiber_mem_piece := h_kernel_fiber_mem_piece)
+      (h_norm_piece := h_norm_piece_pointwise)
+      (h_pointwise := h_pointwise_piece)
+      (h_convPiece_def := h_convPiece_def)
   have h_convPiece_mem_piece :
       ∀ n, MemLp (convPiece n) r (μn n) := by
     intro n
@@ -1569,40 +2497,15 @@ lemma convolution_memLp_of_memLp
     have h_eLp :=
       eLpNorm_congr_ae (μ := μpartial N) (p := r) h_ae
     simpa [h_eLp.symm] using h_lt_top
-  have h_integral_norm_partial :
-      ∀ N,
-        ∫ y, ‖g y‖ ∂ μpartial N
-          = ∑ k ∈ Finset.range (N + 1), ∫ y, ‖g y‖ ∂ μn k := by
-    classical
-    intro N
-    induction' N with N hN
-    · simp [μpartial, Nat.succ_eq_add_one]
-    · have h_add := hμpartial_succ N
-      have h_int_partial : Integrable (fun y => ‖g y‖) (μpartial N) :=
-        (hg_partial_int N).norm
-      have h_int_piece : Integrable (fun y => ‖g y‖) (μn (N + 1)) :=
-        (hg_piece_int (N + 1)).norm
-      have h_integral_add :
-          ∫ y, ‖g y‖ ∂ μpartial (N + 1)
-            = ∫ y, ‖g y‖ ∂ μpartial N
-                + ∫ y, ‖g y‖ ∂ μn (N + 1) := by
-        simpa [h_add, Nat.succ_eq_add_one]
-          using
-            (MeasureTheory.integral_add_measure
-              (μ := μpartial N) (ν := μn (N + 1))
-              (f := fun y => ‖g y‖)
-              h_int_partial
-              h_int_piece)
-      calc
-        ∫ y, ‖g y‖ ∂ μpartial (N + 1)
-            = ∫ y, ‖g y‖ ∂ μpartial N
-                + ∫ y, ‖g y‖ ∂ μn (N + 1) := h_integral_add
-        _ = (∑ k ∈ Finset.range (N + 1), ∫ y, ‖g y‖ ∂ μn k)
-                + ∫ y, ‖g y‖ ∂ μn (N + 1) := by
-              simpa [Nat.succ_eq_add_one] using hN
-        _ = ∑ k ∈ Finset.range (N + 1 + 1), ∫ y, ‖g y‖ ∂ μn k := by
-              simp [Finset.sum_range_succ, Nat.succ_eq_add_one, add_comm,
-                add_left_comm, add_assoc]
+  have h_integral_norm_partial :=
+    sfiniteSeq_partial_integral_norm
+      (g := g)
+      (μpartial := μpartial)
+      (μn := μn)
+      (hμpartial_zero := hμpartial_zero)
+      (hμpartial_succ := hμpartial_succ)
+      (hg_partial_int := hg_partial_int)
+      (hg_piece_int := hg_piece_int)
   have h_convPartial_bound_sum :
       ∀ N,
         eLpNorm (convPartial N) r (μpartial N) ≤
@@ -1613,144 +2516,53 @@ lemma convolution_memLp_of_memLp
     classical
     simpa [h_integral_norm_partial N, mul_comm, mul_left_comm, mul_assoc]
       using h_convPartial_bound N
-  have hμpartial_le : ∀ N, μpartial N ≤ μ := by
-    intro N s hs
-    classical
-    intro hμ
-    have h_sum_eval := congrArg (fun ν : Measure G => ν s) hμ_sum.symm
-    have hμ_tsum : μ s = ∑' n, μn n s :=
-      by simpa [Measure.sum_apply_of_countable μn s] using h_sum_eval
-    have h_tsum_value : ∑' n, μn n s = (↑hs : ℝ≥0∞) := by
-      simpa [hμ] using hμ_tsum.symm
-    have h_partial :
-        μpartial N s = ∑ k ∈ Finset.range (N + 1), μn k s := by
-      simp [μpartial]
-    have h_sum_le :
-        (∑ k ∈ Finset.range (N + 1), μn k s) ≤ (↑hs : ℝ≥0∞) := by
-      have h_le :=
-        (ENNReal.sum_le_tsum
-          (s := Finset.range (N + 1))
-          (f := fun k : ℕ => μn k s))
-      simpa [h_tsum_value] using h_le
-    have hμpartial_le' : μpartial N s ≤ (↑hs : ℝ≥0∞) := by
-      simpa [h_partial] using h_sum_le
-    have hμpartial_lt_top : μpartial N s < ∞ :=
-      lt_of_le_of_lt hμpartial_le' (by simp)
-    have hμpartial_ne_top : μpartial N s ≠ ∞ := ne_of_lt hμpartial_lt_top
-    have hhs_ne_top : (↑hs : ℝ≥0∞) ≠ ∞ := by simp
-    refine ⟨(μpartial N s).toNNReal, ?_, ?_⟩
-    · simp [hμpartial_ne_top]
-    · have :=
-        (ENNReal.toNNReal_le_toNNReal hμpartial_ne_top hhs_ne_top).2 hμpartial_le'
-      simpa using this
+  have hμpartial_le :=
+    sfiniteSeq_partial_le_measure
+      (μ := μ)
+      (μn := μn)
+      (μpartial := μpartial)
+      (hμ_sum := hμ_sum)
+      (hμpartial_def := hμpartial_def)
   have h_lintegral_norm_le :
       ∀ N,
         ∫⁻ y, ‖g y‖ₑ ∂ μpartial N ≤ ∫⁻ y, ‖g y‖ₑ ∂ μ := by
     intro N
     exact lintegral_mono' (hμpartial_le N) fun _ => le_rfl
-  -- The remaining steps will leverage these bounds to pass from the truncated convolutions to the
-  -- full convolution with respect to `μ`.
-  have h_norm_piece_le :
-      ∀ n,
-        ∫ y, ‖g y‖ *
-              (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n ≤
-          (eLpNorm f r μ).toReal * ∫ y, ‖g y‖ ∂ μn n := by
-    intro n
-    classical
-    set C := (eLpNorm f r μ).toReal with hC_def
-    have hC_nonneg : 0 ≤ C := by
-      have h_nonneg : 0 ≤ (eLpNorm f r μ).toReal := ENNReal.toReal_nonneg
-      simp [hC_def]
-    have h_pointwise :
-        ∀ y,
-          ‖g y‖ *
-              (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ≤
-            ‖g y‖ * C := by
-      intro y
-      have h_upper := h_translate_norm_bound_toReal_piece n y
-      have h_nonneg : 0 ≤ ‖g y‖ := norm_nonneg _
-      have h_mul_upper := mul_le_mul_of_nonneg_left h_upper h_nonneg
-      simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
-        using h_mul_upper
-    have h_integrand_int := h_norm_piece n
-    have h_const_int :
-        Integrable (fun y => ‖g y‖ * C) (μn n) := by
-      have := (hg_piece_int n).norm.mul_const C
-      simpa [hC_def, mul_comm, mul_left_comm, mul_assoc]
-        using this
-    have h_le :=
-      integral_mono_ae
-        h_integrand_int
-        h_const_int
-        (Filter.Eventually.of_forall h_pointwise)
-    have h_const_eval₁ :
-        ∫ y, ‖g y‖ * C ∂ μn n =
-          (∫ y, ‖g y‖ ∂ μn n) * C := by
-      simpa [mul_comm, mul_left_comm, mul_assoc]
-        using
-          (integral_mul_const (μ := μn n) (r := C)
-            (f := fun y => ‖g y‖))
-    have h_const_eval :
-        ∫ y, ‖g y‖ * C ∂ μn n =
-          C * ∫ y, ‖g y‖ ∂ μn n := by
-      calc
-        _ = (∫ y, ‖g y‖ ∂ μn n) * C := h_const_eval₁
-        _ = C * ∫ y, ‖g y‖ ∂ μn n := by
-          simp [mul_comm, mul_left_comm, mul_assoc]
-    have h_le' :
-        ∫ y, ‖g y‖ *
-              (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n ≤
-          C * ∫ y, ‖g y‖ ∂ μn n := by
-      calc
-        _ ≤ ∫ y, ‖g y‖ * C ∂ μn n := h_le
-        _ = (∫ y, ‖g y‖ ∂ μn n) * C := h_const_eval₁
-        _ = C * ∫ y, ‖g y‖ ∂ μn n := by
-          simp [mul_comm, mul_left_comm, mul_assoc]
-    simpa [hC_def, h_const_eval, mul_comm, mul_left_comm, mul_assoc] using h_le'
-  have h_convPiece_bound :
-      ∀ n,
-        eLpNorm (convPiece n) r (μn n) ≤
-          ENNReal.ofReal
-            ((eLpNorm f r μ).toReal * ∫ y, ‖g y‖ ∂ μn n) := by
-    intro n
-    classical
-    have h_mink := h_minkowski_piece n
-    have h_le := h_norm_piece_le n
-    have h_int_nonneg :
-        0 ≤ ∫ y, ‖g y‖ *
-              (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n := by
-      have h_nonneg :
-          0 ≤ᵐ[μn n]
-            fun y =>
-              ‖g y‖ *
-                (eLpNorm (fun x => f (x - y)) r (μn n)).toReal := by
-        refine Filter.Eventually.of_forall ?_
-        intro y
-        have h₁ : 0 ≤ ‖g y‖ := norm_nonneg _
-        have h₂ :
-            0 ≤ (eLpNorm (fun x => f (x - y)) r (μn n)).toReal :=
-          ENNReal.toReal_nonneg
-        exact mul_nonneg h₁ h₂
-      exact integral_nonneg_of_ae h_nonneg
-    have h_rhs_nonneg :
-        0 ≤ (eLpNorm f r μ).toReal * ∫ y, ‖g y‖ ∂ μn n := by
-      have hC_nonneg : 0 ≤ (eLpNorm f r μ).toReal := ENNReal.toReal_nonneg
-      have h_int_nonneg' : 0 ≤ ∫ y, ‖g y‖ ∂ μn n := by
-        have h_nonneg : 0 ≤ᵐ[μn n] fun y => ‖g y‖ :=
-          Filter.Eventually.of_forall fun y => norm_nonneg _
-        exact integral_nonneg_of_ae h_nonneg
-      exact mul_nonneg hC_nonneg h_int_nonneg'
-    refine h_mink.trans ?_
-    have h_ofReal :
-        ENNReal.ofReal
-            (∫ y, ‖g y‖ *
-                (eLpNorm (fun x => f (x - y)) r (μn n)).toReal ∂ μn n) ≤
-          ENNReal.ofReal
-            ((eLpNorm f r μ).toReal * ∫ y, ‖g y‖ ∂ μn n) :=
-      (ENNReal.ofReal_le_ofReal_iff h_rhs_nonneg).2 h_le
-    exact h_ofReal
-  -- Express the truncated integrals of `‖g‖` against the auxiliary measures in a form that is
-  -- compatible with the monotone limit argument to follow.
+  have h_norm_piece_le :=
+    sfiniteSeq_piece_norm_le
+      (μ := μ)
+      (r := r)
+      (f := f)
+      (g := g)
+      (μn := μn)
+      (hf_r := hf_r)
+      (hg_piece_int := hg_piece_int)
+      (h_norm_piece := h_norm_piece)
+      (h_translate_norm_bound_toReal_piece := h_translate_norm_bound_toReal_piece)
+  have h_convPiece_bound :=
+    sfiniteSeq_piece_conv_bound
+      (μ := μ)
+      (r := r)
+      (f := f)
+      (g := g)
+      (μn := μn)
+      (convPiece := convPiece)
+      (hf_r := hf_r)
+      (hg_piece_int := hg_piece_int)
+      (h_minkowski_piece := h_minkowski_piece)
+      (h_norm_piece_le := h_norm_piece_le)
+  have h_convPartial_meas_mu :
+      ∀ N, AEStronglyMeasurable (convPartial N) μ :=
+    sfiniteSeq_convPartial_aestronglyMeasurable
+      (μ := μ)
+      (f := f)
+      (g := g)
+      (μpartial := μpartial)
+      (convPartial := convPartial)
+      (hμpartial_fin := hμpartial_fin)
+      (hμpartial_le_smul := hμpartial_le_smul)
+      (h_kernel_meas := h_kernel_meas)
+      (h_convPartial_def := h_convPartial_def)
   have h_lintegral_norm_partial :
       ∀ N,
         ∫⁻ y, ‖g y‖ₑ ∂ μpartial N
@@ -1766,54 +2578,153 @@ lemma convolution_memLp_of_memLp
         (MeasureTheory.lintegral_sum_measure
           (μ := μn)
           (f := fun y : G => ‖g y‖ₑ)).symm
-  have h_lintegral_norm_mono :
-      Monotone (fun N => ∫⁻ y, ‖g y‖ₑ ∂ μpartial N) := by
-    intro N M hNM
-    exact lintegral_mono' (hμpartial_mono hNM) fun _ => le_rfl
-  have h_lintegral_norm_tendsto :
-      Tendsto (fun N => ∫⁻ y, ‖g y‖ₑ ∂ μpartial N) atTop
-        (𝓝 (∫⁻ y, ‖g y‖ₑ ∂ μ)) := by
+  have h_lintegral_norm_tendsto :=
+    sfiniteSeq_lintegral_norm_tendsto
+      (μ := μ)
+      (g := g)
+      (μn := μn)
+      (μpartial := μpartial)
+      (hμ_sum := hμ_sum)
+      (h_lintegral_norm_partial := h_lintegral_norm_partial)
+  have h_convPartial_tendsto :=
+    sfiniteSeq_convPartial_tendsto
+      (μ := μ)
+      (f := f)
+      (g := g)
+      (μn := μn)
+      (μpartial := μpartial)
+      (convPartial := convPartial)
+      (convPiece := convPiece)
+      (conv := conv)
+      (hμ_sum := hμ_sum)
+      (hμpartial_zero := hμpartial_zero)
+      (hμpartial_succ := hμpartial_succ)
+      (hμpartial_le_smul := hμpartial_le_smul)
+      (hμn_le := hμn_le)
+      (h_convPartial_def := fun _ => rfl)
+      (h_convPiece_def := fun _ => rfl)
+      (h_conv_def := rfl)
+      (h_kernel_fiber_int_mu := h_kernel_fiber_int_mu)
+  set bound : ℕ → ℝ≥0∞ := fun N =>
+    ENNReal.ofReal
+      ((((N + 1 : ℝ≥0∞) ^ (1 / r).toReal * eLpNorm f r μ).toReal) *
+        ∑ k ∈ Finset.range (N + 1), ∫ y, ‖g y‖ ∂ μn k)
+  have h_convPartial_bound' :
+      ∀ N, eLpNorm (convPartial N) r (μpartial N) ≤ bound N := by
+    intro N
+    simpa [bound] using h_convPartial_bound_sum N
+  have h_bound_fin : ∀ N, bound N < ∞ := by
+    intro N
+    simp [bound]
+  have h_F_aemeas :
+      ∀ N, AEMeasurable (fun x => ‖convPartial N x‖ₑ ^ r.toReal) μ := by
+    intro N
+    exact (h_convPartial_meas_mu N).enorm.pow_const _
+  have h_liminf_eq :
+      (fun x : G => Filter.liminf (fun N => ‖convPartial N x‖ₑ ^ r.toReal) atTop)
+        =ᵐ[μ] fun x => ‖conv x‖ₑ ^ r.toReal := by
+    refine h_convPartial_tendsto.mono ?_
+    intro x hx
+    have h_enorm_tendsto :
+        Tendsto (fun N => ‖convPartial N x‖ₑ) atTop (𝓝 (‖conv x‖ₑ)) :=
+      (continuous_enorm.tendsto (conv x)).comp hx
+    have h_pow_tendsto :
+        Tendsto (fun N => ‖convPartial N x‖ₑ ^ r.toReal) atTop
+          (𝓝 (‖conv x‖ₑ ^ r.toReal)) :=
+      (ENNReal.continuous_rpow_const.tendsto (‖conv x‖ₑ)).comp h_enorm_tendsto
+    simpa using (Tendsto.liminf_eq h_pow_tendsto)
+  have h_conv_liminf :
+      ∫⁻ x, ‖conv x‖ₑ ^ r.toReal ∂ μ ≤
+        Filter.liminf
+          (fun N => ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μ)
+          atTop := by
+    have h_base :=
+      MeasureTheory.lintegral_liminf_le'
+        (μ := μ)
+        (f := fun N x => ‖convPartial N x‖ₑ ^ r.toReal)
+        h_F_aemeas
+    have h_congr :=
+      lintegral_congr_ae (μ := μ)
+        (f := fun x => Filter.liminf (fun N => ‖convPartial N x‖ₑ ^ r.toReal) atTop)
+        (g := fun x => ‖conv x‖ₑ ^ r.toReal)
+        h_liminf_eq
+    simpa [h_congr.symm]
+      using h_base
+  have h_conv_integral_le_liminf :
+      ∫⁻ x, ‖conv x‖ₑ ^ r.toReal ∂ μ ≤
+        Filter.liminf
+          (fun N => ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μ)
+          atTop :=
+    h_conv_liminf
+  have hμn_ac : ∀ n, μn n ≪ μ := by
+    intro n
+    have h_le := (MeasureTheory.sfiniteSeq_le (μ := μ) n)
+    have h_le' : μn n ≤ (1 : ℝ≥0∞) • μ := by simpa [μn, one_smul] using h_le
+    exact Measure.absolutelyContinuous_of_le_smul h_le'
+  have h_convPartial_pow_meas_partial :
+      ∀ N M,
+        AEMeasurable (fun x => ‖convPartial N x‖ₑ ^ r.toReal) (μpartial M) := by
+    intro N M
+    exact (h_F_aemeas N).mono_ac (hμpartial_ac M)
+  have h_convPartial_pow_meas_piece :
+      ∀ N n,
+        AEMeasurable (fun x => ‖convPartial N x‖ₑ ^ r.toReal) (μn n) := by
+    intro N n
+    exact (h_F_aemeas N).mono_ac (hμn_ac n)
+  have h_lintegral_convPartial_partial :
+      ∀ N M,
+        ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μpartial (M + 1)
+          = ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μpartial M
+              + ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn (M + 1) := by
+    intro N M
     classical
-    let gNorm : G → ℝ≥0∞ := fun y => ‖g y‖ₑ
-    have h_series_tendsto :
-        Tendsto
-          (fun N => ∑ k ∈ Finset.range (N + 1), ∫⁻ y, gNorm y ∂ μn k)
+    have h_add := hμpartial_succ M
+    simp [h_add, Nat.succ_eq_add_one]
+  have h_lintegral_convPartial_partial_sum :
+      ∀ N M,
+        ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μpartial M
+          = ∑ k ∈ Finset.range (M + 1),
+              ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn k := by
+    intro N M
+    classical
+    induction' M with M hM
+    · have h_zero : μpartial 0 = μn 0 := by
+        simp [μpartial, Nat.succ_eq_add_one]
+      simp [h_zero, μpartial, Nat.succ_eq_add_one]
+    · have h_succ := h_lintegral_convPartial_partial N M
+      simp [Nat.succ_eq_add_one, hM, h_succ,
+        Finset.sum_range_succ, add_comm, add_left_comm, add_assoc]
+  have h_lintegral_convPartial_sum :
+      ∀ N,
+        (∑' k, ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μn k)
+          = ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μ := by
+    intro N
+    classical
+    simpa [hμ_sum]
+      using
+        (MeasureTheory.lintegral_sum_measure
+          (μ := μn)
+          (f := fun x : G => ‖convPartial N x‖ₑ ^ r.toReal)).symm
+  have h_convPartial_integral_mono :
+      ∀ N, Monotone
+        (fun M => ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μpartial M) := by
+    intro N
+    intro M₁ M₂ hM
+    exact lintegral_mono' (hμpartial_mono hM) fun _ => le_rfl
+  have h_convPartial_integral_tendsto :
+      ∀ N,
+        Tendsto (fun M => ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μpartial M)
           atTop
-          (𝓝 (∑' n, ∫⁻ y, gNorm y ∂ μn n)) :=
-      (ENNReal.tendsto_nat_tsum
-        (f := fun n => ∫⁻ y, gNorm y ∂ μn n)).comp
-          (tendsto_add_atTop_nat 1)
-    have h_eval :
-        (fun N => ∫⁻ y, gNorm y ∂ μpartial N)
-          = fun N => ∑ k ∈ Finset.range (N + 1), ∫⁻ y, gNorm y ∂ μn k := by
-      funext N
-      exact h_lintegral_norm_partial N
-    have h_eval' :
-        (fun N => ∑ k ∈ Finset.range (N + 1), ∫⁻ y, gNorm y ∂ μn k)
-          = fun N => ∫⁻ y, gNorm y ∂ μpartial N := by
-      funext N
-      exact (h_lintegral_norm_partial N).symm
-    have h_target :
-        (𝓝 (∑' n, ∫⁻ y, gNorm y ∂ μn n))
-          = 𝓝 (∫⁻ y, gNorm y ∂ μ) := by
-      change
-          𝓝 (∑' n, ∫⁻ y, ‖g y‖ₑ ∂ μn n)
-            = 𝓝 (∫⁻ y, ‖g y‖ₑ ∂ μ)
-      exact congrArg (fun t => 𝓝 t) h_lintegral_norm_sum
-    have h_series_tendsto_int :
-        Tendsto (fun N => ∫⁻ y, gNorm y ∂ μpartial N) atTop
-          (𝓝 (∑' n, ∫⁻ y, gNorm y ∂ μn n)) := by
-      exact h_eval' ▸ h_series_tendsto
-    have h_series_tendsto_final :
-        Tendsto (fun N => ∫⁻ y, gNorm y ∂ μpartial N) atTop
-          (𝓝 (∫⁻ y, gNorm y ∂ μ)) := by
-      exact h_target ▸ h_series_tendsto_int
-    change
-        Tendsto (fun N => ∫⁻ y, ‖g y‖ₑ ∂ μpartial N) atTop
-          (𝓝 (∫⁻ y, ‖g y‖ₑ ∂ μ))
-    exact h_series_tendsto_final
-  -- Having organised the lintegral bounds for the tails, it remains to upgrade the control on the
-  -- truncated convolutions to the full convolution with respect to `μ`.
+          (𝓝 (∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μ)) :=
+    sfiniteSeq_convPartial_integral_tendsto
+      (μ := μ)
+      (r := r)
+      (μn := μn)
+      (μpartial := μpartial)
+      (convPartial := convPartial)
+      (h_lintegral_convPartial_partial_sum :=
+        h_lintegral_convPartial_partial_sum)
+      (h_lintegral_convPartial_sum := h_lintegral_convPartial_sum)
   sorry
 
 /--
