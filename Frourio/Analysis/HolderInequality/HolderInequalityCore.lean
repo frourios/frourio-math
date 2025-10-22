@@ -1287,3 +1287,37 @@ lemma eLpNorm_toReal_pos_of_ae_pos
   exact lt_of_le_of_ne h_nonneg (by simpa [eq_comm] using h_ne)
 
 end HolderNormalized
+
+theorem holder_integral_norm_mul_le
+    [SFinite μ]
+    {p q : ℝ≥0∞}
+    (hp : 1 ≤ p) (hq : 1 ≤ q)
+    (hpq : 1 / p + 1 / q = 1)
+    (f g : α → E)
+    (hf : MemLp f p μ) (hg : MemLp g q μ) :
+    ∫ x, ‖f x‖ * ‖g x‖ ∂μ ≤
+      (eLpNorm f p μ).toReal * (eLpNorm g q μ).toReal := by
+  classical
+  -- One of `p`, `q` must be finite unless the other exponent equals `1`.
+  have hp_top : p ≠ ∞ ∨ q = 1 := by
+    by_cases hp_inf : p = ∞
+    · have h_inv : 1 / q = 1 := by simpa [hp_inf, one_div] using hpq
+      have hq_eq_one : q = 1 := by
+        have := congrArg (fun x : ℝ≥0∞ => x⁻¹) h_inv
+        simpa using this
+      exact Or.inr hq_eq_one
+    · exact Or.inl hp_inf
+  have hq_top : q ≠ ∞ ∨ p = 1 := by
+    by_cases hq_inf : q = ∞
+    · have h_inv : 1 / p = 1 := by simpa [hq_inf, one_div] using hpq
+      have hp_eq_one : p = 1 := by
+        have := congrArg (fun x : ℝ≥0∞ => x⁻¹) h_inv
+        simpa using this
+      exact Or.inr hp_eq_one
+    · exact Or.inl hq_inf
+  -- Apply the explicit Hölder inequality with these structural facts.
+  obtain ⟨_, h_bound⟩ :=
+    holder_inequality_explicit
+      (μ := μ) (p := p) (q := q)
+      hp hq hp_top hq_top hpq f g hf hg
+  exact h_bound

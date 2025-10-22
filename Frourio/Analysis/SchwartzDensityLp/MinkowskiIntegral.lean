@@ -942,7 +942,7 @@ lemma convolution_kernel_fiber_integrable_of_memLp
 lemma convolution_kernel_fiber_memLp_of_memLp
     {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
     [MeasurableAdd₂ G] [MeasurableNeg G]
-    (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant] [μ.IsNegInvariant]
+    (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant]
     {p q : ℝ≥0∞} {f g : G → ℂ} (hf : MemLp f p μ) (hg : MemLp g q μ) :
     ∀ᵐ y ∂μ, MemLp (fun x => f (x - y) * g y) p μ := by
   classical
@@ -1111,3 +1111,68 @@ theorem lintegral_convolution_swap
     MeasureTheory.lintegral_lintegral_swap (μ := μ) (ν := μ) h_prod_meas
 
 end AuxiliaryLemmas
+
+theorem minkowski_integral_convolution_bound
+    {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
+    [MeasurableAdd₂ G] [MeasurableNeg G]
+    (μ : Measure G) [SFinite μ]
+    {r : ℝ≥0∞}
+    (hr : 1 ≤ r) (hr_ne_top : r ≠ ∞)
+    (f g : G → ℂ)
+    (h_kernel_meas :
+      AEStronglyMeasurable
+        (fun q : G × G => f (q.1 - q.2) * g q.2)
+        (μ.prod μ))
+    (h_kernel_int :
+      Integrable (fun q : G × G => f (q.1 - q.2) * g q.2) (μ.prod μ))
+    (h_fiber_int :
+      ∀ᵐ y ∂μ, Integrable (fun x => f (x - y) * g y) μ)
+    (h_fiber_mem :
+      ∀ᵐ y ∂μ, MemLp (fun x => f (x - y) * g y) r μ)
+    (h_norm :
+      Integrable
+        (fun y => ‖g y‖ * (eLpNorm (fun x => f (x - y)) r μ).toReal) μ) :
+    eLpNorm (fun x => ∫ y, f (x - y) * g y ∂μ) r μ ≤
+      ENNReal.ofReal
+        (∫ y, ‖g y‖ * (eLpNorm (fun x => f (x - y)) r μ).toReal ∂μ) := by
+  classical
+  have h_scaling :
+      ∀ y : G,
+        eLpNorm (fun x => f (x - y) * g y) r μ =
+          ENNReal.ofReal ‖g y‖ * eLpNorm (fun x => f (x - y)) r μ := by
+    intro y
+    have h_smul :
+        (fun x => f (x - y) * g y) =
+          fun x => (g y) • f (x - y) := by
+      funext x
+      simp [mul_comm, smul_eq_mul, sub_eq_add_neg]
+    simpa [h_smul] using
+      eLpNorm_const_smul (μ := μ) (p := r) (c := g y) (f := fun x => f (x - y))
+  have h_pointwise :
+      (fun y =>
+          (eLpNorm (fun x => f (x - y) * g y) r μ).toReal)
+        =ᵐ[μ]
+        fun y =>
+          ‖g y‖ * (eLpNorm (fun x => f (x - y)) r μ).toReal := by
+    refine Filter.Eventually.of_forall ?_
+    intro y
+    have h_eq := h_scaling y
+    have h_toReal := congrArg ENNReal.toReal h_eq
+    have h_nonneg : 0 ≤ ‖g y‖ := norm_nonneg _
+    simpa [ENNReal.toReal_ofReal_mul, h_nonneg]
+      using h_toReal
+  have h_norm_toReal :
+      Integrable
+        (fun y => (eLpNorm (fun x => f (x - y) * g y) r μ).toReal) μ :=
+    h_norm.congr <| by
+      simpa using h_pointwise.symm
+  have h_minkowski :=
+    minkowski_integral_inequality (μ := μ) (ν := μ) (p := r)
+      hr hr_ne_top (fun x y => f (x - y) * g y)
+      h_kernel_meas h_kernel_int h_fiber_int h_fiber_mem h_norm_toReal
+  have h_integral_eq :
+      (∫ y, (eLpNorm (fun x => f (x - y) * g y) r μ).toReal ∂μ)
+        = ∫ y, ‖g y‖ * (eLpNorm (fun x => f (x - y)) r μ).toReal ∂μ :=
+    integral_congr_ae h_pointwise
+  simpa [h_integral_eq]
+    using h_minkowski
