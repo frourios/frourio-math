@@ -27,7 +27,7 @@ variable (μ : Measure G) [SFinite μ] [μ.IsAddRightInvariant] [μ.IsNegInvaria
 lemma convolution_memLp_of_memLp
     (f g : G → ℂ)
     (p q r : ℝ≥0∞)
-    (hp : 1 ≤ p) (hq : 1 ≤ q)
+    (hp : 1 ≤ p) (hq : 1 < q)
     (hpqr : 1 / p + 1 / q = 1 + 1 / r)
     (hr_ne_top : r ≠ ∞)
     (hf : MemLp f p μ) (hf_r : MemLp f r μ) (hg : MemLp g q μ)
@@ -90,7 +90,7 @@ lemma convolution_memLp_of_memLp
   have h_inv_p_le_one : p⁻¹ ≤ (1 : ℝ≥0∞) := by
     simpa using (ENNReal.inv_le_inv).2 hp
   have h_inv_q_le_one : q⁻¹ ≤ (1 : ℝ≥0∞) := by
-    simpa using (ENNReal.inv_le_inv).2 hq
+    simpa using (ENNReal.inv_le_inv).2 (le_of_lt hq)
   have h_inv_r_le_one : r⁻¹ ≤ (1 : ℝ≥0∞) := by
     have h_sum_le_two : p⁻¹ + q⁻¹ ≤ (1 : ℝ≥0∞) + 1 :=
       add_le_add h_inv_p_le_one h_inv_q_le_one
@@ -225,7 +225,7 @@ lemma convolution_memLp_of_memLp
     exact ENNReal.toReal_mono h_const_ne_top h_bound
   have hg_partial_one : ∀ N, MemLp g 1 (μpartial N) := by
     intro N
-    exact (hg_partial N).mono_exponent (p := (1 : ℝ≥0∞)) (q := q) hq
+    exact (hg_partial N).mono_exponent (p := (1 : ℝ≥0∞)) (q := q) (le_of_lt hq)
   have hg_partial_int : ∀ N, Integrable g (μpartial N) := by
     intro N
     exact (memLp_one_iff_integrable).1 (hg_partial_one N)
@@ -476,7 +476,7 @@ lemma convolution_memLp_of_memLp
     · simpa [μn, one_smul] using MeasureTheory.sfiniteSeq_le (μ := μ) n
   have hg_piece_one : ∀ n, MemLp g 1 (μn n) := by
     intro n
-    exact (hg_piece n).mono_exponent (p := (1 : ℝ≥0∞)) (q := q) hq
+    exact (hg_piece n).mono_exponent (p := (1 : ℝ≥0∞)) (q := q) (le_of_lt hq)
   have hg_piece_int : ∀ n, Integrable g (μn n) := by
     intro n
     exact (memLp_one_iff_integrable).1 (hg_piece_one n)
