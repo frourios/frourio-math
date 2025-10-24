@@ -16,13 +16,6 @@ noncomputable section
 open scoped BigOperators ENNReal Topology
 open MeasureTheory Filter NNReal
 
-/-!
-Auxiliary lemmas potentially needed for the limsup step.
-
-We add only the statements here; proofs will be supplied where needed during
-the main argument to keep this file’s flow focused.
--/
-
 -- Pulling a finite ENNReal constant out of a limsup (left multiplication).
 lemma limsup_const_mul_atTop
     (C : ℝ≥0∞) (u : ℕ → ℝ≥0∞) (hC_lt_top : C ≠ ∞) :
@@ -378,58 +371,6 @@ lemma limsup_rpow_nat_atTop_eq_top
            _ < s + 1 := ENNReal.add_lt_add_left (by simp [hs_ne_top]) h_one_pos
     exact (not_lt_of_ge h_le_limsup) this
   simpa [hs] using hs_top
-
-/-!
-Exponent monotonicity on finite measure spaces.
-
-On a finite measure space, for exponents `0 < p ≤ r < ∞`, one has the Lyapunov-type
-inequality
-
-  ‖f‖_p ≤ μ(univ)^(1/p - 1/r) · ‖f‖_r.
-
-We provide a version specialized to complex-valued functions, phrased with `eLpNorm`.
-This form is the one used in the p-norm–based redesign of the Young inequality proof.
--/
-section ExponentMonotonicity
-
-variable {α : Type*} [MeasurableSpace α]
-
-lemma eLpNorm_exponent_mono_of_finite_measure
-    (μ : Measure α) [IsFiniteMeasure μ]
-    (f : α → ℂ)
-    (p r : ℝ≥0∞)
-    (hp_le_hr : p ≤ r)
-    (hf_meas : AEStronglyMeasurable f μ) :
-    eLpNorm f p μ ≤ (μ Set.univ) ^ (1 / p.toReal - 1 / r.toReal) * eLpNorm f r μ := by
-  classical
-  by_cases hμz : μ = 0
-  · -- Trivial in the zero-measure case
-    simp [hμz]
-  · -- Use the general comparison lemma and commute the factors.
-    simpa [mul_comm]
-      using
-        (MeasureTheory.eLpNorm_le_eLpNorm_mul_rpow_measure_univ
-          (μ := μ) (f := f) (p := p) (q := r) hp_le_hr hf_meas)
-
--- Dual direction (upper bound) on a finite measure space: for r ≤ p,
--- ‖f‖_r ≤ μ(univ)^(1/r - 1/p) · ‖f‖_p.
-lemma eLpNorm_exponent_mono_upper_of_finite_measure
-    (μ : Measure α) [IsFiniteMeasure μ]
-    (f : α → ℂ)
-    (r p : ℝ≥0∞)
-    (hr_le_hp : r ≤ p)
-    (hf_meas : AEStronglyMeasurable f μ) :
-    eLpNorm f r μ ≤ (μ Set.univ) ^ (1 / r.toReal - 1 / p.toReal) * eLpNorm f p μ := by
-  classical
-  by_cases hμz : μ = 0
-  · simp [hμz]
-  · -- Apply the same library lemma with (p := r) and (q := p).
-    simpa [mul_comm]
-      using
-        (MeasureTheory.eLpNorm_le_eLpNorm_mul_rpow_measure_univ
-          (μ := μ) (f := f) (p := r) (q := p) hr_le_hp hf_meas)
-
-end ExponentMonotonicity
 
 variable {G α : Type*}
 
@@ -1874,11 +1815,14 @@ lemma lintegral_convolution_norm_bound
         have h_base :
             eLpNorm (fun x => f (x - y)) p (μpartial N)
               ≤ ((μpartial N) Set.univ) ^ (1 / p.toReal - 1 / r.toReal)
-                  * eLpNorm (fun x => f (x - y)) r (μpartial N) :=
-          eLpNorm_exponent_mono_of_finite_measure
-            (μ := μpartial N)
-            (f := fun x => f (x - y))
-            (p := p) (r := r) hp_le_hr h_meas_partial
+                  * eLpNorm (fun x => f (x - y)) r (μpartial N) := by
+          by_cases hμz : μpartial N = 0
+          · simp [hμz]
+          · simpa [mul_comm]
+              using
+                (MeasureTheory.eLpNorm_le_eLpNorm_mul_rpow_measure_univ
+                  (μ := μpartial N) (f := fun x => f (x - y))
+                  (p := p) (q := r) hp_le_hr h_meas_partial)
         -- The RHS is finite: both factors are finite.
         have h_exp_nonneg : 0 ≤ (1 / p.toReal - 1 / r.toReal) := by
           -- From 1/p = 1/r + 1/s₀ and 0 ≤ 1/s₀, deduce 1/r ≤ 1/p, hence the difference is ≥ 0.
@@ -1968,10 +1912,17 @@ lemma lintegral_convolution_norm_bound
                 simp [h_split, add_comm, add_left_comm, add_assoc]
               have : r⁻¹ ≤ p⁻¹ := by simpa [one_div] using h_inv_r_le_inv_p
               exact (ENNReal.inv_le_inv).1 this
-            simpa [hα] using
-              (eLpNorm_exponent_mono_of_finite_measure
-                (μ := μpartial N) (f := fun x => f (x - y))
-                (p := p) (r := r) hp_le_hr h_meas_partial)
+            have h_mono : eLpNorm (fun x => f (x - y)) p (μpartial N)
+                  ≤ ((μpartial N) Set.univ) ^ (1 / p.toReal - 1 / r.toReal)
+                      * eLpNorm (fun x => f (x - y)) r (μpartial N) := by
+              by_cases hμz : μpartial N = 0
+              · simp [hμz]
+              · simpa [mul_comm]
+                  using
+                    (MeasureTheory.eLpNorm_le_eLpNorm_mul_rpow_measure_univ
+                      (μ := μpartial N) (f := fun x => f (x - y))
+                      (p := p) (q := r) hp_le_hr h_meas_partial)
+            simpa [hα] using h_mono
           -- Multiply by β on both sides and simplify with β * α = 1 (in ℝ≥0∞).
           have h_mulENN :
               β * eLpNorm (fun x => f (x - y)) p (μpartial N)
@@ -2698,6 +2649,234 @@ lemma lintegral_convolution_norm_bound
               rw [← h123]
             -- We keep the exponent in the expanded additive form for later use.
         -- We will evaluate limsup Θ using these packed exponents in the next step.
+        -- Step 3: Regroup Θ into an N-dependent part P and an N-independent constant Cconst.
+        -- This isolates the growth from the fixed L^p constants.
+        set P : ℕ → ℝ≥0∞ :=
+          fun N =>
+            (((N + 1 : ℝ≥0∞) ^ (1 / r).toReal) ^ r.toReal)
+              * (((N + 1 : ℝ≥0∞) ^ (1 / q).toReal) ^ r.toReal)
+              * (((N + 1 : ℝ≥0∞) ^ (1 / s₀).toReal) ^ r.toReal) with hPdef
+        set Cconst : ℝ≥0∞ :=
+          (eLpNorm f r μ) ^ r.toReal
+            * (eLpNorm g q μ) ^ r.toReal
+            * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ) ^ r.toReal with hCdef
+        have hΘ_group : ∀ N, Θ N = P N * Cconst := by
+          intro N
+          have := hΘ_split N
+          -- Reassociate the six-term product into P N times Cconst.
+          simpa [P, Cconst, mul_comm, mul_left_comm, mul_assoc]
+            using this
+        -- Step 4: Pack P into a single ((N+1)) power with total exponent S.
+        set S : ℝ :=
+          ((1 / r).toReal * r.toReal)
+            + ((1 / q).toReal * r.toReal)
+            + ((1 / s₀).toReal * r.toReal) with hSdef
+        have hP_pack : ∀ N, P N = ((N + 1 : ℝ≥0∞) ^ S) := by
+          intro N
+          -- Unfold P and use the prepared packing lemma h_pack_N.
+          simp [P, hSdef] at *
+          simpa using h_pack_N N
+        -- Simplify S using the inverse-toReal identities and conjugacy q⋆s₀.
+        have hrtoReal_ne_zero : r.toReal ≠ 0 := ne_of_gt hr_toReal_pos
+        have h1 : ((1 / r).toReal * r.toReal) = (1 : ℝ) := by
+          -- (1/r).toReal = (r.toReal)⁻¹, hence product is 1.
+          rw [h_inv_r_toReal]
+          field_simp
+        have h2 : ((1 / q).toReal * r.toReal) + ((1 / s₀).toReal * r.toReal)
+            = r.toReal := by
+          calc
+            ((1 / q).toReal * r.toReal) + ((1 / s₀).toReal * r.toReal)
+                = r.toReal * (1 / q).toReal + r.toReal * (1 / s₀).toReal := by
+                  simp [mul_comm]
+            _ = r.toReal * ((1 / q).toReal + (1 / s₀).toReal) := by
+                  simp [mul_add]
+            _ = r.toReal * (q.toReal⁻¹ + s₀.toReal⁻¹) := by
+                  simp [h_inv_q_toReal, h_inv_s_toReal]
+            _ = r.toReal * (1 : ℝ) := by
+                  simp [h_qs_sum_toReal]
+            _ = r.toReal := by simp
+        have hS_simplify : S = 1 + r.toReal := by
+          -- Regroup S as (1/r).toReal*r.toReal + [rest] and apply h1, h2.
+          have : S = ((1 / r).toReal * r.toReal)
+                        + (((1 / q).toReal * r.toReal)
+                            + ((1 / s₀).toReal * r.toReal)) := by
+            -- Just reassociating additions.
+            have := hSdef
+            -- Normalize associativity/commutativity
+            simp [this, add_comm, add_left_comm, add_assoc]
+          -- Conclude
+          calc S = ((1 / r).toReal * r.toReal)
+                        + (((1 / q).toReal * r.toReal)
+                            + ((1 / s₀).toReal * r.toReal)) := this
+               _ = 1 + (((1 / q).toReal * r.toReal) + ((1 / s₀).toReal * r.toReal)) := by rw [h1]
+               _ = 1 + r.toReal := by rw [h2]
+        -- Optional: record a packed form with the simplified exponent S' := 1 + r.toReal.
+        set S' : ℝ := 1 + r.toReal with hS'def
+        have hP_pack' : ∀ N, P N = ((N + 1 : ℝ≥0∞) ^ S') := by
+          intro N; simpa [hS_simplify, hS'def] using hP_pack N
+        -- Step 5: Pull out Cconst from limsup Θ and evaluate limsup P.
+        have hfunextΘ : Θ = (fun N => P N * Cconst) := by
+          funext N; simpa using hΘ_group N
+        have hfunextP : P = (fun N : ℕ => ((↑N + 1 : ℝ≥0∞) ^ S')) := by
+          funext N; simpa [hS'def] using hP_pack' N
+        -- Finiteness of the constant multiplier Cconst.
+        have hCconst_ne_top : Cconst ≠ ∞ := by
+          have hr_nonneg : 0 ≤ r.toReal := le_of_lt hr_toReal_pos
+          have hfr_ne_top : eLpNorm f r μ ≠ ∞ := by simpa using hf_r.eLpNorm_ne_top
+          have hg_ne_top : eLpNorm g q μ ≠ ∞ := by simpa using hg.eLpNorm_ne_top
+          have h1 : (eLpNorm f r μ) ^ r.toReal ≠ ∞ :=
+            ENNReal.rpow_ne_top_of_nonneg hr_nonneg hfr_ne_top
+          have h2 : (eLpNorm g q μ) ^ r.toReal ≠ ∞ :=
+            ENNReal.rpow_ne_top_of_nonneg hr_nonneg hg_ne_top
+          have h3 : (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ) ^ r.toReal ≠ ∞ := by
+            have h_ne_top : eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ ≠ ∞ := h_one_finite
+            exact ENNReal.rpow_ne_top_of_nonneg hr_nonneg h_ne_top
+          have h12 :
+              (eLpNorm f r μ) ^ r.toReal * (eLpNorm g q μ) ^ r.toReal ≠ ∞ :=
+            ENNReal.mul_ne_top h1 h2
+          -- Cconst = (a*b) * c
+          simpa [Cconst, hCdef, mul_comm, mul_left_comm, mul_assoc]
+            using ENNReal.mul_ne_top h12 h3
+        -- Rewrite Θ and apply the limsup factorization.
+        have h_limsup_pull :
+            Filter.limsup Θ Filter.atTop
+              = Filter.limsup P Filter.atTop * Cconst := by
+          have : Filter.limsup (fun N => P N * Cconst) Filter.atTop
+              = Filter.limsup P Filter.atTop * Cconst :=
+            limsup_mul_const_atTop (u := P) (C := Cconst) hCconst_ne_top
+          simpa [hfunextΘ] using this
+        -- Evaluate limsup P via positivity of S'.
+        have hSpos : 0 < S' := by
+          have : 0 < r.toReal := hr_toReal_pos; linarith
+        have h_limsupP_top : Filter.limsup P Filter.atTop = ∞ := by
+          rw [hfunextP]
+          exact limsup_rpow_nat_atTop_eq_top hSpos
+        -- Compact evaluation: limsup Θ = (∞)*Cconst (which is ∞ unless Cconst = 0).
+        have h_limsupΘ_eval :
+            Filter.limsup Θ Filter.atTop = ∞ * Cconst := by
+          simpa [h_limsupP_top] using h_limsup_pull
+        -- Uniform finite bound for Ψ using the r-based constants (finite-μ case).
+        -- Define the ENNReal constant K := ‖f‖_r · ‖g‖_q · ‖1‖_{s₀}.
+        set KconstE : ℝ≥0∞ :=
+          (eLpNorm f r μ) * (eLpNorm g q μ)
+            * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ) with hKdef
+        have hΨ_uniform :
+            ∀ N, Ψ N ≤ (KconstE) ^ r.toReal := by
+          intro N
+          -- Abbreviations on the real side.
+          set F : ℝ := (eLpNorm f r μ).toReal with hFdef
+          set Gq : ℝ := (eLpNorm (fun y => ‖g y‖) q μ).toReal with hGqdef
+          set O : ℝ := (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal with hOdef
+          -- Pointwise inequality for the A-term.
+          have h_pointwise :
+              ∀ y,
+                ‖g y‖
+                  * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal
+                ≤ ‖g y‖ * F := by
+            intro y
+            have := h_translate_uniform N y
+            exact mul_le_mul_of_nonneg_left this (norm_nonneg _)
+          -- Integrability of both sides.
+          have h_left_int :
+              Integrable
+                (fun y =>
+                  ‖g y‖
+                    * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal)
+                (μpartial N) := by
+            simpa using h_norm_piece N
+          have h_right_int : Integrable (fun y => ‖g y‖ * F) (μpartial N) := by
+            simpa using (hg_partial_int N).norm.mul_const F
+          -- Integrate and estimate the RHS integral using Hölder-on-μ bound.
+          have h_int_leF :
+              ∫ y, ‖g y‖
+                  * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N
+                ≤ ∫ y, ‖g y‖ * F ∂ μpartial N := by
+            refine integral_mono_ae h_left_int h_right_int ?_
+            exact Filter.Eventually.of_forall h_pointwise
+          have h_int_eval :
+              ∫ y, ‖g y‖ * F ∂ μpartial N
+                = F * ∫ y, ‖g y‖ ∂ μpartial N := by
+            simpa [mul_comm, mul_left_comm, mul_assoc]
+              using
+                (integral_mul_const (μ := μpartial N) (r := F)
+                  (f := fun y => ‖g y‖))
+          have h_bound_intg :
+              ∫ y, ‖g y‖ ∂ μpartial N
+                ≤ (eLpNorm (fun y => ‖g y‖) q μ).toReal
+                    * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal :=
+            h_int_g_le' N
+          have h_nonnegF : 0 ≤ F := ENNReal.toReal_nonneg
+          have h_step_real :
+              ∫ y, ‖g y‖
+                  * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N
+                ≤ F * (Gq * O) := by
+            calc
+              _ ≤ ∫ y, ‖g y‖ * F ∂ μpartial N := h_int_leF
+              _ = F * ∫ y, ‖g y‖ ∂ μpartial N := h_int_eval
+              _ ≤ F * (Gq * O) := by
+                have : F * ∫ y, ‖g y‖ ∂ μpartial N
+                    ≤ F * ((eLpNorm (fun y => ‖g y‖) q μ).toReal
+                        * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal) := by
+                  exact mul_le_mul_of_nonneg_left h_bound_intg h_nonnegF
+                simpa [Gq, O, mul_comm, mul_left_comm, mul_assoc] using this
+          -- Pass to ENNReal and raise both sides to r.toReal.
+          have h_ofReal_le :
+              ENNReal.ofReal
+                (∫ y, ‖g y‖
+                    * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N)
+                ≤ ENNReal.ofReal (F * (Gq * O)) :=
+            ENNReal.ofReal_le_ofReal h_step_real
+          have h_rpow_mono :
+              (ENNReal.ofReal
+                (∫ y, ‖g y‖
+                    * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N))
+                  ^ r.toReal
+                ≤ (ENNReal.ofReal (F * (Gq * O))) ^ r.toReal := by
+            exact ENNReal.rpow_le_rpow h_ofReal_le ENNReal.toReal_nonneg
+          -- Identify RHS base as KconstE via ofReal-toReal cancellations.
+          have hF_back : ENNReal.ofReal F = eLpNorm f r μ := by
+            simpa [F] using ENNReal.ofReal_toReal (a := eLpNorm f r μ) (hf_r.eLpNorm_ne_top)
+          have hGq_back :
+              ENNReal.ofReal Gq = eLpNorm (fun y => ‖g y‖) q μ := by
+            simpa [Gq] using ENNReal.ofReal_toReal
+              (a := eLpNorm (fun y => ‖g y‖) q μ) (by simpa using hg.eLpNorm_ne_top)
+          have hO_back :
+              ENNReal.ofReal O = eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ := by
+            simpa [O] using ENNReal.ofReal_toReal
+              (a := eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ) h_one_finite
+          have h_ofReal_prod :
+              ENNReal.ofReal (F * (Gq * O)) = KconstE := by
+            have hF_nonneg : 0 ≤ F := ENNReal.toReal_nonneg
+            have hG_nonneg : 0 ≤ Gq := ENNReal.toReal_nonneg
+            have hO_nonneg : 0 ≤ O := ENNReal.toReal_nonneg
+            have :
+                ENNReal.ofReal (F * Gq * O)
+                  = ENNReal.ofReal F * ENNReal.ofReal Gq * ENNReal.ofReal O := by
+              simpa [mul_comm, mul_left_comm, mul_assoc]
+                using ofReal_mul_three hF_nonneg hG_nonneg hO_nonneg
+            have h_assoc : F * (Gq * O) = F * Gq * O := by
+              ring
+            rw [h_assoc]
+            rw [this]
+            rw [hF_back, hGq_back, hO_back, h_g_eq]
+          -- Assemble: Ψ N ≤ (KconstE)^r
+          have :
+              (ENNReal.ofReal
+                (∫ y, ‖g y‖
+                    * (eLpNorm (fun x => f (x - y)) r (μpartial N)).toReal ∂ μpartial N))
+                  ^ r.toReal
+                ≤ (KconstE) ^ r.toReal := by
+            simpa [h_ofReal_prod] using h_rpow_mono
+          simpa [Ψ, hΨ_def] using this
+        -- Turn the uniform pointwise bound into a limsup bound and finish.
+        have h_limsupPsi_le :
+            Filter.limsup Ψ Filter.atTop ≤ (KconstE) ^ r.toReal := by
+          have h_ev : ∀ᶠ n in atTop, Ψ n ≤ (KconstE) ^ r.toReal :=
+            Filter.Eventually.of_forall hΨ_uniform
+          calc Filter.limsup Ψ Filter.atTop
+              ≤ Filter.limsup (fun _ : ℕ => (KconstE) ^ r.toReal) Filter.atTop :=
+                Filter.limsup_le_limsup h_ev
+            _ = (KconstE) ^ r.toReal := by simp [Filter.limsup_const]
         sorry
       · -- In the infinite case, we will avoid using hΨ_le_aux''' and instead
         -- proceed via the earlier bound hΨ_le_aux'' combined with finite-piece

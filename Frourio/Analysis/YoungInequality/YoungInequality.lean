@@ -1,6 +1,6 @@
 import Frourio.Analysis.SchwartzDensityLp.ConvolutionTheory
 import Frourio.Analysis.SchwartzDensityLp.MinkowskiIntegral
-import Frourio.Analysis.YoungInequality.YoungInequalityCore2
+import Frourio.Analysis.YoungInequality.YoungInequalityCore3
 import Mathlib.Analysis.Convolution
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Group.Measure

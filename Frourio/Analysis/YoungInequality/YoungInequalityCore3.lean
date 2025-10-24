@@ -13,7 +13,7 @@ import Mathlib.MeasureTheory.Measure.Haar.Basic
 noncomputable section
 
 open scoped BigOperators ENNReal Topology
-open MeasureTheory Filter
+open MeasureTheory Filter NNReal
 
 variable {G α : Type*}
 
