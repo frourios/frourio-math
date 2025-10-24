@@ -2074,15 +2074,54 @@ lemma lintegral_convolution_norm_bound
                 ≤ (KconstE) ^ r.toReal := by
             simpa [h_ofReal_prod] using h_rpow_mono
           simpa [Ψ, hΨ_def] using this
-        -- Turn the uniform pointwise bound into a limsup bound and finish.
-        have h_limsupPsi_le :
+        -- Record (for later use) a limsup bound for Ψ by the uniform constant (KconstE)^r
+        have h_limsupΨ_leK :
             Filter.limsup Ψ Filter.atTop ≤ (KconstE) ^ r.toReal := by
-          have h_ev : ∀ᶠ n in atTop, Ψ n ≤ (KconstE) ^ r.toReal :=
+          have hev : ∀ᶠ N in Filter.atTop, Ψ N ≤ (KconstE) ^ r.toReal :=
             Filter.Eventually.of_forall hΨ_uniform
-          calc Filter.limsup Ψ Filter.atTop
-              ≤ Filter.limsup (fun _ : ℕ => (KconstE) ^ r.toReal) Filter.atTop :=
-                Filter.limsup_le_limsup h_ev
-            _ = (KconstE) ^ r.toReal := by simp [Filter.limsup_const]
+          exact Filter.limsup_le_of_le (h := hev)
+        -- Align KconstE with the complex-constant form to compare with Hölder-on-μ.
+        have h_one_complex :
+            eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ
+              = eLpNorm (fun _ : G => (1 : ℂ)) s₀ μ :=
+          h_one_real_eq_complex
+        have hK_rewrite :
+            KconstE
+              = (eLpNorm f r μ)
+                  * (eLpNorm g q μ)
+                  * (eLpNorm (fun _ : G => (1 : ℂ)) s₀ μ) := by
+          simp [KconstE, hKdef, mul_comm, mul_left_comm, mul_assoc, h_one_complex]
+        -- From Hölder triple: ‖f‖_p ≤ ‖f‖_r · ‖1‖_{s₀} on μ; multiply by ‖g‖_q.
+        have h_target_le_K :
+            eLpNorm f p μ * eLpNorm g q μ ≤ KconstE := by
+          have h_base := h_holder_one
+          have h_mul := mul_le_mul_right' h_base (eLpNorm g q μ)
+          -- Reassociate to match KconstE using commutativity.
+          simpa [hK_rewrite, mul_comm, mul_left_comm, mul_assoc]
+            using h_mul
+        -- Raise to r.toReal to relate the r-powered constants (monotone since r.toReal ≥ 0).
+        have h_target_le_K_rpow :
+            (eLpNorm f p μ * eLpNorm g q μ) ^ r.toReal
+              ≤ (KconstE) ^ r.toReal :=
+          ENNReal.rpow_le_rpow h_target_le_K ENNReal.toReal_nonneg
+        -- First consequence: a concrete finite bound with the r-based constant KconstE.
+        have h_goal_fin_K :
+            (∫⁻ x, (ENNReal.ofReal (H x)) ^ r.toReal ∂ μ)
+              ≤ (KconstE) ^ r.toReal :=
+          le_trans h_limsup_goal h_limsupΨ_leK
+        -- Prepare the target p-based constant and its finiteness properties for the next step.
+        set targetE : ℝ≥0∞ := (eLpNorm f p μ) * (eLpNorm g q μ) with hTargetE
+        have h_targetE_ne_top : targetE ≠ ∞ := by
+          have hf_fin : eLpNorm f p μ ≠ ∞ := by simpa using hf.eLpNorm_ne_top
+          have hg_fin : eLpNorm g q μ ≠ ∞ := by simpa using hg.eLpNorm_ne_top
+          simpa [targetE, hTargetE, mul_comm, mul_left_comm, mul_assoc]
+            using ENNReal.mul_ne_top hf_fin hg_fin
+        have hr_nonneg : 0 ≤ r.toReal := le_of_lt hr_toReal_pos
+        have h_targetE_rpow_ne_top : targetE ^ r.toReal ≠ ∞ :=
+          ENNReal.rpow_ne_top_of_nonneg hr_nonneg h_targetE_ne_top
+        -- TODO (next): strengthen h_goal_fin_K to
+        --   (∫⁻ x, (ENNReal.ofReal (H x)) ^ r.toReal ∂ μ) ≤ targetE ^ r.toReal,
+        -- by refining the control of Ψ directly in terms of the p-based constant.
         sorry
       · -- In the infinite case, we will avoid using hΨ_le_aux''' and instead
         -- proceed via the earlier bound hΨ_le_aux'' combined with finite-piece
