@@ -1,7 +1,7 @@
 import Frourio.Analysis.HolderInequality.HolderInequality
 import Frourio.Analysis.SchwartzDensityLp.MinkowskiIntegral
 import Frourio.Analysis.SchwartzDensityLp.FubiniSection
-import Frourio.Analysis.YoungInequality.YoungInequalityCore1
+import Frourio.Analysis.YoungInequality.YoungInequalityCore2
 import Mathlib.Analysis.Convolution
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Group.Integral
@@ -14,8 +14,6 @@ noncomputable section
 
 open scoped BigOperators ENNReal Topology
 open MeasureTheory Filter NNReal
-
-variable {G α : Type*}
 
 section ConvolutionAuxiliary
 
