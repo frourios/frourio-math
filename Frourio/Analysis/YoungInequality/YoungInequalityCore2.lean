@@ -966,6 +966,12 @@ lemma lintegral_convolution_norm_bound
       have hA_leC : ∀ N y, A N y ≤ C N := by
         intro N y
         simpa [A, C] using h_translate_norm_bound_toReal N y
+      have hA_nonneg : ∀ N y, 0 ≤ A N y := by
+        intro N y
+        simp only [A, ENNReal.toReal_nonneg]
+      have h_C_nonneg : ∀ N, 0 ≤ C N := by
+        intro N
+        simp only [C, ENNReal.toReal_nonneg]
       -- Step B: Prepare a p-norm–based bound for A using exponent monotonicity on finite measures.
       -- We will use the generic translate bound at exponent p, and then convert p → r
       -- via the finite-measure exponent inequality.
@@ -1174,11 +1180,261 @@ lemma lintegral_convolution_norm_bound
           -- Pass to toReal to conclude A N y ≥ Cp N y.
           have h_toReal := ENNReal.toReal_mono h_factor2_ne_top h_leENN
           simpa [A, Cp, hβ] using h_toReal
-      -- Auxiliary facts: nonnegativity and L^q membership of ‖g‖ on μpartial N.
-      have hA_nonneg : ∀ N y, 0 ≤ A N y := by
-        intro N y; simp [A]
+      -- Auxiliary facts: L^q membership of ‖g‖ on μpartial N.
       have hg_norm_partial : ∀ N, MemLp (fun y => ‖g y‖) q (μpartial N) := by
         intro N; simpa using (hg_partial N).norm
+      -- Step 1 (Young template on a finite piece): if A N ∈ L^{s₀}(μpartial N),
+      -- then Hölder(q, s₀) on μpartial N yields a direct bound for Ψ N
+      -- without introducing the auxiliary constant C N.
+      have hΨ_le_young_template :
+          ∀ N,
+            MemLp (fun y => A N y) s₀ (μpartial N) →
+            Ψ N ≤
+              (ENNReal.ofReal
+                ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                  * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal)) ^
+              r.toReal := by
+        intro N hA_mem
+        -- Hölder on μpartial N with exponents (q, s₀) applied to (‖g‖, A N).
+        have h_holder :=
+          holder_inequality (μ := μpartial N) (p := q) (q := s₀) hs₀_conj
+            (f := fun y => ‖g y‖) (g := fun y => A N y)
+            (hg_norm_partial N) hA_mem
+        -- Convert to a real inequality on the product integral.
+        have h_int_le :
+            ∫ y, ‖g y‖ * A N y ∂ μpartial N
+              ≤ (eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                  * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal := by
+          have h := h_holder.2
+          -- Simplify ‖‖g y‖‖ to ‖g y‖ and |A N y| to A N y
+          convert h using 2
+          · ext y
+            simp [abs_of_nonneg (norm_nonneg _), abs_of_nonneg (hA_nonneg N y)]
+        have h_ofReal_le :
+            ENNReal.ofReal (∫ y, ‖g y‖ * A N y ∂ μpartial N)
+              ≤ ENNReal.ofReal
+                  ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                    * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal) := by
+          exact ENNReal.ofReal_le_ofReal h_int_le
+        -- Raise both sides to r.toReal (nonnegative), and rewrite as Ψ N on the LHS.
+        have h_rpow : (ENNReal.ofReal (∫ y, ‖g y‖ * A N y ∂ μpartial N)) ^ r.toReal
+              ≤ (ENNReal.ofReal ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                    * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal)) ^ r.toReal :=
+          ENNReal.rpow_le_rpow h_ofReal_le ENNReal.toReal_nonneg
+        simpa [Ψ, hΨ_def, A, mul_comm, mul_left_comm, mul_assoc]
+          using h_rpow
+      -- Step 2: Show A N ∈ L^{s₀}(μpartial N) via measurability + uniform bound by C N.
+      -- Measurability of y ↦ A N y comes from a product-measurability argument
+      -- (specialization of the measurability part in Minkowski’s inequality machinery),
+      -- using the kernel q ↦ ‖f (q.1 - q.2)‖ and absolute continuity of partial products.
+      have hA_measurable : ∀ N,
+          AEStronglyMeasurable (fun y => A N y) (μpartial N) := by
+        intro N
+        -- Build the product-measurable kernel (without g) on μ.prod μ first,
+        -- then transfer to (μpartial N).prod (μpartial N) via absolute continuity.
+        let g1 : G → ℂ := fun _ => (1 : ℂ)
+        have h_kernel_norm_meas_one :
+            AEStronglyMeasurable
+              (fun q : G × G => ‖f (q.1 - q.2) * g1 q.2‖) (μ.prod μ) :=
+          (convolution_kernel_aestronglyMeasurable (μ := μ)
+            (f := f) (g := g1) hf.aestronglyMeasurable
+              (aestronglyMeasurable_const : AEStronglyMeasurable g1 μ)).norm
+        have hF_meas_prod :
+            AEStronglyMeasurable (fun q : G × G => ‖f (q.1 - q.2)‖) (μ.prod μ) := by
+          -- From ‖f * g1‖ measurable, derive ‖f‖ measurable using g1 = 1
+          have h1 : (fun q : G × G => ‖f (q.1 - q.2) * g1 q.2‖) = fun q => ‖f (q.1 - q.2)‖ := by
+            ext q
+            simp [g1, mul_one]
+          rw [← h1]
+          exact h_kernel_norm_meas_one
+        -- Transfer measurability to the partial product measure.
+        have hF_meas_partial :
+            AEStronglyMeasurable (fun q : G × G => ‖f (q.1 - q.2)‖)
+              ((μpartial N).prod (μpartial N)) :=
+          (hF_meas_prod.mono_ac (hμpartial_prod_ac N))
+        -- Raise to r.toReal and integrate w.r.t. x to obtain the lintegral measurability in y.
+        have h_integrand_aemeasurable :
+            AEMeasurable
+              (fun y => ∫⁻ x, (‖f (x - y)‖ₑ) ^ r.toReal ∂ μpartial N)
+              (μpartial N) := by
+          have :=
+            hF_meas_partial.aemeasurable.enorm.pow_const r.toReal
+          -- rearrange variables (x,y) ↔ (q.1,q.2)
+          simpa [Function.uncurry]
+            using this.lintegral_prod_left'
+        -- Conclude measurability of eLpNorm_y via the r-power/ToReal representation.
+        have hr_ne_zero' : r ≠ 0 := hr_ne_zero
+        have hA_eLpMeas :
+            AEMeasurable
+              (fun y => eLpNorm (fun x => f (x - y)) r (μpartial N)) (μpartial N) := by
+          -- Use the eLpNorm = lintegral^(1/r) representation.
+          have :=
+            (measurable_id.pow_const (1 / r.toReal)).comp_aemeasurable
+              h_integrand_aemeasurable
+          refine this.congr ?_
+          refine Filter.Eventually.of_forall ?_
+          intro y
+          simp [eLpNorm_eq_lintegral_rpow_enorm (μ := μpartial N)
+            (f := fun x => f (x - y)) hr_ne_zero' hr_ne_top, one_div,
+            ENNReal.rpow_mul, mul_comm, mul_left_comm, mul_assoc]
+        exact (hA_eLpMeas.ennreal_toReal).aestronglyMeasurable
+      -- L^{s₀} membership via a uniform bound A N y ≤ C N and `MemLp.of_bound`.
+      have hA_memLp_s₀ : ∀ N, MemLp (fun y => A N y) s₀ (μpartial N) := by
+        intro N
+        have h_bound : ∀ᵐ y ∂ μpartial N, ‖A N y‖ ≤ C N := by
+          refine Filter.Eventually.of_forall (fun y => ?_)
+          have hA_nonneg' : 0 ≤ A N y := hA_nonneg N y
+          simpa [Real.norm_of_nonneg hA_nonneg'] using (hA_leC N y)
+        exact MemLp.of_bound (hA_measurable N) (C N) h_bound
+      -- Package: a convenient form to apply Step 1’s Young template.
+      have hA_mem : ∀ N, MemLp (fun y => A N y) s₀ (μpartial N) := hA_memLp_s₀
+      -- Step 3: Apply the Young template (Step 1) with the L^{s₀} membership from Step 2,
+      -- and refine the A-term by comparing to the constant bound C N in L^{s₀}.
+      -- First, a direct application of the template:
+      have hΨ_le_from_template :
+          ∀ N,
+            Ψ N ≤
+              (ENNReal.ofReal
+                ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                  * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal)) ^
+              r.toReal := by
+        intro N; exact hΨ_le_young_template N (hA_mem N)
+      -- Compare ‖A‖_{L^{s₀}(μpartial N)} with the constant function C N using
+      -- the pointwise bound A N y ≤ C N and the standard eLpNorm bound.
+      have hA_eLp_le_const : ∀ N,
+          eLpNorm (fun y => A N y) s₀ (μpartial N)
+            ≤ eLpNorm (fun _ : G => (C N)) s₀ (μpartial N) := by
+        intro N
+        have h_bound : ∀ᵐ y ∂ μpartial N, ‖A N y‖ ≤ C N := by
+          refine Filter.Eventually.of_forall (fun y => ?_)
+          have hA_nonneg' : 0 ≤ A N y := hA_nonneg N y
+          simpa [Real.norm_of_nonneg hA_nonneg'] using (hA_leC N y)
+        -- eLpNorm_le_of_ae_bound gives us: eLpNorm f p μ ≤ μ(univ)^(1/p) * ofReal(C)
+        -- We need to show this equals eLpNorm (fun _ => C) p μ
+        have h_from_bound := eLpNorm_le_of_ae_bound (p := s₀) (f := fun y => A N y)
+          (μ := μpartial N) h_bound
+        -- Now show that eLpNorm (fun _ => C N) s₀ μ = μ(univ)^(1/s₀) * ofReal(C N)
+        by_cases hμz : μpartial N = 0
+        · simp [hμz]
+        · have hs₀_ne_zero' : s₀ ≠ 0 := hs₀_ne_zero
+          have h_nonneg : 0 ≤ (C N) := h_C_nonneg N
+          have h_const :
+              eLpNorm (fun _ : G => (C N)) s₀ (μpartial N)
+                = ENNReal.ofReal (C N) * (μpartial N Set.univ) ^ (1 / s₀.toReal) := by
+            simpa [Real.enorm_eq_ofReal h_nonneg,
+              Real.norm_eq_abs, abs_of_nonneg h_nonneg]
+              using (eLpNorm_const (μ := μpartial N) (p := s₀)
+                (c := (C N)) hs₀_ne_zero' hμz)
+          rw [h_const]
+          -- h_from_bound has the form: ... ≤ μ(univ)^(1/s₀) * ofReal(C N)
+          -- We need: ... ≤ ofReal(C N) * μ(univ)^(1/s₀)
+          calc eLpNorm (fun y => A N y) s₀ (μpartial N)
+              ≤ (μpartial N Set.univ) ^ s₀.toReal⁻¹ * ENNReal.ofReal (C N) := h_from_bound
+            _ = ENNReal.ofReal (C N) * (μpartial N Set.univ) ^ s₀.toReal⁻¹ := by ring
+            _ = ENNReal.ofReal (C N) * (μpartial N Set.univ) ^ (1 / s₀.toReal) := by
+              rw [inv_eq_one_div]
+      -- Convert this eLp inequality to toReal by monotonicity of toReal on finite values,
+      -- and rewrite the RHS using the constant-scalar eLpNorm factorization.
+      have hA_toReal_le : ∀ N,
+          (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal
+            ≤ (eLpNorm (fun _ : G => (C N)) s₀ (μpartial N)).toReal := by
+        intro N
+        -- RHS is finite since μpartial N is finite and C N < ∞
+        haveI : IsFiniteMeasure (μpartial N) := hμpartial_fin N
+        have h_const_fin : eLpNorm (fun _ : G => (C N)) s₀ (μpartial N) < ∞ := by
+          -- compute eLpNorm of constant and use measure finiteness
+          by_cases hμz : μpartial N = 0
+          · have : eLpNorm (fun _ : G => (C N)) s₀ (μpartial N) = 0 := by simp [hμz]
+            simp [this]
+          · have hs₀_ne_zero' : s₀ ≠ 0 := hs₀_ne_zero
+            have h_const :
+                eLpNorm (fun _ : G => (C N)) s₀ (μpartial N)
+                  = ENNReal.ofReal (C N) * (μpartial N Set.univ) ^ (1 / s₀.toReal) := by
+              -- specialize eLpNorm_const to real constant C N
+              have h_nonneg : 0 ≤ (C N) := h_C_nonneg N
+              have h_eLpNorm := eLpNorm_const (μ := μpartial N) (p := s₀)
+                (c := (C N)) hs₀_ne_zero' hμz
+              simp only [Real.enorm_eq_ofReal h_nonneg, Real.norm_eq_abs,
+                abs_of_nonneg h_nonneg] at h_eLpNorm
+              exact h_eLpNorm
+            have hμ_lt_top : (μpartial N Set.univ) < ∞ := measure_lt_top _ _
+            have hpow_lt : (μpartial N Set.univ) ^ (1 / s₀.toReal) < ∞ :=
+              ENNReal.rpow_lt_top_of_nonneg (by simp [one_div]) hμ_lt_top.ne
+            have h_ofReal_lt : ENNReal.ofReal (C N) < ∞ := by simp
+            have h_rhs_lt : ENNReal.ofReal (C N)
+                * (μpartial N Set.univ) ^ (1 / s₀.toReal) < ∞ :=
+              ENNReal.mul_lt_top h_ofReal_lt hpow_lt
+            simpa [h_const] using h_rhs_lt
+        exact ENNReal.toReal_mono h_const_fin.ne (hA_eLp_le_const N)
+      -- Rewrite the RHS toReal via the scalar eLpNorm factorization to expose C N.
+      have hA_toReal_le_const : ∀ N,
+          (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal
+            ≤ (C N) * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N)).toReal := by
+        intro N
+        have h_nonnegC : 0 ≤ C N := h_C_nonneg N
+        have h_smul :
+            eLpNorm (fun _ : G => (C N)) s₀ (μpartial N)
+              = ENNReal.ofReal (C N)
+                  * eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N) := by
+          -- factor the constant out of the L^{s₀} norm in y
+          -- Show that (fun _ => C N) = (C N) • (fun _ => 1)
+          have h_fun_eq : (fun _ : G => (C N)) = (C N) • (fun _ : G => (1 : ℝ)) := by
+            ext x
+            simp [smul_eq_mul]
+          rw [h_fun_eq]
+          have h_eLpNorm_smul := eLpNorm_const_smul (μ := μpartial N) (p := s₀)
+            (c := (C N)) (f := fun _ : G => (1 : ℝ))
+          have h_nonneg : 0 ≤ (C N) := h_C_nonneg N
+          simp only [Real.enorm_eq_ofReal h_nonneg] at h_eLpNorm_smul
+          exact h_eLpNorm_smul
+        have h_toReal_eq :
+            (eLpNorm (fun _ : G => (C N)) s₀ (μpartial N)).toReal
+              = (C N) * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N)).toReal := by
+          -- pass to toReal using nonnegativity of C N
+          have := congrArg ENNReal.toReal h_smul
+          simpa [ENNReal.toReal_mul, h_nonnegC]
+            using this
+        exact (hA_toReal_le N).trans (by simp [h_toReal_eq])
+      -- Feed this refinement into the Young template bound, to obtain a concrete
+      -- inequality that matches the Θ-shape used later.
+      have hΨ_le_step3 :
+          ∀ N,
+            Ψ N ≤
+              (ENNReal.ofReal
+                ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                  * ((C N)
+                    * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N)).toReal))) ^
+              r.toReal := by
+        intro N
+        have h_base := hΨ_le_from_template N
+        -- replace the A-term by its constant bound in toReal form
+        have h_inner_le :
+            (eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+              * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal
+            ≤ (eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                * ((C N) * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N)).toReal) := by
+          have hg_nonneg : 0 ≤ (eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal :=
+            ENNReal.toReal_nonneg
+          exact mul_le_mul_of_nonneg_left (hA_toReal_le_const N) hg_nonneg
+        have h_ofReal_mono :
+            ENNReal.ofReal
+              ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal)
+            ≤ ENNReal.ofReal
+              ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                * ((C N)
+                  * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N)).toReal)) := by
+          exact ENNReal.ofReal_le_ofReal h_inner_le
+        have h_rpow_mono :
+            (ENNReal.ofReal
+              ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal)) ^ r.toReal
+            ≤ (ENNReal.ofReal
+              ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                * ((C N)
+                  * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N)).toReal))) ^ r.toReal := by
+          exact ENNReal.rpow_le_rpow h_ofReal_mono (by exact ENNReal.toReal_nonneg)
+        exact h_base.trans h_rpow_mono
       -- First, a crude bound using A ≤ C pointwise to control Ψ N.
       have hΨ_le_aux :
           ∀ N,
@@ -1262,25 +1518,6 @@ lemma lintegral_convolution_norm_bound
             (hg_norm_partial N) (h_one_memLp N)
         -- Simplify |‖g y‖ * 1| to ‖g y‖
         simpa using h_holder.2
-      -- Refine hΨ_le_aux using the Hölder bound on ∫ ‖g‖.
-      have h_C_nonneg : ∀ N, 0 ≤ C N := by
-        intro N
-        -- Show nonnegativity by factors: both toReal terms are nonnegative.
-        have h1 : 0 ≤ (((N + 1 : ℝ≥0∞) ^ (1 / r).toReal)).toReal := ENNReal.toReal_nonneg
-        have h2 : 0 ≤ (eLpNorm f r μ).toReal := ENNReal.toReal_nonneg
-        -- Depending on rewriting, `C N` may appear as product of toReals or toReal of product.
-        -- Both yield a nonnegative real, so we solve both shapes.
-        by_cases hshape :
-          C N = (((N + 1 : ℝ≥0∞) ^ (1 / r).toReal)).toReal * (eLpNorm f r μ).toReal
-        · simpa [hshape]
-          using mul_nonneg h1 h2
-        · -- Fall back to the original definition `toReal` of an ENNReal product.
-          -- In that shape, nonnegativity follows from `toReal_nonneg` directly.
-          -- Rewrite back to the definition of `C`.
-          have : 0 ≤ (((N + 1 : ℝ≥0∞) ^ (1 / r).toReal) * eLpNorm f r μ).toReal :=
-            ENNReal.toReal_nonneg
-          simpa [C]
-            using this
       -- Bound eLpNorm g on μpartial N by the smul-measure bound and convert to toReal.
       have h_g_partial_bound_toReal :
           ∀ N,
@@ -1639,6 +1876,158 @@ lemma lintegral_convolution_norm_bound
                 (p := s₀) (hμpartial_le N)
             exact ENNReal.toReal_mono (by simpa using h_one_finite) h_le
           exact le_trans h_holder (mul_le_mul h_mono_g h_mono_one (by simp) (by simp))
+        -- Step 4: Uniform Young bound via μ (replacing partial-measure factors).
+        -- Use the uniform translate bound to control A by U := ‖f‖_r(μ).toReal,
+        -- then push μpartial N → μ on the outer factors to obtain a per‑N bound with global norms.
+        set U : ℝ := (eLpNorm f r μ).toReal with hUdef
+        have hA_pointwise_uniform : ∀ N y, A N y ≤ U := by
+          intro N y
+          have := h_translate_uniform N y
+          simpa [A, hUdef] using this
+        have hA_toReal_le_uniform : ∀ N,
+            (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal
+              ≤ (eLpNorm (fun _ : G => U) s₀ (μpartial N)).toReal := by
+          intro N
+          -- Use eLpNorm_le_of_ae_bound with the pointwise bound A ≤ U
+          have h_bound : ∀ᵐ y ∂ μpartial N, ‖A N y‖ ≤ U := by
+            refine Filter.Eventually.of_forall (fun y => ?_)
+            have h_nonneg : 0 ≤ A N y := hA_nonneg N y
+            have h_leU := hA_pointwise_uniform N y
+            simpa [Real.norm_of_nonneg h_nonneg] using h_leU
+          -- Convert to toReal using finiteness of RHS on finite measure
+          haveI : IsFiniteMeasure (μpartial N) := hμpartial_fin N
+          have h_rhs_fin : eLpNorm (fun _ : G => U) s₀ (μpartial N) < ∞ := by
+            by_cases hμz : μpartial N = 0
+            · have : eLpNorm (fun _ : G => U) s₀ (μpartial N) = 0 := by simp [hμz]
+              simp [this]
+            · have hs₀_ne_zero' : s₀ ≠ 0 := hs₀_ne_zero
+              have h_nonnegU : 0 ≤ U := ENNReal.toReal_nonneg
+              have h_const :
+                  eLpNorm (fun _ : G => U) s₀ (μpartial N)
+                    = ENNReal.ofReal U * (μpartial N Set.univ) ^ (1 / s₀.toReal) := by
+                have h_eLpNorm :=
+                  eLpNorm_const (μ := μpartial N) (p := s₀) (c := U) hs₀_ne_zero' hμz
+                simp only [Real.enorm_eq_ofReal h_nonnegU, Real.norm_eq_abs,
+                  abs_of_nonneg h_nonnegU] at h_eLpNorm
+                exact h_eLpNorm
+              have hμ_lt_top : (μpartial N Set.univ) < ∞ := measure_lt_top _ _
+              have hpow_lt : (μpartial N Set.univ) ^ (1 / s₀.toReal) < ∞ :=
+                ENNReal.rpow_lt_top_of_nonneg (by simp [one_div]) hμ_lt_top.ne
+              have h_ofReal_lt : ENNReal.ofReal U < ∞ := by simp
+              have h_rhs_lt : ENNReal.ofReal U * (μpartial N Set.univ) ^ (1 / s₀.toReal) < ∞ :=
+                ENNReal.mul_lt_top h_ofReal_lt hpow_lt
+              simpa [h_const] using h_rhs_lt
+          -- Use eLpNorm_le_of_ae_bound and rewrite to match expected form
+          by_cases hμz : μpartial N = 0
+          · simp [hμz]
+          · have h_from_bound := eLpNorm_le_of_ae_bound (μ := μpartial N) (p := s₀)
+              (f := fun y => A N y) h_bound
+            have hs₀_ne_zero' : s₀ ≠ 0 := hs₀_ne_zero
+            have h_nonnegU : 0 ≤ U := ENNReal.toReal_nonneg
+            have h_const :
+                eLpNorm (fun _ : G => U) s₀ (μpartial N)
+                  = ENNReal.ofReal U * (μpartial N Set.univ) ^ (1 / s₀.toReal) := by
+              have h_eLpNorm := eLpNorm_const (μ := μpartial N) (p := s₀) (c := U) hs₀_ne_zero' hμz
+              simp only [Real.enorm_eq_ofReal h_nonnegU, Real.norm_eq_abs,
+                abs_of_nonneg h_nonnegU] at h_eLpNorm
+              exact h_eLpNorm
+            have h_finite : ((μpartial N Set.univ) ^ s₀.toReal⁻¹ * ENNReal.ofReal U) < ∞ := by
+              haveI : IsFiniteMeasure (μpartial N) := hμpartial_fin N
+              have h1 : (μpartial N Set.univ) < ∞ := measure_lt_top _ _
+              have h2 : (μpartial N Set.univ) ^ s₀.toReal⁻¹ < ∞ :=
+                ENNReal.rpow_lt_top_of_nonneg (by simp) h1.ne
+              have h3 : ENNReal.ofReal U < ∞ := by simp
+              exact ENNReal.mul_lt_top h2 h3
+            calc (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal
+                ≤ ((μpartial N Set.univ) ^ s₀.toReal⁻¹ * ENNReal.ofReal U).toReal :=
+                  ENNReal.toReal_mono h_finite.ne h_from_bound
+              _ = (ENNReal.ofReal U * (μpartial N Set.univ) ^ s₀.toReal⁻¹).toReal := by ring_nf
+              _ = (ENNReal.ofReal U * (μpartial N Set.univ) ^ (1 / s₀.toReal)).toReal := by
+                rw [inv_eq_one_div]
+              _ = (eLpNorm (fun _ : G => U) s₀ (μpartial N)).toReal := by rw [← h_const]
+        -- Expand the constant eLpNorm on μpartial N and push to μ using monotonicity.
+        have h_const_toReal_eval : ∀ N,
+            (eLpNorm (fun _ : G => U) s₀ (μpartial N)).toReal
+              = U * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N)).toReal := by
+          intro N
+          have h_nonnegU : 0 ≤ U := ENNReal.toReal_nonneg
+          -- Show that (fun _ => U) = U • (fun _ => 1)
+          have h_fun_eq : (fun _ : G => U) = U • (fun _ : G => (1 : ℝ)) := by
+            ext x
+            simp [smul_eq_mul]
+          rw [h_fun_eq]
+          have h_smul := eLpNorm_const_smul (μ := μpartial N) (p := s₀) (c := U)
+            (f := fun _ : G => (1 : ℝ))
+          simp only [Real.enorm_eq_ofReal h_nonnegU] at h_smul
+          have := congrArg ENNReal.toReal h_smul
+          simpa [ENNReal.toReal_mul, h_nonnegU] using this
+        have hA_toReal_uniform_push : ∀ N,
+            (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal
+              ≤ U * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal := by
+          intro N
+          have := (hA_toReal_le_uniform N)
+          have h_eval := (h_const_toReal_eval N)
+          -- push to μ using monotonicity
+          have h_push : (eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N)).toReal ≤
+              (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal := by
+            have h_le :=
+              eLpNorm_mono_measure (f := fun _ : G => (1 : ℝ)) (μ := μ) (ν := μpartial N)
+                (p := s₀) (hμpartial_le N)
+            exact ENNReal.toReal_mono (by simpa using h_one_finite) h_le
+          have h_nonnegU : 0 ≤ U := ENNReal.toReal_nonneg
+          have : U * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ (μpartial N)).toReal
+              ≤ U * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal :=
+            mul_le_mul_of_nonneg_left h_push h_nonnegU
+          -- combine
+          have := (le_trans this (le_of_eq rfl))
+          -- actually, rewrite `this` appropriately
+          exact (le_trans (by simpa [h_eval] using (hA_toReal_le_uniform N))
+            (by simpa using this))
+        -- Assemble the per‑N uniform Young bound with global μ on all factors.
+        have hΨ_le_step4_uniform : ∀ N,
+            Ψ N ≤
+              (ENNReal.ofReal
+                ((eLpNorm (fun y => ‖g y‖) q μ).toReal
+                  * U
+                  * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal)) ^ r.toReal := by
+          intro N
+          have h_base := hΨ_le_from_template N
+          -- Replace the A-term and the g,1 factors by global μ bounds
+          have h1 :
+              (eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal
+            ≤ (eLpNorm (fun y => ‖g y‖) q μ).toReal
+                * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal := by
+            have h_mono_g :
+                (eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal ≤
+                  (eLpNorm (fun y => ‖g y‖) q μ).toReal := by
+              have h_le :=
+                eLpNorm_mono_measure (f := fun y => ‖g y‖) (μ := μ) (ν := μpartial N) (p := q)
+                  (hμpartial_le N)
+              exact ENNReal.toReal_mono (by simpa using hg.eLpNorm_ne_top) h_le
+            exact mul_le_mul_of_nonneg_right h_mono_g ENNReal.toReal_nonneg
+          have h2 :
+              (eLpNorm (fun y => ‖g y‖) q μ).toReal
+                * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal
+            ≤ (eLpNorm (fun y => ‖g y‖) q μ).toReal
+                * (U * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal) := by
+            have h_nonneg : 0 ≤ (eLpNorm (fun y => ‖g y‖) q μ).toReal := ENNReal.toReal_nonneg
+            exact mul_le_mul_of_nonneg_left (hA_toReal_uniform_push N) h_nonneg
+          have h_inner_le := le_trans h1 h2
+          have h_ofReal_mono := ENNReal.ofReal_le_ofReal h_inner_le
+          have h_rpow_mono :=
+            ENNReal.rpow_le_rpow (z := r.toReal) h_ofReal_mono ENNReal.toReal_nonneg
+          -- Finish: h_base gives Ψ N ≤ (ofReal(...eLpNorm g... * ...eLpNorm A...))^r
+          -- We need to show this is ≤ (ofReal(‖g‖_q * U * ‖1‖_{s₀}))^r
+          calc Ψ N
+              ≤ (ENNReal.ofReal ((eLpNorm (fun y => ‖g y‖) q (μpartial N)).toReal
+                  * (eLpNorm (fun y => A N y) s₀ (μpartial N)).toReal)) ^ r.toReal := h_base
+            _ ≤ (ENNReal.ofReal ((eLpNorm (fun y => ‖g y‖) q μ).toReal
+                  * (U * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal))) ^ r.toReal := h_rpow_mono
+            _ = (ENNReal.ofReal ((eLpNorm (fun y => ‖g y‖) q μ).toReal
+                  * U * (eLpNorm (fun _ : G => (1 : ℝ)) s₀ μ).toReal)) ^ r.toReal := by
+              congr 1
+              ring_nf
         -- Convert constants using the Hölder triple bound.
         have h_holder_one :
             eLpNorm f p μ ≤ eLpNorm f r μ * eLpNorm (fun _ : G => (1 : ℂ)) s₀ μ := by
