@@ -892,6 +892,71 @@ lemma convolution_memLp_of_memLp
         exact ENNReal.rpow_le_rpow hx (ENNReal.toReal_nonneg)
       -- h_kernel_intからYoung's inequalityの形の評価を得る
       -- ここでは簡略化のため、積分が有限であることのみを使う
+      -- まず、指数関係から 1 < r を導出する
+      -- work with `1 / p` and `1 / q` consistently
+      have h_inv_p_le_one' : 1 / p ≤ (1 : ℝ≥0∞) := by
+        simpa [one_div] using (ENNReal.inv_le_inv).2 hp
+      have h_inv_q_le_one' : 1 / q ≤ (1 : ℝ≥0∞) := by
+        simpa [one_div] using (ENNReal.inv_le_inv).2 (le_of_lt hq)
+      have h_inv_q_ne_one' : 1 / q ≠ (1 : ℝ≥0∞) := by
+        have hq_ne_one : q ≠ 1 := by
+          simpa [eq_comm] using (ne_of_gt hq)
+        intro h
+        have : q = 1 := ENNReal.inv_eq_one.mp (by simpa [one_div] using h)
+        exact hq_ne_one this
+      have h_inv_q_lt_one : 1 / q < (1 : ℝ≥0∞) :=
+        lt_of_le_of_ne h_inv_q_le_one' h_inv_q_ne_one'
+      -- pass to real numbers via `toReal` to avoid strict-add monotonicity on `ℝ≥0∞`
+      have h_inv_p_ne_top : 1 / p ≠ ∞ := by
+        have : 1 / p < ∞ := lt_of_le_of_lt h_inv_p_le_one' (by simp)
+        exact ne_of_lt this
+      have h_inv_q_ne_top : 1 / q ≠ ∞ := by
+        have : 1 / q < ∞ := lt_of_le_of_lt h_inv_q_le_one' (by simp)
+        exact ne_of_lt this
+      have h_inv_r_le_one : 1 / r ≤ (1 : ℝ≥0∞) := by
+        -- from earlier `hr` proof we know `r⁻¹ ≤ 1`
+        simpa [one_div] using h_inv_r_le_one
+      have h_inv_r_ne_top : 1 / r ≠ ∞ := by
+        have : 1 / r < ∞ := lt_of_le_of_lt h_inv_r_le_one (by simp)
+        exact ne_of_lt this
+      have h_toReal_sum : (1 / p + 1 / q).toReal = (1 / p).toReal + (1 / q).toReal := by
+        simpa using ENNReal.toReal_add h_inv_p_ne_top h_inv_q_ne_top
+      have h_inv_p_toReal_le_one : (1 / p).toReal ≤ 1 := by
+        have h1 : (1 : ℝ≥0∞) ≠ ∞ := by simp
+        have := (ENNReal.toReal_le_toReal h_inv_p_ne_top h1).2 h_inv_p_le_one'
+        simpa using this
+      have h_inv_q_toReal_lt_one : (1 / q).toReal < 1 := by
+        have h1 : (1 : ℝ≥0∞) ≠ ∞ := by simp
+        have := (ENNReal.toReal_lt_toReal h_inv_q_ne_top h1).2 h_inv_q_lt_one
+        simpa using this
+      have h_inv_p_toReal_le_one' : p.toReal⁻¹ ≤ 1 := by
+        simpa [one_div, ENNReal.toReal_inv] using h_inv_p_toReal_le_one
+      have h_inv_q_toReal_lt_one' : q.toReal⁻¹ < 1 := by
+        simpa [one_div, ENNReal.toReal_inv] using h_inv_q_toReal_lt_one
+      have h_sum_toReal_lt_two : p.toReal⁻¹ + q.toReal⁻¹ < 2 := by
+        simpa [one_add_one_eq_two] using
+          (add_lt_add_of_le_of_lt h_inv_p_toReal_le_one' h_inv_q_toReal_lt_one')
+      have hr_ne_one : r ≠ 1 := by
+        intro hr_eq
+        -- from `r = 1`, the exponent identity yields `1/p + 1/q = 2`
+        have h_eq2 : 1 / p + 1 / q = (2 : ℝ≥0∞) := by
+          simpa [hr_eq, one_div, inv_one, one_add_one_eq_two] using hpqr
+        -- apply `toReal` and use additivity on finite terms
+        have h_sum_toReal_eq_two : p.toReal⁻¹ + q.toReal⁻¹ = 2 := by
+          have ht : (1 / p + 1 / q).toReal = 2 := by
+            have htmp := congrArg ENNReal.toReal h_eq2
+            simpa using htmp
+          have hsum := ENNReal.toReal_add h_inv_p_ne_top h_inv_q_ne_top
+          calc
+            p.toReal⁻¹ + q.toReal⁻¹
+                = (1 / p).toReal + (1 / q).toReal := by
+                      simp [one_div, ENNReal.toReal_inv]
+            _ = (1 / p + 1 / q).toReal := by
+                      simpa using hsum.symm
+            _ = 2 := ht
+        exact (ne_of_lt h_sum_toReal_lt_two) h_sum_toReal_eq_two
+      have hr_one_lt : (1 : ℝ≥0∞) < r :=
+        lt_of_le_of_ne hr (by simpa [eq_comm] using hr_ne_one)
       calc
         ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μ
         _ ≤ ∫⁻ x, (ENNReal.ofReal (∫ y, ‖f (x - y)‖ * ‖g y‖ ∂ μ)) ^ r.toReal ∂ μ :=
@@ -899,7 +964,7 @@ lemma convolution_memLp_of_memLp
         _ ≤ (eLpNorm f p μ * eLpNorm g q μ) ^ r.toReal :=
           lintegral_convolution_norm_bound
             (μ := μ) (f := f) (g := g) (p := p) (q := q) (r := r)
-            hp hq hpqr hr_ne_top hf hf_r hg h_kernel_int h_pointwise_piece
+            hp hq hpqr hr_one_lt hr_ne_top hf hg
     calc
       ∫⁻ x, ‖conv x‖ₑ ^ r.toReal ∂ μ
       _ ≤ Filter.liminf (fun N => ∫⁻ x, ‖convPartial N x‖ₑ ^ r.toReal ∂ μ) atTop :=
