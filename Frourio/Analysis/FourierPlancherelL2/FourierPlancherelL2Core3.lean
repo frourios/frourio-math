@@ -190,7 +190,7 @@ lemma mollifier_convolution_L1_tendsto (f : ℝ → ℂ)
       intro y
       have h_abs : |create_mollifier δ y| = create_mollifier δ y :=
         abs_create_mollifier _ _
-      simpa [Complex.norm_ofReal, h_abs] using hC_bound y
+      simpa [h_abs] using hC_bound y
     have h_smul :=
       Integrable.smul_of_top_right (μ := volume)
         (f := fun y : ℝ => f (t - y))
@@ -632,7 +632,7 @@ lemma mollifier_convolution_L2_tendsto (f : ℝ → ℂ)
         (Filter.Eventually.of_forall fun y => by
           have h_abs : |create_mollifier δ y| = create_mollifier δ y :=
             abs_create_mollifier _ _
-          simpa [Complex.norm_ofReal, h_abs] using hC_bound y)
+          simpa [h_abs] using hC_bound y)
     simpa [smul_eq_mul] using
       Integrable.smul_of_top_right (f := fun y => f (t - y))
         (φ := fun y => (create_mollifier δ y : ℂ)) h_shift h_memLp

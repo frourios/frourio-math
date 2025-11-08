@@ -30,8 +30,7 @@ lemma complex_half_enNorm :
   have h_complex_eq_real : (1 / 2 : ℂ) = ((1 / 2 : ℝ) : ℂ) := by norm_num
   -- Step 3: 実数の複素数としてのノルムは絶対値
   have h_norm_real : ‖((1 / 2 : ℝ) : ℂ)‖ = |1 / 2| := by
-    have : ((1 / 2 : ℝ) : ℂ) = Complex.ofReal (1 / 2) := rfl
-    rw [this, Complex.norm_ofReal]
+    rw [Complex.norm_real, Real.norm_eq_abs]
   -- Step 4: 1/2の絶対値は1/2
   have h_abs : |1 / 2| = (1 / 2 : ℝ) := abs_of_nonneg h_half_nonneg
   -- Step 5: 複素数1/2のノルムは実数1/2

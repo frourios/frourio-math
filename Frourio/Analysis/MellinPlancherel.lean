@@ -19,19 +19,6 @@ import Mathlib.MeasureTheory.Function.JacobianOneDim
 open MeasureTheory Measure Real Complex
 open scoped Topology ENNReal
 
-namespace Complex
-
-@[simp] lemma norm_ofReal (x : ℝ) : ‖(x : ℂ)‖ = |x| := by
-  simp
-
-@[simp] lemma ennreal_norm_eq (z : ℂ) : (‖z‖ₑ : ℝ≥0∞) = (‖z‖₊ : ℝ≥0∞) := rfl
-
-@[simp] lemma ennreal_norm_mul_self (z : ℂ) :
-    ‖z‖ₑ * ‖z‖ₑ = (‖z‖₊ : ℝ≥0∞) * (‖z‖₊ : ℝ≥0∞) := by
-  simp [ennreal_norm_eq]
-
-end Complex
-
 namespace Frourio
 
 section MellinPlancherelTheorems
@@ -219,10 +206,11 @@ private lemma LogPull_sq_integral_eq (σ : ℝ) (f : Hσ σ) :
     have h_norm_sq :
         ENNReal.ofReal (‖Hσ.toFun f x‖^2)
           = (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ) := by
-      rw [pow_two]
-      simp only [sq]
-      rw [ENNReal.ofReal_mul (norm_nonneg _)]
-      simp
+      rw [sq, ENNReal.ofReal_mul (norm_nonneg _)]
+      conv_lhs => arg 1; rw [show ‖Hσ.toFun f x‖ = (‖Hσ.toFun f x‖₊ : ℝ) from rfl]
+      conv_lhs => arg 2; rw [show ‖Hσ.toFun f x‖ = (‖Hσ.toFun f x‖₊ : ℝ) from rfl]
+      simp only [ENNReal.ofReal_coe_nnreal]
+      rw [← sq]
     calc
       g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 2))
           = ENNReal.ofReal (‖Hσ.toFun f x‖^2)
@@ -374,7 +362,9 @@ lemma LogPull_memLp (σ : ℝ) (f : Hσ σ) :
         = ∫⁻ t, (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂volume := by
     refine lintegral_congr_ae ?_
     refine Filter.Eventually.of_forall (fun t => ?_)
-    simp [pow_two]
+    show ‖LogPull σ f t‖ₑ ^ (2 : ℝ) = (‖LogPull σ f t‖₊ : ℝ≥0∞) ^ (2 : ℕ)
+    rw [enorm_eq_nnnorm]
+    norm_num
   have h_integral_enorm_lt_top :
       (∫⁻ t, (‖LogPull σ f t‖ₑ : ℝ≥0∞) ^ (2 : ℝ) ∂volume) < ∞ := by
     simpa [h_integral_repr] using h_integral_lt_top
@@ -441,8 +431,13 @@ theorem mellin_direct_isometry (σ : ℝ) :
       (∫⁻ τ, ENNReal.ofReal (‖g τ‖ ^ 2) ∂(volume : Measure ℝ)) = I := by
     refine lintegral_congr_ae ?_
     refine Filter.Eventually.of_forall (fun τ => ?_)
+    show ENNReal.ofReal (‖g τ‖ ^ 2) = (‖g τ‖₊ : ℝ≥0∞) ^ (2 : ℕ)
     have hnn : 0 ≤ ‖g τ‖ := norm_nonneg _
-    simp [pow_two, ENNReal.ofReal_mul, g]
+    rw [sq, ENNReal.ofReal_mul hnn]
+    conv_lhs => arg 1; rw [show ‖g τ‖ = (‖g τ‖₊ : ℝ) from rfl]
+    conv_lhs => arg 2; rw [show ‖g τ‖ = (‖g τ‖₊ : ℝ) from rfl]
+    simp only [ENNReal.ofReal_coe_nnreal]
+    rw [← sq]
   -- Change of variables for the logarithmic pullback identifies `I`
   set J : ℝ≥0∞ := ∫⁻ x in Set.Ioi (0 : ℝ),
       (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ) *

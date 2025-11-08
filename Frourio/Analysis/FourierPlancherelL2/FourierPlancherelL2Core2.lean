@@ -1015,7 +1015,7 @@ lemma create_mollifier_measurable (δ : ℝ) :
 lemma norm_complex_create_mollifier (δ x : ℝ) :
     ‖(create_mollifier δ x : ℂ)‖ = create_mollifier δ x := by
   have h := create_mollifier_nonneg δ x
-  simp [Real.norm_eq_abs, Complex.norm_ofReal, abs_of_nonneg h]
+  simp [Real.norm_eq_abs, abs_of_nonneg h]
 
 -- Helper lemma: translation invariance of L^1 norm for complex functions
 lemma eLpNorm_one_comp_sub (f : ℝ → ℂ) (y : ℝ)

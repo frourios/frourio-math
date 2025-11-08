@@ -435,10 +435,8 @@ lemma exists_mollifier_scale
             simpa [h_symm] using hg_approx
           have hf₀_integrable : Integrable f₀ volume := by
             simpa [memLp_one_iff_integrable] using hf₀_L1
-          have h_bound :=
-            mollifier_convolution_diff_L1
-              (g := g) (f₀ := f₀) (ψ := ψ)
-              hg_integrable hf₀_integrable hψ_compact hψ_nonneg hψ_integral_one
+          have h_bound := mollifier_convolution_diff_L1 (g := g) (f₀ := f₀) (ψ := ψ)
+              hg_integrable hf₀_integrable hψ_nonneg hψ_integral_one
           have h_conv_diff_le := h_bound η hη_pos hη_lt_one
           exact lt_of_le_of_lt h_conv_diff_le hg_minus_f0_lt
 

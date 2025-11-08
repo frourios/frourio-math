@@ -1255,7 +1255,7 @@ theorem Qσ_eq_zero_imp_kernel_zero (K : ℝ → ℝ) (f : Hσ σ)
       (ENNReal.toReal_le_toReal (by simp) hMess_ne).2 hτ
     have hτ'' : ‖(K τ : ℂ)‖ ≤ Mess.toReal := by
       simpa [toReal_coe_nnnorm'] using hτ'
-    simpa [Complex.norm_ofReal, Real.norm_eq_abs] using hτ''
+    simpa [Real.norm_eq_abs] using hτ''
   -- K is real-valued and inherits measurability from the complex-valued assumption
   have hK_meas_real : AEStronglyMeasurable K volume := by
     simpa using hK_meas.re

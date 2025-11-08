@@ -1,6 +1,5 @@
 import Frourio.Analysis.FourierPlancherel
 import Frourio.Analysis.SchwartzDensity.SchwartzDensity
-import Frourio.Analysis.MellinPlancherel
 import Frourio.Analysis.HilbertSpaceCore
 import Mathlib.Analysis.Fourier.FourierTransform
 import Mathlib.Analysis.Fourier.PoissonSummation
@@ -791,8 +790,7 @@ lemma weighted_LogPull_memLp (σ : ℝ) (f : Hσ σ) (h_extra : has_weighted_L2_
             ofReal_mul, mul_comm, mul_left_comm, mul_assoc, sub_eq_add_neg]
         -- Convert the goal to a statement about `nnnorm`
         -- Note: `‖z‖ₑ = ↑‖z‖₊`
-        simp [h_logpull_eq, nnnorm_mul, ennreal_norm_eq, mul_comm, mul_left_comm,
-          mul_assoc]
+        simp [h_logpull_eq, nnnorm_mul, mul_comm, mul_left_comm, mul_assoc]
       -- Convert both sides to the same real-valued square
       have h_nonneg :
           0 ≤ (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ : ℝ) := norm_nonneg _
