@@ -166,7 +166,6 @@ f₀ ∈ L¹ ∩ L² で HasCompactSupport f₀ のとき、
 -/
 lemma exists_mollifier_scale
     (f₀ : (Fin n → ℝ) → ℂ)
-    (hf₀_compact : HasCompactSupport f₀)
     (hf₀_L1 : MemLp f₀ 1 volume)
     (hf₀_L2 : MemLp f₀ 2 volume)
     (ε₁ ε₂ : ℝ) (hε₁ : 0 < ε₁) (hε₂ : 0 < ε₂) :
@@ -376,7 +375,7 @@ lemma exists_mollifier_scale
         hg_cont.integrable_of_hasCompactSupport hg_compact
 
       obtain ⟨δ₀, hδ₀_pos, hδ₀_bound⟩ :=
-        (mollifier_converges_L1_compactSupport g ψ hg_integrable hg_compact hψ_AI)
+        (mollifier_converges_L1_compactSupport g ψ hg_integrable hψ_AI)
           (ε' / 4) (by
             have : 0 < ε' / 4 := by linarith
             exact this)
@@ -605,7 +604,7 @@ lemma exists_mollifier_scale
 
       -- Step 2: Obtain quantitative convergence from the L² mollifier theorem
       obtain ⟨δ₀, hδ₀_pos, hδ₀_bound⟩ :=
-        (mollifier_converges_L2_compactSupport f₀ ψ hf₀_L2 hf₀_compact hψ_AI) ε' hε'
+        (mollifier_converges_L2_compactSupport f₀ ψ hf₀_L2 hψ_AI) ε' hε'
 
       use min δ₀ 1
       constructor
@@ -1156,7 +1155,7 @@ lemma cutoff_then_convolve_Lp
       using h_mul_support
   obtain ⟨η, hη_pos, hη_le_one, ψ₀, hψ₀_smooth, hψ₀_compact, hψ₀_integral, hψ₀_nonneg,
       hψ₀_support, hφ_data⟩ :=
-    exists_mollifier_scale f_cut hf_cut_support hf_cut_L1 hf_cut_L2
+    exists_mollifier_scale f_cut hf_cut_L1 hf_cut_L2
       ε_cut₁ ε_cut₂ hcut₁ hcut₂
   classical
   set ψ_η : (Fin n → ℝ) → ℝ := fun y => η^(-(n : ℝ)) * ψ₀ (fun i => y i / η) with hψη_def

@@ -1005,6 +1005,73 @@ lemma weightedMeasure_absolutelyContinuous_volume (σ : ℝ) :
     simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
   exact h_weight_to_mulHaar.trans h_mulHaar_to_volume
 
+/-!
+Auxiliary absolute continuity in the reverse direction.
+This is used to transport a.e. equalities from the weighted measure back to
+`volume.restrict (Ioi 0)` when rewriting integrands.
+-/
+lemma volume_restrict_absolutelyContinuous_weighted (σ : ℝ) :
+    volume.restrict (Set.Ioi (0 : ℝ)) ≪
+      mulHaar.withDensity (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1))) := by
+  classical
+  -- Unfold `mulHaar` and introduce shorthand measures.
+  have hμ : mulHaar
+      = (volume.withDensity (fun x : ℝ => ENNReal.ofReal (1 / x))).restrict (Set.Ioi 0) := by
+    simp [mulHaar]
+  -- Base and intermediate measures
+  set μ0 : Measure ℝ := volume.restrict (Set.Ioi (0 : ℝ)) with hμ0
+  set ν : Measure ℝ :=
+    ((volume.withDensity (fun x : ℝ => ENNReal.ofReal (1 / x))).restrict (Set.Ioi (0 : ℝ))) with hν
+  -- Step 1: μ0 ≪ ν using positivity of 1/x on (0, ∞)
+  have h_div_meas : Measurable (fun x : ℝ => ENNReal.ofReal (1 / x)) := by
+    apply Measurable.ennreal_ofReal
+    simpa using (Measurable.div measurable_const measurable_id)
+  have h_div_aemeas : AEMeasurable (fun x : ℝ => ENNReal.ofReal (1 / x)) μ0 :=
+    h_div_meas.aemeasurable
+  have h_div_ne_zero : ∀ᵐ x ∂ μ0, ENNReal.ofReal (1 / x) ≠ 0 := by
+    refine ((ae_restrict_iff' measurableSet_Ioi).2 ?_)
+    refine Filter.Eventually.of_forall ?_
+    intro x hx
+    exact (ne_of_gt (ENNReal.ofReal_pos.mpr (one_div_pos.mpr hx)))
+  have h_ac_base :
+      μ0 ≪ μ0.withDensity (fun x : ℝ => ENNReal.ofReal (1 / x)) :=
+    withDensity_absolutelyContinuous' (μ := μ0)
+      (f := fun x : ℝ => ENNReal.ofReal (1 / x)) h_div_aemeas h_div_ne_zero
+  have h_rewrite_ν :
+      μ0.withDensity (fun x : ℝ => ENNReal.ofReal x⁻¹) = ν := by
+    -- (volume.withDensity f).restrict s = (volume.restrict s).withDensity f,
+    -- applied with s = Ioi 0 and f x = ofReal (1/x)
+    have hres :=
+      restrict_withDensity (μ := volume) (s := Set.Ioi (0 : ℝ))
+        measurableSet_Ioi (fun x : ℝ => ENNReal.ofReal (1 / x))
+    -- Rearrange sides and rewrite μ0, ν definitions
+    simpa [μ0, ν, one_div] using hres.symm
+  have h_ac1 : μ0 ≪ ν := by simpa [h_rewrite_ν, one_div] using h_ac_base
+  -- Step 2: ν ≪ ν.withDensity g using positivity of g on (0, ∞)
+  set g : ℝ → ℝ≥0∞ := fun x => ENNReal.ofReal (x ^ (2 * σ - 1)) with hg
+  have hg_aemeas : AEMeasurable g ν := by
+    -- use `AEMeasurable.pow_const` for `(fun x : ℝ => x) ^ const` and then `ennreal_ofReal`
+    have hpow : AEMeasurable (fun x : ℝ => (x : ℝ) ^ (2 * σ - 1)) ν :=
+      (aemeasurable_id.pow_const (2 * σ - 1))
+    exact hpow.ennreal_ofReal
+  have hg_ne_zero : ∀ᵐ x ∂ ν, g x ≠ 0 := by
+    -- On the restricted measure to `(0, ∞)`, we have `x > 0` a.e.
+    have h_mem : ∀ᵐ x ∂ ν, x ∈ Set.Ioi (0 : ℝ) := by
+      simpa [ν] using (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
+        (s := Set.Ioi (0 : ℝ)))
+    refine h_mem.mono ?_
+    intro x hx
+    have hxpos : 0 < x := hx
+    have hxpow_pos : 0 < x ^ (2 * σ - 1) := Real.rpow_pos_of_pos hxpos _
+    have : 0 < g x := by simpa [g, hg] using ENNReal.ofReal_pos.mpr hxpow_pos
+    exact ne_of_gt this
+  have h_ac2 : ν ≪ ν.withDensity g :=
+    withDensity_absolutelyContinuous' (μ := ν) (f := g) hg_aemeas hg_ne_zero
+  -- Transitivity gives the desired absolute continuity
+  have h_goal : μ0 ≪ ν.withDensity g := h_ac1.trans h_ac2
+  -- Replace back `ν` with `mulHaar`
+  simpa [μ0, hμ, ν, hg] using h_goal
+
 lemma has_weighted_L2_norm_add (σ : ℝ) {f g : Hσ σ}
     (hf : has_weighted_L2_norm σ f) (hg : has_weighted_L2_norm σ g) :
     has_weighted_L2_norm σ (f + g) := by
@@ -1034,11 +1101,11 @@ lemma has_weighted_L2_norm_add (σ : ℝ) {f g : Hσ σ}
       -- volume.restrict (Ioi 0) ≪ mulHaar.withDensity (x ^ (2σ-1))
       -- This holds on (0,∞) because the density x^(2σ-1) * (1/x) is positive
       have h_reverse_ac : volume.restrict (Set.Ioi (0 : ℝ)) ≪
-          mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) := by
-        sorry -- This requires showing the combined density is positive ae
+          mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :=
+        volume_restrict_absolutelyContinuous_weighted σ
       exact h_reverse_ac.ae_eq h_add_ae
-    filter_upwards [h_add_ae'] with x hx
-    have hx_in : x ∈ Set.Ioi (0 : ℝ) := by sorry
+    filter_upwards [h_add_ae', (ae_restrict_mem (μ := volume)
+      (s := Set.Ioi (0 : ℝ)) measurableSet_Ioi)] with x hx hx_in
     have hx_weight_pos : 0 ≤ x ^ (2 * σ - 1) := by
       exact Real.rpow_nonneg (le_of_lt hx_in) _
     have h_triangle := norm_add_le (Hσ.toFun f x) (Hσ.toFun g x)
@@ -1136,7 +1203,22 @@ lemma has_weighted_L2_norm_add (σ : ℝ) {f g : Hσ σ}
             (∫⁻ x in Set.Ioi (0 : ℝ),
               ENNReal.ofReal (2 * ‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) := by
           rw [lintegral_add_right]
-          sorry -- measurability
+          -- measurability of the second summand
+          have h_meas_coe : Measurable (fun x : ℝ => Hσ.toFun g x) :=
+            (Lp.stronglyMeasurable g).measurable
+          have h_meas_norm : Measurable (fun x : ℝ => ‖Hσ.toFun g x‖) := h_meas_coe.norm
+          have h_meas_sq : Measurable (fun x : ℝ => ‖Hσ.toFun g x‖ ^ 2) := by
+            simpa [pow_two] using h_meas_norm.mul h_meas_norm
+          have h_meas_pow : Measurable (fun x : ℝ => x ^ (2 * σ - 1)) :=
+            (measurable_id.pow_const (2 * σ - 1))
+          have h_meas_prod : Measurable
+              (fun x : ℝ => ‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1)) :=
+            h_meas_sq.mul h_meas_pow
+          have h_inside : Measurable
+              (fun x : ℝ => 2 * (‖Hσ.toFun g x‖ ^ 2 * x ^ (2 * σ - 1))) :=
+            measurable_const.mul h_meas_prod
+          simpa [mul_assoc, mul_left_comm, mul_comm]
+            using (Measurable.ennreal_ofReal h_inside)
   have h_fin_f :
       (∫⁻ x in Set.Ioi (0 : ℝ),
           ENNReal.ofReal (‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) < ∞ := hf
@@ -1181,14 +1263,9 @@ lemma has_weighted_L2_norm_smul (σ : ℝ) (c : ℂ) {f : Hσ σ}
     has_weighted_L2_norm σ (c • f) := by
   classical
   unfold has_weighted_L2_norm at hf ⊢
-  have h_nonneg_weight : ∀ x : ℝ, 0 ≤ x ^ (2 * σ - 1) := by
-    intro x
-    by_cases hx : 0 ≤ x
-    · exact Real.rpow_nonneg hx _
-    · rw [Real.rpow_def_of_neg (not_le.mp hx)]
-      apply mul_nonneg
-      · exact le_of_lt (Real.exp_pos _)
-      · sorry
+  have h_nonneg_weight : ∀ ⦃x : ℝ⦄, 0 < x → 0 ≤ x ^ (2 * σ - 1) := by
+    intro x hx
+    exact Real.rpow_nonneg (le_of_lt hx) _
   have h_lintegral :
       (∫⁻ x in Set.Ioi (0 : ℝ),
           ENNReal.ofReal
@@ -1197,72 +1274,110 @@ lemma has_weighted_L2_norm_smul (σ : ℝ) (c : ℂ) {f : Hσ σ}
           (∫⁻ x in Set.Ioi (0 : ℝ),
             ENNReal.ofReal
               (‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) := by
-    have h_pointwise :
-        ∀ x ∈ Set.Ioi (0 : ℝ),
-          ENNReal.ofReal
-              (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1))
-            = ENNReal.ofReal (‖c‖^2) *
-                ENNReal.ofReal
-                  (‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) := by
+    have h_pointwise_ae :
+        (fun x : ℝ =>
+          ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)))
+        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
+        (fun x : ℝ =>
+          ENNReal.ofReal (‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1))) := by
+      -- Transport the a.e. equality for `toFun` to `volume.restrict (Ioi 0)`
+      have h_smul_ae := toFun_smul_ae σ c f
+      have h_rev := volume_restrict_absolutelyContinuous_weighted σ
+      have h_smul_ae' :
+          (fun x : ℝ => Hσ.toFun (c • f) x)
+            =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
+          (fun x : ℝ => c * Hσ.toFun f x) := h_rev.ae_eq h_smul_ae
+      -- Map equality through norms and squares, keeping the weight factor
+      refine h_smul_ae'.mono ?_
       intro x hx
-      have hx_pos : 0 < x := hx
-      have h_mul :
-          ‖Hσ.toFun (c • f) x‖ = ‖c‖ * ‖Hσ.toFun f x‖ := by
-        have h_smul_ae := toFun_smul_ae σ c f
-        have h_smul : Hσ.toFun (c • f) x = c * Hσ.toFun f x := by
-          sorry -- need to extract from ae equality
-        rw [h_smul, norm_mul]
-      have h_pow :
-          ‖Hσ.toFun (c • f) x‖ ^ 2 = ‖c‖^2 * ‖Hσ.toFun f x‖^2 := by
-        simp [pow_two, h_mul, mul_comm, mul_left_comm, mul_assoc]
-      have hx_nonneg : 0 ≤ x ^ (2 * σ - 1) := h_nonneg_weight x
-      have hx' :
-          ‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)
-            = ‖c‖^2 * (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) := by
-        ring
-      have :
-          ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1))
-            = ENNReal.ofReal (‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) := by
-        simp [h_pow]
-      have h_nonneg :
-          0 ≤ ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1) :=
-        mul_nonneg (sq_nonneg _) (h_nonneg_weight x)
-      calc
-        ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1))
-            = ENNReal.ofReal (‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) := by
-          simp [h_pow]
-        _ = ENNReal.ofReal (‖c‖^2 * (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1))) := by
-          simp [hx']
-        _ = ENNReal.ofReal (‖c‖^2) * ENNReal.ofReal (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) := by
-          rw [ENNReal.ofReal_mul (sq_nonneg _)]
+      have : ‖Hσ.toFun (c • f) x‖ = ‖c‖ * ‖Hσ.toFun f x‖ := by
+        simpa [norm_mul] using congrArg norm hx
+      simp [pow_two, this, mul_comm, mul_left_comm, mul_assoc]
     have h_integrand_measurable :
         AEStronglyMeasurable
           (fun x : ℝ =>
             ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)))
           (volume.restrict (Set.Ioi (0 : ℝ))) := by
-      sorry
+      -- Show the integrand is measurable, then upgrade to AE-strongly measurable
+      have h_meas_coe : Measurable (fun x : ℝ => Hσ.toFun (c • f) x) :=
+        (Lp.stronglyMeasurable (c • f)).measurable
+      have h_meas_norm : Measurable (fun x : ℝ => ‖Hσ.toFun (c • f) x‖) := h_meas_coe.norm
+      have h_meas_sq : Measurable (fun x : ℝ => ‖Hσ.toFun (c • f) x‖ ^ 2) := by
+        simpa [pow_two] using h_meas_norm.mul h_meas_norm
+      have h_meas_pow : Measurable (fun x : ℝ => x ^ (2 * σ - 1)) :=
+        (measurable_id.pow_const (2 * σ - 1))
+      have h_meas_prod : Measurable
+          (fun x : ℝ => ‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)) :=
+        h_meas_sq.mul h_meas_pow
+      exact (Measurable.ennreal_ofReal h_meas_prod).aestronglyMeasurable
     have h_integrand' : AEStronglyMeasurable
         (fun x : ℝ => ENNReal.ofReal
           (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)))
         (volume.restrict (Set.Ioi (0 : ℝ))) := by
-      sorry
-    have h_eq : ∫⁻ x in Set.Ioi (0 : ℝ),
+      -- As above, show measurability then upgrade to AE-strongly measurable
+      have h_meas_coe : Measurable (fun x : ℝ => Hσ.toFun f x) :=
+        (Lp.stronglyMeasurable f).measurable
+      have h_meas_norm : Measurable (fun x : ℝ => ‖Hσ.toFun f x‖) := h_meas_coe.norm
+      have h_meas_sq : Measurable (fun x : ℝ => ‖Hσ.toFun f x‖ ^ 2) := by
+        simpa [pow_two] using h_meas_norm.mul h_meas_norm
+      have h_meas_pow : Measurable (fun x : ℝ => x ^ (2 * σ - 1)) :=
+        (measurable_id.pow_const (2 * σ - 1))
+      have h_meas_prod : Measurable
+          (fun x : ℝ => ‖Hσ.toFun f x‖ ^ 2 * x ^ (2 * σ - 1)) :=
+        h_meas_sq.mul h_meas_pow
+      exact (Measurable.ennreal_ofReal h_meas_prod).aestronglyMeasurable
+    have h_eq1 : ∫⁻ x in Set.Ioi (0 : ℝ),
         ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume
       = ∫⁻ x in Set.Ioi (0 : ℝ),
-        ENNReal.ofReal (‖c‖^2) * ENNReal.ofReal (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := by
-      apply setLIntegral_congr_fun measurableSet_Ioi
+        ENNReal.ofReal (‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := by
+      -- Use a.e. equality on the restricted measure
+      simpa using lintegral_congr_ae h_pointwise_ae
+    -- Factor the constant `‖c‖^2` out of the integral (pointwise, a.e.)
+    have h_factor_ae :
+        (fun x : ℝ =>
+          ENNReal.ofReal (‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)))
+        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
+        (fun x : ℝ => ENNReal.ofReal (‖c‖^2) *
+          ENNReal.ofReal (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1))) := by
+      -- On `(0, ∞)`, the weight is nonnegative, so we can pull out the constant from `ofReal`.
+      refine ((ae_restrict_iff' measurableSet_Ioi).2 ?_)
+      refine Filter.Eventually.of_forall ?_
       intro x hx
-      exact h_pointwise x hx
+      have hx_pos : 0 < x := hx
+      have hx_nonneg : 0 ≤ ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1) :=
+        mul_nonneg (sq_nonneg _) (Real.rpow_nonneg (le_of_lt hx_pos) _)
+      have hx' :
+          ‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)
+            = ‖c‖^2 * (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) := by ring
+      simp [hx', ENNReal.ofReal_mul (sq_nonneg _), hx_nonneg]
+    have h_eq2 : ∫⁻ x in Set.Ioi (0 : ℝ),
+        ENNReal.ofReal (‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume
+      = ∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖c‖^2) *
+          ENNReal.ofReal (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := by
+      simpa using lintegral_congr_ae h_factor_ae
     calc
       ∫⁻ x in Set.Ioi (0 : ℝ),
           ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume
         = ∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖c‖^2 * ‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := h_eq1
+      _ = ∫⁻ x in Set.Ioi (0 : ℝ),
           ENNReal.ofReal (‖c‖^2) * ENNReal.ofReal
-            (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := h_eq
+            (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := h_eq2
       _ = ENNReal.ofReal (‖c‖^2) * ∫⁻ x in Set.Ioi (0 : ℝ),
           ENNReal.ofReal (‖Hσ.toFun f x‖^2 * x ^ (2 * σ - 1)) ∂volume := by
         rw [lintegral_const_mul' _ _ (by norm_num : ENNReal.ofReal (‖c‖^2) ≠ ∞)]
-  sorry
+  -- Use the equality and finiteness of the base integral to conclude finiteness
+  have h_const_ne_top : ENNReal.ofReal (‖c‖^2) ≠ ∞ := by simp
+  have h_const_lt_top : ENNReal.ofReal (‖c‖^2) < ∞ := by
+    simp [lt_top_iff_ne_top]
+  have h_fin :
+      (∫⁻ x in Set.Ioi (0 : ℝ),
+          ENNReal.ofReal (‖Hσ.toFun (c • f) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume) < ∞ := by
+    -- Rewrite using h_lintegral and apply `ENNReal.mul_lt_top`
+    have := ENNReal.mul_lt_top h_const_lt_top hf
+    simpa [h_lintegral] using this
+  exact h_fin
 
 lemma has_weighted_L2_norm_sub (σ : ℝ) {f g : Hσ σ}
     (hf : has_weighted_L2_norm σ f) (hg : has_weighted_L2_norm σ g) :
