@@ -1,7 +1,7 @@
 import Frourio.Analysis.FourierPlancherel
 import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2
 import Frourio.Analysis.MellinPlancherel
-import Frourio.Analysis.MellinParseval.MellinParsevalCore1
+import Frourio.Analysis.MellinParseval.MellinParsevalCore2
 import Frourio.Analysis.HilbertSpaceCore
 import Mathlib.Analysis.Fourier.FourierTransform
 import Mathlib.Analysis.Fourier.PoissonSummation
@@ -21,1378 +21,6 @@ namespace Frourio
 open Schwartz
 
 section ParsevalEquivalence
-
--- Complex measure-theoretic proof involving pushforward measures and absolute continuity
-/-- Integrability of the weighted LogPull is preserved under addition -/
-lemma LogPull_integrable_add (σ : ℝ) (f g : Hσ σ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    Integrable (fun t => LogPull σ (f + g) t * Complex.exp ((1 / 2 : ℝ) * t)) := by
-  classical
-  -- We will rewrite the integrand a.e. using the a.e. linearity of the Lp
-  -- representative `Hσ.toFun` transported along `x = exp t`.
-  -- Start from the a.e. identity on the physical side (x-variable).
-  have h_add_ae_weighted := toFun_add_ae σ f g
-  -- Transport the a.e. equality to the Lebesgue measure on (0,∞).
-  have h_rev_ac :
-      volume.restrict (Set.Ioi (0 : ℝ)) ≪
-        mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :=
-    volume_restrict_absolutelyContinuous_weighted σ
-  have h_add_ae_vol :
-      (fun x : ℝ => Hσ.toFun (f + g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => Hσ.toFun f x + Hσ.toFun g x) :=
-    h_rev_ac.ae_eq h_add_ae_weighted
-  -- Also, mulHaar is absolutely continuous w.r.t. the restricted Lebesgue measure.
-  have h_mulHaar_to_volume : mulHaar ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
-    -- Absolute continuity for withDensity followed by restriction
-    have h_base :
-        (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)) ≪ volume := by
-      simpa using
-        (withDensity_absolutelyContinuous
-          (μ := volume) (f := fun x : ℝ => ENNReal.ofReal (1 / x)))
-    simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
-  -- Hence the equality also holds a.e. for mulHaar on (0,∞).
-  have h_add_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (f + g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => Hσ.toFun f x + Hσ.toFun g x) :=
-    h_mulHaar_to_volume.ae_eq h_add_ae_vol
-  -- Push forward along log to obtain an a.e. equality on t with respect to volume.
-  obtain ⟨c, hc0, hcTop, h_map⟩ := mulHaar_pushforward_log
-  have h_meas_set : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (f + g) (Real.exp t)
-          = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)} := by
-    -- measurability of both sides composed with exp, then equality set
-    have h_meas_l : Measurable (fun t : ℝ => Hσ.toFun (f + g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (f + g)).measurable.comp Real.measurable_exp
-    have h_meas_f : Measurable (fun t : ℝ => Hσ.toFun f (Real.exp t)) :=
-      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
-    have h_meas_g : Measurable (fun t : ℝ => Hσ.toFun g (Real.exp t)) :=
-      (Lp.stronglyMeasurable g).measurable.comp Real.measurable_exp
-    have h_meas_r : Measurable (fun t : ℝ =>
-        Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)) :=
-      h_meas_f.add h_meas_g
-    -- {t | u t = v t} is measurable as preimage of the diagonal
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (f + g) (Real.exp t),
-         Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t))) :=
-      h_meas_l.prodMk h_meas_r
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ |
-          Hσ.toFun (f + g) (Real.exp t)
-            = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (f + g) (Real.exp t),
-               Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have hlog_aemeas : AEMeasurable Real.log mulHaar :=
-    Real.measurable_log.aemeasurable
-  -- Convert the x-a.e. equality to a t-a.e. equality via `ae_map_iff` and the pushforward.
-  have h_ae_map : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (f + g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)) := by
-    -- Use the equivalence `ae_map_iff` to pull back to mulHaar.
-    have hiff := ae_map_iff (μ := mulHaar)
-      (f := Real.log) hlog_aemeas h_meas_set
-    rw [hiff]
-    -- On x-side (mulHaar), the equality holds a.e.
-    -- We need to rewrite x as exp(log x) for x > 0
-    -- a.e. on mulHaar we have x > 0 since mulHaar is restricted to Ioi 0
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      -- unfold mulHaar and use `ae_restrict_mem`
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    -- Combine the a.e. equality on x with the positivity to rewrite exp (log x) = x
-    refine (h_add_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq :
-        Hσ.toFun (f + g) x = Hσ.toFun f x + Hσ.toFun g x := hx.1
-    have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    -- Now rewrite the goal using `exp (log x) = x`.
-    simpa [Set.mem_setOf_eq, h_exp_log]
-  -- Identify the pushforward measure with Lebesgue measure (up to a positive scalar).
-  have h_ae_t : (∀ᵐ t ∂ volume,
-      Hσ.toFun (f + g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)) := by
-    -- Define the predicate used for ae statements on t.
-    let P : ℝ → Prop := fun t =>
-      Hσ.toFun (f + g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | P t} := h_meas_set
-    -- Use the identification `Measure.map Real.log mulHaar = c • volume`.
-    have h_ae_cvol : (∀ᵐ t ∂ (c • volume), P t) := by
-      -- First, rewrite the pushforward along the restricted mulHaar.
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by
-        simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), P t) := by
-        simpa [h_restrict'] using h_ae_map
-      -- Then use `h_map` to identify the measure with `c • volume`.
-      simpa [h_map] using h'
-    -- Pass from `c • volume` to `volume` using that `c ≠ 0`.
-    -- Use the `ae_iff` characterization via null sets.
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ P t} := hP_meas.compl
-    have h_null_c : (c • volume) {t : ℝ | ¬ P t} = 0 := by
-      -- Convert a.e. statement to null-set on `c • volume`.
-      have := ((ae_iff (μ := (c • volume)) (p := fun t : ℝ => P t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : c * volume {t : ℝ | ¬ P t} = 0 := by
-      -- Rewrite the smul-measure on measurable sets.
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable]
-        using h_null_c
-    have h_zero : volume {t : ℝ | ¬ P t} = 0 :=
-      (mul_eq_zero.mp h_mul_zero).resolve_left hc0
-    -- Conclude the a.e. statement for `volume`.
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => P t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  -- With the a.e. identity in hand, rewrite the integrand and conclude by additivity.
-  have h_integrand_ae :
-      (fun t => LogPull σ (f + g) t * Complex.exp ((1 / 2 : ℝ) * t))
-        =ᵐ[volume]
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) +
-        (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    refine h_ae_t.mono ?_
-    intro t ht
-    -- Expand LogPull and use the a.e. linearity of Hσ.toFun at x = exp t.
-    simp [LogPull, LogPull_apply, ht, mul_add, mul_left_comm,
-          mul_comm, mul_assoc]
-  -- The right-hand side is integrable as a sum of integrable functions.
-  have h_sum_int : Integrable
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) +
-        (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :=
-    (hf_int.add hg_int)
-  -- Transfer integrability along the a.e. equality.
-  exact h_sum_int.congr h_integrand_ae.symm
-
-/-- Integrability of the weighted LogPull for subtraction -/
-lemma LogPull_integrable_sub (σ : ℝ) (f g : Hσ σ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    Integrable (fun t => LogPull σ (f - g) t * Complex.exp ((1 / 2 : ℝ) * t)) := by
-  classical
-  -- Start from the a.e. identity for subtraction on the physical side (x-variable).
-  have h_sub_ae_weighted :
-      (fun x : ℝ => Hσ.toFun (f - g) x)
-        =ᵐ[mulHaar.withDensity (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun g x) :=
-    (Lp.coeFn_sub (f := (f : Lp ℂ 2
-      (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))))
-      (g := (g : Lp ℂ 2
-      (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1))))))
-  -- Transport the a.e. equality to the Lebesgue measure on (0,∞).
-  have h_rev_ac :
-      volume.restrict (Set.Ioi (0 : ℝ)) ≪
-        mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :=
-    volume_restrict_absolutelyContinuous_weighted σ
-  have h_sub_ae_vol :
-      (fun x : ℝ => Hσ.toFun (f - g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun g x) :=
-    h_rev_ac.ae_eq h_sub_ae_weighted
-  -- Also, mulHaar is absolutely continuous w.r.t. the restricted Lebesgue measure.
-  have h_mulHaar_to_volume : mulHaar ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
-    have h_base :
-        (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)) ≪ volume := by
-      simpa using
-        (withDensity_absolutelyContinuous
-          (μ := volume) (f := fun x : ℝ => ENNReal.ofReal (1 / x)))
-    simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
-  -- Hence the equality also holds a.e. for mulHaar on (0,∞).
-  have h_sub_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (f - g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun g x) :=
-    h_mulHaar_to_volume.ae_eq h_sub_ae_vol
-  -- Push forward along log to obtain an a.e. equality on t with respect to volume.
-  obtain ⟨c, hc0, hcTop, h_map⟩ := mulHaar_pushforward_log
-  have h_meas_set : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (f - g) (Real.exp t)
-          = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)} := by
-    -- measurability of both sides composed with exp, then equality set
-    have h_meas_l : Measurable (fun t : ℝ => Hσ.toFun (f - g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (f - g)).measurable.comp Real.measurable_exp
-    have h_meas_f : Measurable (fun t : ℝ => Hσ.toFun f (Real.exp t)) :=
-      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
-    have h_meas_g : Measurable (fun t : ℝ => Hσ.toFun g (Real.exp t)) :=
-      (Lp.stronglyMeasurable g).measurable.comp Real.measurable_exp
-    have h_meas_r : Measurable (fun t : ℝ =>
-        Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)) :=
-      h_meas_f.sub h_meas_g
-    -- {t | u t = v t} is measurable as preimage of the diagonal
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (f - g) (Real.exp t),
-         Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t))) :=
-      h_meas_l.prodMk h_meas_r
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ |
-          Hσ.toFun (f - g) (Real.exp t)
-            = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (f - g) (Real.exp t),
-               Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have hlog_aemeas : AEMeasurable Real.log mulHaar :=
-    Real.measurable_log.aemeasurable
-  -- Convert the x-a.e. equality to a t-a.e. equality via `ae_map_iff` and the pushforward.
-  have h_ae_map : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (f - g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)) := by
-    -- Use the equivalence `ae_map_iff` to pull back to mulHaar.
-    have hiff := ae_map_iff (μ := mulHaar)
-      (f := Real.log) hlog_aemeas h_meas_set
-    rw [hiff]
-    -- On x-side (mulHaar), the equality holds a.e.
-    -- We need to rewrite x as exp(log x) for x > 0
-    -- a.e. on mulHaar we have x > 0 since mulHaar is restricted to Ioi 0
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      -- unfold mulHaar and use `ae_restrict_mem`
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    -- Combine the a.e. equality on x with the positivity to rewrite exp (log x) = x
-    refine (h_sub_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq :
-        Hσ.toFun (f - g) x = Hσ.toFun f x - Hσ.toFun g x := hx.1
-    have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    -- Now rewrite the goal using `exp (log x) = x`.
-    simpa [Set.mem_setOf_eq, h_exp_log]
-  -- Identify the pushforward measure with Lebesgue measure (up to a positive scalar).
-  have h_ae_t : (∀ᵐ t ∂ volume,
-      Hσ.toFun (f - g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)) := by
-    -- Define the predicate used for ae statements on t.
-    let P : ℝ → Prop := fun t =>
-      Hσ.toFun (f - g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | P t} := h_meas_set
-    -- Use the identification `Measure.map Real.log mulHaar = c • volume`.
-    have h_ae_cvol : (∀ᵐ t ∂ (c • volume), P t) := by
-      -- First, rewrite the pushforward along the restricted mulHaar.
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by
-        simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), P t) := by
-        simpa [h_restrict'] using h_ae_map
-      -- Then use `h_map` to identify the measure with `c • volume`.
-      simpa [h_map] using h'
-    -- Pass from `c • volume` to `volume` using that `c ≠ 0`.
-    -- Use the `ae_iff` characterization via null sets.
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ P t} := hP_meas.compl
-    have h_null_c : (c • volume) {t : ℝ | ¬ P t} = 0 := by
-      -- Convert a.e. statement to null-set on `c • volume`.
-      have := ((ae_iff (μ := (c • volume)) (p := fun t : ℝ => P t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : c * volume {t : ℝ | ¬ P t} = 0 := by
-      -- Rewrite the smul-measure on measurable sets.
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable]
-        using h_null_c
-    have h_zero : volume {t : ℝ | ¬ P t} = 0 :=
-      (mul_eq_zero.mp h_mul_zero).resolve_left hc0
-    -- Conclude the a.e. statement for `volume`.
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => P t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  -- With the a.e. identity in hand, rewrite the integrand and conclude by subtraction.
-  have h_integrand_ae :
-      (fun t => LogPull σ (f - g) t * Complex.exp ((1 / 2 : ℝ) * t))
-        =ᵐ[volume]
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) -
-        (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    refine h_ae_t.mono ?_
-    intro t ht
-    -- Expand LogPull and use the a.e. linearity of Hσ.toFun at x = exp t.
-    simp [LogPull, LogPull_apply, ht, mul_sub, mul_left_comm,
-          mul_comm, mul_assoc]
-  -- The right-hand side is integrable as a difference of integrable functions.
-  have h_diff_int : Integrable
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) -
-        (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :=
-    (hf_int.sub hg_int)
-  -- Transfer integrability along the a.e. equality.
-  exact h_diff_int.congr h_integrand_ae.symm
-
-/-- Integrability of the weighted LogPull for addition with scalar multiplication -/
-lemma LogPull_integrable_add_smul (σ : ℝ) (f g : Hσ σ) (c : ℂ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    Integrable (fun t => LogPull σ (f + c • g) t * Complex.exp ((1 / 2 : ℝ) * t)) := by
-  classical
-  -- Start from the a.e. identity on the physical side (x-variable).
-  have h_add_ae_weighted := toFun_add_ae σ f (c • g)
-  have h_smul_ae_weighted := toFun_smul_ae σ c g
-  -- Transport the a.e. equality to the Lebesgue measure on (0,∞).
-  have h_rev_ac :
-      volume.restrict (Set.Ioi (0 : ℝ)) ≪
-        mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :=
-    volume_restrict_absolutelyContinuous_weighted σ
-  have h_add_ae_vol :
-      (fun x : ℝ => Hσ.toFun (f + c • g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => Hσ.toFun f x + Hσ.toFun (c • g) x) :=
-    h_rev_ac.ae_eq h_add_ae_weighted
-  have h_smul_ae_vol :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    h_rev_ac.ae_eq h_smul_ae_weighted
-  -- Also, mulHaar is absolutely continuous w.r.t. the restricted Lebesgue measure.
-  have h_mulHaar_to_volume : mulHaar ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
-    have h_base :
-        (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)) ≪ volume := by
-      simpa using
-        (withDensity_absolutelyContinuous
-          (μ := volume) (f := fun x : ℝ => ENNReal.ofReal (1 / x)))
-    simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
-  -- Hence the equalities also hold a.e. for mulHaar on (0,∞).
-  have h_add_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (f + c • g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => Hσ.toFun f x + Hσ.toFun (c • g) x) :=
-    h_mulHaar_to_volume.ae_eq h_add_ae_vol
-  have h_smul_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    h_mulHaar_to_volume.ae_eq h_smul_ae_vol
-  -- Push forward along log to obtain a.e. equalities on t with respect to volume.
-  obtain ⟨cm, hcm0, hcmTop, h_map⟩ := mulHaar_pushforward_log
-  -- Measurability of equality sets after composing with exp.
-  have h_meas_set_add : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (f + c • g) (Real.exp t)
-          = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)} := by
-    have h_meas_l : Measurable (fun t : ℝ => Hσ.toFun (f + c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (f + c • g)).measurable.comp Real.measurable_exp
-    have h_meas_f : Measurable (fun t : ℝ => Hσ.toFun f (Real.exp t)) :=
-      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
-    have h_meas_cg : Measurable (fun t : ℝ => Hσ.toFun (c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (c • g)).measurable.comp Real.measurable_exp
-    have h_meas_r : Measurable (fun t : ℝ =>
-        Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)) :=
-      h_meas_f.add h_meas_cg
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (f + c • g) (Real.exp t),
-         Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t))) :=
-      h_meas_l.prodMk h_meas_r
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ |
-          Hσ.toFun (f + c • g) (Real.exp t)
-            = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (f + c • g) (Real.exp t),
-               Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have h_meas_set_smul : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)} := by
-    have h_meas_cg : Measurable (fun t : ℝ => Hσ.toFun (c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (c • g)).measurable.comp Real.measurable_exp
-    have h_meas_g : Measurable (fun t : ℝ => Hσ.toFun g (Real.exp t)) :=
-      (Lp.stronglyMeasurable g).measurable.comp Real.measurable_exp
-    have h_meas_rhs : Measurable (fun t : ℝ => c * Hσ.toFun g (Real.exp t)) :=
-      measurable_const.mul h_meas_g
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (c • g) (Real.exp t), c * Hσ.toFun g (Real.exp t))) :=
-      h_meas_cg.prodMk h_meas_rhs
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ | Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (c • g) (Real.exp t), c * Hσ.toFun g (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have hlog_aemeas : AEMeasurable Real.log mulHaar :=
-    Real.measurable_log.aemeasurable
-  -- Convert the x-a.e. equalities to t-a.e. equalities via `ae_map_iff` and the pushforward.
-  have h_ae_map_add : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (f + c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)) := by
-    have hiff := ae_map_iff (μ := mulHaar) (f := Real.log) hlog_aemeas h_meas_set_add
-    rw [hiff]
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    refine (h_add_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq := hx.1; have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    simpa [Set.mem_setOf_eq, h_exp_log] using hx_eq
-  have h_ae_map_smul : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)) := by
-    have hiff := ae_map_iff (μ := mulHaar) (f := Real.log) hlog_aemeas h_meas_set_smul
-    rw [hiff]
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    refine (h_smul_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq := hx.1; have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    simpa [Set.mem_setOf_eq, h_exp_log] using hx_eq
-  -- Identify the pushforward measure with Lebesgue measure (up to a positive scalar).
-  have h_ae_t_add : (∀ᵐ t ∂ volume,
-      Hσ.toFun (f + c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)) := by
-    -- define predicate for add
-    let Padd : ℝ → Prop := fun t =>
-      Hσ.toFun (f + c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | Padd t} := h_meas_set_add
-    have h_ae_cvol : (∀ᵐ t ∂ (cm • volume), Padd t) := by
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), Padd t) := by
-        simpa [h_restrict'] using h_ae_map_add
-      simpa [h_map] using h'
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ Padd t} := hP_meas.compl
-    have h_null_c : (cm • volume) {t : ℝ | ¬ Padd t} = 0 := by
-      have := ((ae_iff (μ := (cm • volume)) (p := fun t : ℝ => Padd t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : cm * volume {t : ℝ | ¬ Padd t} = 0 := by
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable] using h_null_c
-    have h_zero : volume {t : ℝ | ¬ Padd t} = 0 := (mul_eq_zero.mp h_mul_zero).resolve_left hcm0
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => Padd t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  have h_ae_t_smul : (∀ᵐ t ∂ volume,
-      Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)) := by
-    let Psmul : ℝ → Prop := fun t => Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | Psmul t} := h_meas_set_smul
-    have h_ae_cvol : (∀ᵐ t ∂ (cm • volume), Psmul t) := by
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), Psmul t) := by
-        simpa [h_restrict'] using h_ae_map_smul
-      simpa [h_map] using h'
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ Psmul t} := hP_meas.compl
-    have h_null_c : (cm • volume) {t : ℝ | ¬ Psmul t} = 0 := by
-      have := ((ae_iff (μ := (cm • volume)) (p := fun t : ℝ => Psmul t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : cm * volume {t : ℝ | ¬ Psmul t} = 0 := by
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable] using h_null_c
-    have h_zero : volume {t : ℝ | ¬ Psmul t} = 0 := (mul_eq_zero.mp h_mul_zero).resolve_left hcm0
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => Psmul t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  have h_integrand_ae :
-      (fun t => LogPull σ (f + c • g) t * Complex.exp ((1 / 2 : ℝ) * t))
-        =ᵐ[volume]
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) +
-        c * (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    refine (h_ae_t_add.and h_ae_t_smul).mono ?_
-    intro t hts
-    have ht_add := hts.1
-    have ht_smul := hts.2
-    -- Expand LogPull and use the a.e. linearity at x = exp t and scalar multiplication.
-    simp [LogPull, LogPull_apply, ht_add, ht_smul, mul_add, mul_left_comm,
-          mul_comm, mul_assoc]
-  -- The right-hand side is integrable as a sum of integrable functions and a constant multiple.
-  have h_rhs_int : Integrable
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) +
-        c * (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    exact hf_int.add (hg_int.const_mul c)
-  -- Transfer integrability along the a.e. equality.
-  exact h_rhs_int.congr h_integrand_ae.symm
-
-/-- Integrability of the weighted LogPull for subtraction with scalar multiplication -/
-lemma LogPull_integrable_sub_smul (σ : ℝ) (f g : Hσ σ) (c : ℂ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    Integrable (fun t => LogPull σ (f - c • g) t * Complex.exp ((1 / 2 : ℝ) * t)) := by
-  classical
-  -- a.e. identities on the physical side (x-variable)
-  have h_sub_ae_weighted :
-      (fun x : ℝ => Hσ.toFun (f - c • g) x)
-        =ᵐ[mulHaar.withDensity (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun (c • g) x) :=
-    (Lp.coeFn_sub (f := (f : Lp ℂ 2
-      (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))))
-      (g := ((c • g) : Lp ℂ 2
-      (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1))))))
-  have h_smul_ae_weighted :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[mulHaar.withDensity (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    toFun_smul_ae σ c g
-  -- Transport the a.e. equalities to the Lebesgue measure on (0,∞).
-  have h_rev_ac :
-      volume.restrict (Set.Ioi (0 : ℝ)) ≪
-        mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :=
-    volume_restrict_absolutelyContinuous_weighted σ
-  have h_sub_ae_vol :
-      (fun x : ℝ => Hσ.toFun (f - c • g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun (c • g) x) :=
-    h_rev_ac.ae_eq h_sub_ae_weighted
-  have h_smul_ae_vol :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    h_rev_ac.ae_eq h_smul_ae_weighted
-  -- Also, mulHaar ≪ volume.restrict (Ioi 0)
-  have h_mulHaar_to_volume : mulHaar ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
-    have h_base :
-        (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)) ≪ volume := by
-      simpa using
-        (withDensity_absolutelyContinuous
-          (μ := volume) (f := fun x : ℝ => ENNReal.ofReal (1 / x)))
-    simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
-  -- Hence these also hold a.e. for mulHaar on (0,∞).
-  have h_sub_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (f - c • g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun (c • g) x) :=
-    h_mulHaar_to_volume.ae_eq h_sub_ae_vol
-  have h_smul_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    h_mulHaar_to_volume.ae_eq h_smul_ae_vol
-  -- Push forward along log to obtain t-a.e. equalities.
-  obtain ⟨cm, hcm0, hcmTop, h_map⟩ := mulHaar_pushforward_log
-  -- Measurability of equality sets after composing with exp.
-  have h_meas_set_sub : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (f - c • g) (Real.exp t)
-          = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)} := by
-    have h_meas_l : Measurable (fun t : ℝ => Hσ.toFun (f - c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (f - c • g)).measurable.comp Real.measurable_exp
-    have h_meas_f : Measurable (fun t : ℝ => Hσ.toFun f (Real.exp t)) :=
-      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
-    have h_meas_cg : Measurable (fun t : ℝ => Hσ.toFun (c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (c • g)).measurable.comp Real.measurable_exp
-    have h_meas_r : Measurable (fun t : ℝ =>
-        Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)) :=
-      h_meas_f.sub h_meas_cg
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (f - c • g) (Real.exp t),
-         Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t))) :=
-      h_meas_l.prodMk h_meas_r
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ |
-          Hσ.toFun (f - c • g) (Real.exp t)
-            = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (f - c • g) (Real.exp t),
-               Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have h_meas_set_smul : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)} := by
-    have h_meas_cg : Measurable (fun t : ℝ => Hσ.toFun (c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (c • g)).measurable.comp Real.measurable_exp
-    have h_meas_g : Measurable (fun t : ℝ => Hσ.toFun g (Real.exp t)) :=
-      (Lp.stronglyMeasurable g).measurable.comp Real.measurable_exp
-    have h_meas_rhs : Measurable (fun t : ℝ => c * Hσ.toFun g (Real.exp t)) :=
-      measurable_const.mul h_meas_g
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (c • g) (Real.exp t), c * Hσ.toFun g (Real.exp t))) :=
-      h_meas_cg.prodMk h_meas_rhs
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ | Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (c • g) (Real.exp t), c * Hσ.toFun g (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have hlog_aemeas : AEMeasurable Real.log mulHaar :=
-    Real.measurable_log.aemeasurable
-  -- Convert equalities via ae_map_iff
-  have h_ae_map_sub : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (f - c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)) := by
-    have hiff := ae_map_iff (μ := mulHaar) (f := Real.log) hlog_aemeas h_meas_set_sub
-    rw [hiff]
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    refine (h_sub_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq := hx.1; have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    simpa [Set.mem_setOf_eq, h_exp_log] using hx_eq
-  have h_ae_map_smul : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)) := by
-    have hiff := ae_map_iff (μ := mulHaar) (f := Real.log) hlog_aemeas h_meas_set_smul
-    rw [hiff]
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    refine (h_smul_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq := hx.1; have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    simpa [Set.mem_setOf_eq, h_exp_log] using hx_eq
-  -- Identify the pushforward measure with Lebesgue measure (up to a positive scalar).
-  have h_ae_t_sub : (∀ᵐ t ∂ volume,
-      Hσ.toFun (f - c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)) := by
-    let Psub : ℝ → Prop := fun t =>
-      Hσ.toFun (f - c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | Psub t} := h_meas_set_sub
-    have h_ae_cvol : (∀ᵐ t ∂ (cm • volume), Psub t) := by
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), Psub t) := by
-        simpa [h_restrict'] using h_ae_map_sub
-      simpa [h_map] using h'
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ Psub t} := hP_meas.compl
-    have h_null_c : (cm • volume) {t : ℝ | ¬ Psub t} = 0 := by
-      have := ((ae_iff (μ := (cm • volume)) (p := fun t : ℝ => Psub t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : cm * volume {t : ℝ | ¬ Psub t} = 0 := by
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable] using h_null_c
-    have h_zero : volume {t : ℝ | ¬ Psub t} = 0 := (mul_eq_zero.mp h_mul_zero).resolve_left hcm0
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => Psub t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  have h_ae_t_smul : (∀ᵐ t ∂ volume,
-      Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)) := by
-    let Psmul : ℝ → Prop := fun t => Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | Psmul t} := h_meas_set_smul
-    have h_ae_cvol : (∀ᵐ t ∂ (cm • volume), Psmul t) := by
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), Psmul t) := by
-        simpa [h_restrict'] using h_ae_map_smul
-      simpa [h_map] using h'
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ Psmul t} := hP_meas.compl
-    have h_null_c : (cm • volume) {t : ℝ | ¬ Psmul t} = 0 := by
-      have := ((ae_iff (μ := (cm • volume)) (p := fun t : ℝ => Psmul t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : cm * volume {t : ℝ | ¬ Psmul t} = 0 := by
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable] using h_null_c
-    have h_zero : volume {t : ℝ | ¬ Psmul t} = 0 := (mul_eq_zero.mp h_mul_zero).resolve_left hcm0
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => Psmul t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  have h_integrand_ae :
-      (fun t => LogPull σ (f - c • g) t * Complex.exp ((1 / 2 : ℝ) * t))
-        =ᵐ[volume]
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) -
-        c * (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    refine (h_ae_t_sub.and h_ae_t_smul).mono ?_
-    intro t hts
-    have ht_sub := hts.1
-    have ht_smul := hts.2
-    simp [LogPull, LogPull_apply, ht_sub, ht_smul, mul_sub, mul_left_comm,
-          mul_comm, mul_assoc]
-  -- The right-hand side is integrable as a difference of integrable functions with scalar multiple.
-  have h_rhs_int : Integrable
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) -
-        c * (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    exact hf_int.sub (hg_int.const_mul c)
-  exact h_rhs_int.congr h_integrand_ae.symm
-
--- Complex measure-theoretic proof involving ENNReal to Real to Complex conversion
-/-- Convert ENNReal norm equality to Complex, handling coercion of binary operations -/
-lemma norm_squared_to_complex_add_sub (σ C : ℝ) (h : Hσ σ)
-    (hC_pos : C > 0)
-    (h_norm : ∫⁻ (x : ℝ) in Set.Ioi 0, ENNReal.ofReal
-      (‖(h : Hσ σ) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume =
-      ENNReal.ofReal (C * ∫ (τ : ℝ), ‖mellinTransform
-        ((h : Hσ σ) : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume)) :
-    Complex.ofReal
-      ((∫⁻ (x : ℝ) in Set.Ioi 0,
-          ENNReal.ofReal (‖(h : Hσ σ) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume).toReal)
-      =
-    Complex.ofReal (C * ∫ τ : ℝ,
-        ‖mellinTransform (((h : Hσ σ) : ℝ → ℂ)) (σ + I * τ)‖ ^ 2 ∂volume) := by
-  -- Convert the ENNReal equality into a real equality via `toReal`,
-  -- then embed both sides into `ℂ` using `Complex.ofReal`.
-  have h_toReal :
-      (∫⁻ x in Set.Ioi (0 : ℝ),
-          ENNReal.ofReal (‖(h : Hσ σ) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume).toReal
-        = C * ∫ τ : ℝ,
-            ‖mellinTransform ((h : Hσ σ) : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume := by
-    have := congrArg ENNReal.toReal h_norm
-    -- Right-hand side is nonnegative, so `toReal (ofReal _) = _` applies
-    have h_nonneg :
-        0 ≤ C * ∫ τ : ℝ,
-          ‖mellinTransform ((h : Hσ σ) : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume := by
-      refine mul_nonneg (le_of_lt hC_pos) ?_
-      refine integral_nonneg ?hpos
-      intro τ
-      exact sq_nonneg _
-    simpa [ENNReal.toReal_ofReal h_nonneg]
-      using this
-  simp [h_toReal]
-
-/-- Mellin transform is linear in the input (addition) on its natural domain.
-For the set integral definition used here, this requires integrability of both
-integrands over `(0,∞)`.
-
-`hf` and `hg` assert integrability of the Mellin integrands for `f` and `g` respectively. -/
-lemma mellinTransform_add
-    (f g : ℝ → ℂ) (s : ℂ)
-    (hf : IntegrableOn (fun t : ℝ => f t * t ^ (s - 1)) (Set.Ioi (0 : ℝ)) volume)
-    (hg : IntegrableOn (fun t : ℝ => g t * t ^ (s - 1)) (Set.Ioi (0 : ℝ)) volume) :
-    mellinTransform (f + g) s = mellinTransform f s + mellinTransform g s := by
-  classical
-  unfold Frourio.mellinTransform
-  -- Use linearity of the set integral under the given integrability hypotheses
-  have hlin := (MeasureTheory.integral_add hf hg)
-  -- Rewrite the integrand `(f+g) * k` as `f*k + g*k` and simplify
-  have h_eq : ∀ t, (f + g) t * t ^ (s - 1) = f t * t ^ (s - 1) + g t * t ^ (s - 1) := by
-    intro t
-    simp [Pi.add_apply]
-    ring
-  simp only [h_eq, hlin]
-
-/-- Mellin transform is linear in the input (subtraction) on its natural domain.
-Requires integrability of both integrands over `(0,∞)`. -/
-lemma mellinTransform_sub
-    (f g : ℝ → ℂ) (s : ℂ)
-    (hf : IntegrableOn (fun t : ℝ => f t * t ^ (s - 1)) (Set.Ioi (0 : ℝ)) volume)
-    (hg : IntegrableOn (fun t : ℝ => g t * t ^ (s - 1)) (Set.Ioi (0 : ℝ)) volume) :
-    mellinTransform (f - g) s = mellinTransform f s - mellinTransform g s := by
-  classical
-  unfold Frourio.mellinTransform
-  have hlin := MeasureTheory.integral_sub hf hg
-  have h_eq : ∀ t, (f - g) t * t ^ (s - 1) = f t * t ^ (s - 1) - g t * t ^ (s - 1) := by
-    intro t
-    simp [Pi.sub_apply]
-    ring
-  simp only [h_eq, hlin]
-
-/-- Mellin transform commutes with scalar multiplication (no extra hypotheses).
-We use linearity of the Bochner integral over the restricted measure. -/
-lemma mellinTransform_smul (c : ℂ) (f : ℝ → ℂ) (s : ℂ) :
-    mellinTransform (c • f) s = c * mellinTransform f s := by
-  classical
-  unfold Frourio.mellinTransform
-  -- Switch to the restricted measure presentation and pull out the scalar
-  have hrewrite :
-      (fun t : ℝ => (c • f) t * (↑t) ^ (s - 1))
-        = (fun t : ℝ => c • (f t * (↑t) ^ (s - 1))) := by
-    funext t
-    simp [smul_eq_mul, mul_left_comm, mul_assoc]
-  have h_integral := MeasureTheory.integral_smul
-      (μ := volume.restrict (Set.Ioi (0 : ℝ)))
-      (c := c)
-      (f := fun t : ℝ => f t * (↑t) ^ (s - 1))
-  rw [hrewrite, h_integral, smul_eq_mul]
-
-/-- Under the weighted L² norm condition, the Mellin integrand is integrable. -/
-lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    IntegrableOn (fun t : ℝ => (f : ℝ → ℂ) t * t ^ (σ + I * τ - 1)) (Set.Ioi 0) := by
-  classical
-  -- Strategy outline:
-  -- 1) Work with the restricted measure on `(0,∞)` and rewrite the goal
-  --    as an `Integrable` statement for `volume.restrict (Ioi 0)`.
-  -- 2) Use the logarithmic change of variables `x = exp t` to relate the
-  --    Mellin integrand `(f x) * x^(σ + iτ - 1)` to
-  --    `LogPull σ f t * exp((1/2) t)` times a unimodular factor `exp(iτ t)`.
-  -- 3) Deduce integrability from the hypothesis `hf_int` and the boundedness
-  --    of the unimodular factor.
-  -- The detailed change-of-variables and a.e. identities are deferred as sorries.
-  -- Reduce to the restricted-measure formulation
-  change Integrable
-    (fun x : ℝ => (f : ℝ → ℂ) x * x ^ (σ + I * τ - 1)) (volume.restrict (Set.Ioi 0)) at *
-  -- Pointwise a.e. identification of the Mellin integrand via `x = exp t`
-  have h_ae_change :
-      (fun x : ℝ => (f : ℝ → ℂ) x * x ^ (σ + I * τ - 1))
-        =ᵐ[volume.restrict (Set.Ioi 0)]
-      (fun x : ℝ =>
-        ((LogPull σ f (Real.log x) * Complex.exp ((1 / 2 : ℝ) * Real.log x))
-          * Complex.exp (Complex.I * (τ : ℝ) * Real.log x)) * (1 / (x : ℂ))) := by
-    -- Skeleton: prove the pointwise identity for `x > 0` using `x = exp t`.
-    refine (ae_restrict_iff' measurableSet_Ioi).2 ?_
-    refine Filter.Eventually.of_forall ?_
-    intro x hx
-    have hxpos : 0 < x := hx
-    -- For x>0, we can rewrite powers via `log` and `exp`.
-    -- Goal: (f x) * x^(σ + I*τ - 1)
-    --   = (LogPull σ f (log x) * exp((1/2) log x)) * exp(i τ log x) * (1/x).
-    -- This follows from `LogPull σ f (log x) = exp((σ - 1/2) log x) * f x` and
-    -- `x^w = exp(w * log x)` for x>0.
-    -- Full algebraic rewriting is deferred.
-    -- Set t = log x and record `exp t = x` for x>0.
-    set t : ℝ := Real.log x with ht
-    have hxexp : Real.exp t = x := by simpa [ht] using Real.exp_log hxpos
-    -- Expand LogPull at t = log x.
-    have h_logpull :
-        LogPull σ f t = (Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ) * (Hσ.toFun f x) := by
-      -- Use `LogPull_apply` and `exp_log`.
-      rw [LogPull_apply]
-      congr 1
-      rw [hxexp]
-    -- Combine the weights: (σ-1/2) and 1/2 to get σ.
-    have h_sigma :
-        (LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t)
-          = (Real.exp (σ * t) : ℂ) * (Hσ.toFun f x) := by
-      -- Rewrite `LogPull` and regroup factors.
-      calc
-        (LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t)
-            = ((Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ) * (Hσ.toFun f x))
-                * Complex.exp ((1 / 2 : ℝ) * t) := by
-                  rw [h_logpull]
-        _ = ((Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ)
-                * Complex.exp ((1 / 2 : ℝ) * t)) * (Hσ.toFun f x) := by
-                  simp [mul_comm, mul_left_comm, mul_assoc]
-        _ = (((Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ)
-                * (Real.exp ((1 / 2 : ℝ) * t) : ℂ))) * (Hσ.toFun f x) := by
-                  -- Convert complex exponential at a real to a real exponential coerced to ℂ
-                  simp only [Complex.ofReal_exp]
-                  ring_nf
-                  simp [mul_comm, mul_left_comm, mul_assoc]
-        _ = (Real.exp (σ * t) : ℂ) * (Hσ.toFun f x) := by
-                  -- Combine the real exponentials using `exp_add` and `ring`.
-                  have hsum : ((σ - (1 / 2 : ℝ)) * t) + ((1 / 2 : ℝ) * t) = σ * t := by
-                    ring
-                  have h_real :
-                      Real.exp ((σ - (1 / 2 : ℝ)) * t) * Real.exp ((1 / 2 : ℝ) * t)
-                        = Real.exp (σ * t) := by
-                    -- From `exp_add : exp (a + b) = exp a * exp b`.
-                    rw [← Real.exp_add, hsum]
-                  have h_complex :
-                      ((Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ)
-                        * (Real.exp ((1 / 2 : ℝ) * t) : ℂ))
-                        = (Real.exp (σ * t) : ℂ) := by
-                    simp only [← Complex.ofReal_mul]
-                    rw [h_real]
-                  simp only [Complex.ofReal_exp]
-                  rw [← Complex.exp_add]
-                  congr 1
-                  push_cast
-                  ring_nf
-    -- Multiply by the unimodular factor exp(i τ t).
-    have h_sigma_tau :
-        ((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-            * Complex.exp (Complex.I * (τ : ℝ) * t)
-          = (Hσ.toFun f x) * Complex.exp ((σ + Complex.I * (τ : ℝ)) * t) := by
-      -- Multiply the identity `h_sigma` by the unimodular factor and regroup.
-      have := congrArg (fun z => z * Complex.exp (Complex.I * (τ : ℝ) * t)) h_sigma
-      -- Reassociate to place `(Hσ.toFun f x)` in front.
-      have h_step :
-          ((Real.exp (σ * t) : ℂ) * (Hσ.toFun f x))
-              * Complex.exp (Complex.I * (τ : ℝ) * t)
-            = (Hσ.toFun f x)
-                * (((Real.exp (σ * t) : ℂ)
-                      * Complex.exp (Complex.I * (τ : ℝ) * t))) := by
-        simp [mul_comm, mul_left_comm, mul_assoc]
-      -- Combine exponentials: `exp(σ t) * exp(i τ t) = exp((σ + i τ) t)`.
-      have h_exp :
-          ((Real.exp (σ * t) : ℂ) * Complex.exp (Complex.I * (τ : ℝ) * t))
-            = Complex.exp ((σ + Complex.I * (τ : ℝ)) * t) := by
-        -- Convert the real exponential to complex exponential and use `exp_add`.
-        have : Complex.exp (σ * t) = (Real.exp (σ * t) : ℂ) := by
-          simp only [Complex.ofReal_exp]
-          congr 1
-          push_cast
-          ring
-        -- Replace and apply `exp_add`.
-        have h' :
-            Complex.exp (σ * t) * Complex.exp (Complex.I * (τ : ℝ) * t)
-                = Complex.exp ((σ * t) + (Complex.I * (τ : ℝ) * t)) := by
-          rw [← Complex.exp_add]
-        -- Rewrite `(σ * t) + (i τ * t) = (σ + i τ) * t` in `ℂ`.
-        have hlin :
-            ((σ * t) + (Complex.I * (τ : ℝ) * t) : ℂ)
-              = ((σ + Complex.I * (τ : ℝ)) * t : ℂ) := by
-          ring_nf
-        -- Assemble the chain.
-        have := by
-          simpa [hlin] using h'
-        simp [this]
-      -- Finish by substituting the combined exponential into `h_step` and `this`.
-      -- Start from the left-hand side using `this`.
-      have hL :
-          ((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-              * Complex.exp (Complex.I * (τ : ℝ) * t)
-            = ((Real.exp (σ * t) : ℂ) * (Hσ.toFun f x))
-                * Complex.exp (Complex.I * (τ : ℝ) * t) := by
-        simpa using this
-      -- Now rewrite via `h_step` and then collapse exponentials via `h_exp`.
-      calc
-        ((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-            * Complex.exp (Complex.I * (τ : ℝ) * t)
-            = ((Real.exp (σ * t) : ℂ) * (Hσ.toFun f x))
-                * Complex.exp (Complex.I * (τ : ℝ) * t) := hL
-        _ = (Hσ.toFun f x)
-                * (((Real.exp (σ * t) : ℂ)
-                      * Complex.exp (Complex.I * (τ : ℝ) * t))) := h_step
-        _ = (Hσ.toFun f x) * Complex.exp ((σ + Complex.I * (τ : ℝ)) * t) := by
-              rw [h_exp]
-    -- Divide by x = exp t, i.e. multiply by exp(-t), to get (σ + iτ - 1).
-    have h_sigma_tau_one :
-        (((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-            * Complex.exp (Complex.I * (τ : ℝ) * t)) * (1 / (x : ℂ))
-          = (Hσ.toFun f x) * Complex.exp (((σ + Complex.I * (τ : ℝ)) - 1) * t) := by
-      -- Multiply `h_sigma_tau` by `1/x` and regroup factors.
-      have := congrArg (fun z => z * (1 / (x : ℂ))) h_sigma_tau
-      have h_step :
-          ((Hσ.toFun f x) * Complex.exp ((σ + Complex.I * (τ : ℝ)) * t))
-              * (1 / (x : ℂ))
-            = (Hσ.toFun f x)
-                * (Complex.exp ((σ + Complex.I * (τ : ℝ)) * t) * (1 / (x : ℂ))) := by
-        simp [mul_comm, mul_left_comm, mul_assoc]
-      -- Express `1/x` as `exp (−t)` using `x = exp t` for `x>0`.
-      have hxRC : (Real.exp t : ℂ) = (x : ℂ) := by
-        simpa using congrArg (fun r : ℝ => (r : ℂ)) hxexp
-      have hxexpC : Complex.exp (t : ℂ) = (x : ℂ) := by
-        simpa [Complex.ofReal_exp] using hxRC
-      have hx_inv : (1 / (x : ℂ)) = Complex.exp (-(t : ℂ)) := by
-        have h' : (x : ℂ) = Complex.exp (t : ℂ) := by simpa using hxexpC.symm
-        have hinv := congrArg Inv.inv h'
-        simpa [one_div, Complex.exp_neg] using hinv
-      -- Combine exponentials: `exp((σ + iτ)t) * exp(−t) = exp(((σ + iτ) − 1) t)`.
-      have h_exp :
-          Complex.exp ((σ + Complex.I * (τ : ℝ)) * t) * Complex.exp (-(t : ℂ))
-            = Complex.exp (((σ + Complex.I * (τ : ℝ)) - 1) * t) := by
-        rw [← Complex.exp_add]
-        congr 1
-        ring_nf
-      -- Assemble the pieces.
-      calc
-        (((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-            * Complex.exp (Complex.I * (τ : ℝ) * t)) * (1 / (x : ℂ))
-            = ((Hσ.toFun f x) * Complex.exp ((σ + Complex.I * (τ : ℝ)) * t))
-                * (1 / (x : ℂ)) := by simpa using this
-        _ = (Hσ.toFun f x)
-                * (Complex.exp ((σ + Complex.I * (τ : ℝ)) * t) * (1 / (x : ℂ))) := h_step
-        _ = (Hσ.toFun f x)
-                * (Complex.exp ((σ + Complex.I * (τ : ℝ)) * t)
-                    * Complex.exp (-(t : ℂ))) := by simp [hx_inv]
-        _ = (Hσ.toFun f x) * Complex.exp (((σ + Complex.I * (τ : ℝ)) - 1) * t) := by
-              simp [h_exp]
-    -- Identify the result with `(f x) * x^(σ + iτ - 1)` via `x = exp t`.
-    -- This step uses the complex-power identity `x^w = exp(w * log x)` for x>0.
-    have h_pow :
-        (Hσ.toFun f x) * Complex.exp (((σ + Complex.I * (τ : ℝ)) - 1) * t)
-          = (f : ℝ → ℂ) x * x ^ (σ + I * τ - 1) := by
-      -- Identify `exp(((σ + iτ) - 1) * t)` with `(x : ℂ)^((σ + iτ) - 1)` using `t = log x`.
-      have hx0 : (x : ℂ) ≠ 0 := by exact_mod_cast (ne_of_gt hxpos)
-      have hlogC : Complex.log (x : ℂ) = (t : ℂ) := by
-        -- log of positive real equals real log
-        have : Complex.log (x : ℂ) = (Real.log x : ℂ) :=
-          (Complex.ofReal_log (le_of_lt hxpos)).symm
-        simpa [ht] using this
-      have hcpow :
-          (x : ℂ) ^ ((σ + Complex.I * (τ : ℝ)) - 1)
-            = Complex.exp ((((σ + Complex.I * (τ : ℝ)) - 1) : ℂ)
-                * Complex.log (x : ℂ)) := by
-        -- cpow in terms of exp and log for nonzero base
-        rw [Complex.cpow_def]
-        simp only [if_neg hx0]
-        congr 1
-        ring
-      have h_exp_eq :
-          Complex.exp (((σ + Complex.I * (τ : ℝ)) - 1) * (t : ℂ))
-            = Complex.exp ((((σ + Complex.I * (τ : ℝ)) - 1) : ℂ)
-                * Complex.log (x : ℂ)) := by
-        -- Replace `log (x)` by `t`
-        rw [hlogC]
-      -- Conclude by substituting back and simplifying the front factor
-      have h_exp_to_pow : Complex.exp (((σ + Complex.I * (τ : ℝ)) - 1) * t)
-            = (x : ℂ) ^ ((σ + Complex.I * (τ : ℝ)) - 1) := by
-        -- coerce `t` to `ℂ` in the exponent equality
-        have h_cast : Complex.exp (((σ + Complex.I * (τ : ℝ)) - 1) * t) =
-                      Complex.exp (((σ + Complex.I * (τ : ℝ)) - 1) * (t : ℂ)) := by
-          rfl
-        rw [h_cast, h_exp_eq, hcpow]
-      -- Replace `Hσ.toFun f x` with `(f : ℝ → ℂ) x` definitionally
-      rw [h_exp_to_pow]
-      rfl
-    -- Chain the equalities to conclude the a.e. identity at `x`.
-    have :
-        ((LogPull σ f (Real.log x) * Complex.exp ((1 / 2 : ℝ) * Real.log x))
-            * Complex.exp (Complex.I * (τ : ℝ) * Real.log x)) * (1 / (x : ℂ))
-          = (f : ℝ → ℂ) x * x ^ (σ + I * τ - 1) := by
-      -- Replace `Real.log x` by `t` and use the previous steps.
-      simpa [ht] using (h_sigma_tau_one.trans h_pow)
-    -- Flip sides to match the target orientation.
-    simpa [mul_comm, mul_left_comm, mul_assoc]
-      using this.symm
-  -- It suffices to prove integrability of the RHS.
-  -- Prove integrability for the RHS, then transfer along `h_ae_change`.
-  have h_rhs_int :
-      Integrable
-        (fun x : ℝ =>
-          ((LogPull σ f (Real.log x) * Complex.exp ((1 / 2 : ℝ) * Real.log x))
-            * Complex.exp (Complex.I * (τ : ℝ) * Real.log x)) * (1 / (x : ℂ)))
-        (volume.restrict (Set.Ioi 0)) := by
-    classical
-    -- Abbreviations for clarity
-    set g : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hg_def
-    set J : ℝ → ℂ :=
-      fun x => g (Real.log x) * Complex.exp (Complex.I * (τ : ℝ) * Real.log x) with hJ_def
-
-    -- Step 1: `g` is integrable on ℝ by hypothesis; multiplying by a unimodular
-    -- factor preserves integrability.
-    have hg_int : Integrable g := by simpa [hg_def] using hf_int
-    have hgτ_int : Integrable (fun t => g t * Complex.exp (Complex.I * (τ : ℝ) * t)) := by
-      -- Define the phase factor and record measurability
-      let phase : ℝ → ℂ := fun t => Complex.exp (Complex.I * (τ : ℝ) * (t : ℂ))
-      have hphase_cont : Continuous phase := by
-        -- phase t = exp(I * ((τ : ℂ) * (t : ℂ)))
-        have h1 : Continuous fun t : ℝ => (t : ℂ) := Complex.continuous_ofReal
-        have h2 : Continuous fun t : ℝ => (τ : ℂ) * (t : ℂ) := continuous_const.mul h1
-        have h3 : Continuous fun t : ℝ => Complex.I * ((τ : ℂ) * (t : ℂ)) :=
-          continuous_const.mul h2
-        simpa [phase, mul_assoc] using Complex.continuous_exp.comp h3
-      have hphase_aesm : AEStronglyMeasurable phase (volume : Measure ℝ) :=
-        hphase_cont.measurable.aestronglyMeasurable
-      -- Measurability of the product
-      have h_prod_aesm :
-          AEStronglyMeasurable (fun t : ℝ => g t * phase t) (volume : Measure ℝ) := by
-        apply AEStronglyMeasurable.mul
-        · exact (hg_int.aestronglyMeasurable)
-        · exact hphase_aesm
-      -- Norm of the phase is 1; use this to inherit integrability from g
-      have h_norm_eq : (fun t : ℝ => ‖g t * phase t‖) = fun t => ‖g t‖ := by
-        funext t
-        have : ‖phase t‖ = (1 : ℝ) := by
-          -- Use the helper lemma from ZakMellin
-          simpa [phase] using phase_abs_one (ξ := τ) (t := t)
-        simp [phase, norm_mul, this]
-      have h_norm_int : Integrable (fun t : ℝ => ‖g t * phase t‖) := by
-        rw [h_norm_eq]
-        exact hg_int.norm
-      -- Package into Bochner integrability
-      have h_hasFinInt : HasFiniteIntegral
-          (fun t => g t * Complex.exp (Complex.I * (τ : ℝ) * t)) := by
-        have h_norm_prod : ∀ a, ‖g a * Complex.exp (Complex.I * (τ : ℝ) * a)‖ = ‖g a‖ := by
-          intro a
-          have h_norm_phase : ‖Complex.exp (Complex.I * (τ : ℝ) * a)‖ = 1 := by
-            simpa [phase] using phase_abs_one (ξ := τ) (t := a)
-          simp [norm_mul, h_norm_phase]
-        rw [HasFiniteIntegral]
-        calc ∫⁻ a, ‖g a * Complex.exp (Complex.I * (τ : ℝ) * a)‖₊
-            = ∫⁻ a, ‖g a‖₊ := by
-                congr 1
-                funext a
-                rw [nnnorm_mul]
-                have h_nnnorm_phase : ‖Complex.exp (Complex.I * (τ : ℝ) * a)‖₊ = 1 := by
-                  ext
-                  simpa [phase] using phase_abs_one (ξ := τ) (t := a)
-                simp [h_nnnorm_phase]
-          _ < ⊤ := hg_int.hasFiniteIntegral
-      exact ⟨h_prod_aesm, h_hasFinInt⟩
-
-    -- Step 2: Transport integrability from ℝ to (0,∞) via the pushforward of mulHaar.
-    -- We first observe that under `log`, mulHaar pushes to a multiple of Lebesgue.
-    obtain ⟨c, hc0, hcTop, h_map⟩ := mulHaar_pushforward_log
-
-    -- From `hgτ_int` and the pushforward identity, deduce that
-    -- `J` is integrable with respect to `mulHaar` on (0,∞).
-    have hJ_mulHaar_int : Integrable J mulHaar := by
-      -- Strategy: view `J = (t ↦ g t * exp(i τ t)) ∘ log` and use
-      -- `mulHaar_pushforward_log` to transfer integrability from Lebesgue to mulHaar.
-      -- 1) a.e.-strong measurability of `J` (composition of measurable pieces)
-      have hJ_aesm : AEStronglyMeasurable J mulHaar := by
-        -- Measurability of `g`
-        have h_g_meas : Measurable g := by
-          -- g t = LogPull σ f t * exp((1/2) t)
-          have h_exp_meas : Measurable (fun t : ℝ =>
-              Complex.exp ((1 / 2 : ℝ) * (t : ℝ))) := by
-            have hlin : Measurable fun t : ℝ => ((1 / 2 : ℝ) : ℂ) * (t : ℂ) := by
-              refine measurable_const.mul ?_
-              exact Complex.measurable_ofReal
-            -- apply measurability of exp
-            exact Complex.measurable_exp.comp hlin
-          -- LogPull measurability is available
-          have h_logpull_meas : Measurable (LogPull σ f) := LogPull_measurable σ f
-          -- Product of measurable functions is measurable
-          simpa [hg_def] using h_logpull_meas.mul h_exp_meas
-        -- Measurability of the phase factor `t ↦ exp(i τ t)`
-        let phase : ℝ → ℂ := fun t => Complex.exp (Complex.I * (τ : ℝ) * (t : ℂ))
-        have h_phase_meas : Measurable phase := by
-          have h1 : Measurable fun t : ℝ => (t : ℂ) := Complex.measurable_ofReal
-          have h3 : Measurable fun t : ℝ => Complex.I * (τ : ℂ) * (t : ℂ) := by
-            refine measurable_const.mul ?_
-            exact h1
-          exact Complex.measurable_exp.comp h3
-        -- Compose both with `log`, which is measurable
-        have h_log_meas : Measurable Real.log := Real.measurable_log
-        have h_comp_g : Measurable (fun x : ℝ => g (Real.log x)) := h_g_meas.comp h_log_meas
-        have h_comp_phase : Measurable (fun x : ℝ => phase (Real.log x)) :=
-          h_phase_meas.comp h_log_meas
-        -- Product of the two composed pieces gives measurability of `J`
-        have hJ_meas : Measurable J := by
-          simpa [J, hJ_def] using h_comp_g.mul h_comp_phase
-        -- Convert to a.e.-strong measurability for the specific measure
-        exact hJ_meas.aestronglyMeasurable
-      -- 2) integrability of the norm via change of variables using `h_map` and `hgτ_int`
-      have hJ_norm : Integrable (fun x => ‖J x‖) mulHaar := by
-        -- Step A: simplify the norm using |exp(i τ log x)| = 1 (mulHaar-a.e. x>0)
-        have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-          simpa [mulHaar] using
-            (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-              (s := Set.Ioi (0 : ℝ)))
-        have h_norm_ae :
-            (fun x : ℝ => ‖J x‖) =ᵐ[mulHaar]
-            (fun x : ℝ => ‖g (Real.log x)‖) := by
-          refine h_pos.mono ?_
-          intro x hx
-          have hphase : ‖Complex.exp (Complex.I * (τ : ℝ) * Real.log x)‖ = 1 := by
-            simpa using phase_abs_one (ξ := τ) (t := Real.log x)
-          have hJ : J x = g (Real.log x) * Complex.exp (Complex.I * (τ : ℝ) * Real.log x) := by
-            simp [J, hJ_def]
-          simp [hJ, norm_mul, hphase]
-        -- Step B: use the pushforward identity of mulHaar under log
-        -- to transfer integrability of `t ↦ ‖g t‖` (which holds by `hg_int.norm`).
-        have h_int_map : Integrable (fun t : ℝ => ‖g t‖)
-            (Measure.map Real.log mulHaar) := by
-          -- Rewrite the pushforward as a scaled Lebesgue measure and lift integrability.
-          have h_base : Integrable (fun t : ℝ => ‖g t‖) volume := hg_int.norm
-          -- Scaling by a finite constant preserves integrability.
-          have h_smul : Integrable (fun t : ℝ => ‖g t‖) (c • volume) := by
-            -- a.e.-strong measurability under the scaled measure
-            have h_g_meas : Measurable g := by
-              -- g t = LogPull σ f t * exp((1/2) t)
-              have h_exp_meas : Measurable (fun t : ℝ =>
-                  Complex.exp ((1 / 2 : ℝ) * (t : ℝ))) := by
-                have hlin : Measurable fun t : ℝ => ((1 / 2 : ℝ) : ℂ) * (t : ℂ) := by
-                  refine measurable_const.mul ?_
-                  exact Complex.measurable_ofReal
-                -- apply measurability of exp
-                exact Complex.measurable_exp.comp hlin
-              have h_logpull_meas : Measurable (LogPull σ f) := LogPull_measurable σ f
-              simpa [hg_def] using h_logpull_meas.mul h_exp_meas
-            have h_meas_norm : AEStronglyMeasurable (fun t : ℝ => ‖g t‖) (c • volume) :=
-              (h_g_meas.norm).aestronglyMeasurable
-            -- finiteness of the integral under the scaled measure via lintegral_smul_measure
-            have h_base_fin :
-                (∫⁻ t, ‖(fun t : ℝ => ‖g t‖) t‖₊ ∂volume) < ∞ := by
-              have h_int : HasFiniteIntegral (fun t : ℝ => ‖g t‖) volume := h_base.2
-              simp only [HasFiniteIntegral] at h_int
-              simpa [nnnorm_norm] using h_int
-            have h_eval :
-                (∫⁻ t, ‖(fun t : ℝ => ‖g t‖) t‖₊ ∂(c • volume))
-                  = c * ∫⁻ t, ‖(fun t : ℝ => ‖g t‖) t‖₊ ∂volume := by
-              simp [lintegral_smul_measure, mul_comm, mul_left_comm, mul_assoc]
-            have h_c_lt_top : c < ∞ := lt_of_le_of_ne le_top hcTop
-            have h_fin :
-                (∫⁻ t, ‖(fun t : ℝ => ‖g t‖) t‖₊ ∂(c • volume)) < ∞ := by
-              -- use monotonicity of < ∞ under multiplication by finite c
-              simpa [h_eval] using ENNReal.mul_lt_top h_c_lt_top h_base_fin
-            exact ⟨h_meas_norm, by simpa [HasFiniteIntegral] using h_fin⟩
-          have h_mulHaar_eq : mulHaar = mulHaar.restrict (Set.Ioi 0) := by
-            ext s hs
-            simp [mulHaar, Measure.restrict_apply hs]
-          rw [h_mulHaar_eq, h_map]
-          exact h_smul
-        -- Convert from the map-measure statement back to mulHaar via composition f ∘ log
-        have h_back : Integrable (fun x : ℝ => ‖g (Real.log x)‖) mulHaar := by
-          -- a.e.-strong measurability of the composed norm
-          have h_g_meas : Measurable g := by
-            have h_exp_meas : Measurable (fun t : ℝ => Complex.exp ((1 / 2 : ℝ) * (t : ℝ))) := by
-              have hlin : Measurable fun t : ℝ => ((1 / 2 : ℝ) : ℂ) * (t : ℂ) := by
-                refine measurable_const.mul ?_
-                exact Complex.measurable_ofReal
-              exact Complex.measurable_exp.comp hlin
-            have h_logpull_meas : Measurable (LogPull σ f) := LogPull_measurable σ f
-            simpa [hg_def] using h_logpull_meas.mul h_exp_meas
-          have h_comp_meas : Measurable (fun x : ℝ => g (Real.log x)) :=
-            h_g_meas.comp Real.measurable_log
-          have h_back_aesm : AEStronglyMeasurable (fun x : ℝ => ‖g (Real.log x)‖) mulHaar :=
-            (h_comp_meas.norm).aestronglyMeasurable
-          -- finiteness of the integral via `lintegral_map'` and `h_int_map.hasFiniteIntegral`
-          have hlog_aemeas : AEMeasurable Real.log mulHaar :=
-            Real.measurable_log.aemeasurable
-          have hA : AEMeasurable (fun t : ℝ => ENNReal.ofReal (‖g t‖))
-              (Measure.map Real.log mulHaar) :=
-            (h_int_map.aestronglyMeasurable.aemeasurable).ennreal_ofReal
-          have h_map_eq :=
-            lintegral_map' (μ := mulHaar)
-              (f := fun t : ℝ => ENNReal.ofReal (‖g t‖))
-              (g := Real.log) hA hlog_aemeas
-          -- The RHS is finite by `h_int_map`.
-          have h_rhs_fin :
-              (∫⁻ t, ENNReal.ofReal (‖g t‖) ∂(Measure.map Real.log mulHaar)) < ∞ := by
-            simpa [HasFiniteIntegral] using h_int_map.hasFiniteIntegral
-          -- Transport finiteness to the LHS using `h_map_eq`.
-          have h_lhs_fin :
-              (∫⁻ x, ENNReal.ofReal (‖g (Real.log x)‖) ∂mulHaar) < ∞ := by
-            rw [← h_map_eq]
-            simp only
-            exact h_rhs_fin
-          -- Package as Bochner integrability
-          exact ⟨h_back_aesm, by simpa [HasFiniteIntegral] using h_lhs_fin⟩
-        -- Finish by congruence of the integrands a.e.
-        exact (Integrable.congr h_back h_norm_ae.symm)
-      have hJ_hasFin : HasFiniteIntegral J mulHaar := by
-        rw [HasFiniteIntegral]
-        calc (∫⁻ a, ‖J a‖ₑ ∂mulHaar)
-            = (∫⁻ a, (‖J a‖₊ : ℝ≥0∞) ∂mulHaar) := by rfl
-          _ = (∫⁻ a, ‖(fun x => ‖J x‖) a‖₊ ∂mulHaar) := by
-                congr 1; ext a
-                simp [nnnorm_norm]
-          _ < ∞ := hJ_norm.hasFiniteIntegral
-      exact ⟨hJ_aesm, hJ_hasFin⟩
-
-    -- Step 3: Convert integrability under `mulHaar` to integrability under
-    -- `volume.restrict (Ioi 0)` with the density `1/x`.
-    have h_eq_meas : mulHaar = volume.withDensity (fun x => ENNReal.ofReal (1 / x)) :=
-      mulHaar_eq_volume_div_x
-
-    -- Under withDensity, integrability of `J` corresponds to integrability of
-    -- `J * (1/x)` under Lebesgue on `(0,∞)`; match our target integrand via `hJ_def`.
-    -- Final measure-conversion step left as a placeholder.
-    have h_target :
-        Integrable (fun x : ℝ => J x * (1 / (x : ℂ))) (volume.restrict (Set.Ioi 0)) := by
-      -- Convert using `h_eq_meas` and the standard `withDensity` characterization.
-      -- Also use that the density vanishes off `(0,∞)` so restriction is harmless.
-      classical
-      -- a.e.-strong measurability of the product `J x * (1/x)` on `(0,∞)`
-      -- Measurability of `J` (reconstruct as in hJ_aesm)
-      have h_g_meas : Measurable g := by
-        have h_exp_meas : Measurable (fun t : ℝ => Complex.exp ((1 / 2 : ℝ) * (t : ℝ))) := by
-          have hlin : Measurable fun t : ℝ => ((1 / 2 : ℝ) : ℂ) * (t : ℂ) := by
-            refine measurable_const.mul ?_
-            exact Complex.measurable_ofReal
-          exact Complex.measurable_exp.comp hlin
-        have h_logpull_meas : Measurable (LogPull σ f) := LogPull_measurable σ f
-        simpa [hg_def] using h_logpull_meas.mul h_exp_meas
-      have h_phase_meas : Measurable
-          (fun t : ℝ => Complex.exp (Complex.I * (τ : ℝ) * (t : ℂ))) := by
-        have h1 : Measurable fun t : ℝ => (t : ℂ) := Complex.measurable_ofReal
-        have h2 : Measurable fun t : ℝ => Complex.I * (τ : ℂ) * (t : ℂ) := by
-          refine measurable_const.mul ?_
-          exact h1
-        show Measurable fun t : ℝ => Complex.exp (Complex.I * (τ : ℝ) * (t : ℂ))
-        simpa [mul_assoc] using Complex.measurable_exp.comp h2
-      have hJ_meas : Measurable J := by
-        have : J = fun x => g (Real.log x) * Complex.exp (Complex.I * (τ : ℝ) * Real.log x) := by
-          funext x; simp [J, hJ_def]
-        simpa [this] using (h_g_meas.comp Real.measurable_log).mul
-          (h_phase_meas.comp Real.measurable_log)
-      have h_inv_meas : Measurable (fun x : ℝ => (1 / (x : ℂ))) := by
-        -- measurability via ofReal ∘ inv
-        have h_invR : Measurable fun x : ℝ => (1 / x : ℝ) := by
-          simpa [one_div] using measurable_inv
-        show Measurable fun x : ℝ => (1 / (x : ℂ))
-        convert Complex.measurable_ofReal.comp h_invR using 1
-        ext x
-        simp [Function.comp_apply]
-      have h_prod_aesm : AEStronglyMeasurable
-          (fun x : ℝ => J x * (1 / (x : ℂ))) (volume.restrict (Set.Ioi 0)) := by
-        exact (hJ_meas.mul h_inv_meas).aestronglyMeasurable
-
-      -- Finite integral: compare the lintegral of the norm with the withDensity expression
-      -- First, rewrite the norm pointwise on `(0,∞)`.
-      have h_norm_ae :
-          (fun x : ℝ => (‖J x * (1 / (x : ℂ))‖₊ : ℝ≥0∞))
-            =ᵐ[volume.restrict (Set.Ioi 0)]
-          (fun x : ℝ => (‖J x‖₊ : ℝ≥0∞) * ENNReal.ofReal (1 / x)) := by
-        refine (ae_restrict_iff' measurableSet_Ioi).2 ?_
-        refine Filter.Eventually.of_forall ?_
-        intro x hx
-        have hxpos : 0 < x := hx
-        have h_norm_inv : ‖(1 / (x : ℂ))‖ = (1 / x) := by
-          -- For x>0, the norm equals the absolute value, which is 1/x
-          simp only [one_div]
-          rw [norm_inv, Complex.norm_real]
-          simp [abs_of_pos hxpos]
-        -- move to ℝ≥0∞ via `coe_nnnorm_mul` and evaluate the scalar's norm
-        have hcoe :
-            ((‖J x * (1 / (x : ℂ))‖₊ : ℝ≥0∞))
-              = ((‖J x‖₊ : ℝ≥0∞) * (‖(1 / (x : ℂ))‖₊ : ℝ≥0∞)) := by
-          simp
-        -- Convert the scalar nnnorm to ENNReal.ofReal (1/x)
-        have h_scalar : (‖(1 / (x : ℂ))‖₊ : ℝ≥0∞) = ENNReal.ofReal (1 / x) := by
-          -- coerce the equality of real norms to ENNReal via ofReal
-          have h_nonneg : 0 ≤ 1 / x := by
-            rw [one_div]
-            exact inv_nonneg.mpr (le_of_lt hxpos)
-          rw [ENNReal.ofReal]
-          congr 1
-          rw [Real.toNNReal_of_nonneg h_nonneg]
-          ext
-          simp [h_norm_inv, le_of_lt hxpos]
-        simp only
-        rw [hcoe, h_scalar]
-
-      -- Now compare lintegrals using `lintegral_mulHaar_expand` with g := ofReal ‖J x‖.
-      have hJ_fin : HasFiniteIntegral J mulHaar := hJ_mulHaar_int.hasFiniteIntegral
-      have h_rhs_fin :
-          (∫⁻ x in Set.Ioi 0, (ENNReal.ofReal (‖J x‖)) * ENNReal.ofReal (1 / x) ∂volume) < ∞ := by
-        -- express via the mulHaar expansion
-        -- Measurability of the integrand on the right
-        have h_meas_en : Measurable (fun x : ℝ => ENNReal.ofReal (‖J x‖)) := by
-          have h_norm_meas : Measurable (fun x => ‖J x‖) :=
-            (hJ_meas.norm)
-          exact Measurable.ennreal_ofReal h_norm_meas
-        -- Relate to lintegral over mulHaar of ENNReal.ofReal ‖J x‖
-        have h_eq := lintegral_mulHaar_expand
-          (g := fun x => ENNReal.ofReal (‖J x‖)) h_meas_en
-        -- Finite because J integrable under mulHaar
-        have h_left_fin :
-            (∫⁻ x, ENNReal.ofReal (‖J x‖) ∂mulHaar) < ∞ := by
-          simpa [HasFiniteIntegral] using hJ_fin
-        -- conclude finiteness of the RHS using equality h_eq
-        rw [← h_eq]
-        exact h_left_fin
-
-      -- Bridge from ENNReal.ofReal ‖J x‖ to nnnorm using `h_norm_ae`.
-      have h_fin' :
-          (∫⁻ x in Set.Ioi 0, (‖J x * (1 / (x : ℂ))‖₊ : ℝ≥0∞) ∂volume) < ∞ := by
-        -- use AE equality of integrands
-        have := h_rhs_fin
-        -- Convert ENNReal.ofReal ‖J x‖ to ↑‖J x‖₊
-        have h_ofReal_eq : ∀ x, ENNReal.ofReal (‖J x‖) = (‖J x‖₊ : ℝ≥0∞) := by
-          intro x
-          rw [ENNReal.ofReal, Real.toNNReal_of_nonneg (norm_nonneg _)]
-          rfl
-        have this' : (∫⁻ x in Set.Ioi 0, (‖J x‖₊ : ℝ≥0∞) * ENNReal.ofReal (1 / x) ∂volume) < ∞ := by
-          convert this using 2
-          ext x
-          rw [← h_ofReal_eq]
-        -- Convert the RHS integrand to match using `h_norm_ae` and product commutativity
-        -- First, rewrite target using `lintegral_congr_ae`.
-        have h_congr :=
-          lintegral_congr_ae (μ := volume.restrict (Set.Ioi 0)) h_norm_ae
-        -- Thus finiteness transfers across equal integrands a.e.
-        rw [h_congr]
-        exact this'
-
-      -- Package as Bochner integrability on the restricted measure.
-      refine ⟨h_prod_aesm, ?_⟩
-      -- Interpret the finiteness in terms of `HasFiniteIntegral`.
-      simpa [HasFiniteIntegral]
-        using h_fin'
-
-    -- Rewrite back in terms of the original expression and conclude.
-    simpa [J, hJ_def, hg_def, mul_left_comm, mul_comm, mul_assoc]
-      using h_target
-  exact Integrable.congr h_rhs_int h_ae_change.symm
 
 /-- Integrability is preserved under scalar multiplication -/
 lemma mellin_integrable_smul (σ : ℝ) (f : Hσ σ) (c : ℂ) (τ : ℝ)
@@ -1419,6 +47,745 @@ lemma mellin_integrable_smul (σ : ℝ) (f : Hσ σ) (c : ℂ) (τ : ℝ)
       intro t; simp [Pi.smul_apply, mul_comm, mul_left_comm, mul_assoc])
   -- Conclude integrability for the smul integrand.
   exact (Integrable.congr h_const h_ae.symm)
+
+/-- Integrability of the squared norm of a rescaled Fourier integral.
+Given `gf` with Fourier integral in L², the rescaled function
+`τ ↦ ‖fourierIntegral gf (-τ / (2π))‖²` is integrable. -/
+lemma integrable_fourierIntegral_rescale_sq_norm
+    (gf : ℝ → ℂ)
+    (hFI_L2 : MemLp (fun ξ : ℝ => fourierIntegral gf ξ) 2 volume)
+    (h_fourier_meas : AEStronglyMeasurable (fun ξ : ℝ => fourierIntegral gf ξ) volume)
+    (h_comp_meas : AEStronglyMeasurable
+        (fun τ : ℝ => fourierIntegral gf (-τ / (2 * Real.pi))) volume) :
+    Integrable (fun τ : ℝ => ‖fourierIntegral gf (-τ / (2 * Real.pi))‖ ^ 2) volume := by
+  classical
+  -- Step 1: use L²-membership of ξ ↦ fourierIntegral gf ξ to get
+  -- integrability of its squared norm in ξ.
+  have h_unscaled_int :
+      Integrable (fun ξ : ℝ => ‖fourierIntegral gf ξ‖ ^ 2) volume :=
+    (memLp_two_iff_integrable_sq_norm (μ := volume)
+      (f := fun ξ : ℝ => fourierIntegral gf ξ) h_fourier_meas).1 hFI_L2
+  -- Step 2: establish a.e.-strong measurability for the squared norm after rescaling.
+  have h_sq_meas : AEStronglyMeasurable
+      (fun τ : ℝ => ‖fourierIntegral gf (-τ / (2 * Real.pi))‖ ^ 2) volume := by
+    -- Measurability follows from h_comp_meas via norm and continuous pow.
+    exact (continuous_pow 2).aestronglyMeasurable.comp_aemeasurable
+      (h_comp_meas.norm.aemeasurable)
+  -- Step 3: reduce finiteness to the unscaled side via the rescaling identity
+  -- ∫τ ‖FI(gf)(-τ/(2π))‖² = (2π) ∫ξ ‖FI(gf)(ξ)‖².
+  -- Using h_unscaled_int, the RHS is finite, hence the LHS is finite as well.
+  refine ⟨h_sq_meas, ?_⟩
+  -- Nonnegativity of the integrand allows working with (real) integrals.
+  have h_nonneg :
+      (∀ τ : ℝ, 0 ≤ ‖fourierIntegral gf (-τ / (2 * Real.pi))‖ ^ 2) := by
+    intro τ; simp
+  -- Name the two integrals for clarity and apply the rescaling formula.
+  set Iτ : ℝ := ∫ τ : ℝ, ‖fourierIntegral gf (-τ / (2 * Real.pi))‖ ^ 2 with hIτ
+  set Iξ : ℝ := ∫ ξ : ℝ, ‖fourierIntegral gf ξ‖ ^ 2 with hIξ
+  have h_rescale : Iτ = (2 * Real.pi) * Iξ := by
+    rw [hIτ, hIξ]
+    -- Align any potential `𝓕` notation (Real.fourierIntegral) with `fourierIntegral`.
+    have h := integral_fourierIntegral_rescale_sq gf
+    simp [fourierIntegral_eq_real] at h
+    simpa using h
+  -- Finiteness of the unscaled side from L²-membership.
+  have h_unscaled_fin : HasFiniteIntegral (fun ξ : ℝ => ‖fourierIntegral gf ξ‖ ^ 2) :=
+    h_unscaled_int.hasFiniteIntegral
+  -- Convert finiteness across the rescaling identity to obtain the target.
+  -- The right-hand side is finite; hence so is the left-hand side.
+  -- Package as `HasFiniteIntegral` for the τ-integrand.
+  -- Strategy skeleton:
+  -- 1) Work with nonnegativity to switch to `lintegral` via `hasFiniteIntegral_iff_ofReal`.
+  -- 2) Use change of variables on the lintegral side to relate τ- and ξ-integrals.
+  -- 3) Conclude from `h_unscaled_fin` (the ξ-side finiteness).
+
+  -- Preparations: nonnegativity a.e. for both ξ- and τ-side functions.
+  have h_nonneg_ae_τ :
+      0 ≤ᵐ[volume] fun τ : ℝ => ‖fourierIntegral gf (-τ / (2 * Real.pi))‖ ^ 2 :=
+    Filter.Eventually.of_forall (by intro τ; simp)
+  have h_nonneg_ae_ξ :
+      0 ≤ᵐ[volume] fun ξ : ℝ => ‖fourierIntegral gf ξ‖ ^ 2 :=
+    Filter.Eventually.of_forall (by intro ξ; simp)
+
+  -- Abbreviations for the two nonnegative functions.
+  set Fτ : ℝ → ℝ := fun τ => ‖fourierIntegral gf (-τ / (2 * Real.pi))‖ ^ 2 with hFτ
+  set Fξ : ℝ → ℝ := fun ξ => ‖fourierIntegral gf ξ‖ ^ 2 with hFξ
+
+  -- Convert ξ-side `HasFiniteIntegral` to a `lintegral` bound.
+  have h_lint_ξ_lt_top :
+      (∫⁻ ξ : ℝ, ENNReal.ofReal (Fξ ξ) ∂volume) < ∞ := by
+    -- direct from `h_unscaled_fin` using nonnegativity
+    have := (hasFiniteIntegral_iff_ofReal (μ := volume)
+      (f := fun ξ : ℝ => Fξ ξ) h_nonneg_ae_ξ).1 h_unscaled_fin
+    simpa [Fξ, hFξ] using this
+
+  -- Target: τ-side `HasFiniteIntegral` via the same equivalence.
+  refine (hasFiniteIntegral_iff_ofReal (μ := volume)
+      (f := fun τ : ℝ => Fτ τ) h_nonneg_ae_τ).2 ?_
+
+  -- Change of variables on the lintegral side (skeleton step):
+  -- One can show the exact scaling identity at the level of lintegrals:
+  --   ∫⁻ τ, ofReal (Fτ τ) = ofReal (|(-1 / (2π))⁻¹|) * ∫⁻ ξ, ofReal (Fξ ξ),
+  -- by applying the change of variables τ ↦ (-1 / (2π)) * τ.
+  -- This is `lintegral_comp_mul_left`.
+  have h_a_ne : ((-1 : ℝ) / (2 * Real.pi)) ≠ 0 := by
+    have h2π : (2 * Real.pi) ≠ 0 := by
+      have : (2 : ℝ) ≠ 0 := by norm_num
+      exact mul_ne_zero this Real.pi_ne_zero
+    have h₁ : (-1 : ℝ) ≠ 0 := by norm_num
+    simpa [div_eq_mul_inv] using mul_ne_zero h₁ (inv_ne_zero h2π)
+  have h_scale :
+      (∫⁻ τ : ℝ, ENNReal.ofReal (Fτ τ) ∂volume)
+        = (ENNReal.ofReal (|(-1 / (2 * Real.pi))⁻¹|)) *
+            (∫⁻ ξ : ℝ, ENNReal.ofReal (Fξ ξ) ∂volume) := by
+    -- AEMeasurability of the ξ-side ENNReal integrand under Lebesgue
+    have hFξ_aesm : AEStronglyMeasurable (fun ξ : ℝ => Fξ ξ) volume :=
+      h_unscaled_int.aestronglyMeasurable
+    have hf_vol : AEMeasurable (fun ξ : ℝ => ENNReal.ofReal (Fξ ξ)) volume :=
+      (hFξ_aesm.aemeasurable).ennreal_ofReal
+    have := Measure.lintegral_comp_mul_left
+        ((-1 : ℝ) / (2 * Real.pi)) h_a_ne (fun ξ : ℝ => ENNReal.ofReal (Fξ ξ)) hf_vol
+    -- LHS becomes ∫ ofReal (Fξ ((-1)/(2π) * τ)) = ∫ ofReal (Fτ τ)
+    -- by the definition of Fτ.
+    simpa [Fτ, Fξ, div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
+      using this
+
+  -- Evaluate the absolute scaling constant |(-1 / (2π))⁻¹| = 2π.
+  have h_abs :
+      ENNReal.ofReal (|(-1 / (2 * Real.pi))⁻¹|) = ENNReal.ofReal (2 * Real.pi) := by
+    have hpos : 0 ≤ 2 * Real.pi := by
+      have : 0 ≤ (2 : ℝ) := by norm_num
+      exact mul_nonneg this Real.pi_pos.le
+    have h_inv : (-1 / (2 * Real.pi))⁻¹ = -(2 * Real.pi) := by
+      have : (2 * Real.pi) ≠ 0 := by
+        have : (2 : ℝ) ≠ 0 := by norm_num
+        exact mul_ne_zero this Real.pi_ne_zero
+      simp [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
+    simp [h_inv, abs_neg, abs_of_nonneg hpos]
+
+  -- Use the scaling identity to reduce finiteness to the ξ-side, which we have.
+  have h_const_fin : ENNReal.ofReal (2 * Real.pi) < ∞ := by simp
+  have :
+      (∫⁻ τ : ℝ, ENNReal.ofReal (Fτ τ) ∂volume) < ∞ := by
+    -- Combine `h_scale`, `h_abs`, and the finiteness of the ξ-side lintegral.
+    rw [h_scale, h_abs]
+    exact ENNReal.mul_lt_top h_const_fin h_lint_ξ_lt_top
+  exact this
+
+/-- Integrability of norm squared of sum of Mellin transforms -/
+lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
+    (hf_L2 : has_weighted_L2_norm σ f)
+    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
+    (hg_L2 : has_weighted_L2_norm σ g)
+    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
+    Integrable (fun τ : ℝ => ((‖mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ))
+    + mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ))‖ ^ 2 : ℝ) : ℂ)) volume := by
+  classical
+  -- Abbreviations for the Mellin transforms of `f` and `g` along the line `σ + iτ`.
+  set F : ℝ → ℂ :=
+    fun τ => mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ)) with hF
+  set G : ℝ → ℂ :=
+    fun τ => mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ)) with hG
+
+  -- Strong measurability of the target integrand (skeleton: deferred).
+  have h_meas_F : AEStronglyMeasurable F volume := by
+    -- Express F via a Fourier integral of a measurable function and use
+    -- `integral_prod_right'` to get a.e.-strong measurability.
+    classical
+    -- Define the auxiliary function for the Fourier side
+    set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+    -- Measurability of `gf`
+    have h_gf_meas : Measurable gf := by
+      have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
+      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
+        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
+          measurable_const.mul Complex.measurable_ofReal
+        exact Complex.measurable_exp.comp h_lin
+      -- Coerce `((1/2 : ℝ) * t)` to `((1/2 : ℂ) * (t : ℂ))` implicitly
+      simpa [gf, hgf_def] using h_logpull.mul h_exp
+    -- Kernel measurability on the product space
+    have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
+      -- fourierKernel ξ t = exp(ofReal (-(2π) * ξ * t) * I)
+      unfold fourierKernel
+      apply Measurable.cexp
+      apply Measurable.mul _ measurable_const
+      apply Complex.measurable_ofReal.comp
+      show Measurable (fun a : ℝ × ℝ => -(2 * Real.pi * a.1 * a.2))
+      apply Measurable.neg
+      have : Measurable (fun a : ℝ × ℝ => a.1 * a.2) := by
+        exact measurable_fst.mul measurable_snd
+      convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
+      ext a
+      ring
+    have h_integrand_meas :
+        AEStronglyMeasurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2 * gf p.2)
+          (volume.prod volume) := by
+      -- Product measurability from kernel and gf composed with `snd`.
+      have : Measurable (fun p : ℝ × ℝ => gf p.2) := h_gf_meas.comp measurable_snd
+      exact (h_kernel_meas.mul this).aestronglyMeasurable
+    -- Measurability of the Fourier integral map ξ ↦ ∫ fourierKernel ξ t * gf t dt
+    have h_fourier_meas :
+        AEStronglyMeasurable (fun ξ : ℝ => fourierIntegral gf ξ) volume := by
+      simpa [fourierIntegral]
+        using
+          (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+            (μ := volume) (ν := volume)
+            (f := fun p : ℝ × ℝ => fourierKernel p.1 p.2 * gf p.2)
+            h_integrand_meas)
+    -- Compose with the linear change of variable τ ↦ -τ / (2π)
+    have h_arg_meas : Measurable (fun τ : ℝ => -τ / (2 * Real.pi)) := by
+      have : Measurable (fun τ : ℝ => ((-1) / (2 * Real.pi)) * τ) :=
+        measurable_const.mul measurable_id
+      simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc]
+        using this
+    -- Identify F with the composed Fourier integral and conclude measurability.
+    have hF_meas_aux :
+        AEStronglyMeasurable
+          (fun τ : ℝ => fourierIntegral gf (-τ / (2 * Real.pi))) volume := by
+      -- Prove measurability directly via `integral_prod_right'` with a rescaled kernel
+      have h_kernel_scaled_meas :
+          Measurable (fun p : ℝ × ℝ =>
+            fourierKernel (-p.1 / (2 * Real.pi)) p.2) := by
+        -- fourierKernel ξ t = exp(ofReal (-(2π) * ξ * t) * I)
+        unfold fourierKernel
+        -- Build the measurable argument of the complex exponential
+        apply Measurable.cexp
+        apply Measurable.mul _ measurable_const
+        apply Complex.measurable_ofReal.comp
+        show Measurable (fun a : ℝ × ℝ => -(2 * Real.pi * (-a.1 / (2 * Real.pi)) * a.2))
+        apply Measurable.neg
+        have : Measurable (fun a : ℝ × ℝ => (-a.1 / (2 * Real.pi)) * a.2) := by
+          apply Measurable.mul
+          · apply Measurable.div_const
+            exact measurable_fst.neg
+          · exact measurable_snd
+        convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
+        ext a
+        field_simp
+        ring
+      have h_integrand_meas' :
+          AEStronglyMeasurable
+            (fun p : ℝ × ℝ =>
+              fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gf p.2)
+            (volume.prod volume) := by
+        -- Product measurability from the scaled kernel and gf ∘ snd
+        have : Measurable (fun p : ℝ × ℝ => gf p.2) :=
+          h_gf_meas.comp measurable_snd
+        exact (h_kernel_scaled_meas.mul this).aestronglyMeasurable
+      -- Now integrate out the second coordinate and obtain AEStronglyMeasurable in τ
+      simpa [fourierIntegral]
+        using
+          (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+            (μ := volume) (ν := volume)
+            (f := fun p : ℝ × ℝ =>
+              fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gf p.2)
+            h_integrand_meas')
+    simpa [F, hgf_def, mellin_logpull_fourierIntegral] using hF_meas_aux
+  have h_meas_G : AEStronglyMeasurable G volume := by
+    -- Same argument as for `h_meas_F`, replacing `f` with `g`.
+    classical
+    -- Auxiliary function for the Fourier side
+    set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+    -- Measurability of `gg`
+    have h_gg_meas : Measurable gg := by
+      have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
+      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
+        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
+          measurable_const.mul Complex.measurable_ofReal
+        exact Complex.measurable_exp.comp h_lin
+      simpa [gg, hgg_def] using h_logpull.mul h_exp
+    -- Kernel measurability on the product space
+    have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
+      unfold fourierKernel
+      apply Measurable.cexp
+      apply Measurable.mul _ measurable_const
+      apply Complex.measurable_ofReal.comp
+      show Measurable (fun a : ℝ × ℝ => -(2 * Real.pi * a.1 * a.2))
+      apply Measurable.neg
+      have : Measurable (fun a : ℝ × ℝ => a.1 * a.2) := by
+        exact measurable_fst.mul measurable_snd
+      convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
+      ext a
+      ring
+    have h_integrand_meas :
+        AEStronglyMeasurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2 * gg p.2)
+          (volume.prod volume) := by
+      have : Measurable (fun p : ℝ × ℝ => gg p.2) := h_gg_meas.comp measurable_snd
+      exact (h_kernel_meas.mul this).aestronglyMeasurable
+    -- Measurability of the Fourier integral map for gg
+    have h_fourier_meas :
+        AEStronglyMeasurable (fun ξ : ℝ => fourierIntegral gg ξ) volume := by
+      simpa [fourierIntegral]
+        using
+          (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+            (μ := volume) (ν := volume)
+            (f := fun p : ℝ × ℝ => fourierKernel p.1 p.2 * gg p.2)
+            h_integrand_meas)
+    -- Compose with τ ↦ -τ / (2π)
+    have h_arg_meas : Measurable (fun τ : ℝ => -τ / (2 * Real.pi)) := by
+      have : Measurable (fun τ : ℝ => ((-1) / (2 * Real.pi)) * τ) :=
+        measurable_const.mul measurable_id
+      simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using this
+    have hG_meas_aux :
+        AEStronglyMeasurable
+          (fun τ : ℝ => fourierIntegral gg (-τ / (2 * Real.pi))) volume := by
+      -- Prove measurability directly via `integral_prod_right'` with a rescaled kernel
+      have h_kernel_scaled_meas :
+          Measurable (fun p : ℝ × ℝ =>
+            fourierKernel (-p.1 / (2 * Real.pi)) p.2) := by
+        unfold fourierKernel
+        -- Build the measurable argument of the complex exponential
+        apply Measurable.cexp
+        apply Measurable.mul _ measurable_const
+        apply Complex.measurable_ofReal.comp
+        show Measurable (fun a : ℝ × ℝ => -(2 * Real.pi * (-a.1 / (2 * Real.pi)) * a.2))
+        apply Measurable.neg
+        have : Measurable (fun a : ℝ × ℝ => (-a.1 / (2 * Real.pi)) * a.2) := by
+          apply Measurable.mul
+          · apply Measurable.div_const
+            exact measurable_fst.neg
+          · exact measurable_snd
+        convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
+        ext a
+        field_simp
+        ring
+      have h_integrand_meas' :
+          AEStronglyMeasurable
+            (fun p : ℝ × ℝ =>
+              fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gg p.2)
+            (volume.prod volume) := by
+        have : Measurable (fun p : ℝ × ℝ => gg p.2) :=
+          h_gg_meas.comp measurable_snd
+        exact (h_kernel_scaled_meas.mul this).aestronglyMeasurable
+      -- Now integrate out the second coordinate and obtain AEStronglyMeasurable in τ
+      simpa [fourierIntegral]
+        using
+          (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+            (μ := volume) (ν := volume)
+            (f := fun p : ℝ × ℝ =>
+              fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gg p.2)
+            h_integrand_meas')
+    simpa [G, hgg_def, mellin_logpull_fourierIntegral] using hG_meas_aux
+  have h_meas : AEStronglyMeasurable
+      (fun τ : ℝ => ((‖F τ + G τ‖ ^ 2 : ℝ) : ℂ)) volume := by
+    -- Combine measurability of F and G with continuity of norm, pow, and ofReal.
+    have h_add : AEStronglyMeasurable (fun τ : ℝ => F τ + G τ) volume :=
+      h_meas_F.add h_meas_G
+    have h_norm : AEStronglyMeasurable (fun τ : ℝ => ‖F τ + G τ‖) volume :=
+      h_add.norm
+    have h_sq_real : AEStronglyMeasurable (fun τ : ℝ => (‖F τ + G τ‖ ^ 2 : ℝ)) volume := by
+      -- compose with the continuous map x ↦ x^2
+      exact (continuous_pow 2).aestronglyMeasurable.comp_aemeasurable
+        h_norm.aemeasurable
+    -- lift to ℂ via Complex.ofReal
+    exact Complex.continuous_ofReal.aestronglyMeasurable.comp_aemeasurable
+      h_sq_real.aemeasurable
+
+  -- Pointwise inequality: ‖F+G‖^2 ≤ 2 (‖F‖^2 + ‖G‖^2), used for domination.
+  have h_bound_ae :
+      (∀ᵐ τ ∂volume,
+        ‖(((‖F τ + G τ‖ ^ 2 : ℝ) : ℂ))‖
+          ≤ ‖((2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) : ℝ) : ℂ)‖) := by
+    refine Filter.Eventually.of_forall ?_
+    intro τ
+    have h_nonneg : 0 ≤ (‖F τ + G τ‖ ^ 2 : ℝ) := by exact sq_nonneg _
+    have h_nonneg' : 0 ≤ (2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) : ℝ) := by
+      have h0 : 0 ≤ (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2 : ℝ) :=
+        add_nonneg (sq_nonneg _) (sq_nonneg _)
+      have : 0 ≤ (2 : ℝ) * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) := by
+        exact mul_nonneg (by norm_num) h0
+      simpa [mul_comm] using this
+    have h_ineq : (‖F τ + G τ‖ ^ 2 : ℝ)
+        ≤ 2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) := by
+      -- Step 1: square the triangle inequality
+      have h_add_le : ‖F τ + G τ‖ ≤ ‖F τ‖ + ‖G τ‖ := norm_add_le (F τ) (G τ)
+      have h_sq_le : (‖F τ + G τ‖ : ℝ) * ‖F τ + G τ‖
+            ≤ (‖F τ‖ + ‖G τ‖) * (‖F τ‖ + ‖G τ‖) := by
+        refine mul_le_mul h_add_le h_add_le ?_ ?_
+        · -- 0 ≤ ‖F+G‖
+          exact norm_nonneg (F τ + G τ)
+        · -- 0 ≤ ‖F‖ + ‖G‖
+          exact add_nonneg (norm_nonneg (F τ)) (norm_nonneg (G τ))
+      -- Step 2: expand and apply 2ab ≤ a^2 + b^2 with a=‖F‖, b=‖G‖
+      have h_amgm : (2 : ℝ) * (‖F τ‖ * ‖G τ‖) ≤ ‖F τ‖ ^ 2 + ‖G τ‖ ^ 2 := by
+        -- From (‖F‖ - ‖G‖)^2 ≥ 0
+        have h := sq_nonneg (‖F τ‖ - ‖G τ‖)
+        -- (a - b)^2 = a^2 - 2ab + b^2
+        have h_expand : (‖F τ‖ - ‖G τ‖) ^ 2 = ‖F τ‖ ^ 2 - 2 * (‖F τ‖ * ‖G τ‖) + ‖G τ‖ ^ 2 := by ring
+        rw [h_expand] at h
+        linarith
+      -- Combine the two steps and simplify polynomials
+      have h_poly :
+          (‖F τ‖ + ‖G τ‖) * (‖F τ‖ + ‖G τ‖)
+            ≤ 2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) := by
+        -- Expand (a+b)^2 and bound the middle term by h_amgm
+        have h_expand : (‖F τ‖ + ‖G τ‖) * (‖F τ‖ + ‖G τ‖)
+            = ‖F τ‖ ^ 2 + 2 * (‖F τ‖ * ‖G τ‖) + ‖G τ‖ ^ 2 := by
+          ring
+        have h_mid : ‖F τ‖ ^ 2 + 2 * (‖F τ‖ * ‖G τ‖) + ‖G τ‖ ^ 2
+            ≤ ‖F τ‖ ^ 2 + (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) + ‖G τ‖ ^ 2 := by
+          -- add h_amgm in the middle
+          linarith [h_amgm]
+        have h_eq : ‖F τ‖ ^ 2 + (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) + ‖G τ‖ ^ 2
+            = 2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) := by ring
+        have h_upper :
+            ‖F τ‖ ^ 2 + 2 * (‖F τ‖ * ‖G τ‖) + ‖G τ‖ ^ 2
+              ≤ 2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) := by
+          simpa [h_eq] using h_mid
+        -- Convert back using the expansion
+        simpa [h_expand]
+          using h_upper
+      -- Convert the products to squares and chain inequalities
+      simpa [pow_two] using h_sq_le.trans h_poly
+    have h_norm_coe :
+        ‖(((‖F τ + G τ‖ ^ 2 : ℝ) : ℂ))‖ = (‖F τ + G τ‖ ^ 2 : ℝ) := by
+      simp [Real.norm_eq_abs, Complex.norm_real, abs_of_nonneg h_nonneg]
+    have h_norm_coe' :
+        ‖((2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) : ℝ) : ℂ)‖
+          = (2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) : ℝ) := by
+      rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg h_nonneg']
+    rw [h_norm_coe, h_norm_coe']
+    exact h_ineq
+
+  -- Integrability of the majorant: 2 * (‖F‖^2 + ‖G‖^2).
+  have h_int_Fsq : Integrable (fun τ : ℝ => ((‖F τ‖ ^ 2 : ℝ) : ℂ)) volume := by
+    classical
+    -- Strategy: obtain L²-membership for F via Mellin–Plancherel/isometry,
+    -- then use `memLp_two_iff_integrable_sq_norm` and lift to ℂ via `ofReal`.
+    have hF_L2 : MemLp F 2 volume := by
+      classical
+      -- Express F as a rescaled Fourier integral of a weighted LogPull
+      set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+      -- Assumptions (to be provided upstream): gf ∈ L¹ ∩ L²
+      have hgL1 : Integrable gf := by
+        -- Direct from the hypothesis on the weighted LogPull of f
+        simpa [gf, hgf_def] using hf_int
+      have hgL2 : MemLp gf 2 volume := by
+        -- Use the weighted L² hypothesis for f via `weighted_LogPull_memLp`
+        simpa [gf, hgf_def] using weighted_LogPull_memLp (σ := σ) (f := f) hf_L2
+      -- Fourier-Plancherel: the Fourier integral of gf is in L²
+      have hFI_L2 : MemLp (fun ξ : ℝ => fourierIntegral gf ξ) 2 volume :=
+        fourierIntegral_memLp_L1_L2 hgL1 hgL2
+      -- Compose with the linear rescaling τ ↦ -τ/(2π)
+      have h_fourier_meas : AEStronglyMeasurable (fun ξ : ℝ => fourierIntegral gf ξ) volume :=
+        hFI_L2.1
+      have h_arg_meas : Measurable (fun τ : ℝ => -τ / (2 * Real.pi)) := by
+        have : Measurable (fun τ : ℝ => ((-1) / (2 * Real.pi)) * τ) :=
+          measurable_const.mul measurable_id
+        simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using this
+      have h_comp_meas : AEStronglyMeasurable
+          (fun τ : ℝ => fourierIntegral gf (-τ / (2 * Real.pi))) volume := by
+        -- Provide measurability directly via a rescaled kernel and Fubini
+        -- First, `gf` is measurable
+        have h_gf_meas : Measurable gf := by
+          have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
+          have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
+            have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
+              measurable_const.mul Complex.measurable_ofReal
+            exact Complex.measurable_exp.comp h_lin
+          simpa [gf, hgf_def] using h_logpull.mul h_exp
+        -- Next, the rescaled kernel is measurable on the product space
+        have h_kernel_scaled_meas :
+            Measurable (fun p : ℝ × ℝ =>
+              fourierKernel (-p.1 / (2 * Real.pi)) p.2) := by
+          unfold fourierKernel
+          apply Measurable.cexp
+          apply Measurable.mul _ measurable_const
+          apply Complex.measurable_ofReal.comp
+          show Measurable (fun a : ℝ × ℝ => -(2 * Real.pi * (-a.1 / (2 * Real.pi)) * a.2))
+          apply Measurable.neg
+          have : Measurable (fun a : ℝ × ℝ => (-a.1 / (2 * Real.pi)) * a.2) := by
+            apply Measurable.mul
+            · apply Measurable.div_const
+              exact measurable_fst.neg
+            · exact measurable_snd
+          convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
+          ext a; field_simp; ring
+        -- Build the integrand measurability on the product
+        have h_integrand_meas' :
+            AEStronglyMeasurable (fun p : ℝ × ℝ =>
+              fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gf p.2)
+              (volume.prod volume) := by
+          have : Measurable (fun p : ℝ × ℝ => gf p.2) :=
+            h_gf_meas.comp measurable_snd
+          exact (h_kernel_scaled_meas.mul this).aestronglyMeasurable
+        -- Integrate out the second coordinate to get measurability in τ
+        simpa [fourierIntegral]
+          using
+            (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+              (μ := volume) (ν := volume)
+              (f := fun p : ℝ × ℝ =>
+                fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gf p.2)
+              h_integrand_meas')
+      -- Integrability of the squared norm of the rescaled Fourier integral
+      have h_comp_int : Integrable
+          (fun τ : ℝ => ‖fourierIntegral gf (-τ / (2 * Real.pi))‖ ^ 2) volume :=
+        integrable_fourierIntegral_rescale_sq_norm gf hFI_L2 h_fourier_meas h_comp_meas
+      -- Conclude L² membership via the p=2 integrability equivalence
+      have h_comp_L2 : MemLp (fun τ : ℝ => fourierIntegral gf (-τ / (2 * Real.pi))) 2 volume :=
+        (memLp_two_iff_integrable_sq_norm (μ := volume)
+          (f := fun τ : ℝ => fourierIntegral gf (-τ / (2 * Real.pi))) h_comp_meas).2 h_comp_int
+      -- Identify with F via the Mellin–Fourier relation
+      simpa [F, hgf_def, mellin_logpull_fourierIntegral]
+        using h_comp_L2
+    -- Real-valued integrability of the squared norm follows from L²-membership.
+    have h_real : Integrable (fun τ : ℝ => (‖F τ‖ ^ 2 : ℝ)) volume :=
+      (memLp_two_iff_integrable_sq_norm (μ := volume) (f := F) hF_L2.1).1 hF_L2
+    -- Lift to a complex-valued integrable function via `Complex.ofReal`.
+    have h_meas_sq : AEStronglyMeasurable
+        (fun τ : ℝ => ((‖F τ‖ ^ 2 : ℝ) : ℂ)) volume := by
+      -- measurability via composition: τ ↦ ‖F τ‖ is a.e.-s.m., then pow, then ofReal
+      have h_sq_real : AEStronglyMeasurable (fun τ : ℝ => (‖F τ‖ ^ 2 : ℝ)) volume :=
+        (continuous_pow 2).aestronglyMeasurable.comp_aemeasurable
+          (hF_L2.1.norm.aemeasurable)
+      exact Complex.continuous_ofReal.aestronglyMeasurable.comp_aemeasurable
+        h_sq_real.aemeasurable
+    have h_fin : HasFiniteIntegral
+        (fun τ : ℝ => ((‖F τ‖ ^ 2 : ℝ) : ℂ)) volume := by
+      -- Compare the Bochner norm with the real absolute value
+      have h_fin_real := h_real.hasFiniteIntegral
+      rw [hasFiniteIntegral_iff_norm]
+      calc ∫⁻ a, ENNReal.ofReal ‖(((‖F a‖ ^ 2 : ℝ) : ℂ))‖
+          = ∫⁻ a, ENNReal.ofReal (‖F a‖ ^ 2) := by
+            congr 1
+            ext τ
+            have h_nonneg : 0 ≤ ‖F τ‖ ^ 2 := sq_nonneg _
+            simp [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg h_nonneg]
+        _ < ⊤ := by
+            have : (fun a => ENNReal.ofReal (‖F a‖ ^ 2)) =
+                (fun a => ENNReal.ofReal ‖(‖F a‖ ^ 2 : ℝ)‖) := by
+              ext a
+              congr
+              exact (Real.norm_of_nonneg (sq_nonneg _)).symm
+            rw [this, ← hasFiniteIntegral_iff_norm]
+            exact h_fin_real
+    exact ⟨h_meas_sq, h_fin⟩
+  have h_int_Gsq : Integrable (fun τ : ℝ => ((‖G τ‖ ^ 2 : ℝ) : ℂ)) volume := by
+    classical
+    -- Mirror the argument for `F`, now with `g`.
+    -- Step 1: obtain L²-membership for G via the Fourier side.
+    have hG_L2 : MemLp G 2 volume := by
+      classical
+      -- Auxiliary function on the log side for `g`.
+      set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+      -- Assumptions: gg ∈ L¹ and in L² (weighted hypothesis for g).
+      have hgL1 : Integrable gg := by
+        simpa [gg, hgg_def] using hg_int
+      have hgL2 : MemLp gg 2 volume := by
+        simpa [gg, hgg_def] using weighted_LogPull_memLp (σ := σ) (f := g) hg_L2
+      -- Fourier-Plancherel placeholder: Fourier integral of gg lies in L².
+      have hFI_L2 : MemLp (fun ξ : ℝ => fourierIntegral gg ξ) 2 volume :=
+        fourierIntegral_memLp_L1_L2 hgL1 hgL2
+      -- Compose with the rescaling τ ↦ -τ/(2π) and obtain measurability.
+      have h_fourier_meas : AEStronglyMeasurable (fun ξ : ℝ => fourierIntegral gg ξ) volume :=
+        hFI_L2.1
+      have h_comp_meas : AEStronglyMeasurable
+          (fun τ : ℝ => fourierIntegral gg (-τ / (2 * Real.pi))) volume := by
+        -- Direct measurability via kernel measurability and `integral_prod_right'`.
+        -- Kernel measurability on the product space with the rescaled parameter.
+        have h_kernel_scaled_meas :
+            Measurable (fun p : ℝ × ℝ =>
+              fourierKernel (-p.1 / (2 * Real.pi)) p.2) := by
+          unfold fourierKernel
+          apply Measurable.cexp
+          apply Measurable.mul _ measurable_const
+          apply Complex.measurable_ofReal.comp
+          show Measurable (fun a : ℝ × ℝ => -(2 * Real.pi * (-a.1 / (2 * Real.pi)) * a.2))
+          apply Measurable.neg
+          have : Measurable (fun a : ℝ × ℝ => (-a.1 / (2 * Real.pi)) * a.2) := by
+            apply Measurable.mul
+            · apply Measurable.div_const
+              exact measurable_fst.neg
+            · exact measurable_snd
+          convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
+          ext a; field_simp; ring
+        -- Measurability of gg ∘ snd
+        have h_gg_meas : Measurable gg := by
+          have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
+          have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
+            have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
+              measurable_const.mul Complex.measurable_ofReal
+            exact Complex.measurable_exp.comp h_lin
+          simpa [gg, hgg_def] using h_logpull.mul h_exp
+        have h_integrand_meas' :
+            AEStronglyMeasurable (fun p : ℝ × ℝ =>
+              fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gg p.2)
+              (volume.prod volume) := by
+          have : Measurable (fun p : ℝ × ℝ => gg p.2) :=
+            h_gg_meas.comp measurable_snd
+          exact (h_kernel_scaled_meas.mul this).aestronglyMeasurable
+        -- Integrate out the second coordinate to get measurability in τ
+        simpa [fourierIntegral]
+          using
+            (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+              (μ := volume) (ν := volume)
+              (f := fun p : ℝ × ℝ =>
+                fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gg p.2)
+              h_integrand_meas')
+      -- Integrability of the squared norm after rescaling.
+      have h_comp_int : Integrable
+          (fun τ : ℝ => ‖fourierIntegral gg (-τ / (2 * Real.pi))‖ ^ 2) volume :=
+        integrable_fourierIntegral_rescale_sq_norm gg hFI_L2 h_fourier_meas h_comp_meas
+      -- Conclude L² membership for the composed map, then identify with `G`.
+      have h_comp_L2 : MemLp (fun τ : ℝ => fourierIntegral gg (-τ / (2 * Real.pi))) 2 volume :=
+        (memLp_two_iff_integrable_sq_norm (μ := volume)
+          (f := fun τ : ℝ => fourierIntegral gg (-τ / (2 * Real.pi))) h_comp_meas).2 h_comp_int
+      simpa [G, hgg_def, mellin_logpull_fourierIntegral]
+        using h_comp_L2
+    -- Step 2: real integrability of ‖G‖² follows from L²-membership.
+    have h_real : Integrable (fun τ : ℝ => (‖G τ‖ ^ 2 : ℝ)) volume :=
+      (memLp_two_iff_integrable_sq_norm (μ := volume) (f := G) hG_L2.1).1 hG_L2
+    -- Step 3: lift to a complex-valued integrable via ofReal.
+    have h_meas_sq : AEStronglyMeasurable
+        (fun τ : ℝ => ((‖G τ‖ ^ 2 : ℝ) : ℂ)) volume := by
+      -- measurability via composition on the real side and `ofReal`.
+      have h_sq_real : AEStronglyMeasurable (fun τ : ℝ => (‖G τ‖ ^ 2 : ℝ)) volume :=
+        (continuous_pow 2).aestronglyMeasurable.comp_aemeasurable
+          (hG_L2.1.norm.aemeasurable)
+      exact Complex.continuous_ofReal.aestronglyMeasurable.comp_aemeasurable
+        h_sq_real.aemeasurable
+    have h_fin : HasFiniteIntegral
+        (fun τ : ℝ => ((‖G τ‖ ^ 2 : ℝ) : ℂ)) volume := by
+      -- Compare norms with the real absolute value and use `h_real`.
+      have h_fin_real := h_real.hasFiniteIntegral
+      rw [hasFiniteIntegral_iff_norm]
+      calc ∫⁻ a, ENNReal.ofReal ‖(((‖G a‖ ^ 2 : ℝ) : ℂ))‖
+          = ∫⁻ a, ENNReal.ofReal (‖G a‖ ^ 2) := by
+            congr 1; ext τ
+            have h_nonneg : 0 ≤ ‖G τ‖ ^ 2 := sq_nonneg _
+            simp [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg h_nonneg]
+        _ < ⊤ := by
+            have : (fun a => ENNReal.ofReal (‖G a‖ ^ 2)) =
+                (fun a => ENNReal.ofReal ‖(‖G a‖ ^ 2 : ℝ)‖) := by
+              ext a; congr
+              exact (Real.norm_of_nonneg (sq_nonneg _)).symm
+            rw [this, ← hasFiniteIntegral_iff_norm]
+            exact h_fin_real
+    exact ⟨h_meas_sq, h_fin⟩
+  have h_int_sum : Integrable
+      (fun τ : ℝ => (((‖F τ‖ ^ 2 + ‖G τ‖ ^ 2 : ℝ) : ℂ))) volume := by
+    -- Combine integrability of the two squares and identify with `ofReal` of the sum.
+    have h := h_int_Fsq.add h_int_Gsq
+    have h_ae :
+        (fun τ => ((‖F τ‖ ^ 2 : ℝ) : ℂ) + ((‖G τ‖ ^ 2 : ℝ) : ℂ))
+          =ᵐ[volume]
+        (fun τ => (((‖F τ‖ ^ 2 + ‖G τ‖ ^ 2 : ℝ) : ℂ))) := by
+      refine Filter.Eventually.of_forall ?_
+      intro τ; simp [Complex.ofReal_add, add_comm, add_left_comm, add_assoc]
+    exact (Integrable.congr h h_ae)
+  have h_int_majorant' : Integrable
+      (fun τ : ℝ => ((2 : ℂ) * (((‖F τ‖ ^ 2 + ‖G τ‖ ^ 2 : ℝ) : ℂ)))) volume :=
+    h_int_sum.const_mul (2 : ℂ)
+  have h_int_majorant : Integrable
+      (fun τ : ℝ => ((2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2 : ℝ)) : ℂ)) volume := by
+    -- Pointwise identification between `(2:ℂ) * ofReal r` and `ofReal (2*r)`.
+    have h_ae :
+        (fun τ : ℝ => ((2 : ℂ) * (((‖F τ‖ ^ 2 + ‖G τ‖ ^ 2 : ℝ) : ℂ))))
+          =ᵐ[volume]
+        (fun τ : ℝ => ((2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2 : ℝ)) : ℂ)) := by
+      refine Filter.Eventually.of_forall ?_
+      intro τ; simp [Complex.ofReal_mul, mul_comm, mul_left_comm, mul_assoc]
+    exact (Integrable.congr h_int_majorant' h_ae)
+
+  -- Conclude by domination.
+  refine ⟨h_meas, ?_⟩
+  rw [hasFiniteIntegral_iff_norm]
+  calc ∫⁻ a, ENNReal.ofReal ‖((‖F a + G a‖ ^ 2 : ℝ) : ℂ)‖
+      ≤ ∫⁻ a, ENNReal.ofReal ‖((2 * (‖F a‖ ^ 2 + ‖G a‖ ^ 2) : ℝ) : ℂ)‖ := by
+        apply lintegral_mono_ae
+        refine Filter.Eventually.mono h_bound_ae ?_
+        intro τ hτ
+        exact ENNReal.ofReal_le_ofReal hτ
+    _ = ∫⁻ a, ENNReal.ofReal ‖(2 : ℂ) * ↑(‖F a‖ ^ 2 + ‖G a‖ ^ 2)‖ := by
+        congr 1
+        ext τ
+        congr 1
+        simp [Complex.ofReal_mul]
+    _ < ⊤ := by
+        rw [← hasFiniteIntegral_iff_norm]
+        exact h_int_majorant.hasFiniteIntegral
+
+/-- Integrability of norm squared of difference of Mellin transforms -/
+lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ) :
+    Integrable (fun τ : ℝ => ((‖mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ))
+    - mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ))‖ ^ 2 : ℝ) : ℂ)) volume := by
+  sorry
+
+/-- Integrability of norm squared of sum with I scaling -/
+lemma integrable_mellin_norm_sq_add_I (σ : ℝ) (f g : Hσ σ) :
+    Integrable (fun τ : ℝ => ((‖mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ))
+    + I * mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ))‖ ^ 2 : ℝ) : ℂ)) volume := by
+  sorry
+
+/-- Integrability of norm squared of difference with I scaling -/
+lemma integrable_mellin_norm_sq_sub_I (σ : ℝ) (f g : Hσ σ) :
+    Integrable (fun τ : ℝ => ((‖mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ))
+    - I * mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ))‖ ^ 2 : ℝ) : ℂ)) volume := by
+  sorry
+
+/-- Auxiliary lemma: linearity of integral for polarization identity components -/
+lemma integral_polarization_split (A B C1 C2 : ℝ → ℝ)
+    (h_int_A : Integrable (fun τ => ((A τ : ℝ) : ℂ)) volume)
+    (h_int_B : Integrable (fun τ => ((B τ : ℝ) : ℂ)) volume)
+    (h_int_C1 : Integrable (fun τ => ((C1 τ : ℝ) : ℂ)) volume)
+    (h_int_C2 : Integrable (fun τ => ((C2 τ : ℝ) : ℂ)) volume) :
+    ∫ τ, ((A τ : ℝ) : ℂ) - ((B τ : ℝ) : ℂ)
+          - Complex.I * ((C1 τ : ℝ) : ℂ)
+          + Complex.I * ((C2 τ : ℝ) : ℂ) ∂volume
+      = (∫ τ, ((A τ : ℝ) : ℂ) ∂volume)
+        - (∫ τ, ((B τ : ℝ) : ℂ) ∂volume)
+        - Complex.I * (∫ τ, ((C1 τ : ℝ) : ℂ) ∂volume)
+        + Complex.I * (∫ τ, ((C2 τ : ℝ) : ℂ) ∂volume) := by
+  -- Combine linearly using integral_sub, integral_add, integral_const_mul
+  have h_subAB :
+      ∫ τ, ((A τ : ℝ) : ℂ) - ((B τ : ℝ) : ℂ) ∂volume
+        = (∫ τ, ((A τ : ℝ) : ℂ) ∂volume)
+          - (∫ τ, ((B τ : ℝ) : ℂ) ∂volume) :=
+    integral_sub h_int_A h_int_B
+  have h_linC :
+      ∫ τ, (-Complex.I) * ((C1 τ : ℝ) : ℂ) + Complex.I * ((C2 τ : ℝ) : ℂ) ∂volume
+        = (-Complex.I) * (∫ τ, ((C1 τ : ℝ) : ℂ) ∂volume)
+          + Complex.I * (∫ τ, ((C2 τ : ℝ) : ℂ) ∂volume) := by
+    -- Use linearity: integral_add and integral_const_mul
+    have h_c1' :
+        ∫ τ, (-Complex.I) * ((C1 τ : ℝ) : ℂ) ∂volume
+          = (-Complex.I) * (∫ τ, ((C1 τ : ℝ) : ℂ) ∂volume) :=
+      integral_const_mul _ _
+    have h_c2' :
+        ∫ τ, (Complex.I) * ((C2 τ : ℝ) : ℂ) ∂volume
+          = (Complex.I) * (∫ τ, ((C2 τ : ℝ) : ℂ) ∂volume) :=
+      integral_const_mul _ _
+    -- Now sum the two equalities via `integral_add`
+    have h_add := integral_add
+      (hf := (h_int_C1.const_mul (-Complex.I)))
+      (hg := (h_int_C2.const_mul Complex.I))
+    -- Rewrite the statement with the computed equalities
+    rw [h_add, h_c1', h_c2']
+  -- Put pieces together
+  have h_add := integral_add
+    (hf := (h_int_A.sub h_int_B))
+    (hg := ((h_int_C1.const_mul (-Complex.I)).add (h_int_C2.const_mul Complex.I)))
+  -- Evaluate both sides using previously derived equalities
+  calc ∫ τ, ((A τ : ℝ) : ℂ) - ((B τ : ℝ) : ℂ)
+          - Complex.I * ((C1 τ : ℝ) : ℂ)
+          + Complex.I * ((C2 τ : ℝ) : ℂ) ∂volume
+      = ∫ a, ((fun τ => ((A τ : ℝ) : ℂ)) - fun τ => ((B τ : ℝ) : ℂ)) a
+          + ((fun x => -Complex.I * ((C1 x : ℝ) : ℂ)) + fun x =>
+          Complex.I * ((C2 x : ℝ) : ℂ)) a ∂volume := by
+        congr 1; ext τ; simp; ring
+    _ = (∫ a, ((fun τ => ((A τ : ℝ) : ℂ)) - fun τ => ((B τ : ℝ) : ℂ)) a ∂volume)
+        + (∫ a, ((fun x => -Complex.I * ((C1 x : ℝ) : ℂ)) + fun x =>
+        Complex.I * ((C2 x : ℝ) : ℂ)) a ∂volume) := h_add
+    _ = (∫ τ, ((A τ : ℝ) : ℂ) ∂volume) - (∫ τ, ((B τ : ℝ) : ℂ) ∂volume)
+        - Complex.I * (∫ τ, ((C1 τ : ℝ) : ℂ) ∂volume)
+        + Complex.I * (∫ τ, ((C2 τ : ℝ) : ℂ) ∂volume) := by
+      have eq1 : (∫ a, ((fun τ => ((A τ : ℝ) : ℂ)) - fun τ => ((B τ : ℝ) : ℂ)) a ∂volume)
+                  = (∫ τ, ((A τ : ℝ) : ℂ) ∂volume) - (∫ τ, ((B τ : ℝ) : ℂ) ∂volume) := h_subAB
+      have eq2 : (∫ a, ((fun x => -Complex.I * ((C1 x : ℝ) : ℂ)) + fun x =>
+        Complex.I * ((C2 x : ℝ) : ℂ)) a ∂volume)
+        = (-Complex.I) * (∫ τ, ((C1 τ : ℝ) : ℂ) ∂volume) +
+        Complex.I * (∫ τ, ((C2 τ : ℝ) : ℂ) ∂volume) := h_linC
+      rw [eq1, eq2]; ring
 
 /-- The Mellin-Plancherel formula relates to Fourier-Parseval -/
 theorem parseval_identity_equivalence (σ : ℝ) :
@@ -1657,8 +1024,101 @@ theorem parseval_identity_equivalence (σ : ℝ) :
           = ∫ τ : ℝ, 4 *
               (starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * τ))
                 * mellinTransform (g : ℝ → ℂ) (σ + I * τ)) ∂volume := by
-        -- This requires integral_congr_ae h_pol_ae and linearity of Complex.ofReal with integrals
-        sorry
+        -- Introduce abbreviations for the four real-valued integrands
+        set A : ℝ → ℝ :=
+          fun τ => ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)
+                     + mellinTransform (g : ℝ → ℂ) (σ + I * τ)‖ ^ 2
+        set B : ℝ → ℝ :=
+          fun τ => ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)
+                     - mellinTransform (g : ℝ → ℂ) (σ + I * τ)‖ ^ 2
+        set C1 : ℝ → ℝ :=
+          fun τ => ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)
+                     + Complex.I * mellinTransform (g : ℝ → ℂ) (σ + I * τ)‖ ^ 2
+        set C2 : ℝ → ℝ :=
+          fun τ => ‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)
+                     - Complex.I * mellinTransform (g : ℝ → ℂ) (σ + I * τ)‖ ^ 2
+
+        -- Define the complex-valued combination appearing in the polarization identity
+        set L : ℝ → ℂ :=
+          fun τ => ((A τ : ℝ) : ℂ) - ((B τ : ℝ) : ℂ)
+                      - Complex.I * ((C1 τ : ℝ) : ℂ)
+                      + Complex.I * ((C2 τ : ℝ) : ℂ)
+
+        -- Step 1: Integrate the pointwise polarization identity via congruence
+        have h_int_congr : ∫ τ, L τ ∂volume
+            = ∫ τ : ℝ, 4 * (starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ)))
+                * mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ))) ∂volume := by
+          -- Use a.e. equality of integrands to identify the integrals
+          have h := integral_congr_ae (μ := volume) h_pol_ae
+          simpa [L] using h
+
+        -- Step 2: Expand the left integral using linearity and `integral_ofReal`
+        have h_decompose :
+            Complex.ofReal (∫ τ, A τ ∂volume)
+              - Complex.ofReal (∫ τ, B τ ∂volume)
+              - Complex.I * Complex.ofReal (∫ τ, C1 τ ∂volume)
+              + Complex.I * Complex.ofReal (∫ τ, C2 τ ∂volume)
+          = ∫ τ, L τ ∂volume := by
+          -- This follows from linearity of the Bochner integral and
+          -- the identity ∫ (fun τ => ((r τ : ℝ) : ℂ)) = Complex.ofReal (∫ r).
+          -- We defer the routine integrability bookkeeping.
+          have hA_ofReal : ∫ τ, ((A τ : ℝ) : ℂ) ∂volume
+              = Complex.ofReal (∫ τ, A τ ∂volume) := by simp
+          have hB_ofReal : ∫ τ, ((B τ : ℝ) : ℂ) ∂volume
+              = Complex.ofReal (∫ τ, B τ ∂volume) := by simp
+          have hC1_ofReal : ∫ τ, ((C1 τ : ℝ) : ℂ) ∂volume
+              = Complex.ofReal (∫ τ, C1 τ ∂volume) := by simp
+          have hC2_ofReal : ∫ τ, ((C2 τ : ℝ) : ℂ) ∂volume
+              = Complex.ofReal (∫ τ, C2 τ ∂volume) := by simp
+
+          -- Linearity to pull apart the combination
+          have h_split :
+              ∫ τ, L τ ∂volume
+                = (∫ τ, ((A τ : ℝ) : ℂ) ∂volume)
+                  - (∫ τ, ((B τ : ℝ) : ℂ) ∂volume)
+                  - Complex.I * (∫ τ, ((C1 τ : ℝ) : ℂ) ∂volume)
+                  + Complex.I * (∫ τ, ((C2 τ : ℝ) : ℂ) ∂volume) := by
+            -- Use the integrability lemmas for each component
+            have h_int_A : Integrable (fun τ => ((A τ : ℝ) : ℂ)) volume :=
+              integrable_mellin_norm_sq_add σ f g hf_L2 hf_int hg_L2 hg_int
+            have h_int_B : Integrable (fun τ => ((B τ : ℝ) : ℂ)) volume :=
+              integrable_mellin_norm_sq_sub σ f g
+            have h_int_C1 : Integrable (fun τ => ((C1 τ : ℝ) : ℂ)) volume :=
+              integrable_mellin_norm_sq_add_I σ f g
+            have h_int_C2 : Integrable (fun τ => ((C2 τ : ℝ) : ℂ)) volume :=
+              integrable_mellin_norm_sq_sub_I σ f g
+
+            exact integral_polarization_split A B C1 C2 h_int_A h_int_B h_int_C1 h_int_C2
+
+          -- Replace each term by its `ofReal` integral
+          have h_rhs :
+            (∫ τ, ((A τ : ℝ) : ℂ) ∂volume)
+              - (∫ τ, ((B τ : ℝ) : ℂ) ∂volume)
+              - Complex.I * (∫ τ, ((C1 τ : ℝ) : ℂ) ∂volume)
+              + Complex.I * (∫ τ, ((C2 τ : ℝ) : ℂ) ∂volume)
+            = Complex.ofReal (∫ τ, A τ ∂volume)
+              - Complex.ofReal (∫ τ, B τ ∂volume)
+              - Complex.I * Complex.ofReal (∫ τ, C1 τ ∂volume)
+              + Complex.I * Complex.ofReal (∫ τ, C2 τ ∂volume) := by
+            -- Straight replacement using `h*_ofReal`
+            simp [hA_ofReal, hB_ofReal, hC1_ofReal, hC2_ofReal]
+
+          -- Conclude by chaining the two identities
+          calc
+            Complex.ofReal (∫ τ, A τ ∂volume)
+              - Complex.ofReal (∫ τ, B τ ∂volume)
+              - Complex.I * Complex.ofReal (∫ τ, C1 τ ∂volume)
+              + Complex.I * Complex.ofReal (∫ τ, C2 τ ∂volume)
+              = (∫ τ, ((A τ : ℝ) : ℂ) ∂volume)
+                - (∫ τ, ((B τ : ℝ) : ℂ) ∂volume)
+                - Complex.I * (∫ τ, ((C1 τ : ℝ) : ℂ) ∂volume)
+                + Complex.I * (∫ τ, ((C2 τ : ℝ) : ℂ) ∂volume) := by
+                  simp [hA_ofReal, hB_ofReal, hC1_ofReal, hC2_ofReal]
+            _ = ∫ τ, L τ ∂volume := h_split.symm
+
+        -- Step 3: Combine the two steps
+        simpa [A, B, C1, C2, L]
+          using h_decompose.trans h_int_congr
       -- Pull out the constant C from `ofReal (C * ∫ ...)`.
       -- Note: `Complex.ofReal (C * A) = C • Complex.ofReal A` and
       -- we can rewrite scalar multiplication as multiplication since `C : ℝ`.
