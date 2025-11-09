@@ -1,5 +1,5 @@
 import Frourio.Analysis.FourierPlancherel
-import Frourio.Analysis.MellinParsevalCore
+import Frourio.Analysis.MellinParseval.MellinParsevalCore0
 import Frourio.Analysis.SchwartzDensity.SchwartzDensity
 import Mathlib.Analysis.Distribution.FourierSchwartz
 import Mathlib.Topology.Basic

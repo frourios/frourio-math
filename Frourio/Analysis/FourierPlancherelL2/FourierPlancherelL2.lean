@@ -2,7 +2,7 @@ import Frourio.Analysis.FourierPlancherel
 import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2Core3
 import Frourio.Analysis.Gaussian
 import Frourio.Analysis.HilbertSpace
-import Frourio.Analysis.MellinParsevalCore
+import Frourio.Analysis.MellinParseval.MellinParsevalCore0
 import Frourio.Analysis.SchwartzDensity.SchwartzDensity
 import Frourio.Analysis.SchwartzDensityLp.SchwartzDensityLp
 import Mathlib.Analysis.Distribution.FourierSchwartz
