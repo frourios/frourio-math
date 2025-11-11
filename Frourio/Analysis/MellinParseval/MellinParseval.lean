@@ -1,7 +1,7 @@
 import Frourio.Analysis.FourierPlancherel
 import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2
 import Frourio.Analysis.MellinPlancherel
-import Frourio.Analysis.MellinParseval.MellinParsevalCore3
+import Frourio.Analysis.MellinParseval.MellinParsevalCore4
 import Frourio.Analysis.HilbertSpaceCore
 import Mathlib.Analysis.Fourier.FourierTransform
 import Mathlib.Analysis.Fourier.PoissonSummation
@@ -22,6 +22,7 @@ open Schwartz
 
 section ParsevalEquivalence
 
+set_option maxHeartbeats 1000000 in
 /-- The Mellin-Plancherel formula relates to Fourier-Parseval -/
 theorem parseval_identity_equivalence (σ : ℝ) :
     ∃ (C : ℝ), C > 0 ∧ ∀ (f g : Hσ σ),
@@ -216,8 +217,8 @@ theorem parseval_identity_equivalence (σ : ℝ) :
           + Complex.I * Complex.ofReal (C * ∫ τ : ℝ,
             ‖mellinTransform (f - Complex.I • g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 ∂volume)
         = C * ∫ τ : ℝ,
-            (starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * τ))
-              * mellinTransform (g : ℝ → ℂ) (σ + I * τ)) * 4 ∂volume := by
+            4 * (starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * τ))
+              * mellinTransform (g : ℝ → ℂ) (σ + I * τ)) ∂volume := by
       -- Pull out C and integrate the pointwise polarization identity.
       -- The inner equality is exactly `h_mellin_polarization τ`.
       -- We rewrite the four integrands and then use linearity of the integral.
@@ -375,12 +376,90 @@ theorem parseval_identity_equivalence (σ : ℝ) :
               (‖mellinTransform (f + Complex.I • g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
             + Complex.I * Complex.ofReal (∫ τ : ℝ,
               (‖mellinTransform (f - Complex.I • g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)) := by
-        -- Use Complex.ofReal (C * A) = C * Complex.ofReal A and ring
-        sorry
+        -- Rewrite `Complex.ofReal (C * ·)` and factor out `(C : ℂ)`.
+        -- Then commute factors and regroup by distributivity.
+        -- Finally, coe back from `(C : ℂ)` to `C` on the right.
+        have :
+            Complex.ofReal (C * ∫ τ : ℝ, (‖mellinTransform (f + g : ℝ → ℂ)
+              (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+              - Complex.ofReal (C * ∫ τ : ℝ, (‖mellinTransform (f - g : ℝ → ℂ)
+              (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+              - Complex.I * Complex.ofReal (C * ∫ τ : ℝ,
+                (‖mellinTransform (f + Complex.I • g : ℝ → ℂ)
+                  (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+              + Complex.I * Complex.ofReal (C * ∫ τ : ℝ,
+                (‖mellinTransform (f - Complex.I • g : ℝ → ℂ)
+                  (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+          = (C : ℂ) * (Complex.ofReal (∫ τ : ℝ,
+                (‖mellinTransform (f + g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+              - Complex.ofReal (∫ τ : ℝ,
+                (‖mellinTransform (f - g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+              - Complex.I * Complex.ofReal (∫ τ : ℝ,
+                (‖mellinTransform (f + Complex.I • g : ℝ → ℂ)
+                  (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+              + Complex.I * Complex.ofReal (∫ τ : ℝ,
+                (‖mellinTransform (f - Complex.I • g : ℝ → ℂ)
+                  (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)) := by
+          -- Push `C` inside `ofReal` as a complex scalar and factor it out.
+          -- Also commute it across `I` in the last two terms.
+          simp [Complex.ofReal_mul, mul_comm, mul_left_comm, mul_assoc, mul_add, mul_sub,
+            sub_eq_add_neg]
+        simpa using this
       -- Combine the last two displays.
-      sorry
+      calc
+        Complex.ofReal (C * ∫ τ : ℝ,
+            (‖mellinTransform (f + g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+          - Complex.ofReal (C * ∫ τ : ℝ,
+              (‖mellinTransform (f - g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+          - Complex.I * Complex.ofReal (C * ∫ τ : ℝ,
+              (‖mellinTransform (f + Complex.I • g : ℝ → ℂ)
+                (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+          + Complex.I * Complex.ofReal (C * ∫ τ : ℝ,
+              (‖mellinTransform (f - Complex.I • g : ℝ → ℂ)
+                (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+          = C * (Complex.ofReal (∫ τ : ℝ,
+                (‖mellinTransform (f + g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+              - Complex.ofReal (∫ τ : ℝ,
+                  (‖mellinTransform (f - g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+              - Complex.I * Complex.ofReal (∫ τ : ℝ,
+                  (‖mellinTransform (f + Complex.I • g : ℝ → ℂ)
+                    (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+              + Complex.I * Complex.ofReal (∫ τ : ℝ,
+                  (‖mellinTransform (f - Complex.I • g : ℝ → ℂ)
+                    (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)) := h_pullC
+        _ = C * ∫ τ : ℝ,
+              4 * (starRingEnd ℂ (mellinTransform (f : ℝ → ℂ) (σ + I * τ))
+                * mellinTransform (g : ℝ → ℂ) (σ + I * τ)) ∂volume := by
+              -- h_int_equal gives us the result for separated transforms
+              -- We need to relate mellinTransform (f + g) to mellinTransform f + mellinTransform g
+              rw [show Complex.ofReal (∫ τ : ℝ,
+                      (‖mellinTransform (f + g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+                    - Complex.ofReal (∫ τ : ℝ,
+                        (‖mellinTransform (f - g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+                    - Complex.I * Complex.ofReal (∫ τ : ℝ,
+                        (‖mellinTransform (f + Complex.I • g : ℝ → ℂ)
+                          (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+                    + Complex.I * Complex.ofReal (∫ τ : ℝ,
+                        (‖mellinTransform (f - Complex.I • g : ℝ → ℂ)
+                          (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+                  = Complex.ofReal (∫ τ : ℝ,
+                      (‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)
+                          + mellinTransform (g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+                    - Complex.ofReal (∫ τ : ℝ,
+                        (‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)
+                          - mellinTransform (g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+                    - Complex.I * Complex.ofReal (∫ τ : ℝ,
+                        (‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)
+                          + Complex.I * mellinTransform (g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+                    + Complex.I * Complex.ofReal (∫ τ : ℝ,
+                        (‖mellinTransform (f : ℝ → ℂ) (σ + I * τ)
+                          - Complex.I * mellinTransform (g : ℝ → ℂ) (σ + I * τ)‖ ^ 2 : ℝ) ∂volume)
+                  from by
+                    -- Rewrite each integral via linearity of Mellin transform on the integrand
+                    -- using `h_lin₁` through `h_lin₄`.
+                    simp [h_lin₁, h_lin₂, h_lin₃, h_lin₄]]
+              rw [h_int_equal]
 
-    -- Conclude by comparing both expressions for 4 ⟪f,g⟫ and divide by 4.
     sorry
 
 /-- The Mellin transform preserves the L² structure up to normalization -/
