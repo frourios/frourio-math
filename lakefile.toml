@@ -1,7 +1,7 @@
 name = "Frourio"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["Frourio"]
+defaultTargets = ["Frourio", "YoungConvolutionInequality"]
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -20,5 +20,13 @@ name = "doc-gen4"
 scope = "leanprover"
 rev   = "v4.21.0"
 
+[[require]]
+name = "StrongPNT"
+git = "https://github.com/math-inc/strongpnt.git"
+rev = "2f5835c322314f55f1026ec2f139d704b7c45c69"
+
 [[lean_lib]]
 name = "Frourio"
+
+[[lean_lib]]
+name = "YoungConvolutionInequality"
