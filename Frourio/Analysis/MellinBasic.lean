@@ -158,7 +158,7 @@ lemma weight_product_simplify (σ : ℝ) (x : ℝ) (hx : x ∈ Set.Ioi 0) :
 
 lemma Hσ_norm_squared {σ : ℝ} (f : Hσ σ) :
     ‖f‖^2 = (∫⁻ x in Set.Ioi 0, ‖Hσ.toFun f x‖₊ ^ 2 *
-      ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume).toReal := by
+      ENNReal.ofReal (x ^ (2 * σ - 1)) ∂volume).toReal := by
   classical
   -- Abbreviate the weight and the integrand
   set wσ : ℝ → ℝ≥0∞ := fun x => ENNReal.ofReal (x ^ (2 * σ - 1)) with hwσ
@@ -169,59 +169,55 @@ lemma Hσ_norm_squared {σ : ℝ} (f : Hσ σ) :
   have hg_meas : Measurable g := by
     -- Build measurability from the Lp representative via the real norm
     have hsm : StronglyMeasurable fun x => Hσ.toFun f x := by
-      simpa using (Lp.stronglyMeasurable (f := (f : Lp ℂ 2 (mulHaar.withDensity wσ))))
+      simpa using (Lp.stronglyMeasurable
+        (f := (f : Lp ℂ 2 ((volume.restrict (Set.Ioi 0)).withDensity wσ))))
     have hfn : Measurable fun x => Hσ.toFun f x := hsm.measurable
     have hnorm : Measurable fun x => ‖Hσ.toFun f x‖ := hfn.norm
     have h_ofReal : Measurable fun x => ENNReal.ofReal (‖Hσ.toFun f x‖) :=
       ENNReal.measurable_ofReal.comp hnorm
     simpa [hgdef] using h_ofReal.pow_const (2 : ℕ)
   -- Step 1: express the L² norm squared as a lintegral over the weighted measure
-  have h0 :=
-    Lp_norm_sq_as_lintegral (ν := mulHaar.withDensity wσ) (f := (f : Lp ℂ 2 _))
+  have h0 := Lp_norm_sq_as_lintegral
+    (ν := (volume.restrict (Set.Ioi 0)).withDensity wσ) (f := (f : Lp ℂ 2 _))
   -- Replace the generic integrand with g
-  have h0' : ‖f‖ ^ 2 = (∫⁻ x, g x ∂(mulHaar.withDensity wσ)).toReal := by
+  have h0' : ‖f‖ ^ 2 = (∫⁻ x, g x ∂((volume.restrict (Set.Ioi 0)).withDensity wσ)).toReal := by
     simpa [hgdef] using h0
-  -- Step 2: expand the withDensity weight
+  -- Step 2: expand the withDensity weight on the restricted measure
   have h1 :
-      (∫⁻ x, g x ∂(mulHaar.withDensity wσ))
-        = ∫⁻ x, g x * wσ x ∂mulHaar := by
-    exact lintegral_withDensity_expand (g := g) (wσ := wσ) hg_meas hwσ_meas
-  -- Step 3: expand mulHaar as a set-lintegral over Ioi 0 with density 1/x
-  have h2 :
-      (∫⁻ x, g x * wσ x ∂mulHaar)
-        = ∫⁻ x in Set.Ioi 0, (g x * wσ x) * ENNReal.ofReal (1 / x) ∂volume := by
-    -- Apply the expansion lemma to the function x ↦ g x * wσ x
-    simpa using lintegral_mulHaar_expand (g := fun x => g x * wσ x)
-      ((hg_meas.mul hwσ_meas))
-  -- Combine the two densities later under ae on Ioi 0; no global pointwise equality needed
+      (∫⁻ x, g x ∂((volume.restrict (Set.Ioi 0)).withDensity wσ))
+        = ∫⁻ x in Set.Ioi 0, g x * wσ x ∂volume := by
+    have h := lintegral_withDensity_eq_lintegral_mul
+      (μ := volume.restrict (Set.Ioi 0)) (f := wσ) (h_mf := hwσ_meas) (g := g) hg_meas
+    simpa [mul_comm] using h
   -- Put all steps together and simplify to the target expression
   calc
     ‖f‖ ^ 2
-        = (∫⁻ x, g x ∂(mulHaar.withDensity wσ)).toReal := h0'
-    _ = (∫⁻ x, g x * wσ x ∂mulHaar).toReal := by simp [h1]
-    _ = (∫⁻ x in Set.Ioi 0, (g x * wσ x) * ENNReal.ofReal (1 / x) ∂volume).toReal := by
-          simp [h2]
+        = (∫⁻ x, g x ∂((volume.restrict (Set.Ioi 0)).withDensity wσ)).toReal := h0'
+    _ = (∫⁻ x in Set.Ioi 0, g x * wσ x ∂volume).toReal := by simp [h1]
     _ = (∫⁻ x in Set.Ioi 0,
             ((‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ (2 : ℕ))
-              * ENNReal.ofReal (x ^ (2 * σ - 1) / x) ∂volume).toReal := by
-          -- reorder factors and apply pointwise simplification for the weights
-          -- equality of the lintegrand under the set integral
-          refine congrArg ENNReal.toReal ?h
+              * ENNReal.ofReal (x ^ (2 * σ - 1)) ∂volume).toReal := by
+          -- Simplify: g x * wσ x = ‖f x‖₊^2 * x^(2σ-1)
+          congr 1
           apply lintegral_congr_ae
-          -- Reduce to an implication over the base measure via ae_restrict
-          refine ((ae_restrict_iff' measurableSet_Ioi).mpr ?_)
-          refine Filter.Eventually.of_forall ?_
-          intro x hx
-          -- On Ioi 0, apply the weight simplification (commuted to start with ofReal (1/x))
-          have hx' := weight_product_simplify σ x hx
-          have hx'' : ENNReal.ofReal (1 / x) * ENNReal.ofReal (x ^ (2 * σ - 1))
-              = ENNReal.ofReal (x ^ (2 * σ - 1) / x) := by
-            simpa [one_div, mul_comm] using hx'
-          -- Multiply both sides by the norm square on the right and simplify
-          simpa [g, hgdef, wσ, hwσ, mul_comm, mul_left_comm, mul_assoc]
-            using congrArg (fun t => t * (‖Hσ.toFun f x‖ₑ ^ (2 : ℕ))) hx''
+          filter_upwards with x
+          simp only [g, hgdef, wσ, hwσ]
+          rw [show (ENNReal.ofReal ‖Hσ.toFun f x‖) ^ 2 = (‖Hσ.toFun f x‖₊ : ℝ≥0∞) ^ 2 by
+            simp only [ENNReal.ofReal_eq_coe_nnreal (norm_nonneg _)]
+            rw [← ENNReal.coe_pow]
+            norm_cast]
 
 section BasicAPI
+
+/-- Elements of `Hσ σ` lie in the defining weighted L² space. -/
+lemma memLp_of_Hσ {σ : ℝ} (f : Hσ σ) :
+    MemLp (Hσ.toFun f) 2 ((volume.restrict (Set.Ioi 0)).withDensity
+      (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))) := by
+  -- Direct from the fact that any `Lp` element is in `MemLp` for its measure.
+  simpa [Hσ.toFun] using
+    (Lp.memLp (f : Lp ℂ 2
+      ((volume.restrict (Set.Ioi 0)).withDensity
+        (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))))
 
 lemma zeroLatticeSpacing_pos {φ : ℝ} (hφ : 1 < φ) : 0 < zeroLatticeSpacing φ := by
   simp only [zeroLatticeSpacing]
@@ -591,17 +587,6 @@ lemma coe_nnnorm_mul (a b : ℂ) :
   have : ‖a * b‖₊ = ‖a‖₊ * ‖b‖₊ := by simp
   simp [this, ENNReal.coe_mul]
 
-/-!
-Auxiliary placeholder embedding from `L²(ℝ)` (Lebesgue) into `Hσ`.
-In the present phase, this acts as the zero map to keep the API flowing.
-It will be replaced by the genuine logarithmic pullback inverse in P3.
--/
-
-lemma hwσ_meas_for_optimization (σ : ℝ) (wσ : ℝ → ℝ≥0∞)
-    (hwσ : wσ = fun x ↦ ENNReal.ofReal (x ^ (2 * σ - 1))) : Measurable wσ := by
-  rw [hwσ]
-  measurability
-
 lemma hx_cancel_for_optimization (σ x : ℝ) (hx' : 0 < x) (wσ : ℝ → ℝ≥0∞)
     (hwσ : wσ = fun x ↦ ENNReal.ofReal (x ^ (2 * σ - 1))) :
     (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * wσ x)) = (1 : ℝ≥0∞) := by
@@ -768,336 +753,319 @@ lemma expand_withDensity (g : ℝ → ℂ) (wσ : ℝ → ℝ≥0∞)
   exact lintegral_withDensity_expand (g := fun x => ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)))
     (wσ := wσ) hg_meas hwσ_meas
 
+/-- The pullback function is AE strongly measurable with respect to the Hσ measure.
+Given f ∈ L²(ℝ) and σ ∈ ℝ, the function g(x) = f(log x) · x^(-σ) is
+AE strongly measurable with respect to μ = (volume.restrict (Set.Ioi 0)).withDensity (x^(2σ-1)).
+This is the direct version for the Hσ space definition. -/
+lemma aestronglyMeasurable_pullback_Hσ (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    let g : ℝ → ℂ := fun x =>
+      if 0 < x then
+        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-σ : ℂ)
+      else 0
+    let wσ : ℝ → ℝ≥0∞ := fun x => ENNReal.ofReal (x ^ (2 * σ - 1))
+    let μ := (volume.restrict (Set.Ioi 0)).withDensity wσ
+    AEStronglyMeasurable g μ := by
+  intro g wσ μ
+  -- Rewrite g as an indicator function
+  have h_eq_ind :
+      g = Set.indicator (Set.Ioi (0 : ℝ)) (fun x =>
+        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-σ : ℂ)) := by
+    funext x; by_cases hx : 0 < x
+    · simp [g, hx]
+    · simp [g, hx]
+  -- Measurability of the inside function: (f ∘ log) · (x ↦ x^const)
+  have h_f_log : Measurable fun x : ℝ => ((f : ℝ → ℂ) (Real.log x)) :=
+    (Lp.stronglyMeasurable f).measurable.comp Real.measurable_log
+  have h_cpow : Measurable fun x : ℝ => (x : ℂ) ^ (-σ : ℂ) := by
+    measurability
+  have h_prod : Measurable fun x : ℝ =>
+      ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-σ : ℂ) :=
+    h_f_log.mul h_cpow
+  -- Indicator over a measurable set preserves AE-strong measurability
+  have : AEStronglyMeasurable
+      (Set.indicator (Set.Ioi (0 : ℝ))
+        (fun x => ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-σ : ℂ))) μ := by
+    exact AEStronglyMeasurable.indicator (h_prod.aestronglyMeasurable) measurableSet_Ioi
+  simpa [h_eq_ind]
+
+/-- The eLpNorm of the pullback function is finite with respect to the Hσ measure.
+Given f ∈ L²(ℝ) and σ ∈ ℝ, the function g(x) = f(log x) · x^(-σ) has finite L² norm
+with respect to the measure μ = (volume.restrict (Set.Ioi 0)).withDensity (x^(2σ-1)).
+This is the direct version for the Hσ space definition. -/
+lemma eLpNorm_pullback_finite_Hσ (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    let g : ℝ → ℂ := fun x =>
+      if 0 < x then
+        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-σ : ℂ)
+      else 0
+    let wσ : ℝ → ℝ≥0∞ := fun x => ENNReal.ofReal (x ^ (2 * σ - 1))
+    let μ := (volume.restrict (Set.Ioi 0)).withDensity wσ
+    eLpNorm g 2 μ < ⊤ := by
+  intro g wσ μ
+  -- Reduce eLpNorm to the standard lintegral representation when p = 2
+  have hrepr_int :
+      (∫⁻ x, (ENNReal.ofReal ‖g x‖) ^ (2 : ℕ) ∂μ)
+        = ∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂μ := by
+    have : (fun x => (ENNReal.ofReal ‖g x‖) ^ (2 : ℕ))
+        = (fun x => ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
+      funext x
+      rw [ofReal_norm_eq_enorm]
+      rfl
+    simpa using congrArg (fun φ => ∫⁻ x, φ x ∂μ) this
+  have hrepr_eLp :
+      eLpNorm g 2 μ
+        = ((∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂μ) ^ (1 / (2 : ℝ))) := by
+    rw [eLpNorm_eq_eLpNorm' (by norm_num : (2 : ℝ≥0∞) ≠ 0)
+        (by norm_num : (2 : ℝ≥0∞) ≠ ∞)]
+    simpa [ENNReal.toReal_ofNat, eLpNorm', one_div]
+      using congrArg (fun t => t ^ (1 / (2 : ℝ))) hrepr_int
+  -- Expand withDensity on the restricted measure
+  have hwσ_meas : Measurable wσ := by
+    dsimp [wσ]; measurability
+  have hg_meas_sq : Measurable (fun x : ℝ => (‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) := by
+    -- As before, write g as an indicator over (0,∞) of a product of measurables
+    have h_eq_ind :
+        g = Set.indicator (Set.Ioi (0 : ℝ)) (fun x =>
+          ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-σ : ℂ)) := by
+      funext x; by_cases hx : 0 < x <;> simp [g, hx]
+    have h_f_log : Measurable fun x : ℝ => ((f : ℝ → ℂ) (Real.log x)) :=
+      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_log
+    have h_cpow : Measurable fun x : ℝ => (x : ℂ) ^ (-σ : ℂ) := by
+      measurability
+    have h_prod : Measurable fun x : ℝ =>
+        ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-σ : ℂ) :=
+      h_f_log.mul h_cpow
+    have hg_meas : Measurable g := by
+      simpa [h_eq_ind] using (h_prod.indicator measurableSet_Ioi)
+    simpa using (hg_meas.nnnorm.coe_nnreal_ennreal.pow_const (2 : ℕ))
+  have h_expand_withDensity :
+      (∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂μ)
+        = ∫⁻ x in Set.Ioi 0, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x ∂volume := by
+    have := lintegral_withDensity_eq_lintegral_mul
+      (μ := volume.restrict (Set.Ioi 0)) (f := wσ) (h_mf := hwσ_meas)
+      (g := fun x : ℝ => ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))) hg_meas_sq
+    simpa [μ, mul_comm] using this
+  -- On (0,∞), simplify the integrand using the definition of g
+  have h_on_Ioi :
+      ∫⁻ x in Set.Ioi 0,
+          ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x ∂volume
+        = ∫⁻ x in Set.Ioi 0,
+            ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+              * ENNReal.ofReal (1 / x) ∂volume := by
+    refine lintegral_congr_ae ?_;
+    refine ((ae_restrict_iff' measurableSet_Ioi).mpr ?_)
+    refine Filter.Eventually.of_forall (fun x hx => ?_)
+    have hx' : 0 < x := hx
+    have hxg : g x = ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-σ : ℂ) := by
+      simp [g, hx']
+    -- Split the norm of the product and square it
+    have hsplit :
+        ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+          = (((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞)
+              * (‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞)) ^ (2 : ℕ)) := by
+      have : ((‖g x‖₊ : ℝ≥0∞))
+          = ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞)
+              * (‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞)) := by
+        simp [hxg, coe_nnnorm_mul]
+      simp [this]
+    -- Cancel the x-dependent factor against the weight to obtain 1/x
+    have hcancel :
+        (((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x)
+          = ENNReal.ofReal (1 / x) := by
+      -- Rewrite the square as a product of two identical factors
+      have hsq :
+          ((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+            = (‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞)
+                * (‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞) := by
+        simp [pow_two]
+      -- Identify the nnnorm with the real rpow x^(-σ) for x>0
+      have hpos : 0 ≤ x := le_of_lt hx'
+      -- Use the prepared lemma about the norm of a real-base cpow with real exponent
+      have hnorm_nn : ‖(x : ℂ) ^ (-σ : ℂ)‖₊ = NNReal.rpow (Real.toNNReal x) (-σ) :=
+        norm_cpow_real x σ hx'
+      -- Move to real numbers and simplify using x > 0
+      have h_norm_eq : ‖(x : ℂ) ^ (-σ : ℂ)‖ = x ^ (-σ) := by
+        have hcoe : ((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ))
+            = ((NNReal.rpow (Real.toNNReal x) (-σ) : ℝ)) := by
+          -- Avoid unicode alias parsing issues by using `NNReal` explicitly
+          simpa using congrArg (fun z : NNReal => (z : ℝ)) hnorm_nn
+        have hrpow_coe : ((NNReal.rpow (Real.toNNReal x) (-σ) : ℝ))
+            = Real.rpow ((Real.toNNReal x : ℝ)) (-σ) := by
+          simp
+        have hbase : ((Real.toNNReal x : ℝ)) = x := by
+          simp [Real.toNNReal, max_eq_left_of_lt hx']
+        -- conclude in ℝ then coe back to a statement about ‖ · ‖
+        have : ((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ)) = x ^ (-σ) := by
+          simpa [hrpow_coe, hbase]
+            using hcoe
+        -- from nnnorm to norm as real equality
+        simpa [Real.norm_eq_abs, abs_of_nonneg (Real.rpow_nonneg hpos _)] using this
+      have h_norm : (‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞) = ENNReal.ofReal (x ^ (-σ)) := by
+        have : ((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ)) = x ^ (-σ) := by
+          simp [h_norm_eq]
+        rw [ENNReal.coe_nnreal_eq]
+        simp [this, ENNReal.ofReal, Real.toNNReal,
+          max_eq_left (Real.rpow_nonneg hpos _)]
+      -- Combine the three ENNReal.ofReal factors into one and simplify exponents
+      have h12 :
+          ENNReal.ofReal (x ^ (-σ)) * ENNReal.ofReal (x ^ (-σ))
+            = ENNReal.ofReal (x ^ (-σ) * x ^ (-σ)) := by
+        have hA0 : 0 ≤ x ^ (-σ) := by simpa using Real.rpow_nonneg hpos (-σ)
+        exact (ENNReal.ofReal_mul (p := x ^ (-σ)) (q := x ^ (-σ)) hA0).symm
+      have hLHS_eq :
+        ((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x
+          = ENNReal.ofReal (x ^ (-σ) * x ^ (-σ)) * ENNReal.ofReal (x ^ (2 * σ - 1)) := by
+        -- First, replace the norm term by ENNReal.ofReal using `h_norm`, then expand the square
+        have hpow_subst :
+            ((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+              = (ENNReal.ofReal (x ^ (-σ)) ^ (2 : ℕ)) := by
+          simpa using congrArg (fun t : ℝ≥0∞ => t ^ (2 : ℕ)) h_norm
+        calc
+          ((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x
+              = (ENNReal.ofReal (x ^ (-σ)) ^ (2 : ℕ)) * ENNReal.ofReal (x ^ (2 * σ - 1)) := by
+                simpa [wσ] using congrArg (fun t => t * wσ x) hpow_subst
+          _ = (ENNReal.ofReal (x ^ (-σ)) * ENNReal.ofReal (x ^ (-σ)))
+                * ENNReal.ofReal (x ^ (2 * σ - 1)) := by
+                simp [pow_two, mul_comm, mul_left_comm, mul_assoc]
+          _ = ENNReal.ofReal (x ^ (-σ) * x ^ (-σ)) * ENNReal.ofReal (x ^ (2 * σ - 1)) := by
+                simpa [mul_comm, mul_left_comm, mul_assoc]
+                  using congrArg (fun t => t * ENNReal.ofReal (x ^ (2 * σ - 1))) h12
+      -- Pack into a single ofReal using ofReal_mul twice
+      have hpack :
+          ENNReal.ofReal (x ^ (-σ) * x ^ (-σ)) * ENNReal.ofReal (x ^ (2 * σ - 1))
+            = ENNReal.ofReal ((x ^ (-σ) * x ^ (-σ)) * x ^ (2 * σ - 1)) := by
+        have hnonneg : 0 ≤ x ^ (-σ) * x ^ (-σ) := by
+          have hA0 : 0 ≤ x ^ (-σ) := by simpa using Real.rpow_nonneg hpos (-σ)
+          exact mul_nonneg hA0 hA0
+        simpa using
+          (ENNReal.ofReal_mul (p := (x ^ (-σ) * x ^ (-σ))) (q := x ^ (2 * σ - 1)) hnonneg).symm
+      -- Now simplify exponents in ℝ: (−σ)+(−σ)+(2σ-1) = −1
+      have hadd1 : x ^ (-σ) * x ^ (-σ) = x ^ ((-σ) + (-σ)) := by
+        simpa using (Real.rpow_add hx' (-σ) (-σ)).symm
+      have hadd2 : x ^ ((-σ) + (-σ)) * x ^ (2 * σ - 1)
+          = x ^ (((-σ) + (-σ)) + (2 * σ - 1)) := by
+        simpa using (Real.rpow_add hx' ((-σ) + (-σ)) (2 * σ - 1)).symm
+      have hsimp : (x ^ (-σ) * x ^ (-σ)) * x ^ (2 * σ - 1) = x ^ (-1 : ℝ) := by
+        have : ((-σ) + (-σ)) + (2 * σ - 1) = (-1 : ℝ) := by ring
+        simp [hadd1, hadd2, this]
+      -- Finally, identify x^(-1) with 1/x
+      have : ENNReal.ofReal ((x ^ (-σ) * x ^ (-σ)) * x ^ (2 * σ - 1))
+          = ENNReal.ofReal (x ^ (-1 : ℝ)) := by simp [hsimp]
+      have : ENNReal.ofReal (x ^ (-σ) * x ^ (-σ)) * ENNReal.ofReal (x ^ (2 * σ - 1))
+          = ENNReal.ofReal (x ^ (-1 : ℝ)) := by simpa [hpack] using this
+      -- And x^(-1) = 1/x for x>0
+      have hprod_inv :
+          ENNReal.ofReal (x ^ (-σ) * x ^ (-σ)) * ENNReal.ofReal (x ^ (2 * σ - 1))
+            = ENNReal.ofReal (1 / x) := by
+        simpa [one_div, Real.rpow_neg_one] using this
+      -- Conclude by chaining with the earlier identity of the LHS
+      exact hLHS_eq.trans hprod_inv
+    -- Put everything together
+    have hmulpow :
+        (((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞)
+            * (‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞)) ^ (2 : ℕ))
+          = ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+              * ((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) := by
+      simp [mul_pow]
+    have :
+        ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x
+          = ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * ENNReal.ofReal (1 / x) := by
+      calc
+        ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x
+            = ((((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞)
+                  * (‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞)) ^ (2 : ℕ)) * wσ x) := by
+                simp [hsplit]
+        _ = (((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+              * ((‖(x : ℂ) ^ (-σ : ℂ)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x) := by
+                rw [hmulpow]
+        _ = ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+              * ENNReal.ofReal (1 / x) := by
+                simpa [mul_comm, mul_left_comm, mul_assoc] using
+                  congrArg (fun t => ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * t)
+                    hcancel
+    -- Finally, multiply both sides by ENNReal.ofReal (1/x)
+    simpa [mul_comm, mul_left_comm, mul_assoc] using this
+  -- Chain all equalities to express the integral via t on ℝ
+  have hint :
+      (∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂μ)
+        = (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume) := by
+    -- Expand μ, simplify on Ioi 0, and change variables x = exp t with α = -1
+    have hstep0 :
+        (∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂μ)
+          = (∫⁻ x in Set.Ioi 0,
+                ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+                * ENNReal.ofReal (1 / x) ∂volume) := by
+      simpa [μ] using h_expand_withDensity.trans h_on_Ioi
+    -- Now apply the change-of-variables lemma specialized to α = -1
+    -- Measurability of the right integrand
+    have hf_meas_sq :
+        Measurable fun t : ℝ => ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) := by
+      have hsm : StronglyMeasurable fun t => (f : ℝ → ℂ) t :=
+        (Lp.stronglyMeasurable f)
+      have hm : Measurable fun t => ‖(f : ℝ → ℂ) t‖ := hsm.measurable.norm
+      have h_ofReal : Measurable fun t => ENNReal.ofReal ‖(f : ℝ → ℂ) t‖ :=
+        ENNReal.measurable_ofReal.comp hm
+      simpa using (h_ofReal.pow_const (2 : ℕ))
+    have h_change :=
+      lintegral_change_of_variables_exp (α := (-1 : ℝ))
+        (f := fun t => ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ))) hf_meas_sq
+    -- Align 1/x with x^(-1)
+    have h_align :
+        (fun x => ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+            * ENNReal.ofReal (1 / x))
+          = (fun x => ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+            * ENNReal.ofReal (x ^ (-1 : ℝ))) := by
+      funext x; congr 2; simp [one_div, Real.rpow_neg_one]
+    have hstep1 :
+        (∫⁻ x in Set.Ioi 0,
+            ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
+              * ENNReal.ofReal (1 / x) ∂volume)
+          = ∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume := by
+      -- Use the specialized substitution lemma
+      have hsub := lintegral_log_substitute
+        (f := fun t => ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ))) hf_meas_sq
+      simpa using hsub
+    -- Put together
+    exact hstep0.trans hstep1
+  -- Since f ∈ L²(ℝ), the right-hand side integral is finite, hence eLpNorm g < ∞.
+  have hf_fin :
+      ((∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume) ^ (1 / (2 : ℝ))) < ∞ := by
+    -- f is in L² by definition
+    have h1 : eLpNorm (fun t => (f : ℝ → ℂ) t) 2 volume < ∞ := by
+      have : MemLp (fun t => (f : ℝ → ℂ) t) 2 volume := by
+        simpa using (Lp.memLp f)
+      exact this.2
+    -- Re-express in terms of lintegral over nnnorm^2
+    rw [eLpNorm_eq_eLpNorm' (by norm_num : (2 : ℝ≥0∞) ≠ 0)
+        (by norm_num : (2 : ℝ≥0∞) ≠ ∞)] at h1
+    simp only [ENNReal.toReal_ofNat, eLpNorm', one_div] at h1
+    have : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℝ))
+        = (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
+      congr 1; funext t; norm_cast
+    simpa [this] using h1
+  -- Transport finiteness back to eLpNorm g via the equality `hint`
+  simpa [hrepr_eLp] using (by
+    have := congrArg (fun t => t ^ (1 / (2 : ℝ))) hint
+    simpa using (lt_of_le_of_lt (le_of_eq this) hf_fin))
+
+
 /-- Map an `L²(ℝ)` function to an element of `Hσ`.
 Implementation via logarithmic pullback: f(t) ↦ f(log x) with appropriate measure adjustment.
-For f ∈ L²(ℝ), we define g(x) = f(log x) · x^(-σ) which lies in Hσ. -/
+For f ∈ L²(ℝ), we define g(x) = f(log x) · x^(-σ) which lies in Hσ.
+This is the inverse of the Plancherel isometry U_σ: H_σ → L²(ℝ). -/
 noncomputable def toHσ_ofL2 (σ : ℝ) (f : Lp ℂ 2 (volume : Measure ℝ)) : Hσ σ := by
-  classical
-  -- Define the pullback: g(x) = 1_{x>0} · f(log x) · x^(-(σ - 1/2))
-  -- The exponent choice x^(-(σ - 1/2)) ensures isometry under the Hσ-weight.
+  -- Define the function g(x) = f(log x) · x^(-σ)
   let g : ℝ → ℂ := fun x =>
     if hx : 0 < x then
-      ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)
+      ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-σ : ℂ)
     else 0
-  -- Target measure and weight
-  set wσ : ℝ → ℝ≥0∞ := fun x => ENNReal.ofReal (x ^ (2 * σ - 1)) with hwσ
-  have hwσ_meas : Measurable wσ := hwσ_meas_for_optimization σ wσ hwσ
-  -- Show g ∈ L²(μσ) where μσ = mulHaar.withDensity wσ
-  have hg_memLp : MemLp g 2 (mulHaar.withDensity wσ) := by
-    -- We compute the L²-lintegral and relate it to ‖f‖² via change of variables.
-    -- Abbreviate the squared-ENorm integrand
-    have hg_meas : Measurable fun x => (‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ) :=
-      hg_meas_for_optimization σ f g rfl
-    -- Express the lintegral under withDensity as a product by wσ
-    have h_expand_withDensity := expand_withDensity g wσ hg_meas hwσ_meas
-    -- Expand mulHaar as set-integral over (0,∞) with density 1/x
-    have h_expand_mulHaar :
-        ∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x ∂mulHaar
-          = ∫⁻ x in Set.Ioi 0,
-              (((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x) * ENNReal.ofReal (1 / x) ∂volume := by
-      simpa using lintegral_mulHaar_expand
-        (g := fun x => ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x)
-        (hg := ((hg_meas.mul hwσ_meas)))
-    -- On (0,∞), unfold g and simplify the weight using weight_product_simplify
-    have h_on_Ioi :
-        ∫⁻ x in Set.Ioi 0,
-            (((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x) * ENNReal.ofReal (1 / x) ∂volume
-          = ∫⁻ x in Set.Ioi 0,
-              ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
-                * ENNReal.ofReal (1 / x) ∂volume := by
-      -- Reduce to a.e. equality on Ioi 0
-      refine lintegral_congr_ae ?_;
-      refine ((ae_restrict_iff' measurableSet_Ioi).mpr ?_)
-      refine Filter.Eventually.of_forall (fun x hx => ?_)
-      have hx' : 0 < x := hx
-      have hx'' := weight_product_simplify (σ := σ) x hx
-      -- Use that ‖a * b‖ = ‖a‖ * ‖b‖ and ‖x^(−(σ-1/2))‖² · x^(2σ-1) = x
-      -- so after multiplying by ofReal(1/x), only the factor 1/x remains.
-      -- We discharge equalities via `simp` and `ring`-style arithmetic encoded in prior lemmas.
-      have hx_id :
-          (((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x) * ENNReal.ofReal (1 / x)
-            = ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
-                * ENNReal.ofReal (1 / x) := by
-        -- Unfold g at x>0 and rewrite weights
-        have hxg : g x = ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ) := by
-          simp [g, hx']
-        have hwx : (wσ x) * ENNReal.ofReal (1 / x) = ENNReal.ofReal (x ^ (2 * σ - 1) / x) := by
-          simpa [wσ, hwσ, mul_comm] using hx''
-        -- Reshuffle and reduce to cancelling the cpow factor with the weight
-        simp [hxg, mul_comm]
-        -- Bring out the product inside the squared nnnorm
-        have hsplit :
-            ((‖((f : ℝ → ℂ) (Real.log x) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
-              = (((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) *
-                  (‖(x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)‖₊ : ℝ≥0∞)) ^ (2 : ℕ)) := by
-          simp
-        -- Use exponent arithmetic to match x^(2σ-1) with (x^(σ-1/2))^2
-        have h_exp : x ^ (2 * σ - 1) = x ^ (2 * (σ - 1/2)) := by
-          congr 1; ring
-        have h_exp_comm : x ^ (σ * 2 - 1) = x ^ (2 * σ - 1) := by
-          have : (σ * 2 - 1 : ℝ) = 2 * σ - 1 := by ring
-          simpa using congrArg (fun t : ℝ => x ^ t) this
-        have hx0 : 0 ≤ x := le_of_lt hx'
-        have h_combine : x ^ (2 * (σ - 1/2)) = (x ^ (σ - 1/2)) ^ 2 := by
-          simpa [mul_comm] using (Real.rpow_mul (x := x) (y := (σ - 1/2)) (z := (2 : ℝ)) hx0)
-        -- Finish: cancel the cpow factor squared with the weight squared to 1
-        -- Convert the cpow nnnorm to a real rpow via the prepared lemma
-        have hnorm₁ : (‖(x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)‖₊ : ℝ≥0∞)
-            = ENNReal.ofReal (x ^ (-(σ - 1/2))) := by
-          have hnn : ‖(x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)‖₊
-              = NNReal.rpow (Real.toNNReal x) (-(σ - 1/2)) := by
-            simpa using norm_cpow_real x (σ - 1/2) hx'
-          -- move to real values via coercion to ℝ and then lift with ofReal
-          have : ENNReal.ofReal ((‖(x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)‖₊ : NNReal) : ℝ)
-                = ENNReal.ofReal ((Real.toNNReal x : ℝ) ^ (-(σ - 1/2))) := by
-            have := congrArg (fun r : NNReal => (r : ℝ)) hnn
-            simpa [NNReal.coe_rpow] using congrArg ENNReal.ofReal this
-          have hx_to : ((Real.toNNReal x : ℝ)) = x := by
-            simp [Real.toNNReal, max_eq_left_of_lt hx']
-          simpa [hx_to] using this
-        -- Put all exponent identities together and cancel
-        -- Rearrange to isolate ((‖x^(1/2-σ)‖₊)^2) * wσ x
-        have hx_cancel :
-            (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * (↑‖↑x ^ (2⁻¹ - ↑σ)‖₊ * wσ x)) = (1 : ℝ≥0∞) :=
-          hx_cancel_for_optimization σ x hx' wσ hwσ
-        -- Now use the cancellation inside the big product and finish
-        -- target has a common left factor ENNReal.ofReal x⁻¹; after cancellation we match RHS
-        -- Define A := ‖x^(1/2-σ)‖₊ and B := ‖f(log x)‖₊ * ‖f(log x)‖₊ in ℝ≥0∞
-        set A : ℝ≥0∞ := ((‖(x : ℂ) ^ ((2⁻¹ - σ) : ℂ)‖₊ : ℝ≥0∞)) with hA
-        set B : ℝ≥0∞ := ((‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞) *
-          (‖(f : ℝ → ℂ) (Real.log x)‖₊ : ℝ≥0∞)) with hB
-        have hx_cancel' : wσ x * (A * A * B) = B := by
-          -- Rearrange the cancellation equation
-          calc wσ x * (A * A * B) = (wσ x * A * A) * B := by ring
-            _ = (A * (A * wσ x)) * B := by ring
-            _ = 1 * B := by
-              have h1 : A * (A * wσ x) = 1 := by
-                rw [hA]
-                have : (‖(x : ℂ) ^ ((2⁻¹ - σ) : ℂ)‖₊ : ℝ≥0∞) = (‖x ^ (2⁻¹ - σ)‖₊ : ℝ≥0∞) := by
-                  -- We need to show the complex power norm equals the real power norm
-                  -- First show the norms are equal as real numbers
-                  have h_norm : ‖(x : ℂ) ^ ((2⁻¹ - σ) : ℂ)‖ = ‖x ^ (2⁻¹ - σ)‖ := by
-                    rw [Complex.norm_cpow_eq_rpow_re_of_pos hx']
-                    have : (2⁻¹ - (σ : ℂ)).re = 2⁻¹ - σ := by
-                      simp [Complex.sub_re, Complex.ofReal_re]
-                    rw [this, Real.norm_eq_abs, abs_eq_self.mpr (Real.rpow_nonneg hx0 _)]
-                  -- Convert to nnnorm equality
-                  have h_nnnorm : ‖(x : ℂ) ^ ((2⁻¹ - σ) : ℂ)‖₊ = ‖x ^ (2⁻¹ - σ)‖₊ := by
-                    ext
-                    exact h_norm
-                  -- Finally convert to ENNReal
-                  simp only [h_nnnorm]
-                rw [this]
-                exact hx_cancel
-              calc A * (A * wσ x) * B = (A * (A * wσ x)) * B := by ring
-                _ = 1 * B := by rw [h1]
-            _ = B := by rw [one_mul]
-        -- Apply to get the desired form
-        have h_eq : ENNReal.ofReal x⁻¹ * (wσ x * (A * A * B)) = ENNReal.ofReal x⁻¹ * B := by
-          rw [hx_cancel']
-        -- Now we need to convert to the squared form
-        have : ENNReal.ofReal x⁻¹ * (wσ x * (A * ‖(f : ℝ → ℂ) (Real.log x)‖₊) ^ 2) =
-               ENNReal.ofReal x⁻¹ * ‖(f : ℝ → ℂ) (Real.log x)‖₊ ^ 2 := by
-          simp only [pow_two, hA, hB] at h_eq ⊢
-          convert h_eq using 2
-          ring
-        exact this
-      exact hx_id
-    -- Change variables x = exp t with α = -1 to get the L² integral of f
-    have h_change :
-        ∫⁻ x in Set.Ioi 0,
-            ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
-              * ENNReal.ofReal (1 / x) ∂volume
-          = ∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume := by
-      -- Apply the ready-made α = -1 change-of-variables lemma
-      -- with f := fun t => ‖f t‖₊ ^ 2
-      have hf_meas : Measurable fun t => ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) := by
-        -- f is strongly measurable in L², hence measurable; build up the norm^2
-        have hsm : StronglyMeasurable (fun t => ((f : ℝ → ℂ) t)) := Lp.stronglyMeasurable f
-        have hm : Measurable (fun t => ((f : ℝ → ℂ) t)) := hsm.measurable
-        have hn : Measurable fun t => ‖((f : ℝ → ℂ) t)‖ := hm.norm
-        simpa using ((ENNReal.measurable_ofReal.comp hn).pow_const (2 : ℕ))
-      simpa [one_div] using
-        (lintegral_log_substitute (f := fun t => ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ))) hf_meas)
-    -- Put the pieces together: the L²-lintegral for g under μσ equals that for f under volume,
-    -- hence finiteness transfers; then build MemLp by definition.
-    -- Equality of squared-norm integrals
-    have hint_eq :
-        (∫⁻ x, (‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂(mulHaar.withDensity wσ))
-          = ∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume :=
-      calc
-        (∫⁻ x, (‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂(mulHaar.withDensity wσ))
-            = ∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x ∂mulHaar := h_expand_withDensity
-        _ = ∫⁻ x in Set.Ioi 0,
-              (((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) * wσ x)
-                * ENNReal.ofReal (1 / x) ∂volume := h_expand_mulHaar
-        _ = ∫⁻ x in Set.Ioi 0,
-              ((‖((f : ℝ → ℂ) (Real.log x))‖₊ : ℝ≥0∞) ^ (2 : ℕ))
-                * ENNReal.ofReal (1 / x) ∂volume := h_on_Ioi
-        _ = ∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume := h_change
-    -- Finiteness on the right-hand side because f ∈ L²(volume)
-    have hf_mem : MemLp (fun t => ((f : ℝ → ℂ) t)) 2 (volume : Measure ℝ) := Lp.memLp f
-    -- Convert eLpNorm finiteness at p=2 into finiteness of the squared-norm lintegral
-    have hf_fin : (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume) < ∞ := by
-      -- rewrite the integrand via ofReal of the real norm to match the eLpNorm definition
-      have hrepr :
-          (fun t => ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)))
-            = (fun t => (ENNReal.ofReal ‖((f : ℝ → ℂ) t)‖) ^ (2 : ℕ)) := by
-        funext t
-        -- ‖f t‖₊ is the nonnegative norm, and its coercion to ENNReal equals ofReal of the norm
-        -- Note that ‖f t‖₊ = Real.toNNReal ‖f t‖ by definition
-        -- and (↑(Real.toNNReal x) : ℝ≥0∞) = ENNReal.ofReal x for x ≥ 0
-        have : (‖(f : ℝ → ℂ) t‖₊ : ℝ≥0∞) = ENNReal.ofReal ‖(f : ℝ → ℂ) t‖ := by
-          rw [← enorm_eq_nnnorm]
-          rw [ofReal_norm]
-        rw [this]
-      -- hf_mem.2 gives us eLpNorm f 2 volume < ∞
-      have h1 : eLpNorm (fun t => (f : ℝ → ℂ) t) 2 volume < ∞ := hf_mem.2
-      rw [eLpNorm_eq_lintegral_rpow_enorm (by norm_num : (2 : ℝ≥0∞) ≠ 0)
-        (by norm_num : (2 : ℝ≥0∞) ≠ ∞)] at h1
-      simp only [ENNReal.toReal_ofNat] at h1
-      -- The eLpNorm is (∫⁻ t, ‖f t‖ₑ ^ 2) ^ (1/2)
-      -- We want ∫⁻ t, ‖f t‖ₑ ^ 2 < ∞
-      -- First fix the type: 1/2 = 2⁻¹
-      have h1' : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℝ)) ^ ((2 : ℝ)⁻¹) < ∞ := by
-        have : (1 / (2 : ℝ)) = ((2 : ℝ)⁻¹) := by norm_num
-        rw [← this]
-        exact h1
-      have h3 : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℝ)) < ∞ := by
-        by_contra hn
-        simp only [not_lt, top_le_iff] at hn
-        rw [hn] at h1'
-        simp at h1'
-      -- Convert the exponent from ℝ to ℕ and norm forms
-      have h4 : (∫⁻ t, ((‖(f : ℝ → ℂ) t‖₊ : ℝ≥0∞) ^ (2 : ℕ))) < ∞ := by
-        have : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℝ)) = (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℕ)) := by
-          congr 1
-          funext t
-          norm_cast
-        rw [this] at h3
-        have : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℕ))
-          = (∫⁻ t, ((‖(f : ℝ → ℂ) t‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
-          simp only [enorm_eq_nnnorm]
-        rw [← this]
-        exact h3
-      exact h4
-    -- Transfer finiteness to the left-hand side via the equality
-    have hg_int_fin :
-        (∫⁻ x, (‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ) ∂(mulHaar.withDensity wσ)) < ∞ := by
-      simpa [hint_eq]
-        using hf_fin
-    -- Almost everywhere strongly measurable: build measurability of g, then upgrade
-    have hg_measurable : Measurable g := by
-      -- As in `hg_meas`, `g` is an indicator over `Ioi 0` of a product of measurables
-      have h_eq_ind :
-          g = Set.indicator (Set.Ioi (0 : ℝ)) (fun x =>
-            ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ)) := by
-        funext x; by_cases hx : 0 < x
-        · simp [g, hx]
-        · simp [g, hx]
-      have h_f_log : Measurable fun x : ℝ => ((f : ℝ → ℂ) (Real.log x)) :=
-        (Lp.stronglyMeasurable f).measurable.comp Real.measurable_log
-      have h_cpow : Measurable fun x : ℝ => (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ) := by
-        measurability
-      have h_prod : Measurable fun x : ℝ =>
-          ((f : ℝ → ℂ) (Real.log x)) * (x : ℂ) ^ (-(σ - (1/2 : ℝ)) : ℂ) :=
-        h_f_log.mul h_cpow
-      simpa [h_eq_ind] using (h_prod.indicator measurableSet_Ioi)
-    have hg_aes : AEStronglyMeasurable g (mulHaar.withDensity wσ) :=
-      hg_measurable.aestronglyMeasurable
-    -- Package MemLp directly by definition (p = 2)
-    exact And.intro hg_aes (by
-      -- Rewrite eLpNorm at p=2 on both sides and use the equality of integrals.
-      -- Unfold both eLpNorm variants at p=2 to the same powered integral
-      have hrepr_g' :
-          eLpNorm' g 2 (mulHaar.withDensity wσ)
-            = ((∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂(mulHaar.withDensity wσ)) ^ (1 / (2 : ℝ))) := by
-        -- Pointwise equality of integrands
-        have hrepr :
-            (fun x => (‖g x‖ₑ : ℝ≥0∞) ^ (2 : ℕ))
-              = (fun x => ((↑‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
-          funext x
-          have hx : (‖g x‖ₑ : ℝ≥0∞) = (↑‖g x‖₊ : ℝ≥0∞) := rfl
-          simp [hx]
-        -- Lift to equality of lintegrals and take the 1/2 power
-        have hrepr_int :
-            (∫⁻ x, (ENNReal.ofReal ‖g x‖) ^ (2 : ℕ) ∂(mulHaar.withDensity wσ))
-              = ∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂(mulHaar.withDensity wσ) := by
-          simpa using congrArg (fun φ => ∫⁻ x, φ x ∂(mulHaar.withDensity wσ)) hrepr
-        simpa [eLpNorm', one_div] using congrArg (fun t => t ^ (1 / (2 : ℝ))) hrepr_int
-      -- Also record the same equality for `eLpNorm` (not the primed variant)
-      have hrepr_g'' :
-          eLpNorm g 2 (mulHaar.withDensity wσ)
-            = ((∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂(mulHaar.withDensity wσ)) ^ (1 / (2 : ℝ))) := by
-        -- Replace the ofReal-based integrand by the nnnorm-based one inside `eLpNorm`
-        have hrepr_int :
-            (∫⁻ x, (ENNReal.ofReal ‖g x‖) ^ (2 : ℕ) ∂(mulHaar.withDensity wσ))
-              = ∫⁻ x, ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂(mulHaar.withDensity wσ) := by
-          -- pointwise equality of integrands
-          have :
-              (fun x => (ENNReal.ofReal ‖g x‖) ^ (2 : ℕ))
-                = (fun x => ((‖g x‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
-            funext x
-            -- By definition, ‖·‖ₑ = (↑‖·‖₊ : ℝ≥0∞)
-            have hx : (‖g x‖ₑ : ℝ≥0∞) = (↑‖g x‖₊ : ℝ≥0∞) := rfl
-            simp [hx]
-          simpa using congrArg (fun φ => ∫⁻ x, φ x ∂(mulHaar.withDensity wσ)) this
-        -- eLpNorm for p = 2 is defined differently
-        rw [eLpNorm_eq_eLpNorm' (by norm_num : (2 : ℝ≥0∞) ≠ 0) (by norm_num : (2 : ℝ≥0∞) ≠ ∞)]
-        simp only [ENNReal.toReal_ofNat, eLpNorm']
-        -- Note that ‖g a‖ₑ = ↑‖g a‖₊ by definition
-        congr 1
-        congr 1
-        funext x
-        -- Both sides are equal since ‖g x‖ₑ = ↑‖g x‖₊
-        -- The exponent types differ (ℝ vs ℕ), but the values are the same
-        have : (‖g x‖ₑ : ℝ≥0∞) ^ (2 : ℝ) = (‖g x‖ₑ : ℝ≥0∞) ^ (2 : ℕ) := by
-          norm_cast
-        rw [this]
-        rfl
-      -- Synchronize the two equivalent integrand forms for f
-      have hrepr_f_norm :
-          (∫⁻ (a : ℝ), (‖((f : ℝ → ℂ) a)‖ₑ : ℝ≥0∞) ^ (2 : ℕ) ∂volume) ^ ((2 : ℝ)⁻¹)
-            = ((∫⁻ (t : ℝ), ((↑‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume) ^ ((2 : ℝ)⁻¹)) := by
-        -- pointwise equality of integrands
-        have hp :
-            (fun t => ((‖((f : ℝ → ℂ) t)‖ₑ : ℝ≥0∞) ^ (2 : ℕ)))
-              = (fun t => (((↑‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞)) ^ (2 : ℕ))) := by
-          funext t
-          have : ((‖((f : ℝ → ℂ) t)‖ₑ : ℝ≥0∞)) = (↑‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) := rfl
-          simp [this]
-        -- integrate both sides and raise to the same power
-        have hi :
-            (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖ₑ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume)
-              = (∫⁻ t, (((↑‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞)) ^ (2 : ℕ)) ∂volume) := by
-          simpa using congrArg (fun φ => ∫⁻ x, φ x ∂(volume : Measure ℝ)) hp
-        simpa using congrArg (fun s => s ^ ((2 : ℝ)⁻¹)) hi
-      have hf' :
-          ((∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume) ^ (1 / (2 : ℝ))) < ∞ := by
-        -- hf_mem.2 gives us eLpNorm f 2 volume < ∞
-        -- eLpNorm f 2 = (∫⁻ t, ‖f t‖ₑ ^ 2) ^ (1/2) for p = 2
-        have h1 : eLpNorm (fun t => (f : ℝ → ℂ) t) 2 volume < ∞ := hf_mem.2
-        rw [eLpNorm_eq_eLpNorm' (by norm_num : (2 : ℝ≥0∞) ≠ 0) (by norm_num : (2 : ℝ≥0∞) ≠ ∞)] at h1
-        simp only [ENNReal.toReal_ofNat, eLpNorm', one_div] at h1
-        -- Now we need to show the integrands are the same
-        have : (∫⁻ t, ‖(f : ℝ → ℂ) t‖ₑ ^ (2 : ℝ))
-          = (∫⁻ t, ((‖((f : ℝ → ℂ) t)‖₊ : ℝ≥0∞) ^ (2 : ℕ))) := by
-          congr 1
-          funext t
-          have : (‖(f : ℝ → ℂ) t‖ₑ : ℝ≥0∞) ^ (2 : ℝ)
-            = (‖(f : ℝ → ℂ) t‖ₑ : ℝ≥0∞) ^ (2 : ℕ) := by norm_cast
-          rw [this]
-          rfl
-        rw [this] at h1
-        -- Convert 2⁻¹ to 1/2
-        have : ((2 : ℝ)⁻¹) = (1 / (2 : ℝ)) := by norm_num
-        rw [← this]
-        exact h1
-      -- Use the equality of integrals to transport finiteness from f-side to g-side
-      simpa [hrepr_g'', hint_eq] using hf'
-    )
-  -- Package as an Lp element over μσ
-  exact MemLp.toLp g hg_memLp
+  -- The target measure for Hσ
+  let μ := (volume.restrict (Set.Ioi 0)).withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
+  -- Show that g is AEStronglyMeasurable and has finite norm on μ
+  have hg_aemeas : AEStronglyMeasurable g μ := aestronglyMeasurable_pullback_Hσ σ f
+  have hg_norm_finite : eLpNorm g 2 μ < ⊤ := eLpNorm_pullback_finite_Hσ σ f
+  -- Construct the Lp element
+  have hg_mem : MemLp g 2 μ := ⟨hg_aemeas, hg_norm_finite⟩
+  exact hg_mem.toLp g
 
 end MellinIsometry
 

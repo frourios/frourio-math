@@ -26,9 +26,9 @@ that are needed by both MellinTransform and MellinBasic to avoid circular import
 noncomputable def mulHaar : Measure ℝ :=
   (volume.withDensity (fun x => ENNReal.ofReal (1 / x))).restrict (Set.Ioi 0)
 
-/-- Hilbert-Sobolev space Hσ -/
+/-- Hilbert-Sobolev space Hσ with measure x^(2σ-1)dx on (0,∞) -/
 noncomputable abbrev Hσ (σ : ℝ) :=
-  Lp ℂ 2 (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))
+  Lp ℂ 2 ((volume.restrict (Set.Ioi 0)).withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))
 
 /-- Coercion from Hσ to functions -/
 noncomputable def Hσ.toFun {σ : ℝ} (f : Hσ σ) : ℝ → ℂ := ⇑(f : Lp ℂ 2 _)

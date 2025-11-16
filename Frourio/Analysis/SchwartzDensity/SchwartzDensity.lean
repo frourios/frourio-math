@@ -393,12 +393,12 @@ lemma continuous_to_smooth_approx {σ : ℝ} (hσ_lower : 1 / 2 < σ)
         exact ⟨⟨hxB, hx_pos⟩, hx_pos⟩
     have h₁' :
         μ B = ∫⁻ x in B ∩ Set.Ioi (0 : ℝ),
-          ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume := by
+          ENNReal.ofReal (x ^ (2 * σ - 1)) ∂volume := by
       simpa [μ] using h₁
     have h₂' :
         μ (B ∩ Set.Ioi (0 : ℝ)) =
           ∫⁻ x in B ∩ Set.Ioi (0 : ℝ),
-            ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume := by
+            ENNReal.ofReal (x ^ (2 * σ - 1)) ∂volume := by
       simpa [μ, h_inter, Set.inter_assoc, Set.inter_left_comm,
         Set.inter_right_comm] using h₂
     exact h₁'.trans h₂'.symm
@@ -586,40 +586,6 @@ lemma lp_norm_eq_under_measure_change {σ : ℝ} (f : ℝ → ℂ) (g : ℝ → 
   subst h_measure_eq
   rfl
 
-/-- Distance equivalence under measure equality for Lp spaces -/
-lemma lp_dist_measure_equiv {σ : ℝ} (f : Hσ σ) (g : ℝ → ℂ)
-    (f_Lp : Lp ℂ 2 (weightedMeasure σ))
-    (hf_weightedMeasure : MemLp (Hσ.toFun f) 2 (weightedMeasure σ))
-    (hf_Lp_eq : f_Lp = hf_weightedMeasure.toLp (Hσ.toFun f))
-    (hg_memLp : MemLp g 2 (weightedMeasure σ))
-    (h_measure_eq : weightedMeasure σ =
-        mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :
-    dist f (MemLp.toLp g (by rw [← h_measure_eq]; exact hg_memLp)) =
-    dist f_Lp (hg_memLp.toLp g) := by
-  classical
-  subst hf_Lp_eq
-  set μ := mulHaar.withDensity fun x => ENNReal.ofReal (x ^ (2 * σ - 1)) with hμ
-  have h_measure_eq' : weightedMeasure σ = μ := by
-    simpa [μ, hμ] using h_measure_eq
-  have hf_memLp : MemLp (Hσ.toFun f) 2 μ := by
-    simpa [μ, h_measure_eq'] using hf_weightedMeasure
-  have hf_toLp_eq : hf_memLp.toLp (Hσ.toFun f) = f := by
-    apply Lp.ext
-    refine (MemLp.coeFn_toLp hf_memLp).trans ?_
-    simp [μ, Hσ.toFun]
-  have hg_memLp' : MemLp g 2 μ := by
-    simpa [μ, h_measure_eq'] using hg_memLp
-  have h_left :
-      ‖f - MemLp.toLp g (by simpa [μ, h_measure_eq'] using hg_memLp)‖ =
-        ‖hf_memLp.toLp (Hσ.toFun f) - hg_memLp'.toLp g‖ := by
-    simp [hf_toLp_eq, μ]
-  have h_right :
-      ‖hf_weightedMeasure.toLp (Hσ.toFun f) - MemLp.toLp g hg_memLp‖ =
-        ‖hf_memLp.toLp (Hσ.toFun f) - hg_memLp'.toLp g‖ :=
-    lp_norm_eq_under_measure_change (Hσ.toFun f)
-      g hf_weightedMeasure hg_memLp μ h_measure_eq' hf_memLp hg_memLp'
-  exact h_left.trans h_right.symm
-
 /-- Triangle inequality chain for Lp approximation sequence -/
 lemma lp_approximation_triangle_chain {σ : ℝ}
     (f_Lp : Lp ℂ 2 (weightedMeasure σ))
@@ -663,13 +629,26 @@ lemma lp_approximation_triangle_chain {σ : ℝ}
     simpa [add_comm, add_left_comm, add_assoc, h_eps] using h
   exact lt_of_le_of_lt h_triangle h_sum_lt
 
+/-- Coercion of cast between Lp spaces with equal measures (symmetric form) -/
+lemma coe_cast_eq {α E : Type*} {m : MeasurableSpace α} {p : ℝ≥0∞}
+    [NormedAddCommGroup E] {μ ν : Measure α} (h : ν = μ) (f : Lp E p ν) :
+    ((cast (by rw [h]) f : Lp E p μ) : α → E) =ᵐ[μ] (f : α → E) := by
+  subst h
+  rfl
+
+/-- Casting between equal measures preserves Lp distances. -/
+lemma dist_cast_eq {α E : Type*} {m : MeasurableSpace α} {p : ℝ≥0∞}
+    [NormedAddCommGroup E] {μ ν : Measure α} (h : ν = μ)
+    (f g : Lp E p ν) :
+    dist (cast (by rw [h]) f) (cast (by rw [h]) g) = dist f g := by
+  subst h
+  simp
+
 /-- Smooth compactly supported functions are dense in weighted L² spaces for σ > 1/2 -/
 lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < σ)
-    (_hσ_upper : σ < 3 / 2)
-    (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) : ∃ (g : ℝ → ℂ) (hg_mem : MemLp g 2
-    (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))),
+    (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) : ∃ (g : ℝ → ℂ) (hg_mem : MemLp g 2 (weightedMeasure σ)),
      HasCompactSupport g ∧ ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g ∧
-     dist f (hg_mem.toLp g) < ε := by
+     dist (Hσ_to_Lp_weightedMeasure σ f) (hg_mem.toLp g) < ε := by
   -- Use the density of smooth compactly supported functions in weighted L² spaces
   -- Use the fact that for σ > 1/2, the weight function x^(2σ-1) is locally integrable
   have h_weight_integrable := weight_locallyIntegrable hσ_lower
@@ -678,11 +657,13 @@ lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < 
   -- Elements of `Hσ σ` are already in the weighted L² space used to define the norm
   have hf_mem_base := memLp_of_Hσ (σ := σ) f
 
-  have h_measure_equiv := weightedMeasure_eq_withDensity σ
+  -- Use the fact that Hσ and weightedMeasure use the same measure
+  have h_measure_equiv := Hσ_measure_eq_weightedMeasure σ
 
   have hf_weightedMeasure :
       MemLp (Hσ.toFun f) 2 (weightedMeasure σ) := by
-    simpa [h_measure_equiv, Hσ.toFun] using hf_mem_base
+    rw [← h_measure_equiv]
+    exact hf_mem_base
 
   -- Convert to Lp space element
   let f_Lp : Lp ℂ 2 (weightedMeasure σ) :=
@@ -701,61 +682,54 @@ lemma smooth_compactSupport_dense_in_weightedL2 {σ : ℝ} (hσ_lower : 1 / 2 < 
 
   obtain ⟨g, hg_memLp, hg_compact, hg_smooth, hg_mollify_close⟩ := h_smooth_approx
 
-  have h_measure_equiv_final := weightedMeasure_eq_withDensity σ
-
-  -- Convert hg_memLp to the required measure type
-  have hg_memLp_converted : MemLp g 2 (mulHaar.withDensity (fun x =>
-    ENNReal.ofReal (x ^ (2 * σ - 1)))) := by
-    rwa [h_measure_equiv_final] at hg_memLp
-
-  use g, hg_memLp_converted
+  use g, hg_memLp
   constructor
   · exact hg_compact
   constructor
   · exact hg_smooth
-  · -- Convert distances to work with consistent measures
-    -- Apply the approximation error bound
+  · -- Apply approximation error bound
     have hs_close' : dist f_Lp s < ε / 2 := by
       rw [dist_comm]
       exact hs_close
-    -- Apply distance bound through approximation chain using triangle inequality
-    -- We have the chain: f ≡ f_Lp → s → g_cont → g where:
-    -- dist(f_Lp, s) < ε/2, dist(s, g_cont) < ε/4, dist(g_cont, g) < ε/4
 
-    -- Apply approximation bounds using the triangle inequality
-    -- The goal is to show dist f (hg_memLp_converted.toLp g) < ε
-    -- We have approximation steps: f ≈ f_Lp ≈ s ≈ g_cont ≈ g
+    -- Apply triangle inequality in the weightedMeasure space: f_Lp → s → g_cont → g
+    have h_triangle_chain : dist f_Lp (hg_memLp.toLp g) < ε :=
+      lp_approximation_triangle_chain f_Lp s g_cont hg_cont_memLp g hg_memLp ε
+        hs_close' hg_cont_close hg_mollify_close
 
-    -- Step 1: Convert to common measure space and apply triangle inequality
-    have h_approx_bound : dist f (hg_memLp_converted.toLp g) < ε := by
-      -- The distance bound follows from:
-      -- 1. f = f_Lp (by construction)
-      -- 2. dist(f_Lp, s) < ε/2 (given)
-      -- 3. dist(s, g_cont) < ε/4 (given)
-      -- 4. dist(g_cont, g) < ε/4 (given)
-      -- 5. Triangle inequality: dist(f, g) ≤ sum of intermediate distances
+    -- Show that Hσ_to_Lp_weightedMeasure σ f = f_Lp as elements of Lp ℂ 2 (weightedMeasure σ)
+    have h_f_eq : Hσ_to_Lp_weightedMeasure σ f = f_Lp := by
+      -- Compare representatives a.e. and use `Lp.ext` over the target measure
+      unfold Hσ_to_Lp_weightedMeasure f_Lp
+      apply Lp.ext (μ := weightedMeasure σ)
+      -- Left: the cast does not change the underlying function
+      have h_cast_coe :
+          (((cast (by rw [← Hσ_measure_eq_weightedMeasure σ]) f) :
+              Lp ℂ 2 (weightedMeasure σ)) : ℝ → ℂ)
+            =ᵐ[weightedMeasure σ] Hσ.toFun f := by
+        -- Use the symmetric cast lemma directly with `h := Hσ_measure_eq_weightedMeasure σ`.
+        have :=
+          (coe_cast_eq (μ := weightedMeasure σ)
+            (ν := (volume.restrict (Set.Ioi 0)).withDensity
+              (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))
+            (h := Hσ_measure_eq_weightedMeasure σ) f)
+        simpa [Hσ.toFun]
+          using this
+      -- Right: `toLp` represents the same function a.e.
+      have h_toLp_coe :
+          ((hf_weightedMeasure.toLp (Hσ.toFun f) :
+              Lp ℂ 2 (weightedMeasure σ)) : ℝ → ℂ)
+            =ᵐ[weightedMeasure σ] Hσ.toFun f :=
+        MemLp.coeFn_toLp hf_weightedMeasure
+      -- Conclude a.e. equality of coeFns
+      exact h_cast_coe.trans h_toLp_coe.symm
 
-      -- The key insight: we can work directly with the distances in weightedMeasure space
-      -- and use the fact that hg_memLp_converted corresponds to hg_memLp under measure equivalence
-      -- Since f_Lp was constructed from f and hg_memLp_converted from hg_memLp,
-      -- the distance should be equivalent to working in the original space
-      have h_dist_equiv : dist f (hg_memLp_converted.toLp g) = dist f_Lp (hg_memLp.toLp g) :=
-        lp_dist_measure_equiv f g f_Lp hf_weightedMeasure rfl hg_memLp h_measure_equiv_final
-
-      rw [h_dist_equiv]
-
-      -- Apply triangle inequality in the weightedMeasure space: f_Lp → s → g_cont → g
-      -- The key insight is we have bounds:
-      -- dist f_Lp s < ε/2, dist s g_cont < ε/4, dist g_cont g < ε/4
-      have h_triangle_chain : dist f_Lp (hg_memLp.toLp g) < ε :=
-        lp_approximation_triangle_chain f_Lp s g_cont hg_cont_memLp g hg_memLp ε
-          hs_close' hg_cont_close hg_mollify_close
-      exact h_triangle_chain
-
-    exact h_approx_bound
+    calc dist (Hσ_to_Lp_weightedMeasure σ f) (hg_memLp.toLp g)
+        = dist f_Lp (hg_memLp.toLp g) := by rw [← h_f_eq]
+      _ < ε := h_triangle_chain
 
 /-- Schwartz functions are dense in Hσ for σ > 1/2 -/
-lemma schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2) :
+lemma schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) :
     DenseRange (schwartzToHσ hσ_lower) := by
   -- Use the characterization: a subspace is dense iff its closure equals the whole space
   rw [denseRange_iff_closure_range]
@@ -772,7 +746,7 @@ lemma schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ 
 
   -- Step 1: Use the density of compactly supported smooth functions in L²
   -- For this, we use the fact that C_c^∞ functions are dense in L² spaces
-  have h_smooth_dense := smooth_compactSupport_dense_in_weightedL2 hσ_lower hσ_upper f
+  have h_smooth_dense := smooth_compactSupport_dense_in_weightedL2 hσ_lower f
     (ε / 2) (half_pos hε)
 
   obtain ⟨g, hg_mem, hg_compact, hg_smooth, hg_close⟩ := h_smooth_dense
@@ -850,75 +824,147 @@ lemma schwartz_dense_in_Hσ {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ 
   -- Step 3: Show that schwartzToHσ hσ_lower φ approximates f
   -- We need to show ∃ y ∈ Set.range (schwartzToHσ hσ_lower), dist f y < ε
   use schwartzToHσ hσ_lower φ
-  refine ⟨?_, ?_⟩
-  · -- Show that schwartzToHσ hσ φ is in the range
-    use φ
-  · -- Show the distance bound
-    classical
-    set μ := mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) with hμ
-    have hμ_zero : μ (Set.Iic (0 : ℝ)) = 0 := by
-      -- First note that the underlying Haar measure vanishes on nonpositive reals
-      have h_base_zero : mulHaar (Set.Iic (0 : ℝ)) = 0 := by
-        have h_inter : Set.Iic (0 : ℝ) ∩ Set.Ioi (0 : ℝ) = (∅ : Set ℝ) := by
-          ext x
-          constructor
-          · intro hx
-            rcases hx with ⟨hx_le, hx_gt⟩
-            have hx_not : ¬(0 < x) := not_lt_of_ge hx_le
-            exact (hx_not hx_gt).elim
-          · intro hx
-            simp at hx
-        have h_meas : MeasurableSet (Set.Iic (0 : ℝ)) := measurableSet_Iic
-        have :
-            mulHaar (Set.Iic (0 : ℝ)) =
-              (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-                (Set.Iic (0 : ℝ) ∩ Set.Ioi (0 : ℝ)) := by
-          simp [mulHaar, h_meas]
-        simpa [h_inter] using this
-      -- Absolute continuity of the weighted measure
-      have h_ac :=
-        withDensity_absolutelyContinuous
-          (μ := mulHaar) (f := fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
-      have : μ ≪ mulHaar := by
-        simpa [hμ] using h_ac
-      exact this h_base_zero
-    -- The two L² representatives coincide almost everywhere
-    have h_ae_eq : g =ᵐ[μ] fun x : ℝ => if x > 0 then g x else 0 := by
+  constructor
+  · exact ⟨φ, rfl⟩
+  · -- Transfer the Lp-approximation to Hσ via measure equality and a.e. identifications.
+    -- First, identify the Lp-representative of schwartzToHσ hσ_lower φ under weightedMeasure σ.
+    have h_cast_schwartz :
+        (((cast (by rw [← Hσ_measure_eq_weightedMeasure σ])
+              (schwartzToHσ hσ_lower φ) :
+              Lp ℂ 2 (weightedMeasure σ)) : ℝ → ℂ)
+          =ᵐ[weightedMeasure σ]
+          Hσ.toFun (schwartzToHσ hσ_lower φ)) := by
+      -- Use the same cast-coe lemma pattern as above.
+      simpa using
+        (coe_cast_eq (μ := weightedMeasure σ)
+          (ν := (volume.restrict (Set.Ioi 0)).withDensity
+            (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))
+          (h := Hσ_measure_eq_weightedMeasure σ)
+          (schwartzToHσ hσ_lower φ))
+
+    have h_toLp_schwartz :
+        ((schwartzToHσ hσ_lower φ : Hσ σ) : ℝ → ℂ)
+          =ᵐ[(volume.restrict (Set.Ioi 0)).withDensity
+                (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))]
+            (fun x => if 0 < x then φ x else 0) := by
+      simpa [schwartzToHσ]
+        using (MemLp.coeFn_toLp (schwartz_mem_Hσ (σ := σ) hσ_lower φ))
+
+    have h_toLp_schwartz_weighted :
+        (((cast (by rw [← Hσ_measure_eq_weightedMeasure σ])
+                (schwartzToHσ hσ_lower φ) :
+                Lp ℂ 2 (weightedMeasure σ)) : ℝ → ℂ)
+          =ᵐ[weightedMeasure σ]
+            (fun x => if 0 < x then φ x else 0)) := by
+      -- Combine the cast a.e. equality with the a.e. representative of schwartzToHσ.
+      exact h_cast_schwartz.trans
+        (by simpa [Hσ_measure_eq_weightedMeasure σ] using h_toLp_schwartz)
+
+    -- For the approximant g from the Lp side, its Lp representative is a.e. equal to g itself.
+    have h_coe_g :
+        (((hg_mem.toLp g : Lp ℂ 2 (weightedMeasure σ)) : ℝ → ℂ)
+          =ᵐ[weightedMeasure σ] g) :=
+      MemLp.coeFn_toLp hg_mem
+
+    -- On the support of weightedMeasure σ (i.e. x > 0), φ agrees with g pointwise by construction.
+    -- Hence the truncation (if 0 < x then φ x else 0) agrees a.e. with g under weightedMeasure σ.
+    have h_indicator_eq_g_ae :
+        (fun x : ℝ => if 0 < x then φ x else 0)
+          =ᵐ[weightedMeasure σ] g := by
+      -- The set where they differ is contained in {x | x ≤ 0}, which has zero weighted measure.
       have h_subset :
-          {x : ℝ | g x ≠ if x > 0 then g x else 0} ⊆ Set.Iic (0 : ℝ) := by
+          {x : ℝ | (if 0 < x then φ x else 0) ≠ g x}
+            ⊆ Set.Iic (0 : ℝ) := by
         intro x hx
-        by_contra hx_pos
-        have hx_pos' : 0 < x := lt_of_not_ge hx_pos
-        change g x ≠ if x > 0 then g x else 0 at hx
-        rw [if_pos hx_pos'] at hx
-        exact hx rfl
-      have h_diff_zero :
-          μ {x : ℝ | g x ≠ if x > 0 then g x else 0} = 0 :=
-        measure_mono_null h_subset hμ_zero
-      refine (ae_iff).2 ?_
-      simpa using h_diff_zero
-    -- therefore the corresponding L² elements coincide
-    have h_toLp_eq :
-        hg_mem.toLp g =
-          MemLp.toLp (fun x : ℝ => if x > 0 then φ x else 0)
-            (schwartz_mem_Hσ hσ_lower φ) := by
-      have h_ae_eq' : g =ᵐ[μ] fun x : ℝ => if x > 0 then φ x else 0 := by
-        simpa [hμ] using h_ae_eq
-      exact
-        ((MemLp.toLp_eq_toLp_iff (hf := hg_mem)
-              (hg := schwartz_mem_Hσ hσ_lower φ)).2 h_ae_eq')
-    have h_toLp_eq' : hg_mem.toLp g = schwartzToHσ hσ_lower φ := by
-      simpa [schwartzToHσ, hμ] using h_toLp_eq
-    -- Conclude using the approximation provided by `hg_close`
-    have h_lt : dist f (hg_mem.toLp g) < ε :=
-      lt_trans hg_close (half_lt_self hε)
-    simpa [h_toLp_eq'] using h_lt
+        by_cases hxpos : 0 < x
+        · -- On x > 0, the two sides are equal since φ = g pointwise
+          have : (if 0 < x then φ x else 0) = g x := by
+            simp only [hxpos, ite_true]
+            -- φ is defined as { toFun := g, ... }, so φ x = g x by definition
+            rfl
+          exact (hx this).elim
+        · exact le_of_not_gt hxpos
+      have h_nonpos_null : weightedMeasure σ (Set.Iic (0 : ℝ)) = 0 := by
+        -- Compute via the explicit formula for weightedMeasure on measurable sets.
+        have h :=
+          weightedMeasure_apply (σ := σ) (s := Set.Iic (0 : ℝ)) measurableSet_Iic
+        have h_inter_empty :
+            Set.Iic (0 : ℝ) ∩ Set.Ioi 0 = (∅ : Set ℝ) := by
+          ext x; constructor
+          · intro hx
+            obtain ⟨h_le, h_gt⟩ := hx
+            simp only [Set.mem_Iic] at h_le
+            simp only [Set.mem_Ioi] at h_gt
+            -- h_le: x ≤ 0, h_gt: 0 < x, これは矛盾
+            linarith
+          · intro hx; exact False.elim hx
+        simpa [h_inter_empty] using h
+      -- Conclude a.e. equality
+      have h_diff_null :
+          weightedMeasure σ {x : ℝ |
+              (if 0 < x then φ x else 0) ≠ g x} = 0 :=
+        measure_mono_null h_subset h_nonpos_null
+      -- Translate null-difference to a.e. equality
+      exact (ae_iff.2 (by simpa using h_diff_null))
+
+    -- Therefore, the two Lp elements coincide: the cast of schwartzToHσ equals hg_mem.toLp g.
+    have h_schwartz_lp_eq_g :
+        (Hσ_to_Lp_weightedMeasure σ (schwartzToHσ hσ_lower φ)) = hg_mem.toLp g := by
+      -- Prove equality by a.e. equality of representatives.
+      unfold Hσ_to_Lp_weightedMeasure
+      apply Lp.ext
+      -- Chain the a.e. equalities
+      calc ((cast (by rw [← Hσ_measure_eq_weightedMeasure σ]) (schwartzToHσ hσ_lower φ) :
+              Lp ℂ 2 (weightedMeasure σ)) : ℝ → ℂ)
+          =ᵐ[weightedMeasure σ] (fun x => if 0 < x then φ x else 0) :=
+            h_toLp_schwartz_weighted
+        _ =ᵐ[weightedMeasure σ] g := h_indicator_eq_g_ae
+        _ =ᵐ[weightedMeasure σ] ((hg_mem.toLp g : Lp ℂ 2 (weightedMeasure σ)) : ℝ → ℂ) :=
+            h_coe_g.symm
+
+    -- Replace the Lp target using the previously proved equality.
+    have :
+        dist (Hσ_to_Lp_weightedMeasure σ f)
+             (Hσ_to_Lp_weightedMeasure σ (schwartzToHσ hσ_lower φ))
+          = dist (Hσ_to_Lp_weightedMeasure σ f) (hg_mem.toLp g) := by
+      simp [h_schwartz_lp_eq_g]
+
+    -- Conclude the desired bound in Hσ.
+    -- The Lp bound gives us what we need, but we must transfer it from the cast space.
+    have h_lp_bound :
+        dist (Hσ_to_Lp_weightedMeasure σ f)
+             (Hσ_to_Lp_weightedMeasure σ (schwartzToHσ hσ_lower φ))
+          < ε / 2 := by
+      simpa [this] using hg_close
+
+    -- Since Hσ_to_Lp_weightedMeasure is defined as a cast with Hσ_measure_eq_weightedMeasure,
+    -- and `abbrev Hσ σ = Lp ℂ 2 ...`, the distance is preserved.
+    -- We prove this by showing cast commutes with the distance.
+    have h_dist_pres :
+        dist (Hσ_to_Lp_weightedMeasure σ f)
+             (Hσ_to_Lp_weightedMeasure σ (schwartzToHσ hσ_lower φ))
+          = dist f (schwartzToHσ hσ_lower φ) := by
+      -- Apply the general distance-preservation lemma for casts.
+      unfold Hσ_to_Lp_weightedMeasure
+      have h_eq : (volume.restrict (Set.Ioi 0)).withDensity
+                    (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
+                  = weightedMeasure σ := by
+        rw [← Hσ_measure_eq_weightedMeasure σ]
+      rw [dist_cast_eq (α := ℝ) (E := ℂ) (p := (2 : ℝ≥0∞)) h_eq]
+
+    -- Transfer the strict bound back to Hσ.
+    have hHσ_lt_half : dist f (schwartzToHσ hσ_lower φ) < ε / 2 := by
+      simpa [h_dist_pres] using h_lp_bound
+    have h_half_lt : ε / 2 < ε := by
+      have : (0 : ℝ) < ε := hε
+      linarith
+    exact lt_trans hHσ_lt_half h_half_lt
 
 /-- For any f ∈ Hσ and ε > 0, there exists a Schwartz function approximating f for σ > 1/2 -/
-lemma exists_schwartz_approximation {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+lemma exists_schwartz_approximation {σ : ℝ} (hσ_lower : 1 / 2 < σ)
     (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :
     ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ_lower φ - f‖ < ε := by
-  have h_dense := schwartz_dense_in_Hσ hσ_lower hσ_upper
+  have h_dense := schwartz_dense_in_Hσ hσ_lower
   -- h_dense: Dense (Set.range (schwartzToHσ hσ_lower))
   -- This means closure (Set.range (schwartzToHσ hσ_lower)) = Set.univ
   have hf_in_closure : f ∈ closure (Set.range (schwartzToHσ hσ_lower)) := by
@@ -934,16 +980,18 @@ lemma exists_schwartz_approximation {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upp
   exact hg_close
 
 /-- Schwartz approximation with a.e. convergence for σ > 1/2 -/
-lemma schwartz_ae_dense {σ : ℝ} (hσ_lower : 1 / 2 < σ) (hσ_upper : σ < 3 / 2)
+lemma schwartz_ae_dense {σ : ℝ} (hσ_lower : 1 / 2 < σ)
     (f : Hσ σ) (ε : ℝ) (hε : 0 < ε) :
     ∃ φ : SchwartzMap ℝ ℂ, ‖schwartzToHσ hσ_lower φ - f‖ < ε ∧
-    (schwartzToHσ hσ_lower φ : ℝ → ℂ) =ᵐ[mulHaar.withDensity (fun x =>
-      ENNReal.ofReal (x ^ (2 * σ - 1)))] (fun x => if x > 0 then φ x else 0) := by
-  obtain ⟨φ, hφ⟩ := exists_schwartz_approximation hσ_lower hσ_upper f ε hε
+    (schwartzToHσ hσ_lower φ : ℝ → ℂ) =ᵐ[(volume.restrict (Set.Ioi 0)).withDensity
+      (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))] (fun x => if x > 0 then φ x else 0) := by
+  obtain ⟨φ, hφ⟩ := exists_schwartz_approximation hσ_lower f ε hε
   use φ
   constructor
   · exact hφ
-  · exact schwartzToHσ_ae_eq hσ_lower φ
+  · -- Identify the a.e. representative of `schwartzToHσ` under the defining measure of Hσ.
+    simpa [schwartzToHσ]
+      using (MemLp.coeFn_toLp (schwartz_mem_Hσ (σ := σ) hσ_lower φ))
 
 end SchwartzDensity
 

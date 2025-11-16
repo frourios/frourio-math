@@ -37,7 +37,7 @@ lemma weightedMeasure_pos_of_Ioo {σ a b : ℝ} (ha : 0 < a) (hb : a < b) :
   have h_apply := weightedMeasure_apply σ (Set.Ioo a b) h_meas
   simp [h_inter] at h_apply
   -- rewrite the integral in terms of a positive constant
-  set p : ℝ := 2 * σ - 2
+  set p : ℝ := 2 * σ - 1
   set c : ℝ := if p ≤ 0 then b ^ p else a ^ p
   have ha_le_b : a ≤ b := le_of_lt hb
   have hb_pos : 0 < b := lt_trans ha hb
@@ -169,44 +169,6 @@ lemma continuous_ae_eq_on_pos {σ : ℝ} {f g : ℝ → ℂ}
   intro x hx
   have h_eval := h_const x hx
   exact sub_eq_zero.mp h_eval
-
-/-- Coercion of cast between Lp spaces with equal measures -/
-lemma coe_cast_eq {α E : Type*} {m : MeasurableSpace α} {p : ℝ≥0∞}
-    [NormedAddCommGroup E] {μ ν : Measure α} (h : μ = ν) (f : Lp E p μ) :
-    ((cast (by rw [h]) f : Lp E p ν) : α → E) =ᵐ[μ] (f : α → E) := by
-  subst h
-  rfl
-
-lemma Hσ_cast_preserves_ae {σ : ℝ} (f : ℝ → ℂ)
-    (h_L2 : MemLp f 2 (weightedMeasure σ))
-    (h_eq : weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))) :
-    let g_lp := MemLp.toLp f h_L2
-    let g := cast (by rw [h_eq]) g_lp
-    (Hσ.toFun g : ℝ → ℂ) =ᵐ[weightedMeasure σ] (MemLp.toLp f h_L2 : ℝ → ℂ) := by
-  set g_lp := MemLp.toLp f h_L2
-  set g := cast (by rw [h_eq]) g_lp
-  -- Hσ.toFun unfolds to the coercion
-  change (g : ℝ → ℂ) =ᵐ[weightedMeasure σ] (g_lp : ℝ → ℂ)
-  -- Apply the lemma about cast preserving coercions
-  exact coe_cast_eq h_eq g_lp
-
-/-- Cast preserves a.e. equality for Lp functions -/
-lemma cast_preserves_ae_eq {σ : ℝ}
-    (h_eq : weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))))
-    (f : ℝ → ℂ)
-    (h_L2 : MemLp f 2 (weightedMeasure σ)) :
-    let g_lp := MemLp.toLp f h_L2
-    let g := cast (by rw [h_eq]) g_lp
-    (Hσ.toFun g : ℝ → ℂ) =ᵐ[weightedMeasure σ] f := by
-  classical
-  set g_lp := MemLp.toLp f h_L2
-  set g := cast (by rw [h_eq]) g_lp
-  -- fundamental property of the canonical representative
-  have h1 : (MemLp.toLp f h_L2 : ℝ → ℂ) =ᵐ[weightedMeasure σ] f :=
-    MemLp.coeFn_toLp h_L2
-  -- casting along a measure equality preserves the underlying function
-  have h_pointwise := Hσ_cast_preserves_ae f h_L2 h_eq
-  exact h_pointwise.trans h1
 
 /-- Helper function: Create mollifier with support on [-δ, δ] -/
 noncomputable def create_mollifier (δ : ℝ) : ℝ → ℝ :=

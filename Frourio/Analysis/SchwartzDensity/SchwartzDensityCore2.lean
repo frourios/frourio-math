@@ -52,36 +52,12 @@ lemma lp_restricted_aestronglyMeasurable {σ : ℝ} (s : Lp ℂ 2 (weightedMeasu
     apply Lp.stronglyMeasurable
   exact h_sm.aestronglyMeasurable.restrict
 
-/-- Composition of density functions for weighted measures -/
-lemma withDensity_mul_indicator (σ : ℝ) :
-    (volume.withDensity fun x : ℝ => ENNReal.ofReal x⁻¹).withDensity
-        ((Set.Ioi (0 : ℝ)).indicator (weightFunction σ))
-      = volume.withDensity
-          (fun x : ℝ => ENNReal.ofReal x⁻¹ *
-            (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x) := by
-  classical
-  have h_meas_inv₁ : Measurable fun x : ℝ => ENNReal.ofReal ((1 : ℝ) / x) := by
-    refine (Measurable.ennreal_ofReal ?_)
-    simpa using (Measurable.div measurable_const measurable_id)
-  have h_meas_inv : Measurable fun x : ℝ => ENNReal.ofReal x⁻¹ := by
-    simpa [one_div] using h_meas_inv₁
-  have h_meas_indicator :
-      Measurable fun x : ℝ =>
-        (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x :=
-    (weightFunction_measurable σ).indicator measurableSet_Ioi
-  have h_mul :=
-    MeasureTheory.withDensity_mul (μ := volume)
-      (f := fun x : ℝ => ENNReal.ofReal x⁻¹)
-      (g := fun x : ℝ => (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x)
-      h_meas_inv h_meas_indicator
-  simpa [Pi.mul_apply] using h_mul.symm
-
 /-- Truncated Lp functions are in Lp with respect to volume measure on compact intervals
-    NOTE: This requires σ ≤ 1 for the transfer from weighted to unweighted measure.
-    For σ > 1, functions in L²(weightedMeasure σ) may not be in L²(volume).
-    Example: σ = 6/5, s(x) = x^{-3/5} is in L²(weighted) but not L²(volume).
+    NOTE: This requires σ ≤ 1/2 for the transfer from weighted to unweighted measure.
+    For σ > 1/2, functions in L²(weightedMeasure σ) may not be in L²(volume).
+    Example: σ = 3/4, s(x) = x^{-1/4} is in L²(weighted) but not L²(volume).
 -/
-lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
+lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1 / 2)
     (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) (p : ℝ≥0∞) (hp : p = 2) :
     MemLp (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0)
     p (volume.restrict (Set.Ioc 0 R)) := by
@@ -129,57 +105,57 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
   -- Express the square-norm integrand in ENNReal form.
   set g : ℝ → ℝ≥0∞ := fun x => ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2)
   set w : ℝ → ℝ≥0∞ :=
-    fun x => ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2))
-  have h_exp_nonpos : 2 * σ - 2 ≤ 0 := by linarith [hσ_upper]
-  have h_constant_nonneg : 0 ≤ R ^ (2 - 2 * σ) :=
-    Real.rpow_nonneg (le_of_lt hR_pos) (2 - 2 * σ)
+    fun x => ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1))
+  have h_exp_nonpos : 2 * σ - 1 ≤ 0 := by linarith [hσ_upper]
+  have h_constant_nonneg : 0 ≤ R ^ (1 - 2 * σ) :=
+    Real.rpow_nonneg (le_of_lt hR_pos) (1 - 2 * σ)
   -- Pointwise bound: on S, the unweighted square-norm is controlled by the weighted one.
   have h_indicator_bound :
       (fun x => Set.indicator S g x)
-        ≤ fun x => ENNReal.ofReal (R ^ (2 - 2 * σ)) * Set.indicator S w x := by
+        ≤ fun x => ENNReal.ofReal (R ^ (1 - 2 * σ)) * Set.indicator S w x := by
     intro x
     by_cases hx : x ∈ S
     · have hx_pos : 0 < x := (hS_subset hx)
       have hx_le : x ≤ R := hx.2
-      have hx_pow_bound : R ^ (2 * σ - 2) ≤ x ^ (2 * σ - 2) :=
+      have hx_pow_bound : R ^ (2 * σ - 1) ≤ x ^ (2 * σ - 1) :=
         Real.rpow_le_rpow_of_nonpos hx_pos hx_le h_exp_nonpos
       have hx_weight_ge_one :
-          (1 : ℝ) ≤ R ^ (2 - 2 * σ) * x ^ (2 * σ - 2) := by
+          (1 : ℝ) ≤ R ^ (1 - 2 * σ) * x ^ (2 * σ - 1) := by
         have h_mul :=
           mul_le_mul_of_nonneg_left hx_pow_bound h_constant_nonneg
         have h_prod_one :
-            R ^ (2 - 2 * σ) * R ^ (2 * σ - 2) = 1 := by
-          have h_sum : (2 - 2 * σ) + (2 * σ - 2) = (0 : ℝ) := by ring
+            R ^ (1 - 2 * σ) * R ^ (2 * σ - 1) = 1 := by
+          have h_sum : (1 - 2 * σ) + (2 * σ - 1) = (0 : ℝ) := by ring
           have h_mul_eq :
-              R ^ (2 - 2 * σ) * R ^ (2 * σ - 2)
-                = R ^ ((2 - 2 * σ) + (2 * σ - 2)) :=
-            (Real.rpow_add hR_pos (2 - 2 * σ) (2 * σ - 2)).symm
+              R ^ (1 - 2 * σ) * R ^ (2 * σ - 1)
+                = R ^ ((1 - 2 * σ) + (2 * σ - 1)) :=
+            (Real.rpow_add hR_pos (1 - 2 * σ) (2 * σ - 1)).symm
           simpa [h_sum, Real.rpow_zero] using h_mul_eq
         simpa [h_prod_one] using h_mul
       have hx_sq_nonneg : 0 ≤ ‖(s : ℝ → ℂ) x‖ ^ 2 := sq_nonneg _
       have hx_real :
           (‖(s : ℝ → ℂ) x‖ ^ 2 : ℝ)
-            ≤ R ^ (2 - 2 * σ) * (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)) := by
+            ≤ R ^ (1 - 2 * σ) * (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1)) := by
         have hx_mul := mul_le_mul_of_nonneg_right hx_weight_ge_one hx_sq_nonneg
         simpa [mul_comm, mul_left_comm, mul_assoc] using hx_mul
       have hx_rhs_nonneg :
-          0 ≤ R ^ (2 - 2 * σ) * (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)) :=
+          0 ≤ R ^ (1 - 2 * σ) * (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1)) :=
         mul_nonneg h_constant_nonneg
-          (mul_nonneg (sq_nonneg _) (Real.rpow_nonneg (le_of_lt hx_pos) (2 * σ - 2)))
+          (mul_nonneg (sq_nonneg _) (Real.rpow_nonneg (le_of_lt hx_pos) (2 * σ - 1)))
       have hx_lhs_nonneg : 0 ≤ ‖(s : ℝ → ℂ) x‖ ^ 2 := sq_nonneg _
       have hx_ennreal : g x ≤
-          ENNReal.ofReal (R ^ (2 - 2 * σ)
-            * (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2))) := by
+          ENNReal.ofReal (R ^ (1 - 2 * σ)
+            * (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1))) := by
         have := ENNReal.ofReal_le_ofReal hx_real
         simpa [g] using this
       have hx_rewrite :
-          ENNReal.ofReal (R ^ (2 - 2 * σ)
-              * (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)))
-            = ENNReal.ofReal (R ^ (2 - 2 * σ)) * w x := by
+          ENNReal.ofReal (R ^ (1 - 2 * σ)
+              * (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1)))
+            = ENNReal.ofReal (R ^ (1 - 2 * σ)) * w x := by
         have hx :=
           ENNReal.ofReal_mul'
-            (p := ‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2))
-            (q := R ^ (2 - 2 * σ)) h_constant_nonneg
+            (p := ‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1))
+            (q := R ^ (1 - 2 * σ)) h_constant_nonneg
         simpa [w, mul_comm, mul_left_comm, mul_assoc] using hx
       have hx_in : Set.indicator S g x = g x :=
         Set.indicator_of_mem hx _
@@ -191,9 +167,9 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
   -- Use the pointwise bound to control the lintegral.
   have h_integral_bound :
       ∫⁻ x, ‖f x‖ₑ ^ 2 ∂μ
-        ≤ ENNReal.ofReal (R ^ (2 - 2 * σ)) *
+        ≤ ENNReal.ofReal (R ^ (1 - 2 * σ)) *
           ∫⁻ x, ENNReal.ofReal
-            (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)) ∂μ := by
+            (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂μ := by
     classical
     have h_norm_sq :
         ∫⁻ x, ‖f x‖ₑ ^ 2 ∂μ
@@ -214,21 +190,21 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
       exact (lintegral_congr_ae hfg).trans h_restrict
     have h_rhs :
         ∫⁻ x, ENNReal.ofReal
-            (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)) ∂μ
+            (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂μ
           = ∫⁻ x, Set.indicator S w x ∂volume := by
       simp [μ, w, hS_meas', lintegral_indicator, S]
     have h_indicator_bound' :
         ∫⁻ x, Set.indicator S g x ∂volume
-          ≤ ∫⁻ x, ENNReal.ofReal (R ^ (2 - 2 * σ)) * Set.indicator S w x ∂volume := by
+          ≤ ∫⁻ x, ENNReal.ofReal (R ^ (1 - 2 * σ)) * Set.indicator S w x ∂volume := by
       simpa using
         lintegral_mono_ae (μ := volume)
           (Filter.Eventually.of_forall h_indicator_bound)
     have h_const_mul :
-        ∫⁻ x, ENNReal.ofReal (R ^ (2 - 2 * σ)) * Set.indicator S w x ∂volume
-          = ENNReal.ofReal (R ^ (2 - 2 * σ)) * ∫⁻ x, Set.indicator S w x ∂volume := by
+        ∫⁻ x, ENNReal.ofReal (R ^ (1 - 2 * σ)) * Set.indicator S w x ∂volume
+          = ENNReal.ofReal (R ^ (1 - 2 * σ)) * ∫⁻ x, Set.indicator S w x ∂volume := by
       simpa using
         (lintegral_const_mul' (μ := volume)
-          (r := ENNReal.ofReal (R ^ (2 - 2 * σ)))
+          (r := ENNReal.ofReal (R ^ (1 - 2 * σ)))
           (f := fun x => Set.indicator S w x)
           (hr := ENNReal.ofReal_ne_top))
     have h_rewrite :
@@ -236,27 +212,27 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
       simp [h_norm_sq, h_lhs]
     have h_le_const :
         ∫⁻ x, ENNReal.ofReal (‖f x‖ ^ 2) ∂μ ≤
-          ∫⁻ x, ENNReal.ofReal (R ^ (2 - 2 * σ)) * Set.indicator S w x ∂volume := by
+          ∫⁻ x, ENNReal.ofReal (R ^ (1 - 2 * σ)) * Set.indicator S w x ∂volume := by
       simpa [h_lhs] using h_indicator_bound'
     have h_le_mul :
         ∫⁻ x, ENNReal.ofReal (‖f x‖ ^ 2) ∂μ ≤
-          ENNReal.ofReal (R ^ (2 - 2 * σ)) * ∫⁻ x, Set.indicator S w x ∂volume := by
+          ENNReal.ofReal (R ^ (1 - 2 * σ)) * ∫⁻ x, Set.indicator S w x ∂volume := by
       simpa [h_const_mul] using h_le_const
     have h_le_final' :
         ∫⁻ x, ‖f x‖ₑ ^ 2 ∂μ ≤
-          ENNReal.ofReal (R ^ (2 - 2 * σ)) * ∫⁻ x, Set.indicator S w x ∂volume := by
+          ENNReal.ofReal (R ^ (1 - 2 * σ)) * ∫⁻ x, Set.indicator S w x ∂volume := by
       simpa [h_norm_sq] using h_le_mul
     have h_le_final :
         ∫⁻ x, ‖f x‖ₑ ^ 2 ∂μ ≤
-          ENNReal.ofReal (R ^ (2 - 2 * σ)) *
+          ENNReal.ofReal (R ^ (1 - 2 * σ)) *
             ∫⁻ x, ENNReal.ofReal
-                (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)) ∂μ := by
+                (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂μ := by
       simpa [h_rhs.symm] using h_le_final'
     exact h_le_final
   -- Show that the weighted integral on the right-hand side is finite.
   have h_weight_integral_lt :
       ∫⁻ x, ENNReal.ofReal
-          (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)) ∂μ < ∞ := by
+          (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂μ < ∞ := by
     have h_subset : S ⊆ Set.Ioi (0 : ℝ) := hS_subset
     have h_indicator_le :
         Set.indicator S w ≤
@@ -268,7 +244,7 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
       · simp [Set.indicator_of_notMem, hx]
     have h_restrict_le :
         ∫⁻ x, ENNReal.ofReal
-            (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)) ∂μ
+            (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1)) ∂μ
           ≤ ∫⁻ x, Set.indicator (Set.Ioi (0 : ℝ)) w x ∂volume := by
       have :=
         lintegral_mono_ae (μ := volume)
@@ -285,97 +261,45 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
     have h_weight :
         ∫⁻ x, ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2) ∂(weightedMeasure σ) < ∞ := by
       simpa [HasFiniteIntegral] using hs_integrable.hasFiniteIntegral
-    have h_product :
-        (fun x : ℝ => ENNReal.ofReal x⁻¹ *
-            (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x)
-          = (Set.Ioi (0 : ℝ)).indicator
-              (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 2))) := by
-      funext x
-      by_cases hx : x ∈ Set.Ioi (0 : ℝ)
-      · have hx_pos : 0 < x := hx
-        have hx_nonneg : 0 ≤ x := le_of_lt hx_pos
-        have hx_value :
-            (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x
-              = ENNReal.ofReal (x ^ (2 * σ - 1)) := by
-          simp [Set.indicator_of_mem, hx, weightFunction, hx_pos]
-        have hx_indicator_rhs :
-            (Set.Ioi (0 : ℝ)).indicator
-                (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 2))) x
-              = ENNReal.ofReal (x ^ (2 * σ - 2)) := by
-          simp [Set.indicator_of_mem, hx]
-        have hx_real :
-            x ^ (-1 : ℝ) * x ^ (2 * σ - 1) = x ^ (2 * σ + -2) := by
-          rw [← Real.rpow_add hx_pos (-1 : ℝ) (2 * σ - 1)]
-          congr 1
-          ring
-        have hx_nonneg1 : 0 ≤ x ^ (-1 : ℝ) := Real.rpow_nonneg hx_nonneg _
-        have hx_nonneg2 : 0 ≤ x ^ (2 * σ - 1) := Real.rpow_nonneg hx_nonneg _
-        have hx_prod' :
-            ENNReal.ofReal (x ^ (-1 : ℝ)) * ENNReal.ofReal (x ^ (2 * σ - 1))
-              = ENNReal.ofReal (x ^ (2 * σ - 2)) := by
-          rw [← ENNReal.ofReal_mul hx_nonneg1, hx_real]
-          simp [sub_eq_add_neg]
-        have hx_inv : ENNReal.ofReal x⁻¹ = ENNReal.ofReal (x ^ (-1 : ℝ)) := by
-          simp [Real.rpow_neg_one, hx_pos]
-        have hx_left :
-            ENNReal.ofReal x⁻¹ *
-                (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x
-              = ENNReal.ofReal (x ^ (2 * σ - 2)) := by
-          simpa [hx_value, hx_inv] using hx_prod'
-        simpa [hx_indicator_rhs]
-          using hx_left
-      · have hx_not : x ∉ Set.Ioi (0 : ℝ) := hx
-        simp [Set.indicator_of_notMem, hx_not]
     have h_weight_eq :
         ∫⁻ x, Set.indicator (Set.Ioi (0 : ℝ)) w x ∂volume
           = ∫⁻ x, ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2) ∂(weightedMeasure σ) := by
       have h_density :
           weightedMeasure σ = volume.withDensity
               (Set.indicator (Set.Ioi (0 : ℝ))
-                fun x => ENNReal.ofReal (x ^ (2 * σ - 2))) := by
+                fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) := by
         unfold weightedMeasure
-        have h_restrict_eq :
-            ((volume.withDensity fun x : ℝ => ENNReal.ofReal x⁻¹).restrict
-            (Set.Ioi (0 : ℝ))).withDensity (weightFunction σ)
-              = (volume.withDensity fun x : ℝ => ENNReal.ofReal x⁻¹).withDensity
-                  ((Set.Ioi (0 : ℝ)).indicator (weightFunction σ)) := by
-          simpa using
-            (withDensity_indicator (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal x⁻¹)
-              (s := Set.Ioi (0 : ℝ)) (f := weightFunction σ) measurableSet_Ioi).symm
-        have h_mul_density :
-            (volume.withDensity fun x : ℝ => ENNReal.ofReal x⁻¹).withDensity
-                ((Set.Ioi (0 : ℝ)).indicator (weightFunction σ))
+        -- weightedMeasure σ = (volume.restrict (Set.Ioi 0)).withDensity (weightFunction σ)
+        -- Convert to indicator form using withDensity_indicator
+        have h_indicator :
+            (volume.restrict (Set.Ioi (0 : ℝ))).withDensity (weightFunction σ)
               = volume.withDensity
-                  (fun x : ℝ => ENNReal.ofReal x⁻¹ *
-                    (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x) :=
-          withDensity_mul_indicator σ
-        have h_combined :
-            ((volume.withDensity fun x : ℝ => ENNReal.ofReal x⁻¹).restrict
-            (Set.Ioi (0 : ℝ))).withDensity (weightFunction σ)
-              = volume.withDensity (Set.indicator (Set.Ioi (0 : ℝ))
-                fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 2))) := by
-          calc
-            ((volume.withDensity fun x : ℝ => ENNReal.ofReal x⁻¹).restrict
-            (Set.Ioi (0 : ℝ))).withDensity (weightFunction σ)
-                = (volume.withDensity fun x : ℝ => ENNReal.ofReal x⁻¹).withDensity
-                    ((Set.Ioi (0 : ℝ)).indicator (weightFunction σ)) := h_restrict_eq
-            _ = volume.withDensity
-                    (fun x : ℝ => ENNReal.ofReal x⁻¹ *
-                      (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x) := h_mul_density
-            _ = volume.withDensity
-                    (Set.indicator (Set.Ioi (0 : ℝ))
-                      fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 2))) := by
-                simp [h_product]
-        simpa [mulHaar] using h_combined
+                  (Set.indicator (Set.Ioi (0 : ℝ)) (weightFunction σ)) := by
+          symm
+          exact withDensity_indicator (μ := volume)
+            (s := Set.Ioi (0 : ℝ)) (f := weightFunction σ) measurableSet_Ioi
+        -- Simplify weightFunction in indicator
+        have h_weight_simplify :
+            Set.indicator (Set.Ioi (0 : ℝ)) (weightFunction σ)
+              = Set.indicator (Set.Ioi (0 : ℝ))
+                  (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) := by
+          funext x
+          by_cases hx : x ∈ Set.Ioi (0 : ℝ)
+          · have hx_pos : 0 < x := hx
+            rw [Set.indicator_of_mem hx, Set.indicator_of_mem hx]
+            unfold weightFunction
+            simp only [hx_pos, ite_true]
+          · rw [Set.indicator_of_notMem hx, Set.indicator_of_notMem hx]
+        rw [h_indicator, h_weight_simplify]
       have :=
         lintegral_withDensity_eq_lintegral_mul (μ := volume)
           (f := Set.indicator (Set.Ioi (0 : ℝ))
-            fun x => ENNReal.ofReal (x ^ (2 * σ - 2)))
+            fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
           (g := fun x => ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2))
       have h_mul :
           ∀ x,
             Set.indicator (Set.Ioi (0 : ℝ))
-                (fun y => ENNReal.ofReal (y ^ (2 * σ - 2))) x
+                (fun y => ENNReal.ofReal (y ^ (2 * σ - 1))) x
               * ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2)
               = Set.indicator (Set.Ioi (0 : ℝ)) w x := by
         intro x
@@ -383,28 +307,28 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
         · have hx_pos : 0 < x := hx
           have hx_indicator :
               Set.indicator (Set.Ioi (0 : ℝ))
-                  (fun y : ℝ => ENNReal.ofReal (y ^ (2 * σ - 2))) x
-                = ENNReal.ofReal (x ^ (2 * σ - 2)) := by
+                  (fun y : ℝ => ENNReal.ofReal (y ^ (2 * σ - 1))) x
+                = ENNReal.ofReal (x ^ (2 * σ - 1)) := by
             simp [Set.indicator_of_mem, hx]
           have hx_w_value :
               Set.indicator (Set.Ioi (0 : ℝ)) w x
-                = ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 2)) := by
+                = ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2 * x ^ (2 * σ - 1)) := by
             simp [w, Set.indicator_of_mem, hx, mul_comm]
-          have hx_pow_nonneg : 0 ≤ x ^ (2 * σ - 2) :=
+          have hx_pow_nonneg : 0 ≤ x ^ (2 * σ - 1) :=
             Real.rpow_nonneg (le_of_lt hx_pos) _
           have hx_prod :
-              ENNReal.ofReal (x ^ (2 * σ - 2) * ‖(s : ℝ → ℂ) x‖ ^ 2)
-                = ENNReal.ofReal (x ^ (2 * σ - 2))
+              ENNReal.ofReal (x ^ (2 * σ - 1) * ‖(s : ℝ → ℂ) x‖ ^ 2)
+                = ENNReal.ofReal (x ^ (2 * σ - 1))
                   * ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2) :=
             ENNReal.ofReal_mul hx_pow_nonneg
           calc
             Set.indicator (Set.Ioi (0 : ℝ))
-                (fun y => ENNReal.ofReal (y ^ (2 * σ - 2))) x *
+                (fun y => ENNReal.ofReal (y ^ (2 * σ - 1))) x *
                   ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2)
-                = ENNReal.ofReal (x ^ (2 * σ - 2)) *
+                = ENNReal.ofReal (x ^ (2 * σ - 1)) *
                     ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2) := by
                   rw [hx_indicator]
-            _ = ENNReal.ofReal (x ^ (2 * σ - 2) * ‖(s : ℝ → ℂ) x‖ ^ 2) := by
+            _ = ENNReal.ofReal (x ^ (2 * σ - 1) * ‖(s : ℝ → ℂ) x‖ ^ 2) := by
                   simpa [mul_comm, mul_left_comm, mul_assoc] using hx_prod.symm
             _ = Set.indicator (Set.Ioi (0 : ℝ)) w x := by
                   simp [hx_w_value, mul_comm]
@@ -416,27 +340,17 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
       have h_measurable_indicator :
           Measurable fun x : ℝ =>
             Set.indicator (Set.Ioi (0 : ℝ))
-              (fun y => ENNReal.ofReal (y ^ (2 * σ - 2))) x := by
-        have h_meas_inv₁ : Measurable fun x : ℝ => ENNReal.ofReal ((1 : ℝ) / x) := by
-          refine Measurable.ennreal_ofReal ?_
-          simpa using (Measurable.div measurable_const measurable_id)
-        have h_meas_inv : Measurable fun x : ℝ => ENNReal.ofReal x⁻¹ := by
-          simpa [one_div] using h_meas_inv₁
-        have h_meas_weight :
-            Measurable fun x : ℝ =>
-              (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x :=
-          (weightFunction_measurable σ).indicator measurableSet_Ioi
-        have h_meas_prod :
-            Measurable fun x : ℝ =>
-              ENNReal.ofReal x⁻¹ *
-                (Set.Ioi (0 : ℝ)).indicator (weightFunction σ) x :=
-          h_meas_inv.mul h_meas_weight
-        simpa [h_product] using h_meas_prod
+              (fun y => ENNReal.ofReal (y ^ (2 * σ - 1))) x := by
+        -- The indicator function of a measurable function is measurable
+        apply Measurable.indicator
+        · apply Measurable.ennreal_ofReal
+          exact (Measurable.pow measurable_id (measurable_const))
+        · exact measurableSet_Ioi
       have h_indicator_integral :
           ∫⁻ x, Set.indicator (Set.Ioi (0 : ℝ)) w x ∂volume
             = ∫⁻ x,
                 Set.indicator (Set.Ioi (0 : ℝ))
-                    (fun y => ENNReal.ofReal (y ^ (2 * σ - 2))) x *
+                    (fun y => ENNReal.ofReal (y ^ (2 * σ - 1))) x *
                   ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2) ∂volume := by
         refine lintegral_congr_ae ?_
         exact Filter.Eventually.of_forall fun x => (h_mul x).symm
@@ -446,12 +360,12 @@ lemma lp_truncation_memLp_on_Ioc {σ : ℝ} (hσ_upper : σ ≤ 1)
         ∫⁻ x, Set.indicator (Set.Ioi (0 : ℝ)) w x ∂volume
             = ∫⁻ x,
                 Set.indicator (Set.Ioi (0 : ℝ))
-                    (fun y => ENNReal.ofReal (y ^ (2 * σ - 2))) x *
+                    (fun y => ENNReal.ofReal (y ^ (2 * σ - 1))) x *
                   ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2) ∂volume := h_indicator_integral
         _ = ∫⁻ x, ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2)
               ∂volume.withDensity
                 ((Set.Ioi (0 : ℝ)).indicator fun x =>
-                  ENNReal.ofReal (x ^ (2 * σ - 2))) := by
+                  ENNReal.ofReal (x ^ (2 * σ - 1))) := by
             simpa [mul_comm, mul_left_comm, mul_assoc] using h_eq'
         _ = ∫⁻ x, ENNReal.ofReal (‖(s : ℝ → ℂ) x‖ ^ 2)
               ∂(weightedMeasure σ) := by
@@ -497,10 +411,11 @@ lemma integrable_on_truncated_function {f : ℝ → ℂ} {R : ℝ} {p : ℝ≥0�
   simpa [IntegrableOn, μ] using hf_integrable
 
 /-- Truncated Lp functions are integrable with respect to volume measure
-    NOTE: This requires σ ≤ 1 for the proof to work through L² membership.
-    For σ > 1, a different approach would be needed.
+    NOTE: This requires σ ≤ 1/2 for the proof to work through L² membership.
+    For σ > 1/2, a different approach would be needed.
 -/
-lemma lp_truncation_integrable {σ : ℝ} (hσ_upper : σ ≤ 1) (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
+lemma lp_truncation_integrable {σ : ℝ}
+    (hσ_upper : σ ≤ 1 / 2) (s : Lp ℂ 2 (weightedMeasure σ)) (R : ℝ) :
     Integrable (fun x => if 0 < x ∧ x ≤ R then (s : ℝ → ℂ) x else 0) volume := by
   -- The main strategy: use Cauchy-Schwarz with the weight decomposition
   -- For σ ∈ (1/2, 3/2), we can bound ∫₀ᴿ |s(x)| dx using the weighted L² norm
@@ -1004,26 +919,6 @@ lemma truncation_approximation {σ : ℝ} (hσ : 1 / 2 < σ)
     exact hR_truncation
 
   exact ⟨R, hR_pos, f_R, hf_R_memLp, hf_R_compact, h_error⟩
-
-/-- The weighted measure is equivalent to withDensity measure -/
-lemma weightedMeasure_eq_withDensity (σ : ℝ) :
-    weightedMeasure σ = mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) := by
-  classical
-  have h :
-      weightFunction σ =ᵐ[mulHaar]
-        fun x => ENNReal.ofReal (x ^ (2 * σ - 1)) := by
-    change
-        weightFunction σ
-            =ᵐ[(volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)).restrict
-                (Set.Ioi (0 : ℝ))]
-          fun x => ENNReal.ofReal (x ^ (2 * σ - 1))
-    refine
-      (ae_restrict_iff' (measurableSet_Ioi : MeasurableSet (Set.Ioi (0 : ℝ)))).2 ?_
-    apply Filter.Eventually.of_forall
-    intro x hx
-    have hx_pos : 0 < x := by simpa [Set.mem_Ioi] using hx
-    simp [weightFunction, hx_pos]
-  simpa [weightedMeasure] using (withDensity_congr_ae h)
 
 end SchwartzDensity
 

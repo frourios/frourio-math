@@ -39,7 +39,7 @@ lemma weightedMeasure_finite_on_compact {σ : ℝ} (hσ : 1 / 2 < σ) {K : Set �
     weightedMeasure σ K < ∞ := by
   classical
   set μ := weightedMeasure σ
-  have h_exp_neg : -1 < 2 * σ - 2 := by
+  have h_exp_neg : -1 < 2 * σ - 1 := by
     linarith [hσ]
   -- Step 1: the weighted measure of (0,1] is finite.
   have h_unit_lt : μ (Set.Ioc (0 : ℝ) 1) < ∞ := by
@@ -52,29 +52,29 @@ lemma weightedMeasure_finite_on_compact {σ : ℝ} (hσ : 1 / 2 < σ) {K : Set �
     have hμ_eq :
         μ (Set.Ioc (0 : ℝ) 1) =
           ∫⁻ x in Set.Ioc (0 : ℝ) 1,
-            ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume := by
+            ENNReal.ofReal (x ^ (2 * σ - 1)) ∂volume := by
       simpa [μ, h_inter] using h_apply
     set ν := volume.restrict (Set.Ioc (0 : ℝ) 1)
     have h_integrable_on :
-        IntegrableOn (fun x : ℝ => x ^ (2 * σ - 2))
+        IntegrableOn (fun x : ℝ => x ^ (2 * σ - 1))
           (Set.Ioc (0 : ℝ) 1) volume := by
       have h_int :=
         intervalIntegrable_rpow' (a := (0 : ℝ)) (b := 1)
-          (r := 2 * σ - 2) h_exp_neg
+          (r := 2 * σ - 1) h_exp_neg
       have :=
         (intervalIntegrable_iff_integrableOn_Ioc_of_le (μ := volume)
             (a := (0 : ℝ)) (b := 1) (by norm_num)
-            (f := fun x : ℝ => x ^ (2 * σ - 2))).mp h_int
+            (f := fun x : ℝ => x ^ (2 * σ - 1))).mp h_int
       simpa using this
     have h_integrable :
-        Integrable (fun x : ℝ => x ^ (2 * σ - 2)) ν := by
+        Integrable (fun x : ℝ => x ^ (2 * σ - 1)) ν := by
       simpa [IntegrableOn, ν] using h_integrable_on
     have h_lintegral_lt :
-        ∫⁻ x, ENNReal.ofReal (x ^ (2 * σ - 2)) ∂ν < ∞ :=
+        ∫⁻ x, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂ν < ∞ :=
       (Integrable.lintegral_lt_top h_integrable)
     have hμ_eq' :
         μ (Set.Ioc (0 : ℝ) 1) =
-          ∫⁻ x, ENNReal.ofReal (x ^ (2 * σ - 2)) ∂ν := by
+          ∫⁻ x, ENNReal.ofReal (x ^ (2 * σ - 1)) ∂ν := by
       simpa [ν] using hμ_eq
     simpa [hμ_eq'] using h_lintegral_lt
   -- Step 2: deduce finiteness on arbitrary bounded positive intervals.
@@ -176,7 +176,7 @@ lemma weightedMeasure_finite_on_compact {σ : ℝ} (hσ : 1 / 2 < σ) {K : Set �
     calc
       μ (Metric.closedBall (0 : ℝ) R)
           = ∫⁻ x in Set.Ioc (0 : ℝ) R,
-              ENNReal.ofReal (x ^ (2 * σ - 2)) ∂volume := by
+              ENNReal.ofReal (x ^ (2 * σ - 1)) ∂volume := by
             simpa [μ, h_inter_ball] using h_ball
       _ = μ (Set.Ioc (0 : ℝ) R) := by
             simpa [μ, h_inter_ioc] using h_ioc.symm
@@ -1238,116 +1238,6 @@ lemma mollification_delta_small (ε : ℝ) (hε_pos : 0 < ε)
       · norm_num
       · exact h_pos_M
   exact lt_of_le_of_lt h_bound h_strict
-
-/-- The embedding is continuous with respect to a finite family of Schwartz seminorms for σ > 1/2 -/
-lemma schwartzToHσ_continuous {σ : ℝ} (hσ : 1 / 2 < σ) :
-    ∃ (k₁ : ℕ) (C₀ C₁ : ℝ), 0 < C₀ ∧ 0 < C₁ ∧
-    ∀ f : SchwartzMap ℝ ℂ,
-      ‖schwartzToHσ hσ f‖ ≤
-        C₀ * SchwartzMap.seminorm ℝ 0 0 f +
-          C₁ * SchwartzMap.seminorm ℝ k₁ 0 f := by
-  -- For σ > 1/2, the weight x^(2σ-2) is integrable near 0
-  -- The seminorms k₁, k₂ need to control the behavior at infinity
-  -- k₁ controls polynomial growth, k₂ controls smoothness
-
-  -- Choose seminorm parameters: k₁ for polynomial decay at infinity
-  classical
-  let k₁ : ℕ := ⌊4 * σ + 2⌋₊  -- Ensure enough decay at infinity
-
-  -- Define the constant C based on the weight integral bounds
-  obtain ⟨M, hM_pos, hM_bound⟩ := weight_function_L2_bound_unit hσ
-  -- Constants for the two seminorm controls
-  let C₀ : ℝ := M
-  have hC₀_pos : 0 < C₀ := by simpa using hM_pos
-  have hC₀_nonneg : 0 ≤ C₀ := hC₀_pos.le
-
-  -- Tail constant coming from polynomial decay
-  have h_k₁_large : σ + 1 / 2 ≤ (k₁ : ℝ) := by
-    have h_aux : (4 * σ + 2 : ℝ) < (k₁ : ℝ) + 1 := by
-      simpa [k₁, add_comm, add_left_comm, add_assoc] using
-        (Nat.lt_floor_add_one (4 * σ + 2))
-    have h_floor : (4 * σ + 1 : ℝ) < (k₁ : ℝ) := by
-      have := h_aux
-      linarith
-    have hσ_bound : σ + 1 / 2 ≤ 4 * σ + 1 := by
-      linarith [hσ]
-    exact (le_of_lt (lt_of_le_of_lt hσ_bound h_floor))
-
-  have h_denom_pos : 0 < 2 * (k₁ : ℝ) - 2 * σ := by
-    have h_aux := add_le_add h_k₁_large h_k₁_large
-    have h_cast : (k₁ : ℝ) + (k₁ : ℝ) = 2 * (k₁ : ℝ) := by ring
-    have h_sigma : σ + σ = 2 * σ := by ring
-    have h_half : (1 / 2 : ℝ) + (1 / 2 : ℝ) = 1 := by norm_num
-    have h_le : 2 * σ + 1 ≤ 2 * (k₁ : ℝ) := by
-      have h_rewrite : σ + 1 / 2 + (σ + 1 / 2) = 2 * σ + 1 := by ring
-      rw [← h_rewrite]
-      rw [h_cast] at h_aux
-      exact h_aux
-    linarith
-
-  let C₁ : ℝ := Real.sqrt (1 / (2 * (k₁ : ℝ) - 2 * σ))
-  have hC₁_pos : 0 < C₁ := by
-    have h_inv_pos : 0 < 1 / (2 * (k₁ : ℝ) - 2 * σ) := by
-      exact one_div_pos.mpr h_denom_pos
-    exact Real.sqrt_pos.mpr h_inv_pos
-
-  use k₁, C₀, C₁
-  refine ⟨hC₀_pos, hC₁_pos, ?_⟩
-  intro f
-  -- Estimate the Hilbert space norm
-  rw [schwartzToHσ]
-  -- Use the fact that ‖MemLp.toLp f hf‖ = ENNReal.toReal (eLpNorm f p μ)
-  rw [norm_toLp_eq_toReal_eLpNorm hσ f]
-
-  -- Show that ENNReal.toReal of a bound gives the desired inequality
-  suffices h_eLp : eLpNorm (fun x => if x > 0 then f x else 0) 2
-      (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))) ≤
-      ENNReal.ofReal
-        (C₀ * SchwartzMap.seminorm ℝ 0 0 f +
-          C₁ * SchwartzMap.seminorm ℝ k₁ 0 f) by
-    have h_nonneg :
-        0 ≤ C₀ * SchwartzMap.seminorm ℝ 0 0 f +
-            C₁ * SchwartzMap.seminorm ℝ k₁ 0 f := by
-      apply add_nonneg
-      · exact mul_nonneg hC₀_nonneg (apply_nonneg _ f)
-      · exact mul_nonneg hC₁_pos.le (apply_nonneg _ f)
-    exact ENNReal.toReal_le_of_le_ofReal h_nonneg h_eLp
-
-  -- The L^2 norm with weight can be bounded by Schwartz seminorms
-  -- Split the integral into (0,1] and (1,∞)
-  have h_split := @eLpNorm_split_at_one σ f
-
-  -- Bound each part using Schwartz properties
-  have h_bound1 := eLpNorm_bound_on_unit_interval f C₀ hM_bound
-
-  have h_bound2 := eLpNorm_bound_on_tail (σ := σ) (k₁ := k₁) h_k₁_large f
-
-  -- Combine the estimates for the unit interval and the tail
-  have h_combined := le_trans h_split (add_le_add h_bound1 h_bound2)
-
-  -- Package the sum of the two bounds into a single `ENNReal.ofReal`
-  have h_nonneg_unit : 0 ≤ SchwartzMap.seminorm ℝ 0 0 f * C₀ :=
-    mul_nonneg (apply_nonneg (SchwartzMap.seminorm ℝ 0 0) f) hC₀_nonneg
-  have h_nonneg_tail :
-      0 ≤ SchwartzMap.seminorm ℝ k₁ 0 f * C₁ :=
-    mul_nonneg (apply_nonneg (SchwartzMap.seminorm ℝ k₁ 0) f) hC₁_pos.le
-  have h_sum :
-      eLpNorm (fun x => if x > 0 then f x else 0) 2
-          (mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))) ≤
-        ENNReal.ofReal
-          (C₀ * SchwartzMap.seminorm ℝ 0 0 f +
-            C₁ * SchwartzMap.seminorm ℝ k₁ 0 f) := by
-    -- Use the fact that C₁ = √(1 / (2 * ↑k₁ - 2 * σ))
-    convert h_combined using 1
-    rw [← ENNReal.ofReal_add]
-    · congr 1
-      ring
-    · exact h_nonneg_unit
-    · have : 0 ≤ SchwartzMap.seminorm ℝ k₁ 0 f * Real.sqrt (1 / (2 * (k₁ : ℝ) - 2 * σ)) := by
-        exact mul_nonneg (apply_nonneg _ f) (Real.sqrt_nonneg _)
-      exact this
-
-  exact h_sum
 
 end SchwartzDensity
 

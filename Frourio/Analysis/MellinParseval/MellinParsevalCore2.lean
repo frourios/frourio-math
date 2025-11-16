@@ -298,703 +298,6 @@ lemma Measure.lintegral_comp_mul_left (a : ℝ) (ha : a ≠ 0)
 
 section ParsevalEquivalence
 
--- Complex measure-theoretic proof involving pushforward measures and absolute continuity
-/-- Integrability of the weighted LogPull is preserved under addition -/
-lemma LogPull_integrable_add (σ : ℝ) (f g : Hσ σ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    Integrable (fun t => LogPull σ (f + g) t * Complex.exp ((1 / 2 : ℝ) * t)) := by
-  classical
-  -- We will rewrite the integrand a.e. using the a.e. linearity of the Lp
-  -- representative `Hσ.toFun` transported along `x = exp t`.
-  -- Start from the a.e. identity on the physical side (x-variable).
-  have h_add_ae_weighted := toFun_add_ae σ f g
-  -- Transport the a.e. equality to the Lebesgue measure on (0,∞).
-  have h_rev_ac :
-      volume.restrict (Set.Ioi (0 : ℝ)) ≪
-        mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :=
-    volume_restrict_absolutelyContinuous_weighted σ
-  have h_add_ae_vol :
-      (fun x : ℝ => Hσ.toFun (f + g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => Hσ.toFun f x + Hσ.toFun g x) :=
-    h_rev_ac.ae_eq h_add_ae_weighted
-  -- Also, mulHaar is absolutely continuous w.r.t. the restricted Lebesgue measure.
-  have h_mulHaar_to_volume : mulHaar ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
-    -- Absolute continuity for withDensity followed by restriction
-    have h_base :
-        (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)) ≪ volume := by
-      simpa using
-        (withDensity_absolutelyContinuous
-          (μ := volume) (f := fun x : ℝ => ENNReal.ofReal (1 / x)))
-    simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
-  -- Hence the equality also holds a.e. for mulHaar on (0,∞).
-  have h_add_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (f + g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => Hσ.toFun f x + Hσ.toFun g x) :=
-    h_mulHaar_to_volume.ae_eq h_add_ae_vol
-  -- Push forward along log to obtain an a.e. equality on t with respect to volume.
-  obtain ⟨c, hc0, hcTop, h_map⟩ := mulHaar_pushforward_log
-  have h_meas_set : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (f + g) (Real.exp t)
-          = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)} := by
-    -- measurability of both sides composed with exp, then equality set
-    have h_meas_l : Measurable (fun t : ℝ => Hσ.toFun (f + g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (f + g)).measurable.comp Real.measurable_exp
-    have h_meas_f : Measurable (fun t : ℝ => Hσ.toFun f (Real.exp t)) :=
-      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
-    have h_meas_g : Measurable (fun t : ℝ => Hσ.toFun g (Real.exp t)) :=
-      (Lp.stronglyMeasurable g).measurable.comp Real.measurable_exp
-    have h_meas_r : Measurable (fun t : ℝ =>
-        Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)) :=
-      h_meas_f.add h_meas_g
-    -- {t | u t = v t} is measurable as preimage of the diagonal
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (f + g) (Real.exp t),
-         Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t))) :=
-      h_meas_l.prodMk h_meas_r
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ |
-          Hσ.toFun (f + g) (Real.exp t)
-            = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (f + g) (Real.exp t),
-               Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have hlog_aemeas : AEMeasurable Real.log mulHaar :=
-    Real.measurable_log.aemeasurable
-  -- Convert the x-a.e. equality to a t-a.e. equality via `ae_map_iff` and the pushforward.
-  have h_ae_map : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (f + g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)) := by
-    -- Use the equivalence `ae_map_iff` to pull back to mulHaar.
-    have hiff := ae_map_iff (μ := mulHaar)
-      (f := Real.log) hlog_aemeas h_meas_set
-    rw [hiff]
-    -- On x-side (mulHaar), the equality holds a.e.
-    -- We need to rewrite x as exp(log x) for x > 0
-    -- a.e. on mulHaar we have x > 0 since mulHaar is restricted to Ioi 0
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      -- unfold mulHaar and use `ae_restrict_mem`
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    -- Combine the a.e. equality on x with the positivity to rewrite exp (log x) = x
-    refine (h_add_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq :
-        Hσ.toFun (f + g) x = Hσ.toFun f x + Hσ.toFun g x := hx.1
-    have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    -- Now rewrite the goal using `exp (log x) = x`.
-    simpa [Set.mem_setOf_eq, h_exp_log]
-  -- Identify the pushforward measure with Lebesgue measure (up to a positive scalar).
-  have h_ae_t : (∀ᵐ t ∂ volume,
-      Hσ.toFun (f + g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)) := by
-    -- Define the predicate used for ae statements on t.
-    let P : ℝ → Prop := fun t =>
-      Hσ.toFun (f + g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun g (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | P t} := h_meas_set
-    -- Use the identification `Measure.map Real.log mulHaar = c • volume`.
-    have h_ae_cvol : (∀ᵐ t ∂ (c • volume), P t) := by
-      -- First, rewrite the pushforward along the restricted mulHaar.
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by
-        simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), P t) := by
-        simpa [h_restrict'] using h_ae_map
-      -- Then use `h_map` to identify the measure with `c • volume`.
-      simpa [h_map] using h'
-    -- Pass from `c • volume` to `volume` using that `c ≠ 0`.
-    -- Use the `ae_iff` characterization via null sets.
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ P t} := hP_meas.compl
-    have h_null_c : (c • volume) {t : ℝ | ¬ P t} = 0 := by
-      -- Convert a.e. statement to null-set on `c • volume`.
-      have := ((ae_iff (μ := (c • volume)) (p := fun t : ℝ => P t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : c * volume {t : ℝ | ¬ P t} = 0 := by
-      -- Rewrite the smul-measure on measurable sets.
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable]
-        using h_null_c
-    have h_zero : volume {t : ℝ | ¬ P t} = 0 :=
-      (mul_eq_zero.mp h_mul_zero).resolve_left hc0
-    -- Conclude the a.e. statement for `volume`.
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => P t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  -- With the a.e. identity in hand, rewrite the integrand and conclude by additivity.
-  have h_integrand_ae :
-      (fun t => LogPull σ (f + g) t * Complex.exp ((1 / 2 : ℝ) * t))
-        =ᵐ[volume]
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) +
-        (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    refine h_ae_t.mono ?_
-    intro t ht
-    -- Expand LogPull and use the a.e. linearity of Hσ.toFun at x = exp t.
-    simp [LogPull, LogPull_apply, ht, mul_add, mul_left_comm,
-          mul_comm, mul_assoc]
-  -- The right-hand side is integrable as a sum of integrable functions.
-  have h_sum_int : Integrable
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) +
-        (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :=
-    (hf_int.add hg_int)
-  -- Transfer integrability along the a.e. equality.
-  exact h_sum_int.congr h_integrand_ae.symm
-
-/-- Integrability of the weighted LogPull for subtraction -/
-lemma LogPull_integrable_sub (σ : ℝ) (f g : Hσ σ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    Integrable (fun t => LogPull σ (f - g) t * Complex.exp ((1 / 2 : ℝ) * t)) := by
-  classical
-  -- Start from the a.e. identity for subtraction on the physical side (x-variable).
-  have h_sub_ae_weighted :
-      (fun x : ℝ => Hσ.toFun (f - g) x)
-        =ᵐ[mulHaar.withDensity (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun g x) :=
-    (Lp.coeFn_sub (f := (f : Lp ℂ 2
-      (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))))
-      (g := (g : Lp ℂ 2
-      (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1))))))
-  -- Transport the a.e. equality to the Lebesgue measure on (0,∞).
-  have h_rev_ac :
-      volume.restrict (Set.Ioi (0 : ℝ)) ≪
-        mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :=
-    volume_restrict_absolutelyContinuous_weighted σ
-  have h_sub_ae_vol :
-      (fun x : ℝ => Hσ.toFun (f - g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun g x) :=
-    h_rev_ac.ae_eq h_sub_ae_weighted
-  -- Also, mulHaar is absolutely continuous w.r.t. the restricted Lebesgue measure.
-  have h_mulHaar_to_volume : mulHaar ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
-    have h_base :
-        (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)) ≪ volume := by
-      simpa using
-        (withDensity_absolutelyContinuous
-          (μ := volume) (f := fun x : ℝ => ENNReal.ofReal (1 / x)))
-    simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
-  -- Hence the equality also holds a.e. for mulHaar on (0,∞).
-  have h_sub_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (f - g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun g x) :=
-    h_mulHaar_to_volume.ae_eq h_sub_ae_vol
-  -- Push forward along log to obtain an a.e. equality on t with respect to volume.
-  obtain ⟨c, hc0, hcTop, h_map⟩ := mulHaar_pushforward_log
-  have h_meas_set : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (f - g) (Real.exp t)
-          = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)} := by
-    -- measurability of both sides composed with exp, then equality set
-    have h_meas_l : Measurable (fun t : ℝ => Hσ.toFun (f - g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (f - g)).measurable.comp Real.measurable_exp
-    have h_meas_f : Measurable (fun t : ℝ => Hσ.toFun f (Real.exp t)) :=
-      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
-    have h_meas_g : Measurable (fun t : ℝ => Hσ.toFun g (Real.exp t)) :=
-      (Lp.stronglyMeasurable g).measurable.comp Real.measurable_exp
-    have h_meas_r : Measurable (fun t : ℝ =>
-        Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)) :=
-      h_meas_f.sub h_meas_g
-    -- {t | u t = v t} is measurable as preimage of the diagonal
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (f - g) (Real.exp t),
-         Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t))) :=
-      h_meas_l.prodMk h_meas_r
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ |
-          Hσ.toFun (f - g) (Real.exp t)
-            = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (f - g) (Real.exp t),
-               Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have hlog_aemeas : AEMeasurable Real.log mulHaar :=
-    Real.measurable_log.aemeasurable
-  -- Convert the x-a.e. equality to a t-a.e. equality via `ae_map_iff` and the pushforward.
-  have h_ae_map : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (f - g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)) := by
-    -- Use the equivalence `ae_map_iff` to pull back to mulHaar.
-    have hiff := ae_map_iff (μ := mulHaar)
-      (f := Real.log) hlog_aemeas h_meas_set
-    rw [hiff]
-    -- On x-side (mulHaar), the equality holds a.e.
-    -- We need to rewrite x as exp(log x) for x > 0
-    -- a.e. on mulHaar we have x > 0 since mulHaar is restricted to Ioi 0
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      -- unfold mulHaar and use `ae_restrict_mem`
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    -- Combine the a.e. equality on x with the positivity to rewrite exp (log x) = x
-    refine (h_sub_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq :
-        Hσ.toFun (f - g) x = Hσ.toFun f x - Hσ.toFun g x := hx.1
-    have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    -- Now rewrite the goal using `exp (log x) = x`.
-    simpa [Set.mem_setOf_eq, h_exp_log]
-  -- Identify the pushforward measure with Lebesgue measure (up to a positive scalar).
-  have h_ae_t : (∀ᵐ t ∂ volume,
-      Hσ.toFun (f - g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)) := by
-    -- Define the predicate used for ae statements on t.
-    let P : ℝ → Prop := fun t =>
-      Hσ.toFun (f - g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun g (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | P t} := h_meas_set
-    -- Use the identification `Measure.map Real.log mulHaar = c • volume`.
-    have h_ae_cvol : (∀ᵐ t ∂ (c • volume), P t) := by
-      -- First, rewrite the pushforward along the restricted mulHaar.
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by
-        simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), P t) := by
-        simpa [h_restrict'] using h_ae_map
-      -- Then use `h_map` to identify the measure with `c • volume`.
-      simpa [h_map] using h'
-    -- Pass from `c • volume` to `volume` using that `c ≠ 0`.
-    -- Use the `ae_iff` characterization via null sets.
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ P t} := hP_meas.compl
-    have h_null_c : (c • volume) {t : ℝ | ¬ P t} = 0 := by
-      -- Convert a.e. statement to null-set on `c • volume`.
-      have := ((ae_iff (μ := (c • volume)) (p := fun t : ℝ => P t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : c * volume {t : ℝ | ¬ P t} = 0 := by
-      -- Rewrite the smul-measure on measurable sets.
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable]
-        using h_null_c
-    have h_zero : volume {t : ℝ | ¬ P t} = 0 :=
-      (mul_eq_zero.mp h_mul_zero).resolve_left hc0
-    -- Conclude the a.e. statement for `volume`.
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => P t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  -- With the a.e. identity in hand, rewrite the integrand and conclude by subtraction.
-  have h_integrand_ae :
-      (fun t => LogPull σ (f - g) t * Complex.exp ((1 / 2 : ℝ) * t))
-        =ᵐ[volume]
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) -
-        (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    refine h_ae_t.mono ?_
-    intro t ht
-    -- Expand LogPull and use the a.e. linearity of Hσ.toFun at x = exp t.
-    simp [LogPull, LogPull_apply, ht, mul_sub, mul_left_comm,
-          mul_comm, mul_assoc]
-  -- The right-hand side is integrable as a difference of integrable functions.
-  have h_diff_int : Integrable
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) -
-        (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :=
-    (hf_int.sub hg_int)
-  -- Transfer integrability along the a.e. equality.
-  exact h_diff_int.congr h_integrand_ae.symm
-
-/-- Integrability of the weighted LogPull for addition with scalar multiplication -/
-lemma LogPull_integrable_add_smul (σ : ℝ) (f g : Hσ σ) (c : ℂ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    Integrable (fun t => LogPull σ (f + c • g) t * Complex.exp ((1 / 2 : ℝ) * t)) := by
-  classical
-  -- Start from the a.e. identity on the physical side (x-variable).
-  have h_add_ae_weighted := toFun_add_ae σ f (c • g)
-  have h_smul_ae_weighted := toFun_smul_ae σ c g
-  -- Transport the a.e. equality to the Lebesgue measure on (0,∞).
-  have h_rev_ac :
-      volume.restrict (Set.Ioi (0 : ℝ)) ≪
-        mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :=
-    volume_restrict_absolutelyContinuous_weighted σ
-  have h_add_ae_vol :
-      (fun x : ℝ => Hσ.toFun (f + c • g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => Hσ.toFun f x + Hσ.toFun (c • g) x) :=
-    h_rev_ac.ae_eq h_add_ae_weighted
-  have h_smul_ae_vol :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    h_rev_ac.ae_eq h_smul_ae_weighted
-  -- Also, mulHaar is absolutely continuous w.r.t. the restricted Lebesgue measure.
-  have h_mulHaar_to_volume : mulHaar ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
-    have h_base :
-        (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)) ≪ volume := by
-      simpa using
-        (withDensity_absolutelyContinuous
-          (μ := volume) (f := fun x : ℝ => ENNReal.ofReal (1 / x)))
-    simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
-  -- Hence the equalities also hold a.e. for mulHaar on (0,∞).
-  have h_add_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (f + c • g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => Hσ.toFun f x + Hσ.toFun (c • g) x) :=
-    h_mulHaar_to_volume.ae_eq h_add_ae_vol
-  have h_smul_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    h_mulHaar_to_volume.ae_eq h_smul_ae_vol
-  -- Push forward along log to obtain a.e. equalities on t with respect to volume.
-  obtain ⟨cm, hcm0, hcmTop, h_map⟩ := mulHaar_pushforward_log
-  -- Measurability of equality sets after composing with exp.
-  have h_meas_set_add : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (f + c • g) (Real.exp t)
-          = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)} := by
-    have h_meas_l : Measurable (fun t : ℝ => Hσ.toFun (f + c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (f + c • g)).measurable.comp Real.measurable_exp
-    have h_meas_f : Measurable (fun t : ℝ => Hσ.toFun f (Real.exp t)) :=
-      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
-    have h_meas_cg : Measurable (fun t : ℝ => Hσ.toFun (c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (c • g)).measurable.comp Real.measurable_exp
-    have h_meas_r : Measurable (fun t : ℝ =>
-        Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)) :=
-      h_meas_f.add h_meas_cg
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (f + c • g) (Real.exp t),
-         Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t))) :=
-      h_meas_l.prodMk h_meas_r
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ |
-          Hσ.toFun (f + c • g) (Real.exp t)
-            = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (f + c • g) (Real.exp t),
-               Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have h_meas_set_smul : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)} := by
-    have h_meas_cg : Measurable (fun t : ℝ => Hσ.toFun (c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (c • g)).measurable.comp Real.measurable_exp
-    have h_meas_g : Measurable (fun t : ℝ => Hσ.toFun g (Real.exp t)) :=
-      (Lp.stronglyMeasurable g).measurable.comp Real.measurable_exp
-    have h_meas_rhs : Measurable (fun t : ℝ => c * Hσ.toFun g (Real.exp t)) :=
-      measurable_const.mul h_meas_g
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (c • g) (Real.exp t), c * Hσ.toFun g (Real.exp t))) :=
-      h_meas_cg.prodMk h_meas_rhs
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ | Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (c • g) (Real.exp t), c * Hσ.toFun g (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have hlog_aemeas : AEMeasurable Real.log mulHaar :=
-    Real.measurable_log.aemeasurable
-  -- Convert the x-a.e. equalities to t-a.e. equalities via `ae_map_iff` and the pushforward.
-  have h_ae_map_add : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (f + c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)) := by
-    have hiff := ae_map_iff (μ := mulHaar) (f := Real.log) hlog_aemeas h_meas_set_add
-    rw [hiff]
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    refine (h_add_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq := hx.1; have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    simpa [Set.mem_setOf_eq, h_exp_log] using hx_eq
-  have h_ae_map_smul : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)) := by
-    have hiff := ae_map_iff (μ := mulHaar) (f := Real.log) hlog_aemeas h_meas_set_smul
-    rw [hiff]
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    refine (h_smul_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq := hx.1; have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    simpa [Set.mem_setOf_eq, h_exp_log] using hx_eq
-  -- Identify the pushforward measure with Lebesgue measure (up to a positive scalar).
-  have h_ae_t_add : (∀ᵐ t ∂ volume,
-      Hσ.toFun (f + c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)) := by
-    -- define predicate for add
-    let Padd : ℝ → Prop := fun t =>
-      Hσ.toFun (f + c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) + Hσ.toFun (c • g) (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | Padd t} := h_meas_set_add
-    have h_ae_cvol : (∀ᵐ t ∂ (cm • volume), Padd t) := by
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), Padd t) := by
-        simpa [h_restrict'] using h_ae_map_add
-      simpa [h_map] using h'
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ Padd t} := hP_meas.compl
-    have h_null_c : (cm • volume) {t : ℝ | ¬ Padd t} = 0 := by
-      have := ((ae_iff (μ := (cm • volume)) (p := fun t : ℝ => Padd t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : cm * volume {t : ℝ | ¬ Padd t} = 0 := by
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable] using h_null_c
-    have h_zero : volume {t : ℝ | ¬ Padd t} = 0 := (mul_eq_zero.mp h_mul_zero).resolve_left hcm0
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => Padd t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  have h_ae_t_smul : (∀ᵐ t ∂ volume,
-      Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)) := by
-    let Psmul : ℝ → Prop := fun t => Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | Psmul t} := h_meas_set_smul
-    have h_ae_cvol : (∀ᵐ t ∂ (cm • volume), Psmul t) := by
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), Psmul t) := by
-        simpa [h_restrict'] using h_ae_map_smul
-      simpa [h_map] using h'
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ Psmul t} := hP_meas.compl
-    have h_null_c : (cm • volume) {t : ℝ | ¬ Psmul t} = 0 := by
-      have := ((ae_iff (μ := (cm • volume)) (p := fun t : ℝ => Psmul t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : cm * volume {t : ℝ | ¬ Psmul t} = 0 := by
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable] using h_null_c
-    have h_zero : volume {t : ℝ | ¬ Psmul t} = 0 := (mul_eq_zero.mp h_mul_zero).resolve_left hcm0
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => Psmul t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  have h_integrand_ae :
-      (fun t => LogPull σ (f + c • g) t * Complex.exp ((1 / 2 : ℝ) * t))
-        =ᵐ[volume]
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) +
-        c * (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    refine (h_ae_t_add.and h_ae_t_smul).mono ?_
-    intro t hts
-    have ht_add := hts.1
-    have ht_smul := hts.2
-    -- Expand LogPull and use the a.e. linearity at x = exp t and scalar multiplication.
-    simp [LogPull, LogPull_apply, ht_add, ht_smul, mul_add, mul_left_comm,
-          mul_comm, mul_assoc]
-  -- The right-hand side is integrable as a sum of integrable functions and a constant multiple.
-  have h_rhs_int : Integrable
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) +
-        c * (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    exact hf_int.add (hg_int.const_mul c)
-  -- Transfer integrability along the a.e. equality.
-  exact h_rhs_int.congr h_integrand_ae.symm
-
-/-- Integrability of the weighted LogPull for subtraction with scalar multiplication -/
-lemma LogPull_integrable_sub_smul (σ : ℝ) (f g : Hσ σ) (c : ℂ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
-    Integrable (fun t => LogPull σ (f - c • g) t * Complex.exp ((1 / 2 : ℝ) * t)) := by
-  classical
-  -- a.e. identities on the physical side (x-variable)
-  have h_sub_ae_weighted :
-      (fun x : ℝ => Hσ.toFun (f - c • g) x)
-        =ᵐ[mulHaar.withDensity (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun (c • g) x) :=
-    (Lp.coeFn_sub (f := (f : Lp ℂ 2
-      (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))))
-      (g := ((c • g) : Lp ℂ 2
-      (mulHaar.withDensity fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1))))))
-  have h_smul_ae_weighted :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[mulHaar.withDensity (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    toFun_smul_ae σ c g
-  -- Transport the a.e. equalities to the Lebesgue measure on (0,∞).
-  have h_rev_ac :
-      volume.restrict (Set.Ioi (0 : ℝ)) ≪
-        mulHaar.withDensity (fun x => ENNReal.ofReal (x ^ (2 * σ - 1))) :=
-    volume_restrict_absolutelyContinuous_weighted σ
-  have h_sub_ae_vol :
-      (fun x : ℝ => Hσ.toFun (f - c • g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun (c • g) x) :=
-    h_rev_ac.ae_eq h_sub_ae_weighted
-  have h_smul_ae_vol :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    h_rev_ac.ae_eq h_smul_ae_weighted
-  -- Also, mulHaar ≪ volume.restrict (Ioi 0)
-  have h_mulHaar_to_volume : mulHaar ≪ volume.restrict (Set.Ioi (0 : ℝ)) := by
-    have h_base :
-        (volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x)) ≪ volume := by
-      simpa using
-        (withDensity_absolutelyContinuous
-          (μ := volume) (f := fun x : ℝ => ENNReal.ofReal (1 / x)))
-    simpa [mulHaar] using h_base.restrict (Set.Ioi (0 : ℝ))
-  -- Hence these also hold a.e. for mulHaar on (0,∞).
-  have h_sub_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (f - c • g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => Hσ.toFun f x - Hσ.toFun (c • g) x) :=
-    h_mulHaar_to_volume.ae_eq h_sub_ae_vol
-  have h_smul_ae_mulHaar :
-      (fun x : ℝ => Hσ.toFun (c • g) x)
-        =ᵐ[mulHaar]
-      (fun x : ℝ => c * Hσ.toFun g x) :=
-    h_mulHaar_to_volume.ae_eq h_smul_ae_vol
-  -- Push forward along log to obtain t-a.e. equalities.
-  obtain ⟨cm, hcm0, hcmTop, h_map⟩ := mulHaar_pushforward_log
-  -- Measurability of equality sets after composing with exp.
-  have h_meas_set_sub : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (f - c • g) (Real.exp t)
-          = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)} := by
-    have h_meas_l : Measurable (fun t : ℝ => Hσ.toFun (f - c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (f - c • g)).measurable.comp Real.measurable_exp
-    have h_meas_f : Measurable (fun t : ℝ => Hσ.toFun f (Real.exp t)) :=
-      (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
-    have h_meas_cg : Measurable (fun t : ℝ => Hσ.toFun (c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (c • g)).measurable.comp Real.measurable_exp
-    have h_meas_r : Measurable (fun t : ℝ =>
-        Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)) :=
-      h_meas_f.sub h_meas_cg
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (f - c • g) (Real.exp t),
-         Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t))) :=
-      h_meas_l.prodMk h_meas_r
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ |
-          Hσ.toFun (f - c • g) (Real.exp t)
-            = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (f - c • g) (Real.exp t),
-               Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have h_meas_set_smul : MeasurableSet
-      {t : ℝ |
-        Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)} := by
-    have h_meas_cg : Measurable (fun t : ℝ => Hσ.toFun (c • g) (Real.exp t)) :=
-      (Lp.stronglyMeasurable (c • g)).measurable.comp Real.measurable_exp
-    have h_meas_g : Measurable (fun t : ℝ => Hσ.toFun g (Real.exp t)) :=
-      (Lp.stronglyMeasurable g).measurable.comp Real.measurable_exp
-    have h_meas_rhs : Measurable (fun t : ℝ => c * Hσ.toFun g (Real.exp t)) :=
-      measurable_const.mul h_meas_g
-    have h_pair : Measurable (fun t =>
-        (Hσ.toFun (c • g) (Real.exp t), c * Hσ.toFun g (Real.exp t))) :=
-      h_meas_cg.prodMk h_meas_rhs
-    have hS : MeasurableSet {p : ℂ × ℂ | p.1 = p.2} :=
-      (isClosed_eq continuous_fst continuous_snd).measurableSet
-    have h_eq :
-        {t : ℝ | Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)}
-          = (fun t =>
-              (Hσ.toFun (c • g) (Real.exp t), c * Hσ.toFun g (Real.exp t))) ⁻¹'
-            {p : ℂ × ℂ | p.1 = p.2} := by
-      ext t; rfl
-    rw [h_eq]
-    exact hS.preimage h_pair
-  have hlog_aemeas : AEMeasurable Real.log mulHaar :=
-    Real.measurable_log.aemeasurable
-  -- Convert equalities via ae_map_iff
-  have h_ae_map_sub : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (f - c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)) := by
-    have hiff := ae_map_iff (μ := mulHaar) (f := Real.log) hlog_aemeas h_meas_set_sub
-    rw [hiff]
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    refine (h_sub_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq := hx.1; have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    simpa [Set.mem_setOf_eq, h_exp_log] using hx_eq
-  have h_ae_map_smul : (∀ᵐ t ∂ (Measure.map Real.log mulHaar),
-      Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)) := by
-    have hiff := ae_map_iff (μ := mulHaar) (f := Real.log) hlog_aemeas h_meas_set_smul
-    rw [hiff]
-    have h_pos : ∀ᵐ x ∂ mulHaar, x ∈ Set.Ioi (0 : ℝ) := by
-      simpa [mulHaar] using
-        (ae_restrict_mem (μ := volume.withDensity fun x : ℝ => ENNReal.ofReal (1 / x))
-          (s := Set.Ioi (0 : ℝ)))
-    refine (h_smul_ae_mulHaar.and h_pos).mono ?_
-    intro x hx
-    have hx_eq := hx.1; have hx_pos : 0 < x := hx.2
-    have h_exp_log : Real.exp (Real.log x) = x := by simpa using Real.exp_log hx_pos
-    simpa [Set.mem_setOf_eq, h_exp_log] using hx_eq
-  -- Identify the pushforward measure with Lebesgue measure (up to a positive scalar).
-  have h_ae_t_sub : (∀ᵐ t ∂ volume,
-      Hσ.toFun (f - c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)) := by
-    let Psub : ℝ → Prop := fun t =>
-      Hσ.toFun (f - c • g) (Real.exp t)
-        = Hσ.toFun f (Real.exp t) - Hσ.toFun (c • g) (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | Psub t} := h_meas_set_sub
-    have h_ae_cvol : (∀ᵐ t ∂ (cm • volume), Psub t) := by
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), Psub t) := by
-        simpa [h_restrict'] using h_ae_map_sub
-      simpa [h_map] using h'
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ Psub t} := hP_meas.compl
-    have h_null_c : (cm • volume) {t : ℝ | ¬ Psub t} = 0 := by
-      have := ((ae_iff (μ := (cm • volume)) (p := fun t : ℝ => Psub t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : cm * volume {t : ℝ | ¬ Psub t} = 0 := by
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable] using h_null_c
-    have h_zero : volume {t : ℝ | ¬ Psub t} = 0 := (mul_eq_zero.mp h_mul_zero).resolve_left hcm0
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => Psub t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  have h_ae_t_smul : (∀ᵐ t ∂ volume,
-      Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)) := by
-    let Psmul : ℝ → Prop := fun t => Hσ.toFun (c • g) (Real.exp t) = c * Hσ.toFun g (Real.exp t)
-    have hP_meas : MeasurableSet {t : ℝ | Psmul t} := h_meas_set_smul
-    have h_ae_cvol : (∀ᵐ t ∂ (cm • volume), Psmul t) := by
-      have h_restrict' : mulHaar.restrict (Set.Ioi (0 : ℝ)) = mulHaar := by simp [mulHaar]
-      have h' : (∀ᵐ t ∂ (Measure.map Real.log (mulHaar.restrict (Set.Ioi (0 : ℝ)))), Psmul t) := by
-        simpa [h_restrict'] using h_ae_map_smul
-      simpa [h_map] using h'
-    have h_notP_meas : MeasurableSet {t : ℝ | ¬ Psmul t} := hP_meas.compl
-    have h_null_c : (cm • volume) {t : ℝ | ¬ Psmul t} = 0 := by
-      have := ((ae_iff (μ := (cm • volume)) (p := fun t : ℝ => Psmul t))).1 h_ae_cvol
-      simpa [Set.compl_setOf] using this
-    have h_mul_zero : cm * volume {t : ℝ | ¬ Psmul t} = 0 := by
-      simpa [Measure.smul_apply, h_notP_meas, measure_toMeasurable] using h_null_c
-    have h_zero : volume {t : ℝ | ¬ Psmul t} = 0 := (mul_eq_zero.mp h_mul_zero).resolve_left hcm0
-    exact ((ae_iff (μ := volume) (p := fun t : ℝ => Psmul t))).2
-      (by simpa [Set.compl_setOf] using h_zero)
-  have h_integrand_ae :
-      (fun t => LogPull σ (f - c • g) t * Complex.exp ((1 / 2 : ℝ) * t))
-        =ᵐ[volume]
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) -
-        c * (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    refine (h_ae_t_sub.and h_ae_t_smul).mono ?_
-    intro t hts
-    have ht_sub := hts.1
-    have ht_smul := hts.2
-    simp [LogPull, LogPull_apply, ht_sub, ht_smul, mul_sub, mul_left_comm,
-          mul_comm, mul_assoc]
-  -- The right-hand side is integrable as a difference of integrable functions with scalar multiple.
-  have h_rhs_int : Integrable
-      (fun t =>
-        (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) -
-        c * (LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) := by
-    exact hf_int.sub (hg_int.const_mul c)
-  exact h_rhs_int.congr h_integrand_ae.symm
-
 -- Complex measure-theoretic proof involving ENNReal to Real to Complex conversion
 /-- Convert ENNReal norm equality to Complex, handling coercion of binary operations -/
 lemma norm_squared_to_complex_add_sub (σ C : ℝ) (h : Hσ σ)
@@ -1085,8 +388,8 @@ lemma mellinTransform_smul (c : ℂ) (f : ℝ → ℂ) (s : ℂ) :
   rw [hrewrite, h_integral, smul_eq_mul]
 
 /-- Under the weighted L² norm condition, the Mellin integrand is integrable. -/
-lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
+lemma mellin_integrable_of_weighted_L1 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
+    (hf_int : Integrable (fun t => LogPull σ f t)) :
     IntegrableOn (fun t : ℝ => (f : ℝ → ℂ) t * t ^ (σ + I * τ - 1)) (Set.Ioi 0) := by
   classical
   -- Strategy outline:
@@ -1094,7 +397,7 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
   --    as an `Integrable` statement for `volume.restrict (Ioi 0)`.
   -- 2) Use the logarithmic change of variables `x = exp t` to relate the
   --    Mellin integrand `(f x) * x^(σ + iτ - 1)` to
-  --    `LogPull σ f t * exp((1/2) t)` times a unimodular factor `exp(iτ t)`.
+  --    `LogPull σ f t` times a unimodular factor `exp(iτ t)`.
   -- 3) Deduce integrability from the hypothesis `hf_int` and the boundedness
   --    of the unimodular factor.
   -- The detailed change-of-variables and a.e. identities are deferred as sorries.
@@ -1105,9 +408,8 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
   have h_ae_change :
       (fun x : ℝ => (f : ℝ → ℂ) x * x ^ (σ + I * τ - 1))
         =ᵐ[volume.restrict (Set.Ioi 0)]
-      (fun x : ℝ =>
-        ((LogPull σ f (Real.log x) * Complex.exp ((1 / 2 : ℝ) * Real.log x))
-          * Complex.exp (Complex.I * (τ : ℝ) * Real.log x)) * (1 / (x : ℂ))) := by
+      (fun x : ℝ => (LogPull σ f (Real.log x) * Complex.exp
+        (Complex.I * (τ : ℝ) * Real.log x)) * (1 / (x : ℂ))) := by
     -- Skeleton: prove the pointwise identity for `x > 0` using `x = exp t`.
     refine (ae_restrict_iff' measurableSet_Ioi).2 ?_
     refine Filter.Eventually.of_forall ?_
@@ -1115,8 +417,8 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
     have hxpos : 0 < x := hx
     -- For x>0, we can rewrite powers via `log` and `exp`.
     -- Goal: (f x) * x^(σ + I*τ - 1)
-    --   = (LogPull σ f (log x) * exp((1/2) log x)) * exp(i τ log x) * (1/x).
-    -- This follows from `LogPull σ f (log x) = exp((σ - 1/2) log x) * f x` and
+    --   = (LogPull σ f (log x) * exp(i τ log x)) * (1/x).
+    -- This follows from `LogPull σ f (log x) = exp(σ * log x) * f x = x^σ * f x` and
     -- `x^w = exp(w * log x)` for x>0.
     -- Full algebraic rewriting is deferred.
     -- Set t = log x and record `exp t = x` for x>0.
@@ -1124,112 +426,35 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
     have hxexp : Real.exp t = x := by simpa [ht] using Real.exp_log hxpos
     -- Expand LogPull at t = log x.
     have h_logpull :
-        LogPull σ f t = (Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ) * (Hσ.toFun f x) := by
-      -- Use `LogPull_apply` and `exp_log`.
+        LogPull σ f t = (Real.exp (σ * t) : ℂ) * (Hσ.toFun f x) := by
+      -- By definition, LogPull σ f t = exp(σ * t) * Hσ.toFun f (exp t)
+      -- Since exp t = x, we have LogPull σ f t = exp(σ * t) * Hσ.toFun f x
       rw [LogPull_apply]
       congr 1
       rw [hxexp]
-    -- Combine the weights: (σ-1/2) and 1/2 to get σ.
-    have h_sigma :
-        (LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t)
-          = (Real.exp (σ * t) : ℂ) * (Hσ.toFun f x) := by
-      -- Rewrite `LogPull` and regroup factors.
-      calc
-        (LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t)
-            = ((Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ) * (Hσ.toFun f x))
-                * Complex.exp ((1 / 2 : ℝ) * t) := by
-                  rw [h_logpull]
-        _ = ((Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ)
-                * Complex.exp ((1 / 2 : ℝ) * t)) * (Hσ.toFun f x) := by
-                  simp [mul_comm, mul_left_comm, mul_assoc]
-        _ = (((Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ)
-                * (Real.exp ((1 / 2 : ℝ) * t) : ℂ))) * (Hσ.toFun f x) := by
-                  -- Convert complex exponential at a real to a real exponential coerced to ℂ
-                  simp only [Complex.ofReal_exp]
-                  ring_nf
-                  simp [mul_comm, mul_left_comm, mul_assoc]
-        _ = (Real.exp (σ * t) : ℂ) * (Hσ.toFun f x) := by
-                  -- Combine the real exponentials using `exp_add` and `ring`.
-                  have hsum : ((σ - (1 / 2 : ℝ)) * t) + ((1 / 2 : ℝ) * t) = σ * t := by
-                    ring
-                  have h_real :
-                      Real.exp ((σ - (1 / 2 : ℝ)) * t) * Real.exp ((1 / 2 : ℝ) * t)
-                        = Real.exp (σ * t) := by
-                    -- From `exp_add : exp (a + b) = exp a * exp b`.
-                    rw [← Real.exp_add, hsum]
-                  have h_complex :
-                      ((Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ)
-                        * (Real.exp ((1 / 2 : ℝ) * t) : ℂ))
-                        = (Real.exp (σ * t) : ℂ) := by
-                    simp only [← Complex.ofReal_mul]
-                    rw [h_real]
-                  simp only [Complex.ofReal_exp]
-                  rw [← Complex.exp_add]
-                  congr 1
-                  push_cast
-                  ring_nf
     -- Multiply by the unimodular factor exp(i τ t).
     have h_sigma_tau :
-        ((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-            * Complex.exp (Complex.I * (τ : ℝ) * t)
+        (LogPull σ f t) * Complex.exp (Complex.I * (τ : ℝ) * t)
           = (Hσ.toFun f x) * Complex.exp ((σ + Complex.I * (τ : ℝ)) * t) := by
-      -- Multiply the identity `h_sigma` by the unimodular factor and regroup.
-      have := congrArg (fun z => z * Complex.exp (Complex.I * (τ : ℝ) * t)) h_sigma
-      -- Reassociate to place `(Hσ.toFun f x)` in front.
-      have h_step :
-          ((Real.exp (σ * t) : ℂ) * (Hσ.toFun f x))
-              * Complex.exp (Complex.I * (τ : ℝ) * t)
-            = (Hσ.toFun f x)
-                * (((Real.exp (σ * t) : ℂ)
-                      * Complex.exp (Complex.I * (τ : ℝ) * t))) := by
-        simp [mul_comm, mul_left_comm, mul_assoc]
-      -- Combine exponentials: `exp(σ t) * exp(i τ t) = exp((σ + i τ) t)`.
-      have h_exp :
-          ((Real.exp (σ * t) : ℂ) * Complex.exp (Complex.I * (τ : ℝ) * t))
-            = Complex.exp ((σ + Complex.I * (τ : ℝ)) * t) := by
-        -- Convert the real exponential to complex exponential and use `exp_add`.
-        have : Complex.exp (σ * t) = (Real.exp (σ * t) : ℂ) := by
-          simp only [Complex.ofReal_exp]
-          congr 1
-          push_cast
-          ring
-        -- Replace and apply `exp_add`.
-        have h' :
-            Complex.exp (σ * t) * Complex.exp (Complex.I * (τ : ℝ) * t)
-                = Complex.exp ((σ * t) + (Complex.I * (τ : ℝ) * t)) := by
-          rw [← Complex.exp_add]
-        -- Rewrite `(σ * t) + (i τ * t) = (σ + i τ) * t` in `ℂ`.
-        have hlin :
-            ((σ * t) + (Complex.I * (τ : ℝ) * t) : ℂ)
-              = ((σ + Complex.I * (τ : ℝ)) * t : ℂ) := by
-          ring_nf
-        -- Assemble the chain.
-        have := by
-          simpa [hlin] using h'
-        simp [this]
-      -- Finish by substituting the combined exponential into `h_step` and `this`.
-      -- Start from the left-hand side using `this`.
-      have hL :
-          ((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-              * Complex.exp (Complex.I * (τ : ℝ) * t)
-            = ((Real.exp (σ * t) : ℂ) * (Hσ.toFun f x))
-                * Complex.exp (Complex.I * (τ : ℝ) * t) := by
-        simpa using this
-      -- Now rewrite via `h_step` and then collapse exponentials via `h_exp`.
+      rw [h_logpull]
+      -- Now: exp(σ*t) * f x * exp(i*τ*t) = f x * exp((σ + i*τ)*t)
       calc
-        ((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-            * Complex.exp (Complex.I * (τ : ℝ) * t)
-            = ((Real.exp (σ * t) : ℂ) * (Hσ.toFun f x))
-                * Complex.exp (Complex.I * (τ : ℝ) * t) := hL
-        _ = (Hσ.toFun f x)
-                * (((Real.exp (σ * t) : ℂ)
-                      * Complex.exp (Complex.I * (τ : ℝ) * t))) := h_step
-        _ = (Hσ.toFun f x) * Complex.exp ((σ + Complex.I * (τ : ℝ)) * t) := by
-              rw [h_exp]
+        (Real.exp (σ * t) : ℂ) * Hσ.toFun f x * Complex.exp (Complex.I * ↑τ * ↑t)
+            = Hσ.toFun f x * ((Real.exp (σ * t) : ℂ) * Complex.exp (Complex.I * ↑τ * ↑t)) := by
+              ring
+          _ = Hσ.toFun f x * Complex.exp ((↑σ + I * ↑τ) * ↑t) := by
+              congr 1
+              -- Convert (Real.exp (σ * t) : ℂ) to Complex.exp
+              have h1 : (Real.exp (σ * t) : ℂ) = Complex.exp (↑(σ * t)) := by
+                simp [Complex.ofReal_exp]
+              rw [h1]
+              rw [← Complex.exp_add]
+              congr 1
+              push_cast
+              ring
     -- Divide by x = exp t, i.e. multiply by exp(-t), to get (σ + iτ - 1).
     have h_sigma_tau_one :
-        (((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-            * Complex.exp (Complex.I * (τ : ℝ) * t)) * (1 / (x : ℂ))
+        ((LogPull σ f t) * Complex.exp (Complex.I * (τ : ℝ) * t)) * (1 / (x : ℂ))
           = (Hσ.toFun f x) * Complex.exp (((σ + Complex.I * (τ : ℝ)) - 1) * t) := by
       -- Multiply `h_sigma_tau` by `1/x` and regroup factors.
       have := congrArg (fun z => z * (1 / (x : ℂ))) h_sigma_tau
@@ -1257,8 +482,7 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
         ring_nf
       -- Assemble the pieces.
       calc
-        (((LogPull σ f t) * Complex.exp ((1 / 2 : ℝ) * t))
-            * Complex.exp (Complex.I * (τ : ℝ) * t)) * (1 / (x : ℂ))
+        ((LogPull σ f t) * Complex.exp (Complex.I * (τ : ℝ) * t)) * (1 / (x : ℂ))
             = ((Hσ.toFun f x) * Complex.exp ((σ + Complex.I * (τ : ℝ)) * t))
                 * (1 / (x : ℂ)) := by simpa using this
         _ = (Hσ.toFun f x)
@@ -1308,8 +532,7 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
       rfl
     -- Chain the equalities to conclude the a.e. identity at `x`.
     have :
-        ((LogPull σ f (Real.log x) * Complex.exp ((1 / 2 : ℝ) * Real.log x))
-            * Complex.exp (Complex.I * (τ : ℝ) * Real.log x)) * (1 / (x : ℂ))
+        (LogPull σ f (Real.log x) * Complex.exp (Complex.I * (τ : ℝ) * Real.log x)) * (1 / (x : ℂ))
           = (f : ℝ → ℂ) x * x ^ (σ + I * τ - 1) := by
       -- Replace `Real.log x` by `t` and use the previous steps.
       simpa [ht] using (h_sigma_tau_one.trans h_pow)
@@ -1320,13 +543,12 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
   -- Prove integrability for the RHS, then transfer along `h_ae_change`.
   have h_rhs_int :
       Integrable
-        (fun x : ℝ =>
-          ((LogPull σ f (Real.log x) * Complex.exp ((1 / 2 : ℝ) * Real.log x))
-            * Complex.exp (Complex.I * (τ : ℝ) * Real.log x)) * (1 / (x : ℂ)))
+        (fun x : ℝ => (LogPull σ f (Real.log x) * Complex.exp
+          (Complex.I * (τ : ℝ) * Real.log x)) * (1 / (x : ℂ)))
         (volume.restrict (Set.Ioi 0)) := by
     classical
     -- Abbreviations for clarity
-    set g : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hg_def
+    set g : ℝ → ℂ := fun t => LogPull σ f t with hg_def
     set J : ℝ → ℂ :=
       fun x => g (Real.log x) * Complex.exp (Complex.I * (τ : ℝ) * Real.log x) with hJ_def
 
@@ -1395,18 +617,10 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
       have hJ_aesm : AEStronglyMeasurable J mulHaar := by
         -- Measurability of `g`
         have h_g_meas : Measurable g := by
-          -- g t = LogPull σ f t * exp((1/2) t)
-          have h_exp_meas : Measurable (fun t : ℝ =>
-              Complex.exp ((1 / 2 : ℝ) * (t : ℝ))) := by
-            have hlin : Measurable fun t : ℝ => ((1 / 2 : ℝ) : ℂ) * (t : ℂ) := by
-              refine measurable_const.mul ?_
-              exact Complex.measurable_ofReal
-            -- apply measurability of exp
-            exact Complex.measurable_exp.comp hlin
+          -- g t = LogPull σ f t
           -- LogPull measurability is available
-          have h_logpull_meas : Measurable (LogPull σ f) := LogPull_measurable σ f
-          -- Product of measurable functions is measurable
-          simpa [hg_def] using h_logpull_meas.mul h_exp_meas
+          simp only [hg_def]
+          exact LogPull_measurable σ f
         -- Measurability of the phase factor `t ↦ exp(i τ t)`
         let phase : ℝ → ℂ := fun t => Complex.exp (Complex.I * (τ : ℝ) * (t : ℂ))
         have h_phase_meas : Measurable phase := by
@@ -1452,16 +666,9 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
           have h_smul : Integrable (fun t : ℝ => ‖g t‖) (c • volume) := by
             -- a.e.-strong measurability under the scaled measure
             have h_g_meas : Measurable g := by
-              -- g t = LogPull σ f t * exp((1/2) t)
-              have h_exp_meas : Measurable (fun t : ℝ =>
-                  Complex.exp ((1 / 2 : ℝ) * (t : ℝ))) := by
-                have hlin : Measurable fun t : ℝ => ((1 / 2 : ℝ) : ℂ) * (t : ℂ) := by
-                  refine measurable_const.mul ?_
-                  exact Complex.measurable_ofReal
-                -- apply measurability of exp
-                exact Complex.measurable_exp.comp hlin
-              have h_logpull_meas : Measurable (LogPull σ f) := LogPull_measurable σ f
-              simpa [hg_def] using h_logpull_meas.mul h_exp_meas
+              -- g t = LogPull σ f t
+              simp only [hg_def]
+              exact LogPull_measurable σ f
             have h_meas_norm : AEStronglyMeasurable (fun t : ℝ => ‖g t‖) (c • volume) :=
               (h_g_meas.norm).aestronglyMeasurable
             -- finiteness of the integral under the scaled measure via lintegral_smul_measure
@@ -1489,13 +696,9 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
         have h_back : Integrable (fun x : ℝ => ‖g (Real.log x)‖) mulHaar := by
           -- a.e.-strong measurability of the composed norm
           have h_g_meas : Measurable g := by
-            have h_exp_meas : Measurable (fun t : ℝ => Complex.exp ((1 / 2 : ℝ) * (t : ℝ))) := by
-              have hlin : Measurable fun t : ℝ => ((1 / 2 : ℝ) : ℂ) * (t : ℂ) := by
-                refine measurable_const.mul ?_
-                exact Complex.measurable_ofReal
-              exact Complex.measurable_exp.comp hlin
-            have h_logpull_meas : Measurable (LogPull σ f) := LogPull_measurable σ f
-            simpa [hg_def] using h_logpull_meas.mul h_exp_meas
+            -- g t = LogPull σ f t
+            simp only [hg_def]
+            exact LogPull_measurable σ f
           have h_comp_meas : Measurable (fun x : ℝ => g (Real.log x)) :=
             h_g_meas.comp Real.measurable_log
           have h_back_aesm : AEStronglyMeasurable (fun x : ℝ => ‖g (Real.log x)‖) mulHaar :=
@@ -1550,13 +753,9 @@ lemma mellin_integrable_of_weighted_L2 (σ : ℝ) (f : Hσ σ) (τ : ℝ)
       -- a.e.-strong measurability of the product `J x * (1/x)` on `(0,∞)`
       -- Measurability of `J` (reconstruct as in hJ_aesm)
       have h_g_meas : Measurable g := by
-        have h_exp_meas : Measurable (fun t : ℝ => Complex.exp ((1 / 2 : ℝ) * (t : ℝ))) := by
-          have hlin : Measurable fun t : ℝ => ((1 / 2 : ℝ) : ℂ) * (t : ℂ) := by
-            refine measurable_const.mul ?_
-            exact Complex.measurable_ofReal
-          exact Complex.measurable_exp.comp hlin
-        have h_logpull_meas : Measurable (LogPull σ f) := LogPull_measurable σ f
-        simpa [hg_def] using h_logpull_meas.mul h_exp_meas
+        -- g t = LogPull σ f t
+        simp only [hg_def]
+        exact LogPull_measurable σ f
       have h_phase_meas : Measurable
           (fun t : ℝ => Complex.exp (Complex.I * (τ : ℝ) * (t : ℂ))) := by
         have h1 : Measurable fun t : ℝ => (t : ℂ) := Complex.measurable_ofReal

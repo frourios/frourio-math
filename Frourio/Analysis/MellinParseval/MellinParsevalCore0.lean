@@ -11,26 +11,6 @@ import Mathlib.MeasureTheory.Measure.Regular
 
 set_option linter.style.multiGoal false
 
-/-!
-# Mellin-Parseval Identity and its Relation to Fourier-Parseval
-
-This file establishes the explicit relationship between the Mellin-Plancherel formula
-and the classical Fourier-Parseval identity through logarithmic change of variables.
-
-## Main Results
-
-- `mellin_to_fourier_change_of_variables`: The change of variables x = e^t transforms
-  the Mellin transform to a Fourier transform on the additive group ℝ
-- `parseval_identity_equivalence`: The Mellin-Plancherel formula is equivalent to
-  the Fourier-Parseval identity under appropriate transformation
-- `mellin_parseval_formula`: Explicit Parseval formula for Mellin transforms
-
-## Implementation Notes
-
-The key insight is that the multiplicative Haar measure dx/x on (0,∞) corresponds
-to the Lebesgue measure dt on ℝ under the logarithmic change of variables x = e^t.
--/
-
 open MeasureTheory Measure Real Complex
 open scoped ENNReal Topology FourierTransform
 
@@ -437,53 +417,24 @@ lemma complex_polarization_identity {E : Type*} [NormedAddCommGroup E] [InnerPro
 /-- The Mellin transform relates to LogPull through change of variables -/
 lemma mellin_logpull_relation (σ : ℝ) (f : Hσ σ) (τ : ℝ) :
     mellinTransform (f : ℝ → ℂ) (σ + I * τ) =
-    ∫ t : ℝ, LogPull σ f t * Complex.exp (I * τ * t) * Complex.exp ((1/2 : ℝ) * t) := by
+    ∫ t : ℝ, LogPull σ f t * Complex.exp (I * τ * t) := by
   have h_base :=
     mellin_as_weighted_fourier (f := (f : ℝ → ℂ)) (σ := σ) (τ := τ)
-  have h_exp : ∀ t : ℝ,
-      Complex.exp (σ * t)
-        = (Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ) * Complex.exp ((1 / 2 : ℝ) * t) := by
-    intro t
-    have hσt :
-        (σ : ℂ) * (t : ℂ)
-          = ((σ - (1 / 2 : ℝ)) : ℂ) * (t : ℂ) + (1 / 2 : ℂ) * (t : ℂ) := by
-      have hsum : σ * t = (σ - (1 / 2 : ℝ)) * t + (1 / 2 : ℝ) * t := by
-        ring
-      calc
-        (σ : ℂ) * (t : ℂ)
-            = Complex.ofReal σ * Complex.ofReal t := rfl
-        _ = Complex.ofReal (σ * t) := by
-                simp [Complex.ofReal_mul]
-        _ = Complex.ofReal ((σ - (1 / 2 : ℝ)) * t + (1 / 2 : ℝ) * t) := by
-                simp [hsum, add_comm]
-        _ = ((σ - (1 / 2 : ℝ)) : ℂ) * (t : ℂ) + (1 / 2 : ℂ) * (t : ℂ) := by
-                simp [Complex.ofReal_mul, Complex.ofReal_add, sub_eq_add_neg, add_comm]
-    calc
-      Complex.exp (σ * t)
-          = Complex.exp ((σ : ℂ) * (t : ℂ)) := by
-              simp
-      _ = Complex.exp
-            (((σ - (1 / 2 : ℝ)) : ℂ) * (t : ℂ) + (1 / 2 : ℂ) * (t : ℂ)) := by
-              simp [hσt]
-      _ = Complex.exp (((σ - (1 / 2 : ℝ)) : ℂ) * (t : ℂ))
-              * Complex.exp ((1 / 2 : ℂ) * (t : ℂ)) := by
-              simpa
-                using
-                  Complex.exp_add (((σ - (1 / 2 : ℝ)) : ℂ) * (t : ℂ))
-                    ((1 / 2 : ℂ) * (t : ℂ))
-      _ = (Real.exp ((σ - (1 / 2 : ℝ)) * t) : ℂ)
-              * Complex.exp ((1 / 2 : ℝ) * t) := by
-              simp [Complex.ofReal_exp, sub_eq_add_neg]
   have h_integrand :
       (fun t : ℝ =>
         logPushforward (f : ℝ → ℂ) t * Complex.exp (σ * t) * Complex.exp (I * τ * t))
         =
         fun t : ℝ =>
-          LogPull σ f t * Complex.exp (I * τ * t) * Complex.exp ((1 / 2 : ℝ) * t) := by
+          LogPull σ f t * Complex.exp (I * τ * t) := by
     funext t
-    have h_exp_t := h_exp t
-    simp [LogPull_apply, logPushforward, Hσ.toFun, h_exp_t, mul_comm, mul_left_comm,
-      mul_assoc]
+    simp only [LogPull_apply, logPushforward, Hσ.toFun]
+    -- LHS: (f : ℝ → ℂ) (Real.exp t) * Complex.exp (σ * t) * Complex.exp (I * τ * t)
+    -- RHS: ↑(Real.exp (σ * t)) * (f : ℝ → ℂ) (Real.exp t) * Complex.exp (I * τ * t)
+    -- Complex.exp (↑σ * ↑t) = ↑(Real.exp (σ * t))
+    have h_eq : Complex.exp (↑σ * ↑t) = ↑(Real.exp (σ * t)) := by
+      rw [← Complex.ofReal_mul, Complex.ofReal_exp]
+    rw [h_eq]
+    ring
   simpa [h_integrand] using h_base
 
 /-- Norm simplification for weighted LogPull -/
@@ -553,10 +504,9 @@ lemma norm_simplification_logpull (σ : ℝ) (f : Hσ σ) :
     Filter.Eventually.of_forall h_pointwise
   simpa using integral_congr_ae h_pointwise_ae
 
-/-- The L² norm of weighted LogPull equals the weighted L² norm of f,
-    assuming the integral converges -/
+/-- The L² norm of LogPull equals the weighted L² norm of f -/
 lemma weighted_LogPull_integral_eq (σ : ℝ) (f : Hσ σ) :
-    ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖^2) ∂volume
+    ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t‖^2) ∂volume
     = ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (‖f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume := by
   classical
   -- Package the pullback integrand that will be transported under log/exp.
@@ -571,96 +521,48 @@ lemma weighted_LogPull_integral_eq (σ : ℝ) (f : Hσ σ) :
       simpa [pow_two] using h_norm.mul h_norm
     exact (Measurable.ennreal_ofReal h_sq)
 
-  -- Pointwise identification of the integrand on ℝ.
-  have h_pointwise_real :
-      ∀ t : ℝ,
-        ‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖^2
-          = ‖LogPull σ f t‖^2 * Real.exp t := by
-    intro t
-    have h_norm_exp :
-        ‖Complex.exp ((1 / 2 : ℝ) * t)‖ = Real.exp ((1 / 2 : ℝ) * t) := by
-      simpa using Complex.norm_exp ((1 / 2 : ℝ) * t : ℂ)
-    have h_exp_sq : Real.exp ((1 / 2 : ℝ) * t) ^ 2 = Real.exp t := by
-      have h_add : (2⁻¹ : ℝ) * t + (2⁻¹ : ℝ) * t = t := by
-        have h : ((1 / 2 : ℝ) * t) + ((1 / 2 : ℝ) * t) = t := by ring
-        simpa [one_div] using h
-      calc
-        Real.exp ((1 / 2 : ℝ) * t) ^ 2
-            = Real.exp ((1 / 2 : ℝ) * t) * Real.exp ((1 / 2 : ℝ) * t) := by
-                simp [pow_two]
-        _ = Real.exp (((1 / 2 : ℝ) * t) + ((1 / 2 : ℝ) * t)) := by
-                simpa using (Real.exp_add ((1 / 2 : ℝ) * t) ((1 / 2 : ℝ) * t)).symm
-        _ = Real.exp t := by simp [one_div, h_add]
-    have h_mul_pow :
-        (‖LogPull σ f t‖ * Real.exp ((1 / 2 : ℝ) * t))^2
-          = ‖LogPull σ f t‖^2 * Real.exp ((1 / 2 : ℝ) * t) ^ 2 := by
-      simpa using
-        (mul_pow (‖LogPull σ f t‖) (Real.exp ((1 / 2 : ℝ) * t)) (2 : ℕ))
-    have h_sq :
-        ‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖^2
-          = (‖LogPull σ f t‖ * ‖Complex.exp ((1 / 2 : ℝ) * t)‖)^2 := by
-      simp [pow_two]
-    have h_sq' := h_sq
-    -- Replace the norm of the exponential with the real exponential
-    rw [h_norm_exp] at h_sq'
-    have h_sq'' := h_sq'
-    -- Use the multiplicative property of squares to separate the factors
-    rw [h_mul_pow] at h_sq''
-    have h_sq''' := h_sq''
-    -- Convert the remaining exponential square into `Real.exp t`
-    rw [h_exp_sq] at h_sq'''
-    -- Combine the successive rewrites
-    simpa using h_sq'''
-
+  -- Pointwise identification using LogPull_norm_sq
   have h_pointwise :
-      (fun t : ℝ =>
-          ENNReal.ofReal (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖^2))
+      (fun t : ℝ => ENNReal.ofReal (‖LogPull σ f t‖^2))
         =ᵐ[volume]
         fun t : ℝ =>
-          g t * ENNReal.ofReal (Real.exp ((2 * σ - 1) * t + t)) := by
+          g t * ENNReal.ofReal (Real.exp ((2 * σ) * t)) := by
     refine Filter.Eventually.of_forall ?_
     intro t
-    have h_sq := h_pointwise_real t
     have h_logpull_sq := LogPull_norm_sq (σ := σ) (f := f) t
     have h_normsq_nonneg : 0 ≤ ‖Hσ.toFun f (Real.exp t)‖^2 := sq_nonneg _
-    have h_exp_nonneg : 0 ≤ Real.exp ((2 * σ - 1) * t + t) := (Real.exp_pos _).le
-    have h0 := congrArg ENNReal.ofReal h_sq
-    have h_mul_logpull :=
-      congrArg (fun r : ℝ => r * Real.exp t) h_logpull_sq
-    have h1 := congrArg ENNReal.ofReal h_mul_logpull
-    have h2 := congrArg ENNReal.ofReal
-      (by
-        have :
-            (Real.exp ((2 * σ - 1) * t) * ‖Hσ.toFun f (Real.exp t)‖^2) * Real.exp t
-              = ‖Hσ.toFun f (Real.exp t)‖^2 * Real.exp ((2 * σ - 1) * t + t) := by
-          simp [mul_comm, mul_left_comm, Real.exp_add, add_comm]
-        exact this)
+    have h_exp_nonneg : 0 ≤ Real.exp ((2 * σ) * t) := (Real.exp_pos _).le
     calc
-      ENNReal.ofReal (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖^2)
-          = ENNReal.ofReal (‖LogPull σ f t‖^2 * Real.exp t) := h0
-      _ = ENNReal.ofReal
-            ((Real.exp ((2 * σ - 1) * t) * ‖Hσ.toFun f (Real.exp t)‖^2)
-              * Real.exp t) := h1
-      _ = ENNReal.ofReal
-            (‖Hσ.toFun f (Real.exp t)‖^2
-              * Real.exp ((2 * σ - 1) * t + t)) := h2
+      ENNReal.ofReal (‖LogPull σ f t‖^2)
+          = ENNReal.ofReal (Real.exp ((2 * σ) * t) * ‖Hσ.toFun f (Real.exp t)‖^2) := by
+              rw [h_logpull_sq]
+      _ = ENNReal.ofReal (Real.exp ((2 * σ) * t))
+            * ENNReal.ofReal (‖Hσ.toFun f (Real.exp t)‖^2) := by
+              rw [ENNReal.ofReal_mul h_exp_nonneg]
       _ = ENNReal.ofReal (‖Hσ.toFun f (Real.exp t)‖^2)
-            * ENNReal.ofReal (Real.exp ((2 * σ - 1) * t + t)) := by
-              simp [ENNReal.ofReal_mul, h_normsq_nonneg]
-      _ = g t * ENNReal.ofReal (Real.exp ((2 * σ - 1) * t + t)) := by
+            * ENNReal.ofReal (Real.exp ((2 * σ) * t)) := by
+              ring
+      _ = g t * ENNReal.ofReal (Real.exp ((2 * σ) * t)) := by
               simp [g]
 
   have h_left :
-      ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖^2)
-          ∂volume
-        = ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ - 1) * t + t)) ∂volume :=
+      ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t‖^2) ∂volume
+        = ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ) * t)) ∂volume :=
     lintegral_congr_ae h_pointwise
 
   -- Change variables t ↦ log x to move the integral back to (0,∞).
+  -- We need: ∫ g(t) * exp(2σt) dt = ∫ g(log x) * x^(2σ-1) dx
+  -- Using substitution t = log x, dt = dx/x, exp(2σt) = x^(2σ), we get x^(2σ) * (1/x) = x^(2σ-1)
   have h_change :
-      ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ - 1) * t + t)) ∂volume
+      ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ) * t)) ∂volume
         = ∫⁻ x in Set.Ioi (0 : ℝ),
             g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 1)) ∂volume := by
+    -- exp((2σ)t) = exp((2σ-1)t + t), so we can use α = 2σ - 1
+    have h_exp_eq : ∀ t, Real.exp ((2 * σ) * t) = Real.exp ((2 * σ - 1) * t + t) := by
+      intro t
+      congr 1
+      ring
+    conv_lhs => arg 2; ext t; rw [h_exp_eq]
     simpa using
       (lintegral_change_of_variables_exp (α := 2 * σ - 1) (f := g) hg_meas).symm
 
@@ -700,10 +602,8 @@ lemma weighted_LogPull_integral_eq (σ : ℝ) (f : Hσ σ) :
 
   -- Assemble the chain of equalities.
   calc
-    ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖^2)
-        ∂volume
-        = ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ - 1) * t + t)) ∂volume :=
-          h_left
+    ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t‖^2) ∂volume
+        = ∫⁻ t, g t * ENNReal.ofReal (Real.exp ((2 * σ) * t)) ∂volume := h_left
     _ = ∫⁻ x in Set.Ioi (0 : ℝ),
           g (Real.log x) * ENNReal.ofReal (x ^ (2 * σ - 1)) ∂volume := h_change
     _ = ∫⁻ x in Set.Ioi (0 : ℝ),
@@ -731,103 +631,55 @@ lemma ennorm_sq_rpow (z : ℂ) :
             congr 1
             exact Real.rpow_natCast _ 2
 
-/-- The weighted LogPull function is in L² under suitable conditions -/
+/-- The LogPull function is in L² under suitable conditions -/
 lemma weighted_LogPull_memLp (σ : ℝ) (f : Hσ σ) (h_extra : has_weighted_L2_norm σ f) :
-    MemLp (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)) 2 volume := by
+    MemLp (LogPull σ f) 2 volume := by
   have h_eq := weighted_LogPull_integral_eq σ f
 
   refine ⟨?_, ?_⟩
   · -- Measurability
     apply Measurable.aestronglyMeasurable
-    apply Measurable.mul
-    · exact LogPull_measurable σ f
-    · apply Complex.measurable_exp.comp
-      apply Measurable.mul
-      · exact measurable_const
-      · exact Complex.measurable_ofReal.comp measurable_id
+    exact LogPull_measurable σ f
 
   · -- Finiteness of L² norm
-    -- We need to show: eLpNorm (weighted function) 2 volume < ⊤
-    -- This is equivalent to showing the integral of |g|^2 is finite
+    -- We need to show: eLpNorm (LogPull σ f) 2 volume < ⊤
+    -- This is equivalent to showing the integral of |LogPull σ f|^2 is finite
     have hp_ne_zero : (2 : ℝ≥0∞) ≠ 0 := by norm_num
     have hp_ne_top : (2 : ℝ≥0∞) ≠ ∞ := by norm_num
 
     rw [eLpNorm_eq_lintegral_rpow_enorm hp_ne_zero hp_ne_top]
     simp only [ENNReal.toReal_ofNat, one_div]
 
-    -- Now we need: (∫⁻ t, ‖g t‖ₑ ^ 2)^(1/2) < ⊤
-    -- This holds iff ∫⁻ t, ‖g t‖ₑ ^ 2 < ⊤
+    -- Now we need: (∫⁻ t, ‖LogPull σ f t‖ₑ ^ 2)^(1/2) < ⊤
+    -- This holds iff ∫⁻ t, ‖LogPull σ f t‖ₑ ^ 2 < ⊤
     have h_exponent_nonneg : 0 ≤ (2 : ℝ)⁻¹ := by norm_num
 
     -- Relate the `‖·‖ₑ` integrand to the `ENNReal.ofReal` form using `ennorm_sq_rpow`
     have h_integrand_eq :
-        (∫⁻ t, (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ₑ : ℝ≥0∞) ^ (2 : ℝ) ∂volume)
-          = ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ ^ 2) ∂volume := by
+        (∫⁻ t, (‖LogPull σ f t‖ₑ : ℝ≥0∞) ^ (2 : ℝ) ∂volume)
+          = ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t‖ ^ 2) ∂volume := by
       refine lintegral_congr_ae ?_
       refine Filter.Eventually.of_forall ?_
       intro t
-      exact ennorm_sq_rpow (LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))
-
-    -- Express the integral appearing in the goal via the `LogPull` formulation
-    have h_integrand_split :
-        (∫⁻ t,
-            (↑‖Complex.exp ((↑σ - 2⁻¹) * ↑t)‖₊ * ↑‖Hσ.toFun f (Real.exp t)‖₊
-                * ↑‖Complex.exp (2⁻¹ * ↑t)‖₊) ^ 2 ∂volume)
-          = ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ ^ 2) ∂volume := by
-      refine lintegral_congr_ae ?_
-      refine Filter.Eventually.of_forall ?_
-      intro t
-      -- `LogPull` expands to a product of exponentials and `f`, so their norms multiply
-      have h_norm_mul :
-          (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ₑ : ℝ≥0∞)
-              = ↑‖Complex.exp ((↑σ - 2⁻¹) * ↑t)‖₊ * ↑‖Hσ.toFun f (Real.exp t)‖₊
-                  * ↑‖Complex.exp (2⁻¹ * ↑t)‖₊ := by
-        -- Rewrite `LogPull` and use multiplicativity of the `ℂ`-norm
-        have h_logpull_eq :
-            LogPull σ f t
-                = Complex.exp ((↑σ - 2⁻¹) * ↑t) * Hσ.toFun f (Real.exp t) := by
-          simp [LogPull, ofReal_mul, ofReal_sub, ofReal_inv, ofReal_one, norm_exp_ofReal_mul_I,
-            ofReal_mul, mul_comm, mul_left_comm, mul_assoc, sub_eq_add_neg]
-        -- Convert the goal to a statement about `nnnorm`
-        -- Note: `‖z‖ₑ = ↑‖z‖₊`
-        simp [h_logpull_eq, nnnorm_mul, mul_comm, mul_left_comm, mul_assoc]
-      -- Convert both sides to the same real-valued square
-      have h_nonneg :
-          0 ≤ (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ : ℝ) := norm_nonneg _
-      -- Translate the claim into reals via `ENNReal.ofReal`
-      have h_sq :
-          (↑‖Complex.exp ((↑σ - 2⁻¹) * ↑t)‖₊ * ↑‖Hσ.toFun f (Real.exp t)‖₊
-              * ↑‖Complex.exp (2⁻¹ * ↑t)‖₊) ^ 2
-            = ENNReal.ofReal
-                (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ ^ 2) := by
-        -- Replace the product of norms with the norm of the product and square it
-        have h_base := congrArg (fun x : ℝ≥0∞ => x ^ 2) h_norm_mul
-        -- Interpret powers via `ENNReal.ofReal`
-        simp [pow_two, ENNReal.ofReal_mul, h_nonneg, mul_comm, mul_left_comm, mul_assoc]
-      -- Finish by rewriting with `h_sq`
-      simp [h_sq]
+      exact ennorm_sq_rpow (LogPull σ f t)
 
     -- Use the weighted integral equality to express the integral via `h_extra`
     have h_integral_identity :
-        (∫⁻ t, (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ₑ : ℝ≥0∞) ^ (2 : ℝ) ∂volume)
+        (∫⁻ t, (‖LogPull σ f t‖ₑ : ℝ≥0∞) ^ (2 : ℝ) ∂volume)
           = ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (‖f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume := by
       -- Combine `h_integrand_eq` with `h_eq`
       calc
-        (∫⁻ t, (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ₑ : ℝ≥0∞) ^ (2 : ℝ)
-            ∂volume)
-            = ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ ^ 2)
-                ∂volume := h_integrand_eq
+        (∫⁻ t, (‖LogPull σ f t‖ₑ : ℝ≥0∞) ^ (2 : ℝ) ∂volume)
+            = ∫⁻ t, ENNReal.ofReal (‖LogPull σ f t‖ ^ 2) ∂volume := h_integrand_eq
         _ = ∫⁻ x in Set.Ioi (0 : ℝ), ENNReal.ofReal (‖f x‖ ^ 2 * x ^ (2 * σ - 1)) ∂volume := h_eq
 
     -- Finite integral by hypothesis `h_extra`
     have h_base_lt_top :
-        (∫⁻ t, (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ₑ : ℝ≥0∞) ^ (2 : ℝ)
-            ∂volume) < ⊤ := by
+        (∫⁻ t, (‖LogPull σ f t‖ₑ : ℝ≥0∞) ^ (2 : ℝ) ∂volume) < ⊤ := by
       rw [h_integral_identity]
       exact h_extra
     have h_base_ne_top :
-        (∫⁻ t, (‖LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)‖ₑ : ℝ≥0∞) ^ (2 : ℝ)
-            ∂volume) ≠ ⊤ := ne_of_lt h_base_lt_top
+        (∫⁻ t, (‖LogPull σ f t‖ₑ : ℝ≥0∞) ^ (2 : ℝ) ∂volume) ≠ ⊤ := ne_of_lt h_base_lt_top
 
     exact
       ENNReal.rpow_lt_top_of_nonneg h_exponent_nonneg

@@ -24,12 +24,12 @@ section ParsevalEquivalence
 
 /-- Integrability is preserved under scalar multiplication -/
 lemma mellin_integrable_smul (σ : ℝ) (f : Hσ σ) (c : ℂ) (τ : ℝ)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t))) :
+    (hf_int : Integrable (fun t => LogPull σ f t)) :
     IntegrableOn (fun t : ℝ => (c • f : ℝ → ℂ) t * t ^ (σ + I * τ - 1)) (Set.Ioi 0) := by
   classical
   -- Start from the base integrability for `f` at `σ + i τ`.
   have h_base : IntegrableOn (fun t : ℝ => (f : ℝ → ℂ) t * t ^ (σ + I * τ - 1)) (Set.Ioi 0) :=
-    mellin_integrable_of_weighted_L2 σ f τ hf_int
+    mellin_integrable_of_weighted_L1 σ f τ hf_int
   -- View IntegrableOn as Integrable under the restricted measure.
   have h_base_int :
       Integrable (fun t : ℝ => (f : ℝ → ℂ) t * t ^ (σ + I * τ - 1))
@@ -175,9 +175,9 @@ lemma integrable_fourierIntegral_rescale_sq_norm
 /-- Integrability of norm squared of sum of Mellin transforms -/
 lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
     (hf_L2 : has_weighted_L2_norm σ f)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
+    (hf_int : Integrable (fun t => LogPull σ f t))
     (hg_L2 : has_weighted_L2_norm σ g)
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
+    (hg_int : Integrable (fun t => LogPull σ g t)) :
     Integrable (fun τ : ℝ => ((‖mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ))
     + mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ))‖ ^ 2 : ℝ) : ℂ)) volume := by
   classical
@@ -193,16 +193,10 @@ lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
     -- `integral_prod_right'` to get a.e.-strong measurability.
     classical
     -- Define the auxiliary function for the Fourier side
-    set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+    set gf : ℝ → ℂ := fun t => LogPull σ f t with hgf_def
     -- Measurability of `gf`
     have h_gf_meas : Measurable gf := by
-      have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
-      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-          measurable_const.mul Complex.measurable_ofReal
-        exact Complex.measurable_exp.comp h_lin
-      -- Coerce `((1/2 : ℝ) * t)` to `((1/2 : ℂ) * (t : ℂ))` implicitly
-      simpa [gf, hgf_def] using h_logpull.mul h_exp
+      simpa [gf, hgf_def] using LogPull_measurable σ f
     -- Kernel measurability on the product space
     have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
       -- fourierKernel ξ t = exp(ofReal (-(2π) * ξ * t) * I)
@@ -285,15 +279,10 @@ lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
     -- Same argument as for `h_meas_F`, replacing `f` with `g`.
     classical
     -- Auxiliary function for the Fourier side
-    set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+    set gg : ℝ → ℂ := fun t => LogPull σ g t with hgg_def
     -- Measurability of `gg`
     have h_gg_meas : Measurable gg := by
-      have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
-      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-          measurable_const.mul Complex.measurable_ofReal
-        exact Complex.measurable_exp.comp h_lin
-      simpa [gg, hgg_def] using h_logpull.mul h_exp
+      simpa [gg, hgg_def] using LogPull_measurable σ g
     -- Kernel measurability on the product space
     have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
       unfold fourierKernel
@@ -455,7 +444,7 @@ lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
     have hF_L2 : MemLp F 2 volume := by
       classical
       -- Express F as a rescaled Fourier integral of a weighted LogPull
-      set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+      set gf : ℝ → ℂ := fun t => LogPull σ f t with hgf_def
       -- Assumptions (to be provided upstream): gf ∈ L¹ ∩ L²
       have hgL1 : Integrable gf := by
         -- Direct from the hypothesis on the weighted LogPull of f
@@ -478,12 +467,7 @@ lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
         -- Provide measurability directly via a rescaled kernel and Fubini
         -- First, `gf` is measurable
         have h_gf_meas : Measurable gf := by
-          have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
-          have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-            have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-              measurable_const.mul Complex.measurable_ofReal
-            exact Complex.measurable_exp.comp h_lin
-          simpa [gf, hgf_def] using h_logpull.mul h_exp
+          simpa [gf, hgf_def] using LogPull_measurable σ f
         -- Next, the rescaled kernel is measurable on the product space
         have h_kernel_scaled_meas :
             Measurable (fun p : ℝ × ℝ =>
@@ -567,7 +551,7 @@ lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
     have hG_L2 : MemLp G 2 volume := by
       classical
       -- Auxiliary function on the log side for `g`.
-      set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+      set gg : ℝ → ℂ := fun t => LogPull σ g t with hgg_def
       -- Assumptions: gg ∈ L¹ and in L² (weighted hypothesis for g).
       have hgL1 : Integrable gg := by
         simpa [gg, hgg_def] using hg_int
@@ -601,12 +585,7 @@ lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
           ext a; field_simp; ring
         -- Measurability of gg ∘ snd
         have h_gg_meas : Measurable gg := by
-          have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
-          have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-            have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-              measurable_const.mul Complex.measurable_ofReal
-            exact Complex.measurable_exp.comp h_lin
-          simpa [gg, hgg_def] using h_logpull.mul h_exp
+          simpa [gg, hgg_def] using LogPull_measurable σ g
         have h_integrand_meas' :
             AEStronglyMeasurable (fun p : ℝ × ℝ =>
               fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gg p.2)
@@ -708,9 +687,9 @@ lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
 /-- Integrability of norm squared of difference of Mellin transforms -/
 lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ)
     (hf_L2 : has_weighted_L2_norm σ f)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
+    (hf_int : Integrable (fun t => LogPull σ f t))
     (hg_L2 : has_weighted_L2_norm σ g)
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
+    (hg_int : Integrable (fun t => LogPull σ g t)) :
     Integrable (fun τ : ℝ => ((‖mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ))
     - mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ))‖ ^ 2 : ℝ) : ℂ)) volume := by
   classical
@@ -726,16 +705,10 @@ lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ)
     -- `integral_prod_right'` to get a.e.-strong measurability.
     classical
     -- Define the auxiliary function for the Fourier side
-    set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+    set gf : ℝ → ℂ := fun t => LogPull σ f t with hgf_def
     -- Measurability of `gf`
     have h_gf_meas : Measurable gf := by
-      have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
-      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-          measurable_const.mul Complex.measurable_ofReal
-        exact Complex.measurable_exp.comp h_lin
-      -- Coerce `((1/2 : ℝ) * t)` to `((1/2 : ℂ) * (t : ℂ))` implicitly
-      simpa [gf, hgf_def] using h_logpull.mul h_exp
+      simpa [gf, hgf_def] using LogPull_measurable σ f
     -- Kernel measurability on the product space
     have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
       -- fourierKernel ξ t = exp(ofReal (-(2π) * ξ * t) * I)
@@ -816,15 +789,10 @@ lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ)
     -- Same argument as for `h_meas_F`, replacing `f` with `g`.
     classical
     -- Auxiliary function for the Fourier side
-    set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+    set gg : ℝ → ℂ := fun t => LogPull σ g t with hgg_def
     -- Measurability of `gg`
     have h_gg_meas : Measurable gg := by
-      have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
-      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-          measurable_const.mul Complex.measurable_ofReal
-        exact Complex.measurable_exp.comp h_lin
-      simpa [gg, hgg_def] using h_logpull.mul h_exp
+      simpa [gg, hgg_def] using LogPull_measurable σ g
     -- Kernel measurability on the product space
     have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
       unfold fourierKernel
@@ -990,7 +958,7 @@ lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ)
         -- Obtain L²-membership for F via the Fourier side and the weighted hypotheses.
         have hF_L2 : MemLp F 2 volume := by
           -- Auxiliary function for the Fourier side
-          set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+          set gf : ℝ → ℂ := fun t => LogPull σ f t with hgf_def
           have hgL1 : Integrable gf := by simpa [gf, hgf_def] using hf_int
           have hgL2 : MemLp gf 2 volume := by
             simpa [gf, hgf_def] using weighted_LogPull_memLp (σ := σ) (f := f) hf_L2
@@ -1022,12 +990,7 @@ lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ)
               ext a; field_simp; ring
             -- Measurability of gf ∘ snd
             have h_gf_meas : Measurable gf := by
-              have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
-              have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-                have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-                  measurable_const.mul Complex.measurable_ofReal
-                exact Complex.measurable_exp.comp h_lin
-              simpa [gf, hgf_def] using h_logpull.mul h_exp
+              simpa [gf, hgf_def] using LogPull_measurable σ f
             have h_integrand_meas' :
                 AEStronglyMeasurable (fun p : ℝ × ℝ =>
                   fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gf p.2)
@@ -1079,7 +1042,7 @@ lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ)
         -- Obtain L²-membership for G via the Fourier side and the weighted hypotheses.
         have hG_L2 : MemLp G 2 volume := by
           -- Auxiliary function for the Fourier side
-          set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+          set gg : ℝ → ℂ := fun t => LogPull σ g t with hgg_def
           have hgL1 : Integrable gg := by simpa [gg, hgg_def] using hg_int
           have hgL2 : MemLp gg 2 volume := by
             simpa [gg, hgg_def] using weighted_LogPull_memLp (σ := σ) (f := g) hg_L2
@@ -1110,12 +1073,7 @@ lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ)
               ext a; field_simp; ring
             -- Measurability of gg ∘ snd
             have h_gg_meas : Measurable gg := by
-              have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
-              have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-                have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-                  measurable_const.mul Complex.measurable_ofReal
-                exact Complex.measurable_exp.comp h_lin
-              simpa [gg, hgg_def] using h_logpull.mul h_exp
+              simpa [gg, hgg_def] using LogPull_measurable σ g
             have h_integrand_meas' :
                 AEStronglyMeasurable (fun p : ℝ × ℝ =>
                   fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gg p.2)
@@ -1217,9 +1175,9 @@ lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ)
 /-- Integrability of norm squared of sum with I scaling -/
 lemma integrable_mellin_norm_sq_add_I (σ : ℝ) (f g : Hσ σ)
     (hf_L2 : has_weighted_L2_norm σ f)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
+    (hf_int : Integrable (fun t => LogPull σ f t))
     (hg_L2 : has_weighted_L2_norm σ g)
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
+    (hg_int : Integrable (fun t => LogPull σ g t)) :
     Integrable (fun τ : ℝ => ((‖mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ))
     + I * mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ))‖ ^ 2 : ℝ) : ℂ)) volume := by
   classical
@@ -1230,14 +1188,9 @@ lemma integrable_mellin_norm_sq_add_I (σ : ℝ) (f g : Hσ σ)
   -- Measurability of F and G as in the previous lemmas
   have h_meas_F : AEStronglyMeasurable F volume := by
     -- Obtain via Fourier representation and `integral_prod_right'`.
-    set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+    set gf : ℝ → ℂ := fun t => LogPull σ f t with hgf_def
     have h_gf_meas : Measurable gf := by
-      have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
-      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-          measurable_const.mul Complex.measurable_ofReal
-        exact Complex.measurable_exp.comp h_lin
-      simpa [gf, hgf_def] using h_logpull.mul h_exp
+      simpa [gf, hgf_def] using LogPull_measurable σ f
     have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
       unfold fourierKernel; apply Measurable.cexp
       apply Measurable.mul _ measurable_const
@@ -1293,14 +1246,9 @@ lemma integrable_mellin_norm_sq_add_I (σ : ℝ) (f g : Hσ σ)
     simpa [F, hgf_def, mellin_logpull_fourierIntegral] using hF_meas_aux
   have h_meas_G : AEStronglyMeasurable G volume := by
     -- Same with g
-    set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+    set gg : ℝ → ℂ := fun t => LogPull σ g t with hgg_def
     have h_gg_meas : Measurable gg := by
-      have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
-      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-          measurable_const.mul Complex.measurable_ofReal
-        exact Complex.measurable_exp.comp h_lin
-      simpa [gg, hgg_def] using h_logpull.mul h_exp
+      simpa [gg, hgg_def] using LogPull_measurable σ g
     have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
       unfold fourierKernel; apply Measurable.cexp
       apply Measurable.mul _ measurable_const
@@ -1429,7 +1377,7 @@ lemma integrable_mellin_norm_sq_add_I (σ : ℝ) (f g : Hσ σ)
         -- We can invoke the earlier construction; repeat briefly
         have hF_L2 : MemLp F 2 volume := by
           -- Build via Fourier integral of gf
-          set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+          set gf : ℝ → ℂ := fun t => LogPull σ f t with hgf_def
           have hgL1 : Integrable gf := by simpa [gf, hgf_def] using hf_int
           have hgL2 : MemLp gf 2 volume := by
             simpa [gf, hgf_def] using weighted_LogPull_memLp (σ := σ) (f := f) hf_L2
@@ -1452,12 +1400,7 @@ lemma integrable_mellin_norm_sq_add_I (σ : ℝ) (f g : Hσ σ)
             convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
             ext a; field_simp; ring
           have h_gf_meas : Measurable gf := by
-            have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
-            have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-              have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-                measurable_const.mul Complex.measurable_ofReal
-              exact Complex.measurable_exp.comp h_lin
-            simpa [gf, hgf_def] using h_logpull.mul h_exp
+            simpa [gf, hgf_def] using LogPull_measurable σ f
           have h_integrand_meas' : AEStronglyMeasurable
               (fun p : ℝ × ℝ => fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gf p.2)
               (volume.prod volume) := by
@@ -1510,7 +1453,7 @@ lemma integrable_mellin_norm_sq_add_I (σ : ℝ) (f g : Hσ σ)
         -- For brevity, we outline the same steps as established previously.
         -- Establish MemLp G 2 via Fourier side
         have hG_L2' : MemLp G 2 volume := by
-          set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+          set gg : ℝ → ℂ := fun t => LogPull σ g t with hgg_def
           have hgL1 : Integrable gg := by simpa [gg, hgg_def] using hg_int
           have hgL2 : MemLp gg 2 volume := by
             simpa [gg, hgg_def] using weighted_LogPull_memLp (σ := σ) (f := g) hg_L2
@@ -1533,12 +1476,7 @@ lemma integrable_mellin_norm_sq_add_I (σ : ℝ) (f g : Hσ σ)
             convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
             ext a; field_simp; ring
           have h_gg_meas : Measurable gg := by
-            have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
-            have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-              have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-                measurable_const.mul Complex.measurable_ofReal
-              exact Complex.measurable_exp.comp h_lin
-            simpa [gg, hgg_def] using h_logpull.mul h_exp
+            simpa [gg, hgg_def] using LogPull_measurable σ g
           have h_integrand_meas' : AEStronglyMeasurable
               (fun p : ℝ × ℝ => fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gg p.2)
               (volume.prod volume) := by
@@ -1624,9 +1562,9 @@ lemma integrable_mellin_norm_sq_add_I (σ : ℝ) (f g : Hσ σ)
 /-- Integrability of norm squared of difference with I scaling -/
 lemma integrable_mellin_norm_sq_sub_I (σ : ℝ) (f g : Hσ σ)
     (hf_L2 : has_weighted_L2_norm σ f)
-    (hf_int : Integrable (fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t)))
+    (hf_int : Integrable (fun t => LogPull σ f t))
     (hg_L2 : has_weighted_L2_norm σ g)
-    (hg_int : Integrable (fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t))) :
+    (hg_int : Integrable (fun t => LogPull σ g t)) :
     Integrable (fun τ : ℝ => ((‖mellinTransform (f : ℝ → ℂ) (σ + I * (τ : ℂ))
     - I * mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ))‖ ^ 2 : ℝ) : ℂ)) volume := by
   classical
@@ -1636,14 +1574,9 @@ lemma integrable_mellin_norm_sq_sub_I (σ : ℝ) (f g : Hσ σ)
 
   -- Measurability of F and G (via Fourier representation as before)
   have h_meas_F : AEStronglyMeasurable F volume := by
-    set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+    set gf : ℝ → ℂ := fun t => LogPull σ f t with hgf_def
     have h_gf_meas : Measurable gf := by
-      have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
-      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-          measurable_const.mul Complex.measurable_ofReal
-        exact Complex.measurable_exp.comp h_lin
-      simpa [gf, hgf_def] using h_logpull.mul h_exp
+      simpa [gf, hgf_def] using LogPull_measurable σ f
     have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
       unfold fourierKernel; apply Measurable.cexp
       apply Measurable.mul _ measurable_const
@@ -1687,14 +1620,9 @@ lemma integrable_mellin_norm_sq_sub_I (σ : ℝ) (f g : Hσ σ)
           h_integrand_meas')
     simpa [F, hgf_def, mellin_logpull_fourierIntegral] using hF_meas_aux
   have h_meas_G : AEStronglyMeasurable G volume := by
-    set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+    set gg : ℝ → ℂ := fun t => LogPull σ g t with hgg_def
     have h_gg_meas : Measurable gg := by
-      have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
-      have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-        have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-          measurable_const.mul Complex.measurable_ofReal
-        exact Complex.measurable_exp.comp h_lin
-      simpa [gg, hgg_def] using h_logpull.mul h_exp
+      simpa [gg, hgg_def] using LogPull_measurable σ g
     have h_kernel_meas : Measurable (fun p : ℝ × ℝ => fourierKernel p.1 p.2) := by
       unfold fourierKernel; apply Measurable.cexp
       apply Measurable.mul _ measurable_const
@@ -1812,7 +1740,7 @@ lemma integrable_mellin_norm_sq_sub_I (σ : ℝ) (f g : Hσ σ)
         -- Use same proof as in `integrable_mellin_norm_sq_add_I`
         -- For brevity, we replicate the argument
         have hF_L2' : MemLp F 2 volume := by
-          set gf : ℝ → ℂ := fun t => LogPull σ f t * Complex.exp ((1 / 2 : ℝ) * t) with hgf_def
+          set gf : ℝ → ℂ := fun t => LogPull σ f t with hgf_def
           have hgL1 : Integrable gf := by simpa [gf, hgf_def] using hf_int
           have hgL2 : MemLp gf 2 volume := by
             simpa [gf, hgf_def] using weighted_LogPull_memLp (σ := σ) (f := f) hf_L2
@@ -1832,12 +1760,7 @@ lemma integrable_mellin_norm_sq_sub_I (σ : ℝ) (f g : Hσ σ)
             convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
             ext a; field_simp; ring
           have h_gf_meas : Measurable gf := by
-            have h_logpull : Measurable (LogPull σ f) := LogPull_measurable σ f
-            have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-              have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-                measurable_const.mul Complex.measurable_ofReal
-              exact Complex.measurable_exp.comp h_lin
-            simpa [gf, hgf_def] using h_logpull.mul h_exp
+            simpa [gf, hgf_def] using LogPull_measurable σ f
           have h_integrand_meas' : AEStronglyMeasurable
               (fun p : ℝ × ℝ => fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gf p.2)
               (volume.prod volume) := by
@@ -1887,7 +1810,7 @@ lemma integrable_mellin_norm_sq_sub_I (σ : ℝ) (f g : Hσ σ)
       have h_int_Gsq : Integrable (fun τ : ℝ => ((‖G τ‖ ^ 2 : ℝ) : ℂ)) volume := by
         -- Build via L² membership of G
         have hG_L2' : MemLp G 2 volume := by
-          set gg : ℝ → ℂ := fun t => LogPull σ g t * Complex.exp ((1 / 2 : ℝ) * t) with hgg_def
+          set gg : ℝ → ℂ := fun t => LogPull σ g t with hgg_def
           have hgL1 : Integrable gg := by simpa [gg, hgg_def] using hg_int
           have hgL2 : MemLp gg 2 volume := by
             simpa [gg, hgg_def] using weighted_LogPull_memLp (σ := σ) (f := g) hg_L2
@@ -1907,12 +1830,7 @@ lemma integrable_mellin_norm_sq_sub_I (σ : ℝ) (f g : Hσ σ)
             convert (measurable_const : Measurable (fun _ : ℝ × ℝ => 2 * Real.pi)).mul this using 1
             ext a; field_simp; ring
           have h_gg_meas : Measurable gg := by
-            have h_logpull : Measurable (LogPull σ g) := LogPull_measurable σ g
-            have h_exp : Measurable (fun t : ℝ => Complex.exp (((1 / 2 : ℂ) * (t : ℂ)))) := by
-              have h_lin : Measurable (fun t : ℝ => ((1 / 2 : ℂ) * (t : ℂ))) :=
-                measurable_const.mul Complex.measurable_ofReal
-              exact Complex.measurable_exp.comp h_lin
-            simpa [gg, hgg_def] using h_logpull.mul h_exp
+            simpa [gg, hgg_def] using LogPull_measurable σ g
           have h_integrand_meas' : AEStronglyMeasurable
               (fun p : ℝ × ℝ => fourierKernel (-p.1 / (2 * Real.pi)) p.2 * gg p.2)
               (volume.prod volume) := by
