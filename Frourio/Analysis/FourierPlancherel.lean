@@ -1,9 +1,10 @@
+import Frourio.Analysis.GaussianFourierTransform
 import Mathlib.Analysis.Fourier.FourierTransform
 import Mathlib.Analysis.InnerProductSpace.Basic
 import Mathlib.MeasureTheory.Function.L2Space
 import Mathlib.Analysis.Distribution.SchwartzSpace
 import Mathlib.Analysis.Distribution.FourierSchwartz
-import Frourio.Analysis.GaussianFourierTransform
+import Mathlib.Topology.UniformSpace.UniformEmbedding
 
 /-!
 # Fourier–Plancherel infrastructure on `ℝ`
@@ -540,5 +541,60 @@ lemma fourier_plancherel (f : SchwartzMap ℝ ℂ) :
     · simp
     · simp
   simpa [F, fourierIntegral_eq_real] using h_real.symm
+
+/-!
+### L² Fourier transform surjectivity
+
+The following lemmas establish that the L² Fourier transform is surjective,
+which is needed to construct the unitary equivalence on `Lp ℂ 2 volume`.
+-/
+
+/-- The range of a linear isometry between complete spaces is closed. -/
+lemma LinearIsometry.range_closed
+    {E F : Type*} [NormedAddCommGroup E] [NormedAddCommGroup F]
+    [NormedSpace ℂ E] [NormedSpace ℂ F] [CompleteSpace E] (U : E →ₗᵢ[ℂ] F) :
+    IsClosed (Set.range U) := by
+  -- Strategy: Use Isometry.isClosedEmbedding from mathlib
+  -- An isometry from a complete emetric space is a closed embedding
+  -- A closed embedding has closed range
+
+  -- Apply Isometry.isClosedEmbedding to get that U is a closed embedding
+  have h_closed_emb : Topology.IsClosedEmbedding (U : E → F) := by
+    -- This requires showing U.isometry (which we have from LinearIsometry)
+    -- and CompleteSpace E (which we have as hypothesis)
+    exact U.isometry.isClosedEmbedding
+
+  -- A closed embedding has closed range
+  exact h_closed_emb.isClosed_range
+
+/-- If a subset of a topological space is both dense and closed, it equals the whole space. -/
+lemma dense_closed_eq_univ {α : Type*} [TopologicalSpace α]
+    {s : Set α} (h_dense : Dense s) (h_closed : IsClosed s) :
+    s = Set.univ := by
+  have h_closure_univ : closure s = (Set.univ : Set α) := Dense.closure_eq h_dense
+  have h_closure_eq : closure s = s := h_closed.closure_eq
+  simpa [h_closure_eq] using h_closure_univ
+
+/-- A linear isometry from a complete space to itself with dense range is surjective.
+This follows from the fact that isometries have closed range in complete spaces. -/
+lemma LinearIsometry.surjective_of_dense_range
+    {E : Type*} [NormedAddCommGroup E]
+    [NormedSpace ℂ E] [CompleteSpace E]
+    (U : E →ₗᵢ[ℂ] E) (h_dense : Dense (Set.range U)) :
+    Function.Surjective U := by
+  -- Strategy: show `range U` is closed, hence closed ∧ dense ⇒ `range U = univ`,
+  -- then any `y : E` lies in the range and has a preimage.
+  intro y
+  -- The range is closed for an isometry with complete domain/codomain.
+  have h_closed : IsClosed (Set.range U) :=
+    LinearIsometry.range_closed (E := E) (F := E) U
+  -- Closed and dense subset equals the whole space.
+  have h_univ : Set.range U = Set.univ :=
+    dense_closed_eq_univ (α := E) (s := Set.range U) h_dense h_closed
+  -- Conclude surjectivity: every `y` belongs to the range, so `∃ x, U x = y`.
+  have hy : y ∈ Set.range U := by
+    simp [h_univ]
+  rcases hy with ⟨x, rfl⟩
+  exact ⟨x, rfl⟩
 
 end Frourio
