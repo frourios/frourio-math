@@ -41,7 +41,7 @@ lemma gaussian_memLp_two (R : ℝ) (hR : 0 < R) :
   rw [this]
   exact h_base
 
-/-- Integrability of Gaussian cutoff times an L² function (signature only).
+/-- Integrability of Gaussian cutoff times an L² function.
 
 If `w ∈ L²` and `R > 0`, then `ξ ↦ exp(-π (ξ/R)^2) · w(ξ)` is integrable. -/
 lemma integrable_gaussian_mul_L2
@@ -65,7 +65,7 @@ lemma integrable_gaussian_mul_L2
       (g := w) hg_L2 hw
   simpa [Pi.mul_apply] using this
 
-/-- Dominated convergence for Gaussian cutoffs in the Fourier-side pairing (signature only).
+/-- Dominated convergence for Gaussian cutoffs in the Fourier-side pairing.
 
 Let `w ∈ L²` and `φ` Schwartz. Then, with Gaussian cutoffs `GR(ξ) = exp(-π (ξ/R)^2)`,
 the integrals `∫ GR(ξ) w(ξ) · conj(F[φ](ξ)) dξ` converge to
@@ -329,17 +329,6 @@ lemma gaussian_pairing_tendsto
       h_int_base.norm
     exact Integrable.mono' h_int_norm h_meas_Ilim h_bound_Ilim
 
-  -- 5. Apply dominated convergence in the parameter R to conclude convergence
-  -- of the integrals ∫ I R to ∫ Ilim.
-  -- A fully general DCT for the `atTop` filter on ℝ is not yet available in
-  -- this development, so we leave the final assembly as a `sorry` for now.
-  -- Once an appropriate dominated convergence lemma for `Filter.atTop` on ℝ
-  -- is available, it should be applied here to the family `R ↦ I R` using
-  -- the data `h_pointwise`, `h_dominated`, `h_integrable_R`, `h_integrable_lim`.
-  -- This will yield
-  --   Tendsto (fun R : ℝ => ∫ ξ, I R ξ ∂volume)
-  --     Filter.atTop (𝓝 (∫ ξ, Ilim ξ ∂volume)),
-  -- which is exactly the desired conclusion after unfolding definitions.
   have h_tendsto :
       Filter.Tendsto (fun R : ℝ => ∫ ξ : ℝ, I R ξ ∂volume)
         Filter.atTop (𝓝 (∫ ξ : ℝ, Ilim ξ ∂volume)) := by
@@ -363,6 +352,803 @@ lemma gaussian_pairing_tendsto
         h_pointwise
   -- Rewrite in terms of the original expressions.
   simpa [I, Ilim, Fφ] using h_tendsto
+
+/-- L² convergence of Gaussian frequency cutoffs (skeleton).
+
+For `w ∈ L²(ℝ)`, consider the Gaussian cutoff
+`GR_R(ξ) = exp(-π (ξ / R)^2)` on the frequency side and the modified functions
+`ξ ↦ GR_R(ξ) · w(ξ)`. As `R → ∞`, these converge to `w` in L².
+
+This lemma records the precise L² convergence statement needed in
+`gaussian_inverseFourier_cutoff_pointwise`.  The proof uses the
+pointwise convergence `GR_R(ξ) → 1`, uniform L²-boundedness of the cutoffs,
+and dominated convergence in L²; it is deferred to the Fourier–Plancherel L²
+core development. -/
+lemma gaussian_frequency_cutoff_tendsto_L2
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) :
+    Filter.Tendsto (fun R : ℝ =>
+        eLpNorm (fun ξ : ℝ =>
+          (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ - w ξ) 2 volume)
+      Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+  classical
+  -- Notation: Gaussian cutoff on the frequency side.
+  set GR : ℝ → ℝ → ℂ :=
+    fun R ξ => (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ)
+
+  -- 1. Pointwise convergence of the Gaussian factor to 1 for each frequency ξ.
+  have h_pointwise_gauss :
+      ∀ ξ : ℝ,
+        Filter.Tendsto (fun R : ℝ => GR R ξ) Filter.atTop (𝓝 (1 : ℂ)) := by
+    intro ξ
+    -- Real-valued convergence: `exp (-(π) * (ξ/R)²) → 1` as `R → ∞`.
+    have h_gauss_real :
+        Filter.Tendsto (fun R : ℝ =>
+            Real.exp (-(Real.pi) * (ξ / R) ^ 2)) Filter.atTop (𝓝 (1 : ℝ)) := by
+      -- Continuity of `x ↦ exp (-(π) * x²)`.
+      have h_cont :
+          Continuous fun x : ℝ => Real.exp (-(Real.pi) * (x * x)) :=
+        Real.continuous_exp.comp
+          (continuous_const.mul (continuous_id.mul continuous_id))
+      -- `x ↦ exp (-(π) * x²)` tends to `exp 0 = 1` as `x → 0`.
+      have h0 : Filter.Tendsto
+          (fun x : ℝ => Real.exp (-(Real.pi) * (x * x))) (𝓝 (0 : ℝ))
+          (𝓝 (Real.exp (-(Real.pi) * 0 * 0))) := by
+        simpa using h_cont.tendsto 0
+      -- `R ↦ ξ / R` tends to `0` as `R → ∞`.
+      have h_div : Filter.Tendsto (fun R : ℝ => ξ / R)
+          Filter.atTop (𝓝 (0 : ℝ)) := by
+        have h_inv : Filter.Tendsto (fun R : ℝ => R⁻¹)
+            Filter.atTop (𝓝 (0 : ℝ)) :=
+          tendsto_inv_atTop_zero
+        have h_mul :
+            Filter.Tendsto (fun R : ℝ => ξ * R⁻¹)
+              Filter.atTop (𝓝 (ξ * 0)) :=
+          (tendsto_const_nhds.mul h_inv)
+        simpa [div_eq_mul_inv] using h_mul
+      -- Compose the limits.
+      have h_comp := h0.comp h_div
+      simpa [Function.comp, pow_two] using h_comp
+    -- Lift to ℂ via `ofReal`.
+    have h_ofReal :
+        Filter.Tendsto (fun x : ℝ => (x : ℂ))
+          (𝓝 (1 : ℝ)) (𝓝 (1 : ℂ)) :=
+      (Complex.continuous_ofReal.tendsto _)
+    exact h_ofReal.comp h_gauss_real
+
+  -- 2. Pointwise convergence of the cutoff–modified function to `w` in ℂ for each ξ.
+  have h_pointwise_w :
+      ∀ ξ : ℝ,
+        Filter.Tendsto (fun R : ℝ => GR R ξ * w ξ) Filter.atTop (𝓝 (w ξ)) := by
+    intro ξ
+    -- Multiply the Gaussian convergence by the fixed factor `w ξ`.
+    -- Concretely: GR R ξ → 1 and hence GR R ξ * w ξ → 1 * w ξ = w ξ.
+    have h_mul :
+        Filter.Tendsto (fun R : ℝ => (w ξ) * GR R ξ)
+          Filter.atTop (𝓝 ((w ξ) * (1 : ℂ))) :=
+      (tendsto_const_nhds.mul (h_pointwise_gauss ξ))
+    simpa [mul_comm] using h_mul
+
+  -- 3. Uniform L²–bound for the cutoff–modified functions.
+  -- Conceptually: use that ‖GR R ξ‖ ≤ 1 for all R, ξ, so
+  --   ‖GR R · w‖₂ ≤ ‖w‖₂,
+  -- and the L² norm of the difference is controlled by a dominated convergence
+  -- argument on the integrand ‖GR R ξ * w ξ - w ξ‖².
+  have h_L2_uniform_bound :
+      ∃ C : ℝ, 0 ≤ C ∧
+        ∀ R : ℝ,
+          (eLpNorm (fun ξ : ℝ => GR R ξ * w ξ) 2 volume) ≤ (ENNReal.ofReal C) := by
+    -- Choose `C = (eLpNorm w 2 volume).toReal` and use the pointwise bound
+    -- ‖GR R ξ‖ ≤ 1 together with the monotonicity of the L² norm.
+    -- This is a standard estimate; we leave the details to the core development.
+    classical
+    -- Define the global L² bound in terms of the L² norm of `w`.
+    let C : ℝ := (eLpNorm (fun ξ : ℝ => w ξ) 2 volume).toReal
+    have hC_nonneg : 0 ≤ C := by
+      have h := ENNReal.toReal_nonneg
+        (a := eLpNorm (fun ξ : ℝ => w ξ) 2 volume)
+      simp [C]
+    refine ⟨C, hC_nonneg, ?_⟩
+    intro R
+    -- Step 1: pointwise control `‖GR R ξ * w ξ‖ ≤ ‖w ξ‖` via `‖GR R ξ‖ ≤ 1`.
+    have h_pointwise_le :
+        ∀ ξ : ℝ, ‖GR R ξ * w ξ‖ ≤ ‖w ξ‖ := by
+      intro ξ
+      -- Bound the Gaussian factor in norm by 1.
+      have h_norm_gauss_le_one :
+          ‖GR R ξ‖ ≤ 1 := by
+        -- GR R ξ = exp (-(π) * (ξ/R)²) with real argument ≤ 0.
+        have h_nonpos :
+            -(Real.pi) * (ξ / R) ^ 2 ≤ 0 := by
+          have h1 : -Real.pi ≤ (0 : ℝ) :=
+            neg_nonpos.mpr (le_of_lt Real.pi_pos)
+          have h2 : (0 : ℝ) ≤ (ξ / R) ^ 2 := sq_nonneg _
+          exact mul_nonpos_of_nonpos_of_nonneg h1 h2
+        have h_le_one :
+            Real.exp (-(Real.pi) * (ξ / R) ^ 2) ≤ 1 := by
+          -- `exp x ≤ 1` whenever `x ≤ 0`.
+          have := (Real.exp_le_one_iff).2 h_nonpos
+          simpa using this
+        -- Transfer the bound to ℂ via the norm.
+        have h_GR_def : (GR R ξ) = (Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ) := rfl
+        have h_nonneg_exp :
+            0 ≤ Real.exp (-(Real.pi) * (ξ / R) ^ 2) :=
+          Real.exp_nonneg _
+        -- For a nonnegative real r, ‖(r : ℂ)‖ = r
+        have h_norm_real :
+            ‖(Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ)‖
+              = Real.exp (-(Real.pi) * (ξ / R) ^ 2) := by
+          rw [Complex.norm_real]
+          exact abs_of_nonneg h_nonneg_exp
+        -- Combine the pieces.
+        have :
+            ‖GR R ξ‖
+              = Real.exp (-(Real.pi) * (ξ / R) ^ 2) := by
+          rw [h_GR_def]
+          exact h_norm_real
+        have hfinal :
+            ‖GR R ξ‖ ≤ 1 := by
+          simpa [this] using h_le_one
+        exact hfinal
+      -- Use the multiplicative property of the norm together with the bound on ‖GR R ξ‖.
+      have hmul :
+          ‖GR R ξ * w ξ‖
+            = ‖GR R ξ‖ * ‖w ξ‖ := by
+        simp [norm_mul]  -- `norm_mul` in ℂ
+      calc
+        ‖GR R ξ * w ξ‖
+            = ‖GR R ξ‖ * ‖w ξ‖ := hmul
+        _ ≤ 1 * ‖w ξ‖ := by
+              have := mul_le_mul_of_nonneg_right
+                h_norm_gauss_le_one (norm_nonneg (w ξ))
+              simpa [one_mul] using this
+        _ = ‖w ξ‖ := by
+              simp [one_mul]
+
+    -- Step 2: upgrade the pointwise bound to an L² bound on the entire function
+    -- using monotonicity of `eLpNorm`.
+    have h_L2_le :
+        eLpNorm (fun ξ : ℝ => GR R ξ * w ξ) 2 volume
+          ≤ eLpNorm (fun ξ : ℝ => w ξ) 2 volume := by
+      -- Apply `eLpNorm_mono` to the pointwise inequality `h_pointwise_le`.
+      refine eLpNorm_mono ?_
+      intro ξ
+      exact h_pointwise_le ξ
+
+    -- Step 3: rewrite `‖w‖₂` as `ENNReal.ofReal C` using the definition of `C`
+    -- and the finiteness provided by `hw`.
+    -- The L² norm of `w` is finite since `w ∈ L²`.
+    have hw_fin : eLpNorm (fun ξ : ℝ => w ξ) 2 volume < ∞ := hw.2
+    have h_ne_top :
+        eLpNorm (fun ξ : ℝ => w ξ) 2 volume ≠ ∞ :=
+      ne_of_lt hw_fin
+    have h_eLp_eq :
+        ENNReal.ofReal C
+          = eLpNorm (fun ξ : ℝ => w ξ) 2 volume := by
+      -- For finite `a`, `ENNReal.ofReal a.toReal = a`.
+      simpa [C] using (ENNReal.ofReal_toReal h_ne_top)
+    -- Combine the L² inequality with the identification of `C`.
+    have h_bound_R :
+        eLpNorm (fun ξ : ℝ => GR R ξ * w ξ) 2 volume
+          ≤ ENNReal.ofReal C := by
+      simpa [h_eLp_eq] using h_L2_le
+    exact h_bound_R
+
+  -- 4. L² dominated convergence for the error term.
+  -- Write the L² error as the eLpNorm of the difference and identify a dominating
+  -- integrable function for the squared norm of the difference using the previous
+  -- uniform bound and the fact that `w ∈ L²`.
+  have h_L2_error_tendsto :
+      Filter.Tendsto (fun R : ℝ =>
+          eLpNorm (fun ξ : ℝ => GR R ξ * w ξ - w ξ) 2 volume)
+        Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+    classical
+    -- Error function on the frequency side.
+    set E : ℝ → ℝ → ℂ :=
+      fun R ξ => GR R ξ * w ξ - w ξ
+
+    -- Step 1: pointwise convergence of the error `E R ξ` to `0` for each ξ.
+    have h_pointwise_error :
+        ∀ ξ : ℝ,
+          Filter.Tendsto (fun R : ℝ => E R ξ)
+            Filter.atTop (𝓝 (0 : ℂ)) := by
+      intro ξ
+      -- From `GR R ξ * w ξ → w ξ`, we get `GR R ξ * w ξ - w ξ → 0`.
+      have h_main := h_pointwise_w ξ
+      have h_sub :
+          Filter.Tendsto (fun R : ℝ => GR R ξ * w ξ - w ξ)
+            Filter.atTop (𝓝 (w ξ - w ξ)) :=
+        h_main.sub tendsto_const_nhds
+      simpa [E] using h_sub
+
+    -- Step 2: domination of the squared error by an L¹ majorant.
+    have h_dominated_sq :
+        ∃ g : ℝ → ℝ,
+          Integrable g ∧
+          ∀ R : ℝ, ∀ᵐ ξ : ℝ,
+            ‖E R ξ‖ ^ (2 : ℝ) ≤ g ξ := by
+      classical
+      -- Use the L² membership of `w` to build an L¹ majorant.
+      -- A natural choice is `g ξ = (2 * ‖w ξ‖) ^ 2 = 4 * ‖w ξ‖^2`, which is integrable
+      -- because `w ∈ L²` and the square of the norm is L¹.
+      let g : ℝ → ℝ := fun ξ => (2 * ‖w ξ‖) ^ (2 : ℝ)
+
+      -- Integrability of `g`: consequence of `hw : MemLp w 2`.
+      have hg_int : Integrable g volume := by
+        -- First, `w ∈ L²` implies integrability of the squared norm `‖w ξ‖²`.
+        have hw_sq_int :
+            Integrable (fun ξ : ℝ => ‖w ξ‖ ^ (2 : ℝ)) volume := by
+          -- Directly reuse the general L² lemma from the core theory.
+          simpa using
+            (Frourio.integrable_norm_sq_of_memLp_two (f := w) hw)
+
+        -- Multiply the integrable function `‖w ξ‖²` by the constant factor `4`.
+        have h_int_4 :
+            Integrable (fun ξ : ℝ => (4 : ℝ) * ‖w ξ‖ ^ (2 : ℝ)) volume :=
+          (hw_sq_int.const_mul 4)
+
+        -- Identify this function with `g`.
+        have h_g_eq :
+            (fun ξ : ℝ => (4 : ℝ) * ‖w ξ‖ ^ (2 : ℝ)) = g := by
+          funext ξ
+          -- `g ξ = (2‖w ξ‖)² = 4‖w ξ‖²`.
+          simp only [g]
+          rw [mul_rpow (by norm_num : (0 : ℝ) ≤ 2) (norm_nonneg _)]
+          norm_num
+
+        rw [← h_g_eq]
+        exact h_int_4
+
+      -- Pointwise bound: ‖E R ξ‖² ≤ g ξ for every R, ξ.
+      have h_bound_all :
+          ∀ R : ℝ, ∀ᵐ ξ : ℝ, ‖E R ξ‖ ^ (2 : ℝ) ≤ g ξ := by
+        intro R
+        -- Start from the triangle inequality:
+        --   ‖E R ξ‖ = ‖GR R ξ * w ξ - w ξ‖
+        --          ≤ ‖GR R ξ * w ξ‖ + ‖w ξ‖.
+        -- Using the pointwise bound ‖GR R ξ * w ξ‖ ≤ ‖w ξ‖ (which we prove below),
+        -- we get
+        --   ‖E R ξ‖ ≤ 2 * ‖w ξ‖,
+        -- hence
+        --   ‖E R ξ‖² ≤ (2 * ‖w ξ‖)² = g ξ.
+        refine Filter.Eventually.of_forall ?_
+        intro ξ
+        have h_tri :
+            ‖E R ξ‖
+              ≤ ‖GR R ξ * w ξ‖ + ‖w ξ‖ := by
+          -- Triangle inequality in ℂ.
+          have := norm_add_le (GR R ξ * w ξ) (-w ξ)
+          simpa [E, sub_eq_add_neg, add_comm, add_left_comm, add_assoc,
+            norm_neg] using this
+        have h_le_2 :
+            ‖E R ξ‖ ≤ 2 * ‖w ξ‖ := by
+          -- Prove ‖GR R ξ * w ξ‖ ≤ ‖w ξ‖ using ‖GR R ξ‖ ≤ 1
+          have h_mul_le : ‖GR R ξ * w ξ‖ ≤ ‖w ξ‖ := by
+            have h_norm_GR : ‖GR R ξ‖ ≤ 1 := by
+              -- GR R ξ = exp(-(π)(ξ/R)²) is real and ≤ 1
+              have h_def : (GR R ξ) = (Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ) := rfl
+              have h_nonneg : 0 ≤ Real.exp (-(Real.pi) * (ξ / R) ^ 2) :=
+                Real.exp_nonneg _
+              have h_exp_le : Real.exp (-(Real.pi) * (ξ / R) ^ 2) ≤ 1 := by
+                apply Real.exp_le_one_iff.mpr
+                exact mul_nonpos_of_nonpos_of_nonneg
+                  (neg_nonpos.mpr (le_of_lt Real.pi_pos)) (sq_nonneg _)
+              rw [h_def, Complex.norm_real]
+              exact le_trans (le_of_eq (abs_of_nonneg h_nonneg)) h_exp_le
+            calc ‖GR R ξ * w ξ‖
+                = ‖GR R ξ‖ * ‖w ξ‖ := norm_mul _ _
+              _ ≤ 1 * ‖w ξ‖ := by
+                  exact mul_le_mul_of_nonneg_right h_norm_GR (norm_nonneg _)
+              _ = ‖w ξ‖ := one_mul _
+          -- `‖GR R ξ * w ξ‖ + ‖w ξ‖ ≤ ‖w ξ‖ + ‖w ξ‖ = 2‖w ξ‖`.
+          have h_sum :
+              ‖GR R ξ * w ξ‖ + ‖w ξ‖ ≤ ‖w ξ‖ + ‖w ξ‖ :=
+            add_le_add h_mul_le (le_refl _)
+          have h_rhs :
+              ‖w ξ‖ + ‖w ξ‖ = 2 * ‖w ξ‖ := by
+            ring_nf
+          exact
+            le_trans h_tri
+              (by simpa [h_rhs] using h_sum)
+        -- Square both sides (both nonnegative) to get the desired bound.
+        have h_nonneg_left : 0 ≤ ‖E R ξ‖ := norm_nonneg _
+        have h_nonneg_right : 0 ≤ 2 * ‖w ξ‖ :=
+          mul_nonneg (by norm_num) (norm_nonneg _)
+        have h_sq : ‖E R ξ‖ ^ (2 : ℝ) ≤ (2 * ‖w ξ‖) ^ (2 : ℝ) := by
+          have : ‖E R ξ‖ ^ (2 : ℝ) ≤ (2 * ‖w ξ‖) ^ (2 : ℝ) :=
+            Real.rpow_le_rpow h_nonneg_left h_le_2 (by norm_num : (0 : ℝ) ≤ 2)
+          exact this
+        simpa [g] using h_sq
+
+      exact ⟨g, hg_int, h_bound_all⟩
+    obtain ⟨g, hg_int, h_bound_all⟩ := h_dominated_sq
+
+    -- Step 3: measurability of the squared error integrand for each R.
+    have h_meas_sq :
+        ∀ R : ℝ,
+          AEStronglyMeasurable (fun ξ : ℝ => (‖E R ξ‖ : ℝ) ^ (2 : ℝ)) volume := by
+      intro R
+      -- First, `w` is a.e. strongly measurable since it belongs to L².
+      have h_meas_w : AEStronglyMeasurable w volume :=
+        hw.aestronglyMeasurable
+
+      -- The Gaussian cutoff `GR R` is continuous in ξ, hence a.e. strongly measurable.
+      have h_meas_GR :
+          AEStronglyMeasurable (fun ξ : ℝ => GR R ξ) volume := by
+        -- Continuity of ξ ↦ ξ / R.
+        have h_cont_div : Continuous fun ξ : ℝ => ξ / R := by
+          have h_eq :
+              (fun ξ : ℝ => ξ / R) = fun ξ : ℝ => ξ * (1 / R) := by
+            funext ξ; simp [div_eq_mul_inv]
+          simpa [h_eq] using
+            (continuous_id.mul continuous_const :
+              Continuous fun ξ : ℝ => ξ * (1 / R))
+        -- Continuity of the real Gaussian factor.
+        have h_cont_real :
+            Continuous fun ξ : ℝ =>
+              Real.exp (-(Real.pi) * (ξ / R) ^ 2) :=
+          Real.continuous_exp.comp
+            (continuous_const.mul (h_cont_div.pow 2))
+        -- Lift to ℂ and conclude a.e. strong measurability.
+        have h_cont_complex :
+            Continuous fun ξ : ℝ =>
+              (Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ) :=
+          Complex.continuous_ofReal.comp h_cont_real
+        simpa [GR] using h_cont_complex.aestronglyMeasurable
+
+      -- Hence the error term `E R` is a.e. strongly measurable.
+      have h_meas_E :
+          AEStronglyMeasurable (fun ξ : ℝ => E R ξ) volume := by
+        have h_meas_prod :
+            AEStronglyMeasurable (fun ξ : ℝ => GR R ξ * w ξ) volume :=
+          h_meas_GR.mul h_meas_w
+        -- `E R ξ = GR R ξ * w ξ - w ξ`.
+        simpa [E] using h_meas_prod.sub h_meas_w
+
+      -- Take the norm: ξ ↦ ‖E R ξ‖ is a.e. strongly measurable.
+      have h_meas_norm :
+          AEStronglyMeasurable (fun ξ : ℝ => (‖E R ξ‖ : ℝ)) volume :=
+        h_meas_E.norm
+
+      -- Finally, compose with the (real) map x ↦ x^(2:ℝ), which is measurable;
+      -- this yields measurability of ξ ↦ ‖E R ξ‖².
+      have h_meas_pow :
+          AEStronglyMeasurable (fun ξ : ℝ => (‖E R ξ‖ : ℝ) ^ (2 : ℝ)) volume := by
+        -- The function x ↦ x^2 is continuous, hence strongly measurable.
+        have h_cont : Continuous fun x : ℝ => x ^ (2 : ℝ) := by
+          exact continuous_rpow_const (by norm_num : (0 : ℝ) ≤ 2)
+        exact h_cont.aestronglyMeasurable.comp_aemeasurable h_meas_norm.aemeasurable
+
+      exact h_meas_pow
+
+    -- Step 4: dominated convergence for the squared L² norm on the frequency side.
+    have h_lintegral_sq_tendsto :
+        Filter.Tendsto (fun R : ℝ =>
+            ∫ ξ : ℝ, (‖E R ξ‖ : ℝ) ^ (2 : ℝ) ∂volume)
+          Filter.atTop (𝓝 (0 : ℝ)) := by
+      -- Apply dominated convergence to the nonnegative real family
+      -- `f R ξ = ‖E R ξ‖²`, dominated by `g` and converging pointwise to `0`.
+      classical
+      -- 1. Measurability of each integrand, from `h_meas_sq`.
+      have h_meas_f :
+          ∀ R : ℝ,
+            AEStronglyMeasurable
+              (fun ξ : ℝ => (‖E R ξ‖ : ℝ) ^ (2 : ℝ)) volume :=
+        h_meas_sq
+
+      -- 2. Integrability of the dominating function `g` is given by `hg_int`.
+
+      -- 3. Pointwise domination: for each `R` we have
+      --      ‖E R ξ‖² ≤ g ξ   a.e.,
+      --    provided by `h_bound_all`.
+      have h_bound_f :
+          ∀ R : ℝ, ∀ᵐ ξ : ℝ ∂volume,
+            ‖(fun ξ => (‖E R ξ‖ : ℝ) ^ (2 : ℝ)) ξ‖ ≤ g ξ := by
+        intro R
+        -- Since the integrand is nonnegative real-valued, its real norm is itself.
+        have h_dom := h_bound_all R
+        refine h_dom.mono ?_
+        intro ξ hξ
+        -- `‖‖E R ξ‖²‖ = ‖E R ξ‖²` for real values.
+        simpa using hξ
+
+      -- 4. Pointwise convergence to 0 for almost every ξ:
+      -- from `E R ξ → 0` we get `‖E R ξ‖² → 0`.
+      have h_lim_f :
+          ∀ᵐ ξ : ℝ ∂volume,
+            Filter.Tendsto (fun R : ℝ =>
+                (‖E R ξ‖ : ℝ) ^ (2 : ℝ))
+              Filter.atTop (𝓝 (0 : ℝ)) := by
+        -- Start from `h_pointwise_error : ∀ ξ, E R ξ → 0` and upgrade to an
+        -- a.e. statement by `Filter.Eventually.of_forall`.
+        refine Filter.Eventually.of_forall ?_
+        intro ξ
+        have hE := h_pointwise_error ξ
+        -- Compose with the continuous map x ↦ ‖x‖² : ℂ → ℝ to get convergence.
+        have h_cont :
+            Continuous fun z : ℂ => (‖z‖ : ℝ) ^ (2 : ℝ) := by
+          -- continuity of the norm and of the squaring map
+          have h_norm : Continuous fun z : ℂ => (‖z‖ : ℝ) :=
+            continuous_norm
+          have h_pow : Continuous fun x : ℝ => x ^ (2 : ℝ) :=
+            continuous_rpow_const (by norm_num : (0 : ℝ) ≤ 2)
+          exact h_pow.comp h_norm
+        simpa using h_cont.continuousAt.tendsto.comp hE
+
+      -- 5. Apply the dominated convergence lemma (real-valued version with parameter ℝ).
+      -- Define a helper that explicitly converts real to complex
+      have h_meas_f_complex : ∀ R : ℝ,
+          AEStronglyMeasurable (fun ξ => (Complex.ofReal ((‖E R ξ‖ : ℝ) ^ (2 : ℝ)))) volume := by
+        intro R
+        have : (fun ξ => Complex.ofReal ((‖E R ξ‖ : ℝ) ^ (2 : ℝ))) =
+            Complex.ofReal ∘ (fun ξ => (‖E R ξ‖ : ℝ) ^ (2 : ℝ)) := rfl
+        rw [this]
+        exact Complex.continuous_ofReal.comp_aestronglyMeasurable (h_meas_f R)
+
+      -- Adapt h_bound_f to the complex-valued version
+      have h_bound_f_complex : ∀ R : ℝ, ∀ᵐ ξ : ℝ ∂volume,
+          ‖Complex.ofReal ((‖E R ξ‖ : ℝ) ^ (2 : ℝ))‖ ≤ g ξ := by
+        intro R
+        have := h_bound_f R
+        refine this.mono ?_
+        intro ξ hξ
+        simp only at hξ ⊢
+        rw [Complex.norm_real, Real.norm_eq_abs]
+        have h_nonneg : 0 ≤ (‖E R ξ‖ : ℝ) ^ (2 : ℝ) := by
+          apply Real.rpow_nonneg
+          exact norm_nonneg _
+        calc
+          |(‖E R ξ‖ : ℝ) ^ (2 : ℝ)| = (‖E R ξ‖ : ℝ) ^ (2 : ℝ) := abs_of_nonneg h_nonneg
+          _ = ‖(‖E R ξ‖ : ℝ) ^ (2 : ℝ)‖ := by rw [Real.norm_eq_abs, abs_of_nonneg h_nonneg]
+          _ ≤ g ξ := hξ
+
+      -- Adapt h_lim_f to the complex-valued version
+      have h_lim_f_complex : ∀ᵐ ξ : ℝ ∂volume,
+          Filter.Tendsto (fun R : ℝ => Complex.ofReal ((‖E R ξ‖ : ℝ) ^ (2 : ℝ)))
+            Filter.atTop (𝓝 (0 : ℂ)) := by
+        have := h_lim_f
+        refine this.mono ?_
+        intro ξ hξ
+        exact Complex.continuous_ofReal.continuousAt.tendsto.comp hξ
+
+      have h_tendsto :=
+        Frourio.MeasureTheory.tendsto_integral_of_dominated_convergence_atTop_real
+          (f := fun R ξ => Complex.ofReal ((‖E R ξ‖ : ℝ) ^ (2 : ℝ)))
+          (flim := fun _ξ => (0 : ℂ))
+          (g := g)
+          (h_meas := h_meas_f_complex)
+          (hg_int := hg_int)
+          (h_bound := h_bound_f_complex)
+          (h_lim := h_lim_f_complex)
+
+      -- 6. Identify integrals with the real integral
+      have h_integral_eq : ∀ R : ℝ,
+          ∫ ξ : ℝ, Complex.ofReal ((‖E R ξ‖ : ℝ) ^ (2 : ℝ)) ∂volume =
+            Complex.ofReal (∫ ξ : ℝ, (‖E R ξ‖ : ℝ) ^ (2 : ℝ) ∂volume) := by
+        intro R
+        have : (fun ξ => Complex.ofReal ((‖E R ξ‖ : ℝ) ^ (2 : ℝ))) =
+            fun ξ => (↑((‖E R ξ‖ : ℝ) ^ (2 : ℝ)) : ℂ) := rfl
+        rw [this]
+        exact integral_ofReal
+
+      -- Rewrite the conclusion of `h_tendsto` in the desired form.
+      have h_tendsto_ofReal : Filter.Tendsto (fun R : ℝ =>
+          Complex.ofReal (∫ ξ : ℝ, (‖E R ξ‖ : ℝ) ^ (2 : ℝ) ∂volume))
+        Filter.atTop (𝓝 (0 : ℂ)) := by
+        have : (fun R => ∫ ξ : ℝ, Complex.ofReal ((‖E R ξ‖ : ℝ) ^ (2 : ℝ)) ∂volume) =
+            (fun R => Complex.ofReal (∫ ξ : ℝ, (‖E R ξ‖ : ℝ) ^ (2 : ℝ) ∂volume)) := by
+          ext R
+          exact h_integral_eq R
+        rw [← this]
+        simpa using h_tendsto
+
+      -- Convert from complex to real convergence
+      have : Filter.Tendsto (fun R : ℝ =>
+          (∫ ξ : ℝ, (‖E R ξ‖ : ℝ) ^ (2 : ℝ) ∂volume))
+        Filter.atTop (𝓝 (0 : ℝ)) := by
+        rw [← Complex.ofReal_zero] at h_tendsto_ofReal
+        exact (Complex.continuous_re.tendsto _).comp h_tendsto_ofReal
+
+      exact this
+
+    -- Step 5: translate convergence of the squared norm integrals into convergence
+    -- of the L² `eLpNorm` to `0` in `ℝ≥0∞`, using the standard formula expressing
+    -- `eLpNorm` via the rpow of the lintegral of the squared `enorm`.
+    -- This uses continuity and monotonicity of the root map at `0`.
+    -- The detailed conversion is supplied by the Fourier–Plancherel L² core
+    -- together with basic properties of `eLpNorm` and the L² norm.
+    have h_L2_error_tendsto :
+        Filter.Tendsto (fun R : ℝ =>
+            eLpNorm (fun ξ : ℝ => E R ξ) 2 volume)
+          Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+      classical
+
+      -- For each radius `R`, the error function `E R` is in L², since its squared
+      -- norm is dominated by the integrable function `g`.
+      have h_memLp_E :
+          ∀ R : ℝ, MemLp (fun ξ : ℝ => E R ξ) 2 volume := by
+        intro R
+        -- Measurability of `E R` was already obtained when proving `h_meas_sq`.
+        have h_meas_E_R :
+            AEStronglyMeasurable (fun ξ : ℝ => E R ξ) volume := by
+          -- Reuse the construction from `h_meas_sq`.
+          have h_meas_w : AEStronglyMeasurable w volume :=
+            hw.aestronglyMeasurable
+          have h_meas_GR :
+              AEStronglyMeasurable (fun ξ : ℝ => GR R ξ) volume := by
+            have h_cont_div : Continuous fun ξ : ℝ => ξ / R := by
+              have h_eq :
+                  (fun ξ : ℝ => ξ / R) = fun ξ : ℝ => ξ * (1 / R) := by
+                funext ξ; simp [div_eq_mul_inv]
+              simpa [h_eq] using
+                (continuous_id.mul continuous_const :
+                  Continuous fun ξ : ℝ => ξ * (1 / R))
+            have h_cont_real :
+                Continuous fun ξ : ℝ =>
+                  Real.exp (-(Real.pi) * (ξ / R) ^ 2) :=
+              Real.continuous_exp.comp
+                (continuous_const.mul (h_cont_div.pow 2))
+            have h_cont_complex :
+                Continuous fun ξ : ℝ =>
+                  (Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ) :=
+              Complex.continuous_ofReal.comp h_cont_real
+            simpa [GR] using h_cont_complex.aestronglyMeasurable
+          have h_meas_prod :
+              AEStronglyMeasurable (fun ξ : ℝ => GR R ξ * w ξ) volume :=
+            h_meas_GR.mul h_meas_w
+          simpa [E] using h_meas_prod.sub h_meas_w
+
+        -- Integrability of the squared norm of `E R`.
+        have h_integrable_sq_R :
+            Integrable (fun ξ : ℝ => (‖E R ξ‖ : ℝ) ^ (2 : ℝ)) volume := by
+          -- From `h_bound_all R` we have a.e. bound by the fixed integrable `g`.
+          have h_bound_R : ∀ᵐ ξ : ℝ ∂volume,
+              ‖(fun ξ : ℝ => (‖E R ξ‖ : ℝ) ^ (2 : ℝ)) ξ‖ ≤ g ξ := by
+            have h_dom := h_bound_all R
+            refine h_dom.mono ?_
+            intro ξ hξ
+            -- The integrand is real and nonnegative, so its norm is itself.
+            simpa using hξ
+          exact Integrable.mono' hg_int (h_meas_sq R) h_bound_R
+
+        -- Convert integrability of the squared norm into L² membership via the
+        -- standard characterization `MemLp` ↔ integrability of the square.
+        -- We use the helper lemma from the Gaussian development.
+        have h_memLp_two :=
+          (memLp_two_iff_integrable_sq_complex
+            (f := fun ξ : ℝ => E R ξ)
+            (hmeas := h_meas_E_R)).2 ?_
+        · exact h_memLp_two
+        · -- The real integrand in `memLp_two_iff_integrable_sq_complex` is
+          -- `‖E R ξ‖ ^ (2 : ℕ)`; this coincides with our squared norm
+          -- `(‖E R ξ‖ : ℝ) ^ (2 : ℝ)`, so integrability transfers directly.
+          have h_eq :
+              (fun ξ : ℝ => (‖E R ξ‖ : ℝ) ^ (2 : ℕ)) =
+                fun ξ : ℝ => (‖E R ξ‖ : ℝ) ^ (2 : ℝ) := by
+            funext ξ
+            -- For nonnegative real numbers, the usual square and the real-power
+            -- square agree.
+            have h_nonneg : 0 ≤ (‖E R ξ‖ : ℝ) := norm_nonneg _
+            -- Use the standard identity `x^2 = x^(2 : ℝ)` for `x ≥ 0`.
+            simp [pow_two]
+          simpa [h_eq] using h_integrable_sq_R
+
+      -- Real-valued convergence of the L² norms via the squared integral.
+      have h_toReal_tendsto :
+          Filter.Tendsto (fun R : ℝ =>
+              (eLpNorm (fun ξ : ℝ => E R ξ) 2 volume).toReal)
+            Filter.atTop (𝓝 (0 : ℝ)) := by
+        -- Express `(‖E R‖₂)` in terms of the integral of `‖E R‖²`.
+        have h_eq :
+            ∀ R : ℝ,
+              (eLpNorm (fun ξ : ℝ => E R ξ) 2 volume).toReal
+                = Real.sqrt
+                    (∫ ξ : ℝ, (‖E R ξ‖ : ℝ) ^ (2 : ℝ) ∂volume) := by
+          intro R
+          -- Use the general identity relating the L² norm with the integral
+          -- of the squared pointwise norm.
+          have h_meas_E_R :
+              AEStronglyMeasurable (fun ξ : ℝ => E R ξ) volume :=
+            (h_memLp_E R).1
+          have h_memLp_R : MemLp (fun ξ : ℝ => E R ξ) 2 volume :=
+            h_memLp_E R
+          have h_norm_sq :=
+            lintegral_norm_sq_eq_integral_norm_sq
+              (f := fun ξ : ℝ => E R ξ)
+              (hmeas := h_meas_E_R)
+              (hf := h_memLp_R)
+          -- The left-hand side of `h_norm_sq` is exactly the real L² norm of `E R`.
+          have h_id :
+              (eLpNorm (fun ξ : ℝ => E R ξ) 2 volume).toReal
+                = ((∫⁻ ξ, ‖(fun ξ : ℝ => E R ξ) ξ‖ₑ ^ (2 : ℝ) ∂volume) ^
+                    (1 / (2 : ℝ))).toReal := by
+            -- This follows from the general formula for `eLpNorm` at `p = 2`.
+            have h₂_ne_zero : ((2 : ℝ≥0∞)) ≠ 0 := by simp
+            have h₂_ne_top : ((2 : ℝ≥0∞)) ≠ ∞ := by simp
+            have h_eLp :=
+              (MeasureTheory.eLpNorm_eq_lintegral_rpow_enorm
+                (μ := volume)
+                (f := fun ξ : ℝ => E R ξ)
+                (p := (2 : ℝ≥0∞)) h₂_ne_zero h₂_ne_top).symm
+            -- Simplify ENNReal.toReal 2 = 2
+            simp only [ENNReal.toReal_ofNat] at h_eLp
+            -- Take `toReal` on both sides.
+            rw [h_eLp]
+          -- Combine the two identities.
+          simpa [h_id] using h_norm_sq
+
+        -- Compose the convergence of the squared integrals with continuity of
+        -- the square root at `0`.
+        have h_sqrt_tendsto :
+            Filter.Tendsto (fun R : ℝ =>
+                Real.sqrt (∫ ξ : ℝ, (‖E R ξ‖ : ℝ) ^ (2 : ℝ) ∂volume))
+              Filter.atTop (𝓝 (Real.sqrt (0 : ℝ))) := by
+          have h_cont_sqrt : Continuous fun x : ℝ => Real.sqrt x :=
+            Real.continuous_sqrt
+          have h_comp := h_cont_sqrt.tendsto (0 : ℝ)
+          -- Compose with the convergence of the squared integrals.
+          have := h_comp.comp h_lintegral_sq_tendsto
+          simpa using this
+
+        have h_sqrt_zero : Real.sqrt (0 : ℝ) = 0 := by simp
+        simpa [h_eq, h_sqrt_zero] using h_sqrt_tendsto
+
+      -- Finally, lift the real-valued convergence to `ℝ≥0∞` using `toReal`.
+      have h_ne_top :
+          ∀ R : ℝ,
+            eLpNorm (fun ξ : ℝ => E R ξ) 2 volume ≠ ∞ := by
+        intro R
+        exact (h_memLp_E R).2.ne
+      have h_zero_ne_top : (0 : ℝ≥0∞) ≠ ∞ := by simp
+      exact
+        (ENNReal.tendsto_toReal_iff
+          (fi := Filter.atTop)
+          (f := fun R : ℝ =>
+            eLpNorm (fun ξ : ℝ => E R ξ) 2 volume)
+          h_ne_top h_zero_ne_top).mp h_toReal_tendsto
+
+    exact h_L2_error_tendsto
+
+  -- 5. This is exactly the desired statement.
+  exact h_L2_error_tendsto
+
+/-- Pointwise a.e. convergence of the inverse Fourier transform under Gaussian
+frequency cutoffs (signature only).
+
+For `w ∈ L²`, the functions
+`t ↦ invF(GR_R · w)(t)` converge pointwise almost everywhere as
+`R → ∞` to `t ↦ invF(w)(t)`, where `GR_R(ξ) = exp(-π (ξ/R)^2)`. -/
+lemma gaussian_inverseFourier_cutoff_pointwise
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) :
+    ∀ᵐ t : ℝ,
+      Filter.Tendsto (fun R : ℝ =>
+        Real.fourierIntegralInv (fun ξ : ℝ =>
+            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t)
+        Filter.atTop
+        (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t)) := by
+  classical
+  -- Frequency-side Gaussian cutoff applied to w
+  set wR : ℝ → ℝ → ℂ :=
+    fun R ξ => (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ
+
+  -- We will ultimately deduce pointwise convergence from L²–convergence of the
+  -- inverse Fourier transforms of `wR R` towards that of `w`.
+  -- The detailed L² theory is developed in the Fourier–Plancherel L² files.
+
+  -- Step 1 (skeleton): L²–convergence on the frequency side under Gaussian cutoffs.
+  have h_freq_L2 :
+      Filter.Tendsto (fun R : ℝ =>
+        eLpNorm (fun ξ : ℝ => wR R ξ - w ξ) 2 (volume : Measure ℝ))
+        Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+    -- Reduce to the standalone L² convergence lemma for Gaussian frequency cutoffs.
+    -- It states that the Gaussian-modified functions `ξ ↦ GR_R(ξ) · w ξ` converge
+    -- to `w` in L² as `R → ∞`.
+    simpa [wR] using gaussian_frequency_cutoff_tendsto_L2 (w := w) hw
+
+  -- Step 2 (skeleton): transfer L² convergence on the frequency side to L²
+  -- convergence of the inverse Fourier transforms on the time side.
+  have h_time_L2 :
+      Filter.Tendsto (fun R : ℝ =>
+        ENNReal.toReal
+          (eLpNorm (fun t : ℝ =>
+              Real.fourierIntegralInv (fun ξ : ℝ => wR R ξ) t
+                - Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) 2
+            (volume : Measure ℝ)))
+        Filter.atTop (𝓝 (0 : ℝ)) := by
+    -- This is the L²–continuity (isometry) of the inverse Fourier transform
+    -- on the closure of the Schwartz range. Its full proof lives in the
+    -- Fourier–Plancherel L² core files.
+    sorry
+
+  -- Step 3 (skeleton): from L² convergence, deduce pointwise a.e. convergence
+  -- of the inverse transforms for almost every time variable t.
+  have h_pointwise_ae :
+      ∀ᵐ t : ℝ,
+        Filter.Tendsto (fun R : ℝ =>
+          Real.fourierIntegralInv (fun ξ : ℝ => wR R ξ) t)
+          Filter.atTop
+          (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t)) := by
+    -- Use completeness of L² together with a standard diagonal / subsequence
+    -- argument: L² convergence implies existence of a subsequence converging
+    -- almost everywhere, and uniqueness of limits up to a.e. equality yields
+    -- the desired a.e. convergence along the full net {R → ∞}.
+    -- The technical details are carried out in the Fourier–Plancherel L² core.
+    sorry
+
+  -- Step 4: this is exactly the desired statement (after unfolding wR).
+  simpa [wR] using h_pointwise_ae
+
+/-- Pointwise a.e. convergence of the time-side pairing integrand under Gaussian cutoffs
+(signature only).
+
+For `w ∈ L²` and Schwartz `φ`, the functions
+`t ↦ invF(GR_R · w)(t) · conj(φ t)` converge pointwise almost everywhere as
+`R → ∞` to `t ↦ invF(w)(t) · conj(φ t)`. Here `GR_R(ξ) = exp(-π (ξ/R)^2)` is the
+Gaussian frequency cutoff. -/
+lemma gaussian_time_pairing_pointwise
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
+    ∀ᵐ t : ℝ,
+      Filter.Tendsto (fun R : ℝ =>
+        Real.fourierIntegralInv (fun ξ : ℝ =>
+            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
+          * (conj (φ t)))
+        Filter.atTop
+        (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t * (conj (φ t)))) := by
+  classical
+  set wR : ℝ → ℝ → ℂ :=
+    fun R ξ => (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ
+  have h_inv_tendsto :
+      ∀ᵐ t : ℝ,
+        Filter.Tendsto (fun R : ℝ =>
+          Real.fourierIntegralInv (fun ξ : ℝ => wR R ξ) t)
+          Filter.atTop
+          (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t)) := by
+    -- Reduce to the standalone inverse Fourier cutoff lemma.
+    simpa [wR] using gaussian_inverseFourier_cutoff_pointwise (w := w) hw
+  have h_mul :
+      ∀ᵐ t : ℝ,
+        Filter.Tendsto (fun R : ℝ =>
+          Real.fourierIntegralInv (fun ξ : ℝ => wR R ξ) t * (conj (φ t)))
+          Filter.atTop
+          (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t * (conj (φ t)))) := by
+    refine h_inv_tendsto.mono ?_
+    intro t ht
+    have h_const :
+        Filter.Tendsto (fun _ : ℝ => conj (φ t))
+          Filter.atTop (𝓝 (conj (φ t))) :=
+      tendsto_const_nhds
+    simpa using ht.mul h_const
+  simpa [wR] using h_mul
+
+/-- Measurability of the time-side pairing integrand under Gaussian frequency cutoffs
+(signature only).
+
+For `w ∈ L²` and Schwartz `φ`, the map
+`t ↦ invF(GR_R · w)(t) · conj(φ t)` is a.e. strongly measurable for every radius `R`. -/
+lemma gaussian_time_pairing_measurable
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
+    ∀ R : ℝ,
+      AEStronglyMeasurable (fun t : ℝ =>
+        Real.fourierIntegralInv (fun ξ : ℝ =>
+            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
+          * (conj (φ t))) volume := by
+  intro R
+  sorry
+
+/-- Existence of a uniform L¹-dominating function for the time-side Gaussian pairing integrand
+(signature only).
+
+For `w ∈ L²` and Schwartz `φ`, there exists an integrable function `g` such that the
+time-side pairing integrand
+`t ↦ invF(GR_R · w)(t) · conj(φ t)` is dominated in norm by `g(t)` for all radii `R`. -/
+lemma gaussian_time_pairing_dominated
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
+    ∃ g : ℝ → ℝ,
+      Integrable g ∧
+      ∀ R : ℝ, ∀ᵐ t : ℝ,
+        ‖Real.fourierIntegralInv (fun ξ : ℝ =>
+            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
+          * (conj (φ t))‖ ≤ g t := by
+  sorry
 
 /-- Dominated convergence for the time-side pairing under Gaussian frequency cutoffs
 (signature only).
@@ -436,16 +1222,16 @@ lemma gaussian_time_pairing_tendsto
 -- Helper lemmas to support the pairing identity for inverse Fourier.
 -- First, collect the helper lemmas used in the Gaussian cutoff proof.
 
--- Pairing identity for integrable frequency-side functions (signature only).
+-- Pairing identity for integrable frequency-side functions.
 -- moved earlier
 
--- Gaussian L² membership on the frequency side (signature only).
+-- Gaussian L² membership on the frequency side.
 -- moved earlier
 
--- Integrability of Gaussian cutoff times an L² function (signature only).
+-- Integrability of Gaussian cutoff times an L² function.
 -- moved earlier
 
--- Dominated convergence for Gaussian cutoffs in the Fourier-side pairing (signature only).
+-- Dominated convergence for Gaussian cutoffs in the Fourier-side pairing.
 -- moved earlier
 
 -- Dominated convergence for the time-side pairing under Gaussian frequency cutoffs
@@ -541,25 +1327,167 @@ lemma inverseFourier_pairing_schwartz
   -- Uniqueness of limits in a Hausdorff space gives the desired equality
   exact tendsto_nhds_unique h_lhs_tendsto_nat h_seq_eq
 
-/-- Schwartz density in L² (signature only): every L² function can be approximated in L²
+/-- Schwartz density in L²: every L² function can be approximated in L²
 by Schwartz functions. -/
 lemma schwartz_dense_in_L2
     (g : ℝ → ℂ) (hg : MemLp g 2 volume) :
     ∃ φ : ℕ → SchwartzMap ℝ ℂ,
       Filter.Tendsto (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 2 volume)
         Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
-  sorry
+  classical
+  -- Step 1: pointwise approximation of a fixed L² function by a single
+  -- Schwartz function with arbitrarily small L² error. This is provided by
+  -- `exists_schwartz_L2_approx_general`.
+  have h_approx :
+      ∀ ε > 0, ∃ φ : SchwartzMap ℝ ℂ,
+        eLpNorm (fun t : ℝ => g t - φ t) 2 volume < ENNReal.ofReal ε := by
+    intro ε hε
+    simpa using
+      exists_schwartz_L2_approx_general (f := g) hg (ε := ε) hε
 
-/-- A.e. uniqueness from Schwartz pairings (signature only): if two L² functions have
+  -- Step 2: choose a sequence of tolerances εₙ → 0 and corresponding Schwartz
+  -- approximants φₙ with L² error bounded by εₙ.
+  let ε : ℕ → ℝ := fun n => 1 / (n + 1 : ℝ)
+  have hε_pos : ∀ n, 0 < ε n := by
+    intro n
+    have h_denom_pos : (0 : ℝ) < (n + 1 : ℝ) := by
+      -- `n.succ` is positive as a natural number, hence positive as a real.
+      have : (0 : ℕ) < n.succ := Nat.succ_pos n
+      exact_mod_cast this
+    exact one_div_pos.mpr h_denom_pos
+
+  -- For each n, pick a Schwartz approximant φ n with L² error < ε n.
+  choose φ hφ using
+    fun n => h_approx (ε n) (hε_pos n)
+
+  -- Step 3: show that the L² error sequence tends to 0 in `ℝ≥0∞`.
+  have h_tendsto :
+      Filter.Tendsto (fun n => eLpNorm (fun t : ℝ => g t - φ n t) 2 volume)
+        Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+    -- Following the pattern of `exists_schwartz_L2_approx` in
+    -- `FourierPlancherelL2Core0`, we convert the pointwise bounds given by
+    -- `hφ` into a convergence statement using a squeeze argument on
+    -- real-valued norms.
+    let gseq : ℕ → ℝ≥0∞ := fun n =>
+      eLpNorm (fun t : ℝ => g t - φ n t) 2 volume
+    have h_ne_top : ∀ n, gseq n ≠ ∞ := fun n =>
+      ne_of_lt <|
+        lt_trans (hφ n) ENNReal.ofReal_lt_top
+    have h_nonneg : ∀ n, 0 ≤ (gseq n).toReal := fun _ =>
+      ENNReal.toReal_nonneg
+    have h_le : ∀ n, (gseq n).toReal ≤ ε n := by
+      intro n
+      have h_le' : gseq n ≤ ENNReal.ofReal (ε n) :=
+        le_of_lt (hφ n)
+      have h_pos : 0 ≤ ε n := (hε_pos n).le
+      exact ENNReal.toReal_le_of_le_ofReal h_pos h_le'
+    -- The sequence `ε n = 1 / (n+1)` tends to 0 in ℝ.
+    have h_tendsto_aux : Filter.Tendsto ε Filter.atTop (𝓝 (0 : ℝ)) :=
+      tendsto_one_div_add_one_nhds_0
+    -- Squeeze `(gseq n).toReal` between 0 and `ε n` to get convergence to 0.
+    have h_tendsto_real :
+        Filter.Tendsto (fun n : ℕ => (gseq n).toReal)
+          Filter.atTop (𝓝 0) :=
+      squeeze_zero h_nonneg h_le h_tendsto_aux
+    -- Finally, transfer the convergence back to ℝ≥0∞ using `ENNReal.toReal`.
+    have h_tendsto' :
+        Filter.Tendsto gseq Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+      -- Use the characterization of convergence to 0 in ℝ≥0∞.
+      rw [ENNReal.tendsto_atTop_zero]
+      intro δ hδ_pos
+      by_cases hδ_top : δ = ∞
+      · refine ⟨0, fun n _ => ?_⟩
+        simp [hδ_top]
+      · have hδ_finite : δ ≠ ∞ := hδ_top
+        have hδ_lt_top : δ < ∞ := lt_of_le_of_ne le_top hδ_finite
+        have hδ_toReal_pos : (0 : ℝ) < δ.toReal := by
+          rw [ENNReal.toReal_pos_iff]
+          exact ⟨hδ_pos, hδ_lt_top⟩
+        -- Use convergence of `(gseq n).toReal` to find an index where
+        -- `(gseq n).toReal < δ.toReal`, and translate this back to ℝ≥0∞.
+        have h_eventually :
+            ∀ᶠ n in Filter.atTop, (gseq n).toReal < δ.toReal :=
+          Filter.Tendsto.eventually_lt h_tendsto_real
+            tendsto_const_nhds hδ_toReal_pos
+        obtain ⟨N, hN⟩ := Filter.eventually_atTop.1 h_eventually
+        refine ⟨N, fun n hn => ?_⟩
+        have h_toReal_lt : (gseq n).toReal < δ.toReal := hN n hn
+        have h_ne_top_n : gseq n ≠ ⊤ := h_ne_top n
+        have h_lt : gseq n < δ :=
+          (ENNReal.toReal_lt_toReal h_ne_top_n hδ_finite).mp h_toReal_lt
+        exact le_of_lt h_lt
+    simpa [gseq] using h_tendsto'
+
+  exact ⟨φ, h_tendsto⟩
+
+/-- A.e. uniqueness from Schwartz pairings: if two L² functions have
 the same pairing against every Schwartz test function, then they are equal a.e. -/
 lemma ae_eq_of_schwartz_pairing_zero
     {f g : ℝ → ℂ} (hf : MemLp f 2 volume) (hg : MemLp g 2 volume)
     (hpair : ∀ φ : SchwartzMap ℝ ℂ,
       ∫ t, (f t - g t) * conj (φ t) ∂volume = 0) :
     f =ᵐ[volume] g := by
-  sorry
+  classical
+  -- Consider the L² functions `f - g` and `g - g ≡ 0`.
+  have hf_sub_g : MemLp (fun t : ℝ => f t - g t) 2 volume :=
+    hf.sub hg
+  have hg_sub_g : MemLp (fun t : ℝ => g t - g t) 2 volume :=
+    hg.sub hg
 
-/-- Continuity of the L²–Schwartz pairing in the first argument (signature only).
+  -- Show that their pairings against every Schwartz test function coincide.
+  have h_pairings_eq :
+      ∀ φ : SchwartzMap ℝ ℂ,
+        ∫ t, (f t - g t)
+              * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume
+          = ∫ t, (g t - g t)
+              * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume := by
+    intro φ
+    -- Left pairing: identified with the given vanishing Schwartz pairing.
+    have h_left :
+        ∫ t, (f t - g t)
+              * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume = 0 := by
+      -- Rewrite the integrand to the form appearing in `hpair`.
+      have h_left' : ∫ t, (f t - g t) * conj (φ t) ∂volume = 0 := hpair φ
+      have h_eq :
+          (fun t : ℝ =>
+            (f t - g t) * conj (φ t)) =
+            fun t : ℝ =>
+              (f t - g t) * (starRingEnd ℂ) (SchwartzMap.toFun φ t) := by
+        funext t
+        rfl
+      rw [← h_eq]
+      exact h_left'
+    -- Right pairing: the integrand is identically zero.
+    have h_right :
+        ∫ t, (g t - g t)
+              * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume = 0 := by
+      have h_zero :
+          (fun t : ℝ =>
+            (g t - g t) * (starRingEnd ℂ) (SchwartzMap.toFun φ t))
+            = fun _ : ℝ => (0 : ℂ) := by
+        funext t
+        have hsub : g t - g t = (0 : ℂ) := sub_self _
+        rw [hsub, zero_mul]
+      simp [h_zero]
+    exact h_left.trans h_right.symm
+
+  -- Apply the general a.e. uniqueness lemma in L² to `f - g` and `g - g ≡ 0`.
+  have h_ae :
+      (fun t : ℝ => f t - g t)
+        =ᵐ[volume] fun t : ℝ => g t - g t :=
+    ae_eq_of_memLp_schwartz_pairings
+      (g₁ := fun t : ℝ => f t - g t)
+      (g₂ := fun t : ℝ => g t - g t)
+      (hg₁ := hf_sub_g) (hg₂ := hg_sub_g) (h_pairings := h_pairings_eq)
+
+  -- Conclude that `f = g` almost everywhere.
+  refine h_ae.mono ?_
+  intro t ht
+  have h_diff_zero : f t - g t = 0 := by
+    simpa using congrArg (fun x => x) ht
+  exact sub_eq_zero.mp h_diff_zero
+
+/-- Continuity of the L²–Schwartz pairing in the first argument.
 
 If `fₙ → f` in L² and `φ` is Schwartz (hence in L²), then
   ∫ fₙ · conj φ → ∫ f · conj φ. -/
@@ -573,9 +1501,155 @@ lemma pairing_tendsto_L2_left
       Filter.atTop (𝓝 (0 : ℝ≥0∞))) :
     Filter.Tendsto (fun n => ∫ t : ℝ, (fn n t) * (conj (φ t)) ∂volume)
       Filter.atTop (𝓝 (∫ t : ℝ, f t * (conj (φ t)) ∂volume)) := by
-  sorry
+  classical
+  -- Pass to the `Lp` representatives of `fn n`, `f`, and the fixed test function `φ`.
+  let fnLp : ℕ → Lp ℂ 2 volume :=
+    fun n => (hfn_L2 n).toLp (fn n)
+  let fLp : Lp ℂ 2 volume := hf_L2.toLp f
+  let φLp : Lp ℂ 2 volume :=
+    (SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
+      (fun t : ℝ => φ t)
 
-/-- Continuity of the L²–Schwartz pairing via Lp convergence (signature only).
+  -- Step 1: upgrade convergence in `eLpNorm` to convergence in the `Lp` norm.
+  -- Define the L²-distance between `fnLp n` and `fLp` in terms of `eLpNorm`.
+  have hdist_eq :
+      (fun n => dist (fnLp n) fLp)
+        = fun n =>
+            (eLpNorm (fun t : ℝ => f t - fn n t) 2 volume).toReal := by
+    funext n
+    -- `f - fn n` lies in L².
+    have hdiff_mem :
+        MemLp (fun t : ℝ => f t - fn n t) 2 volume :=
+      hf_L2.sub (hfn_L2 n)
+    -- Its `Lp` representative is `fLp - fnLp n`.
+    have hcalc :
+        hdiff_mem.toLp (fun t : ℝ => f t - fn n t)
+          = fLp - fnLp n := by
+      simpa [fnLp, fLp] using
+        MemLp.toLp_sub hf_L2 (hfn_L2 n)
+    -- Express the `Lp` norm via `eLpNorm`.
+    have hnorm :=
+      Lp.norm_toLp (μ := volume)
+        (f := fun t : ℝ => f t - fn n t) hdiff_mem
+    -- Rewrite the metric distance in terms of the `eLpNorm` of the difference.
+    calc
+      dist (fnLp n) fLp
+          = ‖fnLp n - fLp‖ := by
+              simp [dist_eq_norm]
+      _ = ‖- (fLp - fnLp n)‖ := by
+              simp [sub_eq_add_neg, add_comm, add_left_comm, add_assoc]
+      _ = ‖fLp - fnLp n‖ := by
+              simpa using (norm_neg (fLp - fnLp n))
+      _ = (eLpNorm (fun t : ℝ => f t - fn n t) 2 volume).toReal := by
+              simpa [hdiff_mem, hcalc] using hnorm
+
+  -- `eLpNorm (f - fn n)` is finite for each n since `f - fn n ∈ L²`.
+  have h_ne_top : ∀ n,
+      eLpNorm (fun t : ℝ => f t - fn n t) 2 volume ≠ ∞ := fun n =>
+    (hf_L2.sub (hfn_L2 n)).2.ne
+  have h_zero_ne_top : (0 : ℝ≥0∞) ≠ ∞ := by simp
+
+  -- Convert ENNReal convergence to real convergence via `toReal`.
+  have h_toReal :
+      Filter.Tendsto
+        (fun n =>
+          (eLpNorm (fun t : ℝ => f t - fn n t) 2 volume).toReal)
+        Filter.atTop (𝓝 (0 : ℝ)) :=
+    (ENNReal.tendsto_toReal_iff (fi := Filter.atTop)
+        (f := fun n =>
+          eLpNorm (fun t : ℝ => f t - fn n t) 2 volume)
+        h_ne_top h_zero_ne_top).mpr hf_tendsto
+
+  -- Hence the `Lp` distance between `fnLp n` and `fLp` tends to zero.
+  have hdist_tendsto :
+      Filter.Tendsto (fun n => dist (fnLp n) fLp)
+        Filter.atTop (𝓝 (0 : ℝ)) := by
+    simpa [hdist_eq] using h_toReal
+
+  have hLp_tendsto :
+      Filter.Tendsto fnLp Filter.atTop (𝓝 fLp) :=
+    (tendsto_iff_dist_tendsto_zero).2 hdist_tendsto
+
+  -- Step 2: apply continuity of the inner product in `Lp` with fixed left argument `φLp`.
+  have h_inner_tendsto :
+      Filter.Tendsto
+        (fun n =>
+          @inner ℂ (Lp ℂ 2 volume) _ φLp (fnLp n))
+        Filter.atTop
+        (𝓝 (@inner ℂ (Lp ℂ 2 volume) _ φLp fLp)) :=
+    tendsto_inner_const_left_of_L2_tendsto hLp_tendsto φLp
+
+  -- Step 3: identify the inner products with the original pairings.
+  -- For each n, `∫ fn n · conj φ` equals the `L²` inner product in `Lp`.
+  have h_fun_eq :
+      (fun n =>
+        ∫ t : ℝ, fn n t * (conj (φ t)) ∂volume)
+        =
+      fun n =>
+        @inner ℂ (Lp ℂ 2 volume) _ φLp (fnLp n) := by
+    funext n
+    -- Start from the general integral/inner-product identity.
+    have h_base :=
+      integral_mul_star_eq_inner (hg_mem := hfn_L2 n) (φ := φ)
+    -- Relate `starRingEnd` to complex conjugation in the integrand.
+    have h_integrand :
+        (fun t : ℝ =>
+          fn n t * (starRingEnd ℂ) (SchwartzMap.toFun φ t))
+          =
+        fun t : ℝ =>
+          fn n t * conj (φ t) := by
+      funext t
+      rfl
+    -- Rewrite the integral accordingly.
+    calc
+      ∫ t, fn n t * conj (φ t) ∂volume
+          = ∫ t, fn n t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume := by
+              rw [← h_integrand]
+      _ = @inner ℂ (Lp ℂ 2 volume) _ φLp (fnLp n) := by
+              rw [← h_base]
+
+  -- Likewise for the limit `f`.
+  have h_lim_eq :
+      ∫ t : ℝ, f t * (conj (φ t)) ∂volume
+        =
+      @inner ℂ (Lp ℂ 2 volume) _ φLp fLp := by
+    have h_base :=
+      integral_mul_star_eq_inner (hg_mem := hf_L2) (φ := φ)
+    have h_integrand :
+        (fun t : ℝ =>
+          f t * (starRingEnd ℂ) (SchwartzMap.toFun φ t))
+          =
+        fun t : ℝ =>
+          f t * conj (φ t) := by
+      funext t
+      rfl
+    calc
+      ∫ t, f t * conj (φ t) ∂volume
+          = ∫ t, f t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume := by
+              rw [← h_integrand]
+      _ = @inner ℂ (Lp ℂ 2 volume) _ φLp fLp := by
+              rw [← h_base]
+
+  -- Step 4: transfer the convergence back to the original integral pairings.
+  have h_tendsto_inner' :
+      Filter.Tendsto
+        (fun n =>
+          ∫ t : ℝ, fn n t * (conj (φ t)) ∂volume)
+        Filter.atTop
+        (𝓝 (@inner ℂ (Lp ℂ 2 volume) _ φLp fLp)) := by
+    simpa [h_fun_eq] using h_inner_tendsto
+
+  have h_tendsto_integral :
+      Filter.Tendsto
+        (fun n =>
+          ∫ t : ℝ, fn n t * (conj (φ t)) ∂volume)
+        Filter.atTop
+        (𝓝 (∫ t : ℝ, f t * (conj (φ t)) ∂volume)) := by
+    simpa [h_lim_eq] using h_tendsto_inner'
+
+  exact h_tendsto_integral
+
+/-- Continuity of the L²–Schwartz pairing via Lp convergence.
 
 If `(fn n).toLp → f.toLp` in L² and `φ` is Schwartz (hence in L²), then
   ∫ fn n · conj φ → ∫ f · conj φ. -/
@@ -589,14 +1663,71 @@ lemma pairing_tendsto_L2_left_Lp
       Filter.atTop (𝓝 (hf_L2.toLp f))) :
     Filter.Tendsto (fun n => ∫ t : ℝ, (fn n t) * (conj (φ t)) ∂volume)
       Filter.atTop (𝓝 (∫ t : ℝ, f t * (conj (φ t)) ∂volume)) := by
-  sorry
+  classical
+  -- Express Lp convergence in terms of the L² norm of the difference.
+  have hdist_eq :
+      (fun n =>
+        dist ((hfn_L2 n).toLp (fn n)) (hf_L2.toLp f))
+        = fun n =>
+            (eLpNorm (fun t : ℝ => f t - fn n t) 2 volume).toReal := by
+    funext n
+    -- L² membership of the difference.
+    have hdiff_mem :
+        MemLp (fun t : ℝ => f t - fn n t) 2 volume :=
+      hf_L2.sub (hfn_L2 n)
+    -- Its Lp representative equals the difference of the Lp representatives.
+    have hcalc :
+        hdiff_mem.toLp (fun t : ℝ => f t - fn n t)
+          = hf_L2.toLp f - (hfn_L2 n).toLp (fn n) := by
+      simpa using
+        MemLp.toLp_sub hf_L2 (hfn_L2 n)
+    have hnorm :=
+      Lp.norm_toLp (μ := volume)
+        (f := fun t : ℝ => f t - fn n t) hdiff_mem
+    calc
+      dist ((hfn_L2 n).toLp (fn n)) (hf_L2.toLp f)
+          = ‖(hfn_L2 n).toLp (fn n) - hf_L2.toLp f‖ := by
+              simp [dist_eq_norm]
+      _ = ‖- (hf_L2.toLp f - (hfn_L2 n).toLp (fn n))‖ := by
+              simp [sub_eq_add_neg, add_comm, add_left_comm, add_assoc]
+      _ = ‖hf_L2.toLp f - (hfn_L2 n).toLp (fn n)‖ := by
+              simpa using (norm_neg (hf_L2.toLp f - (hfn_L2 n).toLp (fn n)))
+      _ = (eLpNorm (fun t : ℝ => f t - fn n t) 2 volume).toReal := by
+              simpa [hcalc] using hnorm
 
-/-- The `toLp` of the canonical representative of an `Lp` element is itself (signature only). -/
-lemma toLp_coe (u : Lp ℂ 2 volume) :
-    (Lp.memLp u).toLp (fun t : ℝ => (u : ℝ → ℂ) t) = u := by
-  sorry
+  -- From Lp convergence, deduce `eLpNorm (f - fn n) → 0` in `ℝ≥0∞`.
+  have hdist_tendsto :
+      Filter.Tendsto
+        (fun n =>
+          dist ((hfn_L2 n).toLp (fn n)) (hf_L2.toLp f))
+        Filter.atTop (𝓝 (0 : ℝ)) :=
+    (tendsto_iff_dist_tendsto_zero).1 hLp_tendsto
+  have h_toReal :
+      Filter.Tendsto
+        (fun n =>
+          (eLpNorm (fun t : ℝ => f t - fn n t) 2 volume).toReal)
+        Filter.atTop (𝓝 (0 : ℝ)) := by
+    simpa [hdist_eq] using hdist_tendsto
 
-/-- From vanishing Schwartz pairings to L² a.e. equality (signature only).
+  have h_ne_top : ∀ n,
+      eLpNorm (fun t : ℝ => f t - fn n t) 2 volume ≠ ∞ := fun n =>
+    (hf_L2.sub (hfn_L2 n)).2.ne
+  have h_zero_ne_top : (0 : ℝ≥0∞) ≠ ∞ := by simp
+
+  have hf_tendsto :
+      Filter.Tendsto
+        (fun n => eLpNorm (fun t : ℝ => f t - fn n t) 2 volume)
+        Filter.atTop (𝓝 (0 : ℝ≥0∞)) :=
+    (ENNReal.tendsto_toReal_iff (fi := Filter.atTop)
+        (f := fun n =>
+          eLpNorm (fun t : ℝ => f t - fn n t) 2 volume)
+        h_ne_top h_zero_ne_top).mp h_toReal
+
+  -- Now apply the L² pairing continuity lemma.
+  exact pairing_tendsto_L2_left
+    (hfn_L2 := hfn_L2) (hf_L2 := hf_L2) φ hf_tendsto
+
+/-- From vanishing Schwartz pairings to L² a.e. equality.
 
 If `g ∈ L²` and for every Schwartz `φ` the pairing against `f - g` vanishes, then
 `f ∈ L²` and `f = g` almost everywhere. -/
@@ -607,47 +1738,138 @@ lemma memLp_and_ae_eq_of_schwartz_pairing
       ∫ t, (f t) * conj (φ t) ∂volume
         = ∫ t, (g t) * conj (φ t) ∂volume) :
     MemLp f 2 volume ∧ f =ᵐ[volume] g := by
-  sorry
+  classical
+  -- Step 1: prove `f ∈ L²` using a uniform pairing bound and L² duality.
+  -- The constant controlling the pairings is the L² norm of `g`.
+  let C : ℝ := (eLpNorm (fun t => g t) 2 volume).toReal
+  have hC_nonneg : 0 ≤ C := by
+    have := ENNReal.toReal_nonneg (a := eLpNorm (fun t => g t) 2 volume)
+    simp [C]
 
-/- TODO: Extend fourierTransformDense to all of L² by continuity.
-This requires showing that Schwartz functions are dense in L² and using
-the fact that isometries on dense subspaces extend uniquely to the whole space.
+  have hpair_bound :
+      ∀ φ : SchwartzMap ℝ ℂ,
+        ‖∫ t, f t * conj (φ t) ∂volume‖
+          ≤ C * (eLpNorm (fun t => φ t) 2 volume).toReal := by
+    intro φ
+    -- Identify the pairing with `f` and `g`.
+    have h_eq := hpair φ
 
-The extension would be defined as:
-```
-def fourierTransformL2 : Lp ℂ 2 volume →L[ℂ] Lp ℂ 2 volume := ...
-```
+    -- Express the RHS pairing with `g` in the `starRingEnd` form needed for
+    -- the `integral_mul_star_eq_inner` lemma, and then as an inner product.
+    have h_integral_eq_g :
+        ∫ t, g t * conj (φ t) ∂volume
+          =
+        ∫ t, g t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume := by
+      have hfun :
+          (fun t : ℝ => g t * conj (φ t)) =
+            fun t : ℝ =>
+              g t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) := by
+        funext t
+        rfl
+      simp [hfun]
 
-For now, we use the pointwise integral definition and accept the circularity
-in `inverseFourierIntegral_memLp_of_schwartz_approx` below. -/
+    -- Use the L² inner product representation for the pairing with `g`.
+    have h_inner :
+        ∫ t, g t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume
+          =
+        @inner ℂ (Lp ℂ 2 volume) _
+          ((SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
+            (fun x => φ x))
+          (hg.toLp g) :=
+      integral_mul_star_eq_inner (hg_mem := hg) (φ := φ)
 
-/-- Continuity of the inverse Fourier transform on the closure of the Schwartz
-range (skeleton statement, proof deferred).
+    -- Cauchy–Schwarz in L² gives the desired bound for the inner product.
+    have h_cs :
+        ‖@inner ℂ (Lp ℂ 2 volume) _
+            ((SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
+              (fun x => φ x))
+            (hg.toLp g)‖
+          ≤
+        ‖((SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
+              (fun x => φ x))‖
+          * ‖hg.toLp g‖ :=
+      norm_inner_le_norm _ _
 
-If `wApprox n` is an L²-approximating sequence for `w` on the frequency side,
-with each `wApprox n` the Fourier transform of a Schwartz function, then the
-inverse transforms `inv(wApprox n)` converge to `inv(w)` in L² on the time side.
+    -- Combine everything to bound the pairing with `g`.
+    have h_bound_g :
+        ‖∫ t, g t * conj (φ t) ∂volume‖
+          ≤ C * (eLpNorm (fun t => φ t) 2 volume).toReal := by
+      have :
+          ‖∫ t, g t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume‖
+            ≤ C * (eLpNorm (fun t => φ t) 2 volume).toReal := by
+        -- Rewrite via the inner product and apply Cauchy–Schwarz.
+        have h_main :
+            ‖∫ t, g t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume‖
+              ≤
+            (eLpNorm (fun t => φ t) 2 volume).toReal
+              * (eLpNorm (fun t => g t) 2 volume).toReal := by
+          calc
+            ‖∫ t, g t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume‖
+                = ‖@inner ℂ (Lp ℂ 2 volume) _
+                      ((SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
+                        (fun x => φ x))
+                      (hg.toLp g)‖ := by
+                      simp [h_inner]
+            _ ≤ ‖((SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
+                    (fun x => φ x))‖ * ‖hg.toLp g‖ := h_cs
+            _ = (eLpNorm (fun t => φ t) 2 volume).toReal
+                  * (eLpNorm (fun t => g t) 2 volume).toReal := by
+                    simp [mul_comm]
+        -- Our chosen constant is exactly the L² norm of `g`.
+        have hC : C = (eLpNorm (fun t => g t) 2 volume).toReal := rfl
+        simpa [hC, mul_comm, mul_left_comm, mul_assoc] using h_main
+      simpa [h_integral_eq_g] using this
 
-This is the continuity counterpart to
-`inverseFourierIntegral_memLp_of_schwartz_approx` and is used in the proof of
-`inverseFourier_isometry_on_closure`. -/
-lemma inverseFourier_tendsto_of_schwartz_approx
-    (w : ℝ → ℂ) (wApprox : ℕ → ℝ → ℂ)
-    (hw : MemLp w 2 volume)
-    (hwApprox_L2 : ∀ n, MemLp (wApprox n) 2 volume)
-    (hwApprox_isFourier :
-      ∀ n, ∃ ψ : SchwartzMap ℝ ℂ,
-        wApprox n = fun ξ => Frourio.fourierIntegral (fun t => ψ t) ξ)
-    (hw_tendsto : Filter.Tendsto
-      (fun n => eLpNorm (fun ξ => w ξ - wApprox n ξ) 2 volume)
-      Filter.atTop (𝓝 (0 : ℝ≥0∞))) :
-    Filter.Tendsto
-      (fun n =>
-        ENNReal.toReal (eLpNorm (fun t =>
-          Real.fourierIntegralInv (fun ξ => wApprox n ξ) t
-            - Real.fourierIntegralInv (fun ξ => w ξ) t) 2 volume))
-      Filter.atTop (𝓝 (0 : ℝ)) := by
-  sorry
+    -- Transport the bound from `g` to `f` using the assumed equality of pairings.
+    have h_eq' :
+        ∫ t, f t * conj (φ t) ∂volume
+          = ∫ t, g t * conj (φ t) ∂volume := h_eq
+    simpa [h_eq'] using h_bound_g
+
+  -- Apply the abstract L² duality lemma (skeleton) to deduce `f ∈ L²`.
+  have hf : MemLp f 2 volume :=
+    memLp_two_of_schwartz_pairing_bound f C hC_nonneg hpair_bound
+
+  -- Step 2: from equality of Schwartz pairings and L² membership, deduce a.e. equality.
+  -- Repackage the pairings in the form expected by `ae_eq_of_memLp_schwartz_pairings`.
+  have h_pairings_star :
+      ∀ φ : SchwartzMap ℝ ℂ,
+        ∫ t, f t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume
+          = ∫ t, g t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume := by
+    intro φ
+    have h_eq := hpair φ
+    -- Relate the `conj` formulation to the `starRingEnd` formulation on both sides.
+    have h_left :
+        ∫ t, f t * conj (φ t) ∂volume
+          = ∫ t, f t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume := by
+      have hfun :
+          (fun t : ℝ => f t * conj (φ t)) =
+            fun t : ℝ =>
+              f t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) := by
+        funext t
+        rfl
+      simp [hfun]
+    have h_right :
+        ∫ t, g t * conj (φ t) ∂volume
+          = ∫ t, g t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) ∂volume := by
+      have hfun :
+          (fun t : ℝ => g t * conj (φ t)) =
+            fun t : ℝ =>
+              g t * (starRingEnd ℂ) (SchwartzMap.toFun φ t) := by
+        funext t
+        rfl
+      simp [hfun]
+    -- Use the original pairing equality and rewrite both sides.
+    exact (h_left.trans h_eq).trans h_right.symm
+
+  -- Apply the general a.e. uniqueness lemma for L² functions.
+  have h_ae : f =ᵐ[volume] g :=
+    ae_eq_of_memLp_schwartz_pairings
+      (g₁ := f) (g₂ := g)
+      (hg₁ := hf) (hg₂ := hg)
+      (h_pairings := h_pairings_star)
+
+  exact ⟨hf, h_ae⟩
 
 /-- L² membership of the inverse Fourier transform on the closure of the Schwartz range.
 
@@ -893,6 +2115,346 @@ lemma inverseFourierIntegral_memLp_of_schwartz_approx
       (g := ψ_lim_fun) hψ_lim_L2 (hpair := by
         intro φ; exact (h_pairing_eq φ))
   exact h_mem_and_ae.1
+
+/-- Continuity of the inverse Fourier transform on the closure of the Schwartz
+range (skeleton statement, proof deferred).
+
+If `wApprox n` is an L²-approximating sequence for `w` on the frequency side,
+with each `wApprox n` the Fourier transform of a Schwartz function, then the
+inverse transforms `inv(wApprox n)` converge to `inv(w)` in L² on the time side.
+
+This is the continuity counterpart to
+`inverseFourierIntegral_memLp_of_schwartz_approx` and is used in the proof of
+`inverseFourier_isometry_on_closure`. -/
+lemma inverseFourier_tendsto_of_schwartz_approx
+    (w : ℝ → ℂ) (wApprox : ℕ → ℝ → ℂ)
+    (hw : MemLp w 2 volume)
+    (hwApprox_L2 : ∀ n, MemLp (wApprox n) 2 volume)
+    (hwApprox_isFourier :
+      ∀ n, ∃ ψ : SchwartzMap ℝ ℂ,
+        wApprox n = fun ξ => Frourio.fourierIntegral (fun t => ψ t) ξ)
+    (hw_tendsto : Filter.Tendsto
+      (fun n => eLpNorm (fun ξ => w ξ - wApprox n ξ) 2 volume)
+      Filter.atTop (𝓝 (0 : ℝ≥0∞))) :
+    Filter.Tendsto
+      (fun n =>
+        ENNReal.toReal (eLpNorm (fun t =>
+          Real.fourierIntegralInv (fun ξ => wApprox n ξ) t
+            - Real.fourierIntegralInv (fun ξ => w ξ) t) 2 volume))
+      Filter.atTop (𝓝 (0 : ℝ)) := by
+  classical
+  -- Step 0: choose Schwartz witnesses for the approximating sequence `wApprox n`.
+  choose ψ hψ_repr using hwApprox_isFourier
+
+  -- Frequency-side sequence in L².
+  have hwApprox_L2' : ∀ n, MemLp (wApprox n) 2 volume := hwApprox_L2
+
+  -- Step 1: lift `wApprox n → w` in L² to convergence in `Lp`.
+  let wLp : ℕ → Lp ℂ 2 volume := fun n => (hwApprox_L2' n).toLp (wApprox n)
+  let wLim : Lp ℂ 2 volume := hw.toLp w
+
+  have hwLp_tendsto : Filter.Tendsto wLp Filter.atTop (𝓝 wLim) := by
+    -- Distances in `Lp` are expressed via the eLpNorm of differences.
+    have hdist_eq :
+        (fun n => dist (wLp n) wLim)
+          = fun n =>
+              (eLpNorm (fun ξ : ℝ => w ξ - wApprox n ξ) 2 volume).toReal := by
+      funext n
+      -- `wApprox n - w` lies in L².
+      have hdiff : MemLp (fun ξ : ℝ => wApprox n ξ - w ξ) 2 volume :=
+        (hwApprox_L2' n).sub hw
+      have hcalc :
+          hdiff.toLp (fun ξ : ℝ => wApprox n ξ - w ξ)
+            = wLp n - wLim := by
+        simpa [wLp, wLim] using
+          MemLp.toLp_sub (hwApprox_L2' n) hw
+      have hnorm :=
+        Lp.norm_toLp (μ := volume)
+          (f := fun ξ : ℝ => wApprox n ξ - w ξ) hdiff
+      have hswap :
+          (eLpNorm (fun ξ : ℝ => wApprox n ξ - w ξ) 2 volume)
+            = eLpNorm (fun ξ : ℝ => w ξ - wApprox n ξ) 2 volume :=
+        eLpNorm_sub_comm (f := fun ξ : ℝ => wApprox n ξ)
+          (g := fun ξ : ℝ => w ξ)
+          (p := (2 : ℝ≥0∞)) (μ := volume)
+      calc
+        dist (wLp n) wLim
+            = ‖wLp n - wLim‖ := by simp [dist_eq_norm]
+        _ = (eLpNorm (fun ξ : ℝ => wApprox n ξ - w ξ) 2 volume).toReal := by
+              simpa [hdiff, hcalc, norm_sub_rev] using hnorm
+        _ = (eLpNorm (fun ξ : ℝ => w ξ - wApprox n ξ) 2 volume).toReal := by
+              simpa using congrArg ENNReal.toReal hswap
+
+    -- Convert ENNReal convergence to real convergence via `toReal`.
+    have h_ne_top : ∀ n,
+        eLpNorm (fun ξ : ℝ => w ξ - wApprox n ξ) 2 volume ≠ ∞ :=
+      fun n => (hw.sub (hwApprox_L2' n)).2.ne
+    have h_zero_ne_top : (0 : ℝ≥0∞) ≠ ∞ := by simp
+    have h_toReal :=
+      (ENNReal.tendsto_toReal_iff (fi := Filter.atTop)
+        (f := fun n =>
+          eLpNorm (fun ξ : ℝ => w ξ - wApprox n ξ) 2 volume)
+        h_ne_top h_zero_ne_top).mpr hw_tendsto
+    have hdist_tendsto :
+        Filter.Tendsto (fun n => dist (wLp n) wLim) Filter.atTop (𝓝 0) := by
+      simpa [hdist_eq] using h_toReal
+    exact (tendsto_iff_dist_tendsto_zero).2 hdist_tendsto
+
+  -- Step 2: the time-side inverse transforms of the approximants are Schwartz
+  -- (hence in L²) and form a Cauchy sequence in `Lp`.
+  have hψ_L2 : ∀ n, MemLp (fun t : ℝ => ψ n t) 2 volume :=
+    fun n => SchwartzMap.memLp (ψ n) (p := (2 : ℝ≥0∞)) (μ := volume)
+  let ψLp : ℕ → Lp ℂ 2 volume := fun n => (hψ_L2 n).toLp (fun t => ψ n t)
+
+  -- Show `ψLp` is Cauchy by transporting Cauchy-ness from `wLp`.
+  have hψ_cauchy : CauchySeq ψLp := by
+    refine Metric.cauchySeq_iff.2 ?_
+    intro εr hεr
+    have hεr2 : 0 < εr / 2 := half_pos hεr
+    obtain ⟨N, hN⟩ := Metric.tendsto_atTop.1 hwLp_tendsto (εr / 2) hεr2
+    refine ⟨N, ?_⟩
+    intro m hm n hn
+    -- Dist(ψLp m, ψLp n) = Dist(wLp m, wLp n).
+    have hdist_w : dist (wLp m) (wLp n)
+        = ENNReal.toReal (eLpNorm (fun ξ => wApprox m ξ - wApprox n ξ) 2 volume) := by
+      simp only [wLp]
+      rw [dist_comm, dist_edist,
+        Lp.edist_toLp_toLp (wApprox n) (wApprox m) (hwApprox_L2' n) (hwApprox_L2' m)]
+      congr 1
+      exact eLpNorm_sub_comm (wApprox n) (wApprox m) 2 volume
+    have hdist_ψ : dist (ψLp m) (ψLp n)
+        = ENNReal.toReal (eLpNorm (fun t => ψ m t - ψ n t) 2 volume) := by
+      simp only [ψLp]
+      rw [dist_comm, dist_edist,
+        Lp.edist_toLp_toLp (fun t => ψ n t) (fun t => ψ m t)
+          (hψ_L2 n) (hψ_L2 m)]
+      congr 1
+      exact eLpNorm_sub_comm (fun t => ψ n t) (fun t => ψ m t) 2 volume
+    have hfreq_eq :
+        eLpNorm (fun ξ => wApprox m ξ - wApprox n ξ) 2 volume
+          = eLpNorm (fun t => ψ m t - ψ n t) 2 volume := by
+      -- Plancherel for Schwartz differences.
+      have hrewrite :
+          (fun ξ => wApprox m ξ - wApprox n ξ)
+            = fun ξ => Frourio.fourierIntegral (fun t => ψ m t - ψ n t) ξ := by
+        funext ξ
+        have := fourierIntegral_sub
+          (f := fun t => ψ m t) (g := fun t => ψ n t)
+          (hf := schwartz_integrable (ψ m))
+          (hg := schwartz_integrable (ψ n)) (ξ := ξ)
+        simpa [hψ_repr, sub_eq_add_neg] using this.symm
+      simpa [hrewrite] using fourierIntegral_eLpNorm_eq (φ := ψ m - ψ n)
+    -- Distances coincide, so we control them via the limit point `wLim`.
+    have hdist_eq : dist (ψLp m) (ψLp n) = dist (wLp m) (wLp n) := by
+      rw [hdist_w, hdist_ψ]
+      exact congrArg ENNReal.toReal hfreq_eq.symm
+    -- Triangle via the limit `wLim`.
+    have htriangle :
+        dist (wLp m) (wLp n) ≤ dist (wLp m) wLim + dist (wLp n) wLim := by
+      simpa [dist_comm] using dist_triangle (wLp m) wLim (wLp n)
+    have hmε : dist (wLp m) wLim < εr / 2 := hN m hm
+    have hnε : dist (wLp n) wLim < εr / 2 := hN n hn
+    have hsum_lt : dist (wLp m) wLim + dist (wLp n) wLim < εr := by
+      have := add_lt_add hmε hnε
+      have : dist (wLp m) wLim + dist (wLp n) wLim
+          < εr / 2 + εr / 2 := this
+      simpa [two_mul, mul_div_cancel₀ εr (two_ne_zero : (2 : ℝ) ≠ 0),
+        add_comm, add_left_comm, add_assoc] using this
+    have hmn_lt : dist (wLp m) (wLp n) < εr :=
+      lt_of_le_of_lt htriangle hsum_lt
+    simpa [hdist_eq] using hmn_lt
+
+  -- Completeness of L² yields the time-side Lp limit.
+  obtain ⟨ψ_lim, hψ_tendsto⟩ := cauchySeq_tendsto_of_complete hψ_cauchy
+
+  -- Step 3: identify the Lp limit as the inverse Fourier transform of `w`
+  -- using Schwartz pairings.
+  let ψ_lim_fun : ℝ → ℂ := fun t => (ψ_lim : ℝ → ℂ) t
+  have hψ_lim_L2 : MemLp ψ_lim_fun 2 volume := Lp.memLp ψ_lim
+
+  -- For any Schwartz test function φ, compare pairings and pass to the limit.
+  have h_pairing_eq : ∀ φ : SchwartzMap ℝ ℂ,
+      ∫ t, (Real.fourierIntegralInv (fun ξ => w ξ) t) * conj (φ t) ∂volume
+        = ∫ t, (ψ_lim_fun t) * conj (φ t) ∂volume := by
+    intro φ
+    -- For each n, identify the pairing via the inverse Fourier identity on Schwartz.
+    have h_eq_n : ∀ n,
+        ∫ t, (ψ n t) * conj (φ t) ∂volume
+          = ∫ ξ, (wApprox n ξ) *
+              conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume := by
+      intro n
+      -- invF(wApprox n) = ψ n at the function level.
+      have h_inv_eq :
+          (fun t : ℝ => Real.fourierIntegralInv (fun ξ => wApprox n ξ) t)
+            = fun t : ℝ => ψ n t := by
+        simpa [hψ_repr n] using
+          fourierIntegralInv_fourierIntegral_schwartz (ψ n)
+      -- Apply the pairing lemma to wApprox n and rewrite the LHS.
+      have :=
+        inverseFourier_pairing_schwartz (w := wApprox n)
+          (hw := hwApprox_L2' n) φ
+      simpa [h_inv_eq] using this
+
+    -- Left side: pass to the limit using Lp convergence of ψLp.
+    have hψlim_toLp_eq : (hψ_lim_L2).toLp ψ_lim_fun = ψ_lim := by
+      simp [ψ_lim_fun]
+    have h_left :=
+      pairing_tendsto_L2_left_Lp (hfn_L2 := hψ_L2) (hf_L2 := hψ_lim_L2) φ
+        (hLp_tendsto := by simpa [hψlim_toLp_eq] using hψ_tendsto)
+
+    -- Right side: use continuity of the pairing in the first argument and the
+    -- given L² convergence `wApprox n → w`.
+    have h_right_base :=
+      pairing_tendsto_L2_left (hfn_L2 := hwApprox_L2') (hf_L2 := hw)
+        (φ := fourierAsSchwartzFunction φ)
+        (hf_tendsto := by simpa using hw_tendsto)
+
+    -- Rewrite the test function as the explicit Fourier integral.
+    have hψ_test :
+        (fun ξ : ℝ => (fourierAsSchwartzFunction φ) ξ)
+          = fun ξ : ℝ => Frourio.fourierIntegral (fun t : ℝ => φ t) ξ := by
+      funext ξ
+      simp [fourierAsSchwartzFunction, fourierIntegral_eq_real]
+
+    have h_right : Filter.Tendsto
+        (fun n => ∫ ξ, (wApprox n ξ) *
+              conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)
+        Filter.atTop (𝓝 (∫ ξ, (w ξ) *
+              conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)) := by
+      simpa [hψ_test] using h_right_base
+
+    -- Transport equality along the limits: both sequences have equal nth terms
+    -- and converge to the displayed limits.
+    have h_seq_eq : Filter.Tendsto
+        (fun n => ∫ t, (ψ n t) * conj (φ t) ∂volume)
+        Filter.atTop (𝓝 (∫ t, (ψ_lim_fun t) * conj (φ t) ∂volume)) := h_left
+    have h_seq_eq' : Filter.Tendsto
+        (fun n => ∫ ξ, (wApprox n ξ) *
+              conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)
+        Filter.atTop (𝓝 (∫ ξ, (w ξ) *
+              conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)) := h_right
+
+    have h_limits_equal :
+        (∫ t, (ψ_lim_fun t) * conj (φ t) ∂volume)
+          = (∫ ξ, (w ξ) *
+              conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume) := by
+      -- Replace the right-hand limit by an equal sequence using `h_eq_n`.
+      have h_right_as_left : Filter.Tendsto
+          (fun n => ∫ t, (ψ n t) * conj (φ t) ∂volume)
+          Filter.atTop (𝓝 (∫ ξ, (w ξ) *
+                conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)) := by
+        exact h_seq_eq'.congr'
+          (Filter.Eventually.of_forall (fun n => (h_eq_n n).symm))
+      exact tendsto_nhds_unique h_seq_eq h_right_as_left
+
+    -- The RHS also equals the pairing with `invF w` by the pairing lemma.
+    have h_pair_w :=
+      inverseFourier_pairing_schwartz (w := w) (hw := hw) φ
+
+    -- Compose the two equalities.
+    have h_goal :
+        ∫ t, (Real.fourierIntegralInv (fun ξ => w ξ) t) * conj (φ t) ∂volume
+          = ∫ t, (ψ_lim_fun t) * conj (φ t) ∂volume := by
+      exact h_pair_w.trans h_limits_equal.symm
+    exact h_goal
+
+  -- `invF w` agrees a.e. with `ψ_lim_fun`, and both are in L².
+  have h_mem_and_ae :=
+    memLp_and_ae_eq_of_schwartz_pairing
+      (f := fun t => Real.fourierIntegralInv (fun ξ => w ξ) t)
+      (g := ψ_lim_fun) hψ_lim_L2
+      (hpair := by intro φ; exact h_pairing_eq φ)
+
+  have h_inv_w_ae :
+      (fun t => Real.fourierIntegralInv (fun ξ => w ξ) t)
+        =ᵐ[volume] ψ_lim_fun := h_mem_and_ae.2
+
+  -- Step 4: use Lp convergence of `ψLp` to obtain convergence of the inverses.
+  have h_norm_tendsto :
+      Filter.Tendsto (fun n => ‖ψLp n - ψ_lim‖)
+        Filter.atTop (𝓝 (0 : ℝ)) :=
+    (tendsto_iff_norm_sub_tendsto_zero).1 hψ_tendsto
+
+  -- Express the Lp distance via the eLpNorm of the difference of representatives.
+  have h_norm_eq :
+      ∀ n,
+        ‖ψLp n - ψ_lim‖
+          = ENNReal.toReal
+              (eLpNorm (fun t => ψ n t - ψ_lim_fun t) 2 volume) := by
+    intro n
+    have hdiff : MemLp (fun t => ψ n t - ψ_lim_fun t) 2 volume :=
+      (hψ_L2 n).sub hψ_lim_L2
+    have hcalc :
+        hdiff.toLp (fun t => ψ n t - ψ_lim_fun t)
+          = ψLp n - ψ_lim := by
+      simpa [ψLp, ψ_lim_fun] using
+        MemLp.toLp_sub (hψ_L2 n) hψ_lim_L2
+    have hnorm :=
+      Lp.norm_toLp (μ := volume)
+        (f := fun t : ℝ => ψ n t - ψ_lim_fun t) hdiff
+    simpa [hdiff, hcalc, norm_sub_rev] using hnorm
+
+  have h_toReal_tendsto :
+      Filter.Tendsto (fun n =>
+        ENNReal.toReal
+          (eLpNorm (fun t => ψ n t - ψ_lim_fun t) 2 volume))
+        Filter.atTop (𝓝 (0 : ℝ)) := by
+    refine h_norm_tendsto.congr'
+      (Filter.Eventually.of_forall (fun n => h_norm_eq n))
+
+  -- Relate these eLpNorms to the ones appearing in the statement using a.e. equality.
+  have h_inv_eLp_eq : ∀ n,
+      eLpNorm (fun t =>
+          Real.fourierIntegralInv (fun ξ => wApprox n ξ) t
+            - Real.fourierIntegralInv (fun ξ => w ξ) t) 2 volume
+        = eLpNorm (fun t => ψ n t - ψ_lim_fun t) 2 volume := by
+    intro n
+    -- invF(wApprox n) = ψ n pointwise.
+    have h_inv_wApprox :
+        (fun t : ℝ =>
+          Real.fourierIntegralInv (fun ξ => wApprox n ξ) t)
+          = fun t : ℝ => ψ n t := by
+      simpa [hψ_repr n] using
+        fourierIntegralInv_fourierIntegral_schwartz (ψ n)
+    -- Use the a.e. equality for `invF w`.
+    have h_ae_diff :
+        (fun t : ℝ =>
+          Real.fourierIntegralInv (fun ξ => wApprox n ξ) t
+            - Real.fourierIntegralInv (fun ξ => w ξ) t)
+          =ᵐ[volume]
+        (fun t : ℝ => ψ n t - ψ_lim_fun t) := by
+      -- First, rewrite the inverse of wApprox n.
+      have h1 :
+          (fun t : ℝ =>
+            Real.fourierIntegralInv (fun ξ => wApprox n ξ) t
+              - Real.fourierIntegralInv (fun ξ => w ξ) t)
+            = fun t : ℝ =>
+                ψ n t - Real.fourierIntegralInv (fun ξ => w ξ) t := by
+        funext t
+        simp [h_inv_wApprox, sub_eq_add_neg, add_comm, add_left_comm, add_assoc]
+      -- Then replace `invF w` by `ψ_lim_fun` a.e.
+      have h2 :
+          (fun t : ℝ =>
+            ψ n t - Real.fourierIntegralInv (fun ξ => w ξ) t)
+            =ᵐ[volume]
+          (fun t : ℝ => ψ n t - ψ_lim_fun t) := by
+        refine h_inv_w_ae.mono ?_
+        intro t ht
+        simp [ht, sub_eq_add_neg, add_comm, add_left_comm, add_assoc]
+      exact h2.mono (fun t ht => by
+        -- combine h1 (pointwise) with the a.e. equality h2
+        rw [h1]
+        exact ht)
+    -- Conclude equality of eLpNorms by a.e. congruence.
+    have h_congr :=
+      eLpNorm_congr_ae (μ := volume) (p := (2 : ℝ≥0∞)) h_ae_diff
+    simpa using h_congr
+
+  -- Finally, transport convergence along these equalities.
+  refine h_toReal_tendsto.congr'
+    (Filter.Eventually.of_forall (fun n => ?_))
+  -- Rewrite the target sequence using `h_inv_eLp_eq`.
+  simp [h_inv_eLp_eq n]
 
 set_option maxHeartbeats 400000 in -- for timeout
 /-- L² isometry of the inverse Fourier transform on the closure of the Schwartz range
@@ -1414,7 +2976,7 @@ lemma inverseFourier_isometry_on_closure
   exact tendsto_nhds_unique h_time_tendsto h_seq_eq
 
 /-- L² continuity of the inverse Fourier transform on the closure of the
-Schwartz range (signature only).
+Schwartz range.
 
 If `u n` are Fourier transforms of Schwartz functions and converge to `v` in L²
 on the frequency side (with `v ∈ L²`), then applying the inverse Fourier integrals

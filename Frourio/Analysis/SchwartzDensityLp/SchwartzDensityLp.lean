@@ -13,7 +13,7 @@ import Mathlib.Analysis.Calculus.BumpFunction.SmoothApprox
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
 
 open MeasureTheory SchwartzMap Complex NNReal
-open scoped ENNReal ContDiff Topology Convolution
+open scoped ENNReal ContDiff Topology Convolution ComplexConjugate
 
 variable {n : ℕ}
 
@@ -2328,3 +2328,27 @@ theorem continuous_compactSupport_dense_L1_L2_real
   refine ⟨g, hg_cont, hg_support, hg_memLp, ?_, ?_⟩
   · simpa [Pi.sub_def, sub_eq_add_neg] using hfg_L1
   · simpa [Pi.sub_def, sub_eq_add_neg] using hfg_L2
+
+/--
+Control of the L² norm from Schwartz pairings (skeleton).
+
+If a complex-valued function `f` on ℝ has uniformly bounded pairings against
+all Schwartz test functions in L², with bound
+`‖∫ f · conj φ‖ ≤ C · ‖φ‖₂` for some nonnegative `C`, then `f` belongs to L².
+
+This is a specialization of the Riesz representation / L² duality theorem
+to the dense subspace of Schwartz functions, and will be used in
+`FourierPlancherelL2.lean` to upgrade distributional control to L² control.
+
+Only the statement is provided here; the proof is deferred.
+-/
+lemma memLp_two_of_schwartz_pairing_bound
+    (f : ℝ → ℂ) (C : ℝ)
+    (hC_nonneg : 0 ≤ C)
+    (hpair :
+      ∀ φ : SchwartzMap ℝ ℂ,
+        ‖∫ t, f t * conj (φ t) ∂volume‖
+          ≤ C * (eLpNorm (fun t => φ t) 2 volume).toReal) :
+    MemLp f 2 volume := by
+  classical
+  sorry
