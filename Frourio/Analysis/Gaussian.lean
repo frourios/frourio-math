@@ -3,6 +3,7 @@ import Mathlib.MeasureTheory.Function.L2Space
 import Mathlib.MeasureTheory.Function.LpSpace.Basic
 import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
 import Mathlib.Analysis.Complex.Basic
+import Mathlib.Analysis.Distribution.FourierSchwartz
 import Mathlib.Data.Real.Sqrt
 import Mathlib.Analysis.SpecialFunctions.ExpDeriv
 import Mathlib.Data.Real.Pi.Bounds
@@ -10,7 +11,7 @@ import Mathlib.Data.Real.Pi.Bounds
 namespace Frourio
 
 open MeasureTheory Real Complex
-open scoped Real ENNReal
+open scoped Real ENNReal Topology ComplexConjugate
 
 section GaussianHelpers
 
@@ -1256,5 +1257,81 @@ lemma gaussian_norm_const_le_alt_const_for_large_n (n : ℕ) (hn : 2 ≤ n) :
     exact habs
   rw [hL, hR]
   exact hineq_linear
+
+/-- Frequency-side L² convergence of Gaussian cutoffs.
+
+If `w ∈ L²`, then the Gaussian-regularized functions
+`ξ ↦ exp(-π (ξ/R)^2) · w ξ` converge to `w` in L² as `R → ∞`. -/
+lemma gaussian_cutoff_L2_tendsto
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) :
+    Filter.Tendsto (fun R : ℝ =>
+        eLpNorm (fun ξ : ℝ =>
+          (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ - w ξ) 2 volume)
+      Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+  sorry
+
+/-- Time-side L² convergence of inverse Fourier integrals under Gaussian frequency cutoffs.
+
+If `w ∈ L²` on the frequency side, then the inverse Fourier transforms of the
+Gaussian-regularized functions converge in L² on the time side to the inverse
+Fourier transform of `w` as `R → ∞`. -/
+lemma inverseFourier_gaussian_cutoff_L2_tendsto
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) :
+    Filter.Tendsto (fun R : ℝ =>
+        eLpNorm (fun t : ℝ =>
+          Real.fourierIntegralInv (fun ξ : ℝ =>
+              (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
+            - Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) 2 volume)
+      Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+  sorry
+
+/-- Pointwise a.e. convergence of the time-side pairing integrand under Gaussian cutoffs
+(signature only).
+
+For `w ∈ L²` and Schwartz `φ`, the functions
+`t ↦ invF(GR_R · w)(t) · conj(φ t)` converge pointwise almost everywhere as
+`R → ∞` to `t ↦ invF(w)(t) · conj(φ t)`. Here `GR_R(ξ) = exp(-π (ξ/R)^2)` is the
+Gaussian frequency cutoff. -/
+lemma gaussian_time_pairing_pointwise
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
+    ∀ᵐ t : ℝ,
+      Filter.Tendsto (fun R : ℝ =>
+        Real.fourierIntegralInv (fun ξ : ℝ =>
+            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
+          * (conj (φ t)))
+        Filter.atTop
+        (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t * (conj (φ t)))) := by
+  sorry
+
+/-- Measurability of the time-side pairing integrand under Gaussian frequency cutoffs
+(signature only).
+
+For `w ∈ L²` and Schwartz `φ`, the map
+`t ↦ invF(GR_R · w)(t) · conj(φ t)` is a.e. strongly measurable for every radius `R`. -/
+lemma gaussian_time_pairing_measurable
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
+    ∀ R : ℝ,
+      AEStronglyMeasurable (fun t : ℝ =>
+        Real.fourierIntegralInv (fun ξ : ℝ =>
+            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
+          * (conj (φ t))) volume := by
+  intro R
+  sorry
+
+/-- Existence of a uniform L¹-dominating function for the time-side Gaussian pairing integrand
+(signature only).
+
+For `w ∈ L²` and Schwartz `φ`, there exists an integrable function `g` such that the
+time-side pairing integrand
+`t ↦ invF(GR_R · w)(t) · conj(φ t)` is dominated in norm by `g(t)` for all radii `R`. -/
+lemma gaussian_time_pairing_dominated
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
+    ∃ g : ℝ → ℝ,
+      Integrable g ∧
+      ∀ R : ℝ, ∀ᵐ t : ℝ,
+        ‖Real.fourierIntegralInv (fun ξ : ℝ =>
+            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
+          * (conj (φ t))‖ ≤ g t := by
+  sorry
 
 end Frourio
