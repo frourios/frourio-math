@@ -7,7 +7,7 @@ import Mathlib.Analysis.Calculus.BumpFunction.Normed
 import Mathlib.Analysis.Calculus.BumpFunction.Convolution
 import Mathlib.Analysis.Calculus.BumpFunction.SmoothApprox
 
-open MeasureTheory NNReal
+open MeasureTheory NNReal SchwartzMap
 open scoped ENNReal ContDiff Topology
 
 /-!
@@ -35,9 +35,6 @@ Standard textbooks covering these results:
 The density of Schwartz functions (or C∞c) in Lp is a cornerstone result
 used throughout harmonic analysis and PDE theory.
 -/
-
-open MeasureTheory SchwartzMap
-open scoped ENNReal ContDiff
 
 variable {n : ℕ}
 

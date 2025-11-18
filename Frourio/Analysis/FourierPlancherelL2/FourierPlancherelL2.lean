@@ -1011,321 +1011,299 @@ lemma gaussian_frequency_cutoff_tendsto_L2
   -- 5. This is exactly the desired statement.
   exact h_L2_error_tendsto
 
-/-- Pointwise a.e. convergence of the inverse Fourier transform under Gaussian
-frequency cutoffs (signature only).
+/-- **Signature only**: the Fourier transform on Schwartz space has dense range in L².
 
-For `w ∈ L²`, the functions
-`t ↦ invF(GR_R · w)(t)` converge pointwise almost everywhere as
-`R → ∞` to `t ↦ invF(w)(t)`, where `GR_R(ξ) = exp(-π (ξ/R)^2)`. -/
-lemma gaussian_inverseFourier_cutoff_pointwise
-    {w : ℝ → ℂ} (hw : MemLp w 2 volume) :
-    ∀ᵐ t : ℝ,
-      Filter.Tendsto (fun R : ℝ =>
-        Real.fourierIntegralInv (fun ξ : ℝ =>
-            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t)
-        Filter.atTop
-        (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t)) := by
+Equivalently, the closure of the image of `fourierTransformDense : Schwartz → L²`
+is all of `Lp ℂ 2`.  This is the operator‑theoretic formulation of
+“Fourier transforms of Schwartz functions are dense on the frequency side”. -/
+lemma fourierTransformDense_denseRange :
+    DenseRange (fourierTransformDense) := by
   classical
-  -- Frequency-side Gaussian cutoff applied to w
-  set wR : ℝ → ℝ → ℂ :=
-    fun R ξ => (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ
-
-  -- We will ultimately deduce pointwise convergence from L²–convergence of the
-  -- inverse Fourier transforms of `wR R` towards that of `w`.
-  -- The detailed L² theory is developed in the Fourier–Plancherel L² files.
-
-  -- Step 1 (skeleton): L²–convergence on the frequency side under Gaussian cutoffs.
-  have h_freq_L2 :
-      Filter.Tendsto (fun R : ℝ =>
-        eLpNorm (fun ξ : ℝ => wR R ξ - w ξ) 2 (volume : Measure ℝ))
-        Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
-    -- Reduce to the standalone L² convergence lemma for Gaussian frequency cutoffs.
-    -- It states that the Gaussian-modified functions `ξ ↦ GR_R(ξ) · w ξ` converge
-    -- to `w` in L² as `R → ∞`.
-    simpa [wR] using gaussian_frequency_cutoff_tendsto_L2 (w := w) hw
-
-  -- Step 2 (skeleton): transfer L² convergence on the frequency side to L²
-  -- convergence of the inverse Fourier transforms on the time side.
-  have h_time_L2 :
-      Filter.Tendsto (fun R : ℝ =>
-        ENNReal.toReal
-          (eLpNorm (fun t : ℝ =>
-              Real.fourierIntegralInv (fun ξ : ℝ => wR R ξ) t
-                - Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) 2
-            (volume : Measure ℝ)))
-        Filter.atTop (𝓝 (0 : ℝ)) := by
-    -- This is the L²–continuity (isometry) of the inverse Fourier transform
-    -- on the closure of the Schwartz range. Its full proof lives in the
-    -- Fourier–Plancherel L² core files.
-    sorry
-
-  -- Step 3 (skeleton): from L² convergence, deduce pointwise a.e. convergence
-  -- of the inverse transforms for almost every time variable t.
-  have h_pointwise_ae :
-      ∀ᵐ t : ℝ,
-        Filter.Tendsto (fun R : ℝ =>
-          Real.fourierIntegralInv (fun ξ : ℝ => wR R ξ) t)
-          Filter.atTop
-          (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t)) := by
-    -- Use completeness of L² together with a standard diagonal / subsequence
-    -- argument: L² convergence implies existence of a subsequence converging
-    -- almost everywhere, and uniqueness of limits up to a.e. equality yields
-    -- the desired a.e. convergence along the full net {R → ∞}.
-    -- The technical details are carried out in the Fourier–Plancherel L² core.
-    sorry
-
-  -- Step 4: this is exactly the desired statement (after unfolding wR).
-  simpa [wR] using h_pointwise_ae
-
-/-- Pointwise a.e. convergence of the time-side pairing integrand under Gaussian cutoffs
-(signature only).
-
-For `w ∈ L²` and Schwartz `φ`, the functions
-`t ↦ invF(GR_R · w)(t) · conj(φ t)` converge pointwise almost everywhere as
-`R → ∞` to `t ↦ invF(w)(t) · conj(φ t)`. Here `GR_R(ξ) = exp(-π (ξ/R)^2)` is the
-Gaussian frequency cutoff. -/
-lemma gaussian_time_pairing_pointwise
-    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
-    ∀ᵐ t : ℝ,
-      Filter.Tendsto (fun R : ℝ =>
-        Real.fourierIntegralInv (fun ξ : ℝ =>
-            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
-          * (conj (φ t)))
-        Filter.atTop
-        (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t * (conj (φ t)))) := by
-  classical
-  set wR : ℝ → ℝ → ℂ :=
-    fun R ξ => (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ
-  have h_inv_tendsto :
-      ∀ᵐ t : ℝ,
-        Filter.Tendsto (fun R : ℝ =>
-          Real.fourierIntegralInv (fun ξ : ℝ => wR R ξ) t)
-          Filter.atTop
-          (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t)) := by
-    -- Reduce to the standalone inverse Fourier cutoff lemma.
-    simpa [wR] using gaussian_inverseFourier_cutoff_pointwise (w := w) hw
-  have h_mul :
-      ∀ᵐ t : ℝ,
-        Filter.Tendsto (fun R : ℝ =>
-          Real.fourierIntegralInv (fun ξ : ℝ => wR R ξ) t * (conj (φ t)))
-          Filter.atTop
-          (𝓝 (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t * (conj (φ t)))) := by
-    refine h_inv_tendsto.mono ?_
-    intro t ht
-    have h_const :
-        Filter.Tendsto (fun _ : ℝ => conj (φ t))
-          Filter.atTop (𝓝 (conj (φ t))) :=
-      tendsto_const_nhds
-    simpa using ht.mul h_const
-  simpa [wR] using h_mul
-
-/-- Measurability of the time-side pairing integrand under Gaussian frequency cutoffs
-(signature only).
-
-For `w ∈ L²` and Schwartz `φ`, the map
-`t ↦ invF(GR_R · w)(t) · conj(φ t)` is a.e. strongly measurable for every radius `R`. -/
-lemma gaussian_time_pairing_measurable
-    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
-    ∀ R : ℝ,
-      AEStronglyMeasurable (fun t : ℝ =>
-        Real.fourierIntegralInv (fun ξ : ℝ =>
-            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
-          * (conj (φ t))) volume := by
-  intro R
   sorry
 
-/-- Existence of a uniform L¹-dominating function for the time-side Gaussian pairing integrand
-(signature only).
+/-- **Signature only**: approximation of an L² frequency-side function by Fourier transforms
+of Schwartz functions.
 
-For `w ∈ L²` and Schwartz `φ`, there exists an integrable function `g` such that the
-time-side pairing integrand
-`t ↦ invF(GR_R · w)(t) · conj(φ t)` is dominated in norm by `g(t)` for all radii `R`. -/
-lemma gaussian_time_pairing_dominated
-    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
-    ∃ g : ℝ → ℝ,
-      Integrable g ∧
-      ∀ R : ℝ, ∀ᵐ t : ℝ,
-        ‖Real.fourierIntegralInv (fun ξ : ℝ =>
-            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t
-          * (conj (φ t))‖ ≤ g t := by
+Given `g ∈ L²(ℝ)` on the frequency side, there exists for every `ε > 0` a Schwartz function
+`ψ` on the time side whose Fourier transform approximates `g` in L² to accuracy `ε`.  This is
+the concrete `MemLp`/`eLpNorm` version of `fourierTransformDense_denseRange`, and will be
+used in `schwartz_fourier_dense_in_L2` (Application 層) to implement the core approximation
+step `h_schwartz_approx_core`. -/
+lemma exists_schwartz_fourier_L2_approx
+    (g : ℝ → ℂ) (hg : MemLp g 2 volume) :
+    ∀ ε > 0, ∃ ψ : SchwartzMap ℝ ℂ,
+      eLpNorm (fun ξ => g ξ - Frourio.fourierIntegral (fun t => ψ t) ξ) 2 volume
+        < ENNReal.ofReal ε := by
+  classical
   sorry
 
-/-- Dominated convergence for the time-side pairing under Gaussian frequency cutoffs
-(signature only).
+/-- Schwartz 関数の Fourier 変換による L² の密度定理。
 
-Let `w ∈ L²` and `φ` Schwartz. Then, with Gaussian cutoffs `GR(ξ) = exp(-π (ξ/R)^2)`,
-the integrals `∫ invF(GR·w)(t) · conj(φ(t)) dt` converge to
-`∫ invF(w)(t) · conj(φ(t)) dt` as `R → ∞`. -/
-lemma gaussian_time_pairing_tendsto
-    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
-    Filter.Tendsto (fun R : ℝ =>
-        ∫ t : ℝ,
-          (Real.fourierIntegralInv (fun ξ : ℝ =>
-              (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t)
-            * (conj (φ t)) ∂volume)
-      Filter.atTop
-      (𝓝 (∫ t : ℝ, (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) * (conj (φ t)) ∂volume)) := by
+任意の `w ∈ L²(ℝ, ℂ)` に対して、Schwartz 関数の Fourier 変換で
+任意の精度で L² 近似できる。
+
+この定理は `inverseFourier_isometry_on_closure` を実用的に使うために必須である。
+証明方針：
+1. L² の dense な部分集合（compact support を持つ連続関数など）から始める
+2. Fourier 変換の等長性を使って時間側での Schwartz 密度を周波数側に転送する
+3. または Mathlib の既存結果を利用する
+
+TODO: この証明を実装する（優先度：高） -/
+lemma schwartz_fourier_dense_in_L2
+    (w : ℝ → ℂ) (hw : MemLp w 2 volume) :
+    ∀ ε > 0, ∃ ψ : SchwartzMap ℝ ℂ,
+      eLpNorm (fun ξ => w ξ - Frourio.fourierIntegral (fun t => ψ t) ξ) 2 volume
+        < ENNReal.ofReal ε := by
   classical
-  -- Frequency-side Gaussian cutoff applied to w
-  set wR : ℝ → ℝ → ℂ :=
-    fun R ξ => (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ
+  intro ε hε
 
-  -- Time-side pairing integrand for each R and its limit as R → ∞
-  set T : ℝ → ℝ → ℂ :=
-    fun R t =>
-      Real.fourierIntegralInv (fun ξ : ℝ => wR R ξ) t * (conj (φ t))
-  set Tlim : ℝ → ℂ :=
-    fun t => Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t * (conj (φ t))
+  -- Step 1: approximate `w` in L² by a “core” dense subspace of
+  -- smooth, compactly supported functions (in particular, continuous
+  -- and compactly supported).
+  have h_core_approx :
+      ∃ g : ℝ → ℂ,
+        Continuous g ∧
+        HasCompactSupport g ∧
+        MemLp g 2 volume ∧
+        eLpNorm (fun ξ => w ξ - g ξ) 2 volume
+          < ENNReal.ofReal (ε / 2) := by
+    -- Use the dedicated L²-density lemma for smooth compactly supported functions.
+    have hε_half_pos : 0 < ε / 2 := half_pos hε
+    obtain ⟨g, hg_cpt, hg_smooth, hg_close⟩ :=
+      smooth_compactly_supported_dense_L2 (f_L2 := w) hw (ε := ε / 2) hε_half_pos
+    have hg_cont : Continuous g := hg_smooth.continuous
+    have hg_memLp : MemLp g 2 volume :=
+      hg_cont.memLp_of_hasCompactSupport (μ := volume) (p := (2 : ℝ≥0∞)) hg_cpt
+    refine ⟨g, hg_cont, hg_cpt, hg_memLp, ?_⟩
+    simpa [Pi.sub_def] using hg_close
+  obtain ⟨g, hg_cont, hg_cpt, hg_L2, hwg_L2⟩ := h_core_approx
 
-  -- 1. Pointwise a.e. convergence of the time-side integrand.
-  have h_pointwise :
-      ∀ᵐ t : ℝ,
-        Filter.Tendsto (fun R : ℝ => T R t)
-          Filter.atTop (𝓝 (Tlim t)) := by
-    -- Use the signature-only pointwise convergence lemma, specialized to `w` and `φ`.
-    simpa [T, Tlim, wR] using gaussian_time_pairing_pointwise (w := w) (hw := hw) φ
+  -- Step 2 (skeleton): approximate the core function `g` by Fourier transforms
+  -- of Schwartz functions on the frequency side.
+  -- Conceptually, we apply the Fourier–Plancherel isometry to move to the
+  -- time side, use Schwartz density there (e.g. `schwartz_dense_L1_L2_simultaneous`
+  -- for `n = 1`), and then come back via the isometry.
+  have h_schwartz_approx_core :
+      ∃ ψ : SchwartzMap ℝ ℂ,
+        eLpNorm (fun ξ =>
+          g ξ - Frourio.fourierIntegral (fun t => ψ t) ξ) 2 volume
+          < ENNReal.ofReal (ε / 2) := by
+    -- Use the core approximation lemma that any L² frequency-side function `g`
+    -- can be approximated in L² by Fourier transforms of Schwartz functions.
+    have h_core := exists_schwartz_fourier_L2_approx g hg_L2
+    have hε_half_pos : 0 < ε / 2 := half_pos hε
+    exact h_core (ε / 2) hε_half_pos
+  rcases h_schwartz_approx_core with ⟨ψ, hψ_core⟩
 
-  -- 2. A uniform L¹–dominating function on the time side.
-  have h_dominated :
-      ∃ g : ℝ → ℝ,
-        Integrable g ∧
-        ∀ R : ℝ, ∀ᵐ t : ℝ, ‖T R t‖ ≤ g t := by
-    -- Package the construction of such a dominating function in a separate signature-only lemma.
-    simpa [T, wR] using gaussian_time_pairing_dominated (w := w) (hw := hw) φ
+  -- Step 3 (skeleton): combine the two approximations via the triangle inequality
+  -- in L² to obtain the desired ε-approximation of `w` by `F[ψ]`.
+  have h_triangle :
+      eLpNorm (fun ξ =>
+          w ξ - Frourio.fourierIntegral (fun t => ψ t) ξ) 2 volume
+        ≤ eLpNorm (fun ξ => w ξ - g ξ) 2 volume
+            + eLpNorm (fun ξ =>
+                g ξ - Frourio.fourierIntegral (fun t => ψ t) ξ) 2 volume := by
+    -- Apply the L² triangle inequality in the form `eLpNorm_add_le`
+    -- to the decomposition `w - F[ψ] = (w - g) + (g - F[ψ])`.
+    have h_meas_w : AEStronglyMeasurable w volume := hw.aestronglyMeasurable
+    have h_meas_g : AEStronglyMeasurable g volume := hg_L2.aestronglyMeasurable
+    have h_mem_F :
+        MemLp (fun ξ : ℝ =>
+          Frourio.fourierIntegral (fun t : ℝ => ψ t) ξ) 2 volume :=
+      fourierIntegral_memLp_of_schwartz ψ
+    have h_meas_F :
+        AEStronglyMeasurable (fun ξ : ℝ =>
+          Frourio.fourierIntegral (fun t : ℝ => ψ t) ξ) volume :=
+      h_mem_F.aestronglyMeasurable
 
-  obtain ⟨g, hg_int, h_bound_all⟩ := h_dominated
+    have h_meas1 :
+        AEStronglyMeasurable (fun ξ : ℝ => w ξ - g ξ) volume :=
+      h_meas_w.sub h_meas_g
+    have h_meas2 :
+        AEStronglyMeasurable
+          (fun ξ : ℝ =>
+            g ξ - Frourio.fourierIntegral (fun t : ℝ => ψ t) ξ) volume :=
+      h_meas_g.sub h_meas_F
 
-  -- 3. Measurability of each time-side integrand T R.
-  have h_meas_T :
-      ∀ R : ℝ,
-        AEStronglyMeasurable (fun t : ℝ => T R t) volume := by
-    intro R
-    -- Use the signature-only measurability lemma for the Gaussian pairing integrand.
-    simpa [T, wR] using gaussian_time_pairing_measurable (w := w) (hw := hw) φ R
+    have h_eq :
+        (fun ξ : ℝ =>
+          w ξ - Frourio.fourierIntegral (fun t : ℝ => ψ t) ξ)
+          = fun ξ : ℝ =>
+              (w ξ - g ξ)
+                + (g ξ - Frourio.fourierIntegral (fun t : ℝ => ψ t) ξ) := by
+      funext ξ
+      simp [sub_eq_add_neg, add_comm, add_left_comm, add_assoc]
 
-  -- 4. Apply dominated convergence on the time side with parameter R : ℝ.
-  have h_tendsto :
-      Filter.Tendsto (fun R : ℝ => ∫ t : ℝ, T R t ∂volume)
-        Filter.atTop (𝓝 (∫ t : ℝ, Tlim t ∂volume)) :=
-    Frourio.MeasureTheory.tendsto_integral_of_dominated_convergence_atTop_real
-      (f := fun R t => T R t)
-      (flim := Tlim)
-      (g := g)
-      h_meas_T
-      hg_int
-      h_bound_all
-      h_pointwise
+    have h :=
+      eLpNorm_add_le (μ := volume) (p := (2 : ℝ≥0∞))
+        (f := fun ξ : ℝ => w ξ - g ξ)
+        (g := fun ξ : ℝ =>
+          g ξ - Frourio.fourierIntegral (fun t : ℝ => ψ t) ξ)
+        h_meas1 h_meas2 (show (1 : ℝ≥0∞) ≤ (2 : ℝ≥0∞) by norm_num)
+    simpa [h_eq] using h
 
-  -- 5. Unfold the definitions of T, Tlim, and wR in the statement.
-  simpa [T, Tlim, wR] using h_tendsto
+  -- Step 4 (skeleton): numerically bound the right-hand side by ε using the
+  -- two < ε/2 estimates and the positivity of ε.
+  have h_sum_lt :
+      eLpNorm (fun ξ => w ξ - g ξ) 2 volume
+        + eLpNorm (fun ξ =>
+            g ξ - Frourio.fourierIntegral (fun t => ψ t) ξ) 2 volume
+          < ENNReal.ofReal ε := by
+    -- Use `hwg_L2` and `hψ_core`, together with
+    -- `ENNReal.ofReal (ε / 2) + ENNReal.ofReal (ε / 2) = ENNReal.ofReal ε`.
+    have h_half_nonneg : 0 ≤ ε / 2 := (half_pos hε).le
+    have h_half_sum :
+        ENNReal.ofReal (ε / 2) + ENNReal.ofReal (ε / 2)
+          = ENNReal.ofReal ε := by
+      have h_eq : ε / 2 + ε / 2 = ε := by ring
+      simpa [h_eq] using
+        (ENNReal.ofReal_add h_half_nonneg h_half_nonneg).symm
 
--- Helper lemmas to support the pairing identity for inverse Fourier.
--- First, collect the helper lemmas used in the Gaussian cutoff proof.
+    have h_lt_half_sum :
+        eLpNorm (fun ξ => w ξ - g ξ) 2 volume
+            + eLpNorm (fun ξ =>
+                g ξ - Frourio.fourierIntegral (fun t => ψ t) ξ) 2 volume
+          < ENNReal.ofReal (ε / 2) + ENNReal.ofReal (ε / 2) :=
+      ENNReal.add_lt_add hwg_L2 hψ_core
 
--- Pairing identity for integrable frequency-side functions.
--- moved earlier
+    have h_le_sum :
+        ENNReal.ofReal (ε / 2) + ENNReal.ofReal (ε / 2)
+          ≤ ENNReal.ofReal ε :=
+      le_of_eq h_half_sum
 
--- Gaussian L² membership on the frequency side.
--- moved earlier
+    exact lt_of_lt_of_le h_lt_half_sum h_le_sum
 
--- Integrability of Gaussian cutoff times an L² function.
--- moved earlier
+  -- Final step: choose this ψ and close the ε-estimate.
+  refine ⟨ψ, ?_⟩
+  -- The desired bound follows from `h_triangle` and `h_sum_lt`.
+  -- One applies `lt_of_le_of_lt h_triangle h_sum_lt`.
+  exact lt_of_le_of_lt h_triangle h_sum_lt
 
--- Dominated convergence for Gaussian cutoffs in the Fourier-side pairing.
--- moved earlier
+/-- Gaussian cutoff された L² 関数の Schwartz 近似可能性。
 
--- Dominated convergence for the time-side pairing under Gaussian frequency cutoffs
--- moved earlier
+`w ∈ L²` に対して、Gaussian cutoff された関数
+`wR ξ = exp(-π(ξ/R)²) · w ξ` は Schwartz 関数の Fourier 変換で近似可能である。
 
-/-- Duality identity: pairing of the inverse Fourier integral of an L² function with a
-Schwartz test function equals the pairing of the function with the Fourier transform of
-the test function. Implemented via Gaussian cutoff approximation and pairing continuity.
--/
-lemma inverseFourier_pairing_schwartz
-    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
-    ∫ t : ℝ, (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) * (conj (φ t)) ∂volume
-      = ∫ ξ : ℝ, (w ξ) * (conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ)) ∂volume := by
+これは `inverseFourier_isometry_on_closure` を Gaussian cutoff に適用するために必要。 -/
+lemma gaussian_cutoff_schwartz_approx
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (R : ℝ) :
+    ∀ ε > 0, ∃ ψ : SchwartzMap ℝ ℂ,
+      eLpNorm (fun ξ =>
+        (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ
+          - Frourio.fourierIntegral (fun t => ψ t) ξ) 2 volume
+        < ENNReal.ofReal ε := by
   classical
-  -- Use Gaussian cutoffs on the frequency side: GR_R(ξ) = exp(-π (ξ/R)^2)
-  let Rseq : ℕ → ℝ := fun n => (n : ℝ) + 1
-  have hRseq_pos : ∀ n, 0 < Rseq n := by
-    intro n; have : 0 < (n + 1 : ℝ) := by exact_mod_cast Nat.succ_pos n
-    simpa [Rseq] using this
+  intro ε hε
 
-  -- Define cutoff-modified frequency functions
-  let fR : ℕ → ℝ → ℂ := fun n ξ => (Real.exp (-(Real.pi) * (ξ / Rseq n)^2) : ℂ) * w ξ
+  -- Frequency-side Gaussian cutoff applied to w.
+  set wR : ℝ → ℂ :=
+    fun ξ => (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ
 
-  -- Each cutoff fR n is integrable: use L² × L² → L¹ with Gaussian in L²
-  have hfR_L1 : ∀ n, Integrable (fR n) := by
-    intro n
-    simpa [fR] using integrable_gaussian_mul_L2 (w := w) hw (R := Rseq n) (hR := hRseq_pos n)
+  -- Step 1 (skeleton): show that the cutoff `wR` still belongs to L².
+  have h_mem_wR : MemLp wR 2 volume := by
+    -- Measurability of `w`.
+    have h_meas_w : AEStronglyMeasurable w volume := hw.aestronglyMeasurable
 
-  -- For each n, apply the L¹ pairing lemma to fR n
-  have h_pair_n : ∀ n,
-      ∫ t : ℝ,
-        (Real.fourierIntegralInv (fun ξ : ℝ => fR n ξ) t) * (conj (φ t)) ∂volume
-        = ∫ ξ : ℝ, (fR n ξ) *
-            (conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ)) ∂volume := by
-    intro n; exact inverseFourier_pairing_schwartz_L1 (f := fR n) (hf := hfR_L1 n) φ
+    -- The Gaussian factor is continuous hence a.e. strongly measurable.
+    have h_meas_gauss :
+        AEStronglyMeasurable
+          (fun ξ : ℝ =>
+            (Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ)) volume := by
+      -- Continuity of ξ ↦ ξ / R.
+      have h_cont_div : Continuous fun ξ : ℝ => ξ / R := by
+        have h_eq :
+            (fun ξ : ℝ => ξ / R) = fun ξ : ℝ => ξ * (1 / R) := by
+          funext ξ; simp [div_eq_mul_inv]
+        simpa [h_eq] using
+          (continuous_id.mul continuous_const :
+            Continuous fun ξ : ℝ => ξ * (1 / R))
+      -- Continuity of the real Gaussian factor.
+      have h_cont_real :
+          Continuous fun ξ : ℝ =>
+            Real.exp (-(Real.pi) * (ξ / R) ^ 2) :=
+        Real.continuous_exp.comp
+          (continuous_const.mul (h_cont_div.pow 2))
+      -- Lift to ℂ and conclude a.e. strong measurability.
+      have h_cont_complex :
+          Continuous fun ξ : ℝ =>
+            (Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ) :=
+        Complex.continuous_ofReal.comp h_cont_real
+      exact h_cont_complex.aestronglyMeasurable
 
-  -- Right-hand side tends to the desired frequency-side pairing as R → ∞
-  have h_rhs_tendsto_R : Filter.Tendsto (fun R : ℝ =>
-      ∫ ξ : ℝ, (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ
-            * (conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ)) ∂volume)
-      Filter.atTop
-      (𝓝 (∫ ξ : ℝ, (w ξ) * (conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ)) ∂volume)) :=
-    gaussian_pairing_tendsto hw φ
+    -- Hence `wR` is a.e. strongly measurable.
+    have h_meas_wR : AEStronglyMeasurable wR volume := by
+      have h_meas_prod :
+          AEStronglyMeasurable
+            (fun ξ : ℝ =>
+              (Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ) * w ξ) volume :=
+        h_meas_gauss.mul h_meas_w
+      simpa [wR] using h_meas_prod
 
-  -- Precompose with Rseq n = n+1 to obtain a tendsto along ℕ → atTop
-  have h_rhs_tendsto_nat : Filter.Tendsto (fun n : ℕ =>
-      ∫ ξ : ℝ, (Real.exp (-(Real.pi) * (ξ / Rseq n)^2) : ℂ) * w ξ
-            * (conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ)) ∂volume)
-      Filter.atTop
-      (𝓝 (∫ ξ : ℝ, (w ξ) * (conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ)) ∂volume)) := by
-    -- Rseq tends to +∞ in ℝ as n → ∞
-    have hR_tendsto : Filter.Tendsto Rseq Filter.atTop Filter.atTop := by
-      -- atTop_add used previously; reuse that pattern
-      apply Filter.Tendsto.atTop_add
-      · exact tendsto_natCast_atTop_atTop
-      · exact tendsto_const_nhds
-    exact h_rhs_tendsto_R.comp hR_tendsto
+    -- Pointwise bound ‖wR ξ‖ ≤ ‖w ξ‖ via ‖Gaussian‖ ≤ 1.
+    have h_pointwise_le :
+        ∀ ξ : ℝ, ‖wR ξ‖ ≤ ‖w ξ‖ := by
+      intro ξ
+      -- Bound the Gaussian factor.
+      have h_norm_gauss_le_one :
+          ‖(Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ)‖ ≤ 1 := by
+        have h_nonpos :
+            -(Real.pi) * (ξ / R) ^ 2 ≤ 0 := by
+          have h1 : -Real.pi ≤ (0 : ℝ) :=
+            neg_nonpos.mpr (le_of_lt Real.pi_pos)
+          have h2 : (0 : ℝ) ≤ (ξ / R) ^ 2 := sq_nonneg _
+          exact mul_nonpos_of_nonpos_of_nonneg h1 h2
+        have h_le_one :
+            Real.exp (-(Real.pi) * (ξ / R) ^ 2) ≤ 1 := by
+          have := (Real.exp_le_one_iff).2 h_nonpos
+          simpa using this
+        have h_nonneg_exp :
+            0 ≤ Real.exp (-(Real.pi) * (ξ / R) ^ 2) :=
+          Real.exp_nonneg _
+        have h_norm_real :
+            ‖(Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ)‖
+              = Real.exp (-(Real.pi) * (ξ / R) ^ 2) := by
+          rw [Complex.norm_real]
+          exact abs_of_nonneg h_nonneg_exp
+        calc
+          ‖(Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ)‖
+              = Real.exp (-(Real.pi) * (ξ / R) ^ 2) := h_norm_real
+          _ ≤ 1 := h_le_one
+      -- Use the bound to control the product.
+      have hmul :
+          ‖wR ξ‖
+            = ‖(Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ)‖ * ‖w ξ‖ := by
+        simp [wR, norm_mul]
+      calc
+        ‖wR ξ‖
+            = ‖(Real.exp (-(Real.pi) * (ξ / R) ^ 2) : ℂ)‖ * ‖w ξ‖ := hmul
+        _ ≤ 1 * ‖w ξ‖ := by
+              have := mul_le_mul_of_nonneg_right
+                h_norm_gauss_le_one (norm_nonneg (w ξ))
+              simpa [one_mul] using this
+        _ = ‖w ξ‖ := by simp [one_mul]
 
-  -- Left-hand side tends to the desired time-side pairing as R → ∞ (signature)
-  have h_lhs_tendsto_R : Filter.Tendsto (fun R : ℝ =>
-      ∫ t : ℝ,
-        (Real.fourierIntegralInv (fun ξ : ℝ =>
-            (Real.exp (-(Real.pi) * (ξ / R)^2) : ℂ) * w ξ) t)
-          * (conj (φ t)) ∂volume)
-      Filter.atTop
-      (𝓝 (∫ t : ℝ, (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) * (conj (φ t)) ∂volume)) :=
-    gaussian_time_pairing_tendsto hw φ
+    -- Use monotonicity of the L² norm under pointwise domination.
+    have h_L2_le :
+        eLpNorm wR 2 volume
+          ≤ eLpNorm w 2 volume := by
+      refine eLpNorm_mono ?_
+      intro ξ
+      exact h_pointwise_le ξ
 
-  have h_lhs_tendsto_nat : Filter.Tendsto (fun n : ℕ =>
-      ∫ t : ℝ,
-        (Real.fourierIntegralInv (fun ξ : ℝ => fR n ξ) t)
-          * (conj (φ t)) ∂volume)
-      Filter.atTop
-      (𝓝 (∫ t : ℝ, (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) * (conj (φ t)) ∂volume)) := by
-    -- Compose with Rseq as above
-    have hR_tendsto : Filter.Tendsto Rseq Filter.atTop Filter.atTop := by
-      apply Filter.Tendsto.atTop_add
-      · exact tendsto_natCast_atTop_atTop
-      · exact tendsto_const_nhds
-    exact h_lhs_tendsto_R.comp hR_tendsto
+    -- `w ∈ L²` implies `eLpNorm w 2 < ∞`, hence also for `wR`.
+    have hw_fin : eLpNorm w 2 volume < ∞ := hw.2
+    have hwR_fin :
+        eLpNorm wR 2 volume < ∞ :=
+      lt_of_le_of_lt h_L2_le hw_fin
+    exact ⟨h_meas_wR, hwR_fin⟩
 
-  -- Since for each n the two sides are equal (h_pair_n), their limits must also be equal
-  have h_seq_eq : Filter.Tendsto (fun n : ℕ =>
-      ∫ t : ℝ,
-        (Real.fourierIntegralInv (fun ξ : ℝ => fR n ξ) t)
-          * (conj (φ t)) ∂volume)
-      Filter.atTop
-      (𝓝 (∫ ξ : ℝ, (w ξ) * (conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ)) ∂volume)) := by
-    -- Replace using h_pair_n pointwise equality of sequences
-    refine h_rhs_tendsto_nat.congr' ?_
-    exact Filter.Eventually.of_forall (fun n => (h_pair_n n).symm)
+  -- Step 2: apply the global Schwartz density theorem to `wR`.
+  obtain ⟨ψ, hψ_approx⟩ :=
+    schwartz_fourier_dense_in_L2 (w := wR) h_mem_wR ε hε
 
-  -- Uniqueness of limits in a Hausdorff space gives the desired equality
-  exact tendsto_nhds_unique h_lhs_tendsto_nat h_seq_eq
+  -- Step 3: rewrite in terms of the original expression.
+  refine ⟨ψ, ?_⟩
+  simpa [wR] using hψ_approx
 
 /-- Schwartz density in L²: every L² function can be approximated in L²
 by Schwartz functions. -/
@@ -1648,6 +1626,342 @@ lemma pairing_tendsto_L2_left
     simpa [h_lim_eq] using h_tendsto_inner'
 
   exact h_tendsto_integral
+
+/-- L² continuity of the inverse Fourier transform for `L¹ ∩ L²` frequency-side data
+(signature only).
+
+If `(fn n)` is a sequence of functions that are both integrable and in `L²`, and
+`fn n → w` in `L²` on the frequency side, then the inverse Fourier integrals
+`invF(fn n)` converge to `invF(w)` in `L²` on the time side.
+
+This lemma is intended to be proved in the core Fourier–Plancherel development
+using the operator-theoretic construction of the inverse transform, without
+using Gaussian cutoffs or the pairing identity from the application layer. -/
+lemma inverseFourier_tendsto_L2_L1_L2
+    {fn : ℕ → ℝ → ℂ} {w : ℝ → ℂ}
+    (hfn_L1 : ∀ n, Integrable (fn n) volume)
+    (hfn_L2 : ∀ n, MemLp (fn n) 2 volume)
+    (hw_L2 : MemLp w 2 volume)
+    (h_tendsto : Filter.Tendsto
+      (fun n => eLpNorm (fun ξ => fn n ξ - w ξ) 2 volume)
+      Filter.atTop (𝓝 (0 : ℝ≥0∞))) :
+    Filter.Tendsto (fun n =>
+      eLpNorm (fun t =>
+        Real.fourierIntegralInv (fun ξ => fn n ξ) t
+          - Real.fourierIntegralInv (fun ξ => w ξ) t) 2 volume)
+      Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+  -- Proof to be supplied in the core L² theory.
+  -- It should proceed by approximating both `fn n` and `w` by Fourier transforms
+  -- of Schwartz functions and applying the L² isometry for the inverse transform.
+  sorry
+
+/-- L² membership of the inverse Fourier transform for `L¹ ∩ L²` data (signature only).
+
+If `f ∈ L¹ ∩ L²`, then its inverse Fourier integral belongs to `L²`.  The proof is
+part of the core Fourier–Plancherel theory and is deferred. -/
+lemma inverseFourierIntegral_memLp_L1_L2
+    {f : ℝ → ℂ} (hf_L1 : Integrable f) (hf_L2 : MemLp f 2 volume) :
+    MemLp (fun t : ℝ => Real.fourierIntegralInv (fun ξ : ℝ => f ξ) t) 2 volume := by
+  classical
+  -- Proof deferred to the core Plancherel development.
+  sorry
+
+/-- L² membership of the inverse Fourier transform for general L² frequency-side data
+(signature only).
+
+If `w ∈ L²`, then its inverse Fourier integral also belongs to `L²`.  This is a
+consequence of the extension of the inverse transform as an L² isometry on the
+closure of the Schwartz range and can be proved using Schwartz approximation. -/
+lemma inverseFourierIntegral_memLp_L2
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) :
+    MemLp (fun t : ℝ => Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) 2 volume := by
+  classical
+  -- Proof deferred; it can be obtained, for example, from
+  -- `inverseFourierIntegral_memLp_of_schwartz_approx` together with
+  -- `schwartz_fourier_dense_in_L2`.
+  sorry
+
+-- Helper lemmas to support the pairing identity for inverse Fourier.
+-- First, collect the helper lemmas used in the Gaussian cutoff proof.
+
+-- Pairing identity for integrable frequency-side functions.
+-- moved earlier
+
+-- Gaussian L² membership on the frequency side.
+-- moved earlier
+
+-- Integrability of Gaussian cutoff times an L² function.
+-- moved earlier
+
+-- Dominated convergence for Gaussian cutoffs in the Fourier-side pairing.
+-- moved earlier
+
+-- Dominated convergence for the time-side pairing under Gaussian frequency cutoffs
+-- moved earlier
+
+/-- Duality identity: pairing of the inverse Fourier integral of an L² function with a
+Schwartz test function equals the pairing of the function with the Fourier transform of
+the test function. Implemented via Gaussian cutoff approximation and pairing continuity.
+-/
+lemma inverseFourier_pairing_schwartz
+    {w : ℝ → ℂ} (hw : MemLp w 2 volume) (φ : SchwartzMap ℝ ℂ) :
+    ∫ t : ℝ, (Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) * (conj (φ t)) ∂volume
+      = ∫ ξ : ℝ, (w ξ) * (conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ)) ∂volume := by
+  classical
+  -- Step 0: basic data.
+  -- Schwartz test functions are in L².
+  have hφ_L2 : MemLp (fun t : ℝ => φ t) 2 volume :=
+    SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)
+
+  -- Step 1 (skeleton): approximate `w` in L² by integrable L¹∩L² functions.
+  -- We obtain a sequence `(fn n)` with:
+  --  • each `fn n` integrable and in L²,
+  --  • `fn n → w` in L² as n → ∞.
+  have h_approx :
+      ∃ fn : ℕ → ℝ → ℂ,
+        (∀ n, Integrable (fn n) volume) ∧
+        (∀ n, MemLp (fn n) 2 volume) ∧
+        Filter.Tendsto (fun n =>
+          eLpNorm (fun ξ : ℝ => w ξ - fn n ξ) 2 volume)
+          Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+    -- Use the smooth, compactly supported L² approximation sequence from Core0.
+    obtain ⟨ψ, hψ_support, hψ_smooth, hψ_tendsto⟩ :=
+      smooth_compactly_supported_dense_L2_sequence (f := w) hw
+    -- Define fn n := ψ n.
+    refine ⟨ψ, ?_, ?_, ?_⟩
+    · -- Each ψ n is integrable by continuity and compact support.
+      intro n
+      have hcont : Continuous (ψ n) := (hψ_smooth n).continuous
+      exact hcont.integrable_of_hasCompactSupport (hψ_support n)
+    · -- Each ψ n lies in L² by the same reasoning.
+      intro n
+      have hcont : Continuous (ψ n) := (hψ_smooth n).continuous
+      exact
+        hcont.memLp_of_hasCompactSupport (μ := volume) (p := (2 : ℝ≥0∞))
+          (hψ_support n)
+    · -- L² convergence of ψ n to w is provided by the core lemma.
+      exact hψ_tendsto
+  obtain ⟨fn, hfn_L1, hfn_L2, hfn_tendsto_L2⟩ := h_approx
+
+  -- Step 2: for each approximant `fn n`, apply the L¹ pairing lemma.
+  -- Since `fn n` is integrable, the inverse Fourier pairing identity holds.
+  have h_pair_n : ∀ n : ℕ,
+      ∫ t : ℝ,
+          Real.fourierIntegralInv (fun ξ : ℝ => fn n ξ) t * conj (φ t) ∂volume
+        = ∫ ξ : ℝ,
+          fn n ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume := by
+    intro n
+    exact inverseFourier_pairing_schwartz_L1 (f := fn n) (hf := hfn_L1 n) φ
+
+  -- Step 3 (frequency side, skeleton): show that the right-hand side converges
+  -- to the desired frequency-side pairing as `n → ∞`.
+  have h_freq_tendsto :
+      Filter.Tendsto (fun n : ℕ =>
+          ∫ ξ : ℝ,
+            fn n ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)
+        Filter.atTop
+        (𝓝 (∫ ξ : ℝ,
+          w ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)) := by
+    -- Apply the generic L² pairing continuity lemma on the frequency side with
+    -- test function given by the Fourier transform of φ.
+    have h_base :
+        Filter.Tendsto (fun n : ℕ =>
+            ∫ ξ : ℝ,
+              fn n ξ * conj ((fourierAsSchwartzFunction φ) ξ) ∂volume)
+          Filter.atTop
+          (𝓝 (∫ ξ : ℝ,
+            w ξ * conj ((fourierAsSchwartzFunction φ) ξ) ∂volume)) :=
+      pairing_tendsto_L2_left
+        (fn := fn) (f := w)
+        (hfn_L2 := hfn_L2) (hf_L2 := hw)
+        (φ := fourierAsSchwartzFunction φ)
+        (hf_tendsto := hfn_tendsto_L2)
+
+    -- Identify `fourierAsSchwartzFunction φ` with the explicit Fourier integral.
+    have h_coe :
+        (fun ξ : ℝ => (fourierAsSchwartzFunction φ) ξ)
+          = fun ξ : ℝ =>
+              Frourio.fourierIntegral (fun t : ℝ => φ t) ξ := by
+      funext ξ
+      simpa [fourierAsSchwartzFunction]
+        using
+          (Schwartz.fourierIntegral_eq_fourierTransform (f := φ) (ξ := ξ)).symm
+
+    -- Rewrite both the approximating pairings and the limit in terms of F[φ].
+    have h_int_eq_n :
+        (fun n : ℕ =>
+          ∫ ξ : ℝ,
+            fn n ξ * conj ((fourierAsSchwartzFunction φ) ξ) ∂volume)
+          =
+        fun n : ℕ =>
+          ∫ ξ : ℝ,
+            fn n ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume := by
+      funext n
+      have h_integrand :
+          (fun ξ : ℝ =>
+            fn n ξ * conj ((fourierAsSchwartzFunction φ) ξ))
+            =
+          fun ξ : ℝ =>
+            fn n ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) := by
+        funext ξ; simp [h_coe]
+      simp [h_integrand]
+
+    have h_int_eq_lim :
+        ∫ ξ : ℝ,
+            w ξ * conj ((fourierAsSchwartzFunction φ) ξ) ∂volume
+          =
+        ∫ ξ : ℝ,
+            w ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume := by
+      have h_integrand :
+          (fun ξ : ℝ =>
+            w ξ * conj ((fourierAsSchwartzFunction φ) ξ))
+            =
+          fun ξ : ℝ =>
+            w ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) := by
+        funext ξ; simp [h_coe]
+      simp [h_integrand]
+
+    -- Transfer the convergence statement through these identifications.
+    have h_base' :
+        Filter.Tendsto (fun n : ℕ =>
+            ∫ ξ : ℝ,
+              fn n ξ * conj ((fourierAsSchwartzFunction φ) ξ) ∂volume)
+          Filter.atTop
+          (𝓝 (∫ ξ : ℝ,
+            w ξ * conj ((fourierAsSchwartzFunction φ) ξ) ∂volume)) :=
+      h_base
+    simpa [h_int_eq_n, h_int_eq_lim] using h_base'
+
+  -- Step 4 (time side, skeleton): show that the left-hand side converges to the
+  -- desired time-side pairing as `n → ∞`.
+  have h_time_tendsto :
+      Filter.Tendsto (fun n : ℕ =>
+          ∫ t : ℝ,
+            Real.fourierIntegralInv (fun ξ : ℝ => fn n ξ) t * conj (φ t) ∂volume)
+        Filter.atTop
+        (𝓝 (∫ t : ℝ,
+          Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t * conj (φ t) ∂volume)) := by
+    -- Use the core L² continuity of the inverse Fourier transform to upgrade
+    -- frequency-side L² convergence `fn n → w` to time-side L² convergence
+    -- `invF(fn n) → invF(w)`.
+    have h_time_L2 :
+        Filter.Tendsto (fun n =>
+            eLpNorm (fun t =>
+              Real.fourierIntegralInv (fun ξ => fn n ξ) t
+                - Real.fourierIntegralInv (fun ξ => w ξ) t) 2 volume)
+          Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+      -- Convert from `w - fn n` to `fn n - w` order
+      -- Use the fact that ‖f - g‖₂ = ‖g - f‖₂
+      have h_tendsto_swap : Filter.Tendsto (fun n =>
+          eLpNorm (fun ξ => fn n ξ - w ξ) 2 volume)
+          Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+        have h_norm_symm : ∀ n, eLpNorm (fun ξ => fn n ξ - w ξ) 2 volume
+            = eLpNorm (fun ξ => w ξ - fn n ξ) 2 volume := by
+          intro n
+          have h_neg : (fun ξ => fn n ξ - w ξ) = -(fun ξ => w ξ - fn n ξ) := by
+            ext ξ; simp [Pi.neg_apply]
+          rw [h_neg, eLpNorm_neg]
+        simp_rw [h_norm_symm]
+        exact hfn_tendsto_L2
+      exact inverseFourier_tendsto_L2_L1_L2
+        (fn := fn) (w := w)
+        (hfn_L1 := hfn_L1) (hfn_L2 := hfn_L2)
+        (hw_L2 := hw) (h_tendsto := h_tendsto_swap)
+
+    -- L² membership of the time-side inverse transforms.
+    have h_inv_fn_L2 :
+        ∀ n, MemLp (fun t : ℝ =>
+          Real.fourierIntegralInv (fun ξ : ℝ => fn n ξ) t) 2 volume :=
+      fun n =>
+        inverseFourierIntegral_memLp_L1_L2 (hf_L1 := hfn_L1 n) (hf_L2 := hfn_L2 n)
+
+    have h_inv_w_L2 :
+        MemLp (fun t : ℝ =>
+          Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t) 2 volume :=
+      inverseFourierIntegral_memLp_L2 (hw := hw)
+
+    -- Convert h_time_L2 to the order expected by pairing_tendsto_L2_left
+    have h_time_L2_swap : Filter.Tendsto (fun n =>
+          eLpNorm (fun t =>
+            Real.fourierIntegralInv (fun ξ => w ξ) t
+              - Real.fourierIntegralInv (fun ξ => fn n ξ) t) 2 volume)
+        Filter.atTop (𝓝 (0 : ℝ≥0∞)) := by
+      have h_norm_symm : ∀ n, eLpNorm (fun t =>
+            Real.fourierIntegralInv (fun ξ => w ξ) t
+              - Real.fourierIntegralInv (fun ξ => fn n ξ) t) 2 volume
+          = eLpNorm (fun t =>
+            Real.fourierIntegralInv (fun ξ => fn n ξ) t
+              - Real.fourierIntegralInv (fun ξ => w ξ) t) 2 volume := by
+        intro n
+        have h_neg : (fun t => Real.fourierIntegralInv (fun ξ => w ξ) t
+              - Real.fourierIntegralInv (fun ξ => fn n ξ) t)
+            = -(fun t => Real.fourierIntegralInv (fun ξ => fn n ξ) t
+              - Real.fourierIntegralInv (fun ξ => w ξ) t) := by
+          ext t; simp [Pi.neg_apply]
+        rw [h_neg, eLpNorm_neg]
+      simp_rw [h_norm_symm]
+      exact h_time_L2
+
+    -- Apply the generic L² pairing continuity lemma on the time side with test
+    -- function φ.
+    exact
+      pairing_tendsto_L2_left
+        (fn := fun n t =>
+          Real.fourierIntegralInv (fun ξ : ℝ => fn n ξ) t)
+        (f := fun t =>
+          Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t)
+        (hfn_L2 := h_inv_fn_L2)
+        (hf_L2 := h_inv_w_L2)
+        (φ := φ)
+        (hf_tendsto := h_time_L2_swap)
+
+  -- Step 5: identify the limits using the pointwise pairing identity for each n.
+  have h_seq_freq :
+      Filter.Tendsto (fun n : ℕ =>
+          ∫ ξ : ℝ,
+            fn n ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)
+        Filter.atTop
+        (𝓝 (∫ ξ : ℝ,
+          w ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)) :=
+    h_freq_tendsto
+
+  have h_seq_time :
+      Filter.Tendsto (fun n : ℕ =>
+          ∫ t : ℝ,
+            Real.fourierIntegralInv (fun ξ : ℝ => fn n ξ) t * conj (φ t) ∂volume)
+        Filter.atTop
+        (𝓝 (∫ t : ℝ,
+          Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t * conj (φ t) ∂volume)) :=
+    h_time_tendsto
+
+  -- The two sequences are equal termwise by `h_pair_n`, hence their limits coincide.
+  have h_limits_equal :
+      ∫ t : ℝ,
+          Real.fourierIntegralInv (fun ξ : ℝ => w ξ) t * conj (φ t) ∂volume
+        = ∫ ξ : ℝ,
+          w ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume := by
+    -- Use uniqueness of limits in a Hausdorff space: the two pairings are the
+    -- limits of the same sequence indexed by `n`, given pointwise by `h_pair_n`.
+    -- First, rewrite the frequency-side convergence as convergence of the
+    -- time-side sequence using the pointwise identities.
+    have h_seq_freq_as_time :
+        Filter.Tendsto (fun n : ℕ =>
+            ∫ t : ℝ,
+              Real.fourierIntegralInv (fun ξ : ℝ => fn n ξ) t * conj (φ t) ∂volume)
+          Filter.atTop
+          (𝓝 (∫ ξ : ℝ,
+            w ξ * conj (Frourio.fourierIntegral (fun t : ℝ => φ t) ξ) ∂volume)) := by
+      -- For each n, the time- and frequency-side pairings agree by `h_pair_n`.
+      exact
+        h_seq_freq.congr'
+          (Filter.Eventually.of_forall (fun n => (h_pair_n n).symm))
+
+    -- Now uniqueness of limits in a Hausdorff space (`ℂ`) gives equality of
+    -- the two candidate limits for the same time-side sequence.
+    exact tendsto_nhds_unique h_seq_time h_seq_freq_as_time
+
+  -- Final step: the desired pairing identity is exactly `h_limits_equal`.
+  exact h_limits_equal
 
 /-- Continuity of the L²–Schwartz pairing via Lp convergence.
 

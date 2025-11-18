@@ -1,4 +1,4 @@
-import Frourio.Analysis.SchwartzDensityLp.SchwartzDensityLpCore
+import Frourio.Analysis.SchwartzDensityLp.SchwartzDensityLpCore0
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Function.LpSeminorm.CompareExp
 import Mathlib.Topology.Algebra.Support
