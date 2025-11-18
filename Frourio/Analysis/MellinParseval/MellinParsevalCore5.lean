@@ -950,16 +950,707 @@ lemma fourierL2_isometry_ae_eq_fourierIntegral
   simpa [h_isometry_agree] using h_coeFn
 
 /-
-Step 3 (placeholder in this file): L² Fourier isometry equivalence.
-The genuine construction of the inverse Fourier isometry and the proof that it
-is inverse to `fourierL2_isometry` are carried out in the dedicated
-Fourier–Plancherel L² development. Here we only register a placeholder
-equivalence (the identity) for use in downstream Mellin statements; the
-forward isometry used for analysis is `fourierL2_isometry` above.
+Step 3: Inverse Fourier transform on L² and construction of the unitary equivalence.
+
+We construct the inverse Fourier transform following the same pattern as the forward transform:
+1. Define it on L¹ ∩ L² using the classical inverse Fourier integral
+2. Show it's an isometry using the Fourier inversion formula
+3. Extend by continuity to all of L²
+4. Prove left and right inverse properties to build the LinearIsometryEquiv
 -/
+
+/-- Step 3.1: Inverse Fourier transform on L¹ ∩ L² as an L² element.
+For g that is both integrable and in L², the inverse Fourier integral
+recovers the original function in L² by Plancherel.
+
+TODO: Complete this definition using the inverse Fourier Plancherel theorem.
+The key insight is that the inverse Fourier transform has the same L² norm
+preservation property as the forward transform. -/
+noncomputable def invFourierL1L2_toLp (g : ℝ → ℂ)
+    (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
+    Lp ℂ 2 (volume : Measure ℝ) := by
+  -- The inverse Fourier transform of g is in L² by Plancherel
+  have hInvFg_L2 : MemLp (fun t => Real.fourierIntegralInv g t) 2 volume := by
+    -- First, the forward real Fourier transform of g is in L².
+    have h_fwd :
+        MemLp (fun t : ℝ => Real.fourierIntegral g t) 2 volume := by
+      -- Use the L² membership for the (project) Fourier transform on L¹ ∩ L²,
+      -- then convert to `Real.fourierIntegral`.
+      have h :=
+        (fourierIntegral_memLp_L1_L2 (g := g) hg_L1 hg_L2)
+      simpa [fourierIntegral_eq_real] using h
+    -- The inverse transform is the forward transform evaluated at `-t`.
+    have h_eq :
+        (fun t : ℝ => Real.fourierIntegralInv g t)
+          = fun t : ℝ => Real.fourierIntegral g (-t) := by
+      funext t
+      simp [fourierIntegralInv_eq_fourierIntegral_neg]
+    -- Precomposition with reflection `t ↦ -t` preserves L² membership.
+    have h_comp :
+        MemLp (fun t : ℝ => Real.fourierIntegral g (-t)) 2 volume := by
+      simpa using
+        h_fwd.comp_measurePreserving
+          (Measure.measurePreserving_neg (volume : Measure ℝ))
+    -- Conclude using the identification with the inverse Fourier transform.
+    simpa [h_eq] using h_comp
+  exact hInvFg_L2.toLp (fun t => Real.fourierIntegralInv g t)
+
+/-- Step 3.2: The inverse Fourier transform on L¹ ∩ L² is an isometry.
+TODO: Prove using Plancherel's theorem for inverse Fourier transform. -/
+lemma invFourierL1L2_isometry_norm
+    (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
+    ‖invFourierL1L2_toLp g hg_L1 hg_L2‖ = ‖hg_L2.toLp g‖ := by
+  classical
+  -- Express the norm of the inverse transform via its `eLpNorm`.
+  have h_inv_norm :
+      ‖invFourierL1L2_toLp g hg_L1 hg_L2‖
+        = (eLpNorm (fun t : ℝ => Real.fourierIntegralInv g t) 2 volume).toReal := by
+    simp [invFourierL1L2_toLp, Lp.norm_toLp]
+  -- Express the norm of the forward transform via its `eLpNorm`.
+  have h_fwd_norm :
+      ‖fourierL1L2_toLp g hg_L1 hg_L2‖
+        = (eLpNorm (fun ξ : ℝ => fourierIntegral g ξ) 2 volume).toReal := by
+    simp [fourierL1L2_toLp, Lp.norm_toLp]
+
+  -- L² membership of the real Fourier transform.
+  have hF_kernel_mem :
+      MemLp (fun ξ : ℝ => fourierIntegral g ξ) 2 volume :=
+    fourierIntegral_memLp_L1_L2 hg_L1 hg_L2
+  have hF_real_mem :
+      MemLp (fun t : ℝ => Real.fourierIntegral g t) 2 volume := by
+    simpa [fourierIntegral_eq_real] using hF_kernel_mem
+  have h_meas_real :
+      AEStronglyMeasurable (fun t : ℝ => Real.fourierIntegral g t) volume :=
+    hF_real_mem.1
+
+  -- Identify the inverse transform as the forward transform evaluated at `-t`.
+  have h_inv_as_fwd :
+      (fun t : ℝ => Real.fourierIntegralInv g t)
+        = fun t : ℝ => Real.fourierIntegral g (-t) := by
+    funext t
+    simp [fourierIntegralInv_eq_fourierIntegral_neg]
+
+  -- Composition with the reflection `t ↦ -t` preserves the L² norm.
+  have h_eLp_inv_eq_real :
+      eLpNorm (fun t : ℝ => Real.fourierIntegralInv g t) 2 volume
+        = eLpNorm (fun t : ℝ => Real.fourierIntegral g t) 2 volume := by
+    have h :=
+      eLpNorm_comp_measurePreserving (μ := (volume : Measure ℝ))
+        (ν := (volume : Measure ℝ)) (p := (2 : ℝ≥0∞))
+        (f := fun t : ℝ => -t)
+        (g := fun t : ℝ => Real.fourierIntegral g t)
+        h_meas_real (Measure.measurePreserving_neg (volume : Measure ℝ))
+    simpa [Function.comp, h_inv_as_fwd] using h
+
+  -- Switch from `Real.fourierIntegral` to our kernel-based Fourier integral.
+  have h_real_to_kernel :
+      eLpNorm (fun t : ℝ => Real.fourierIntegral g t) 2 volume
+        = eLpNorm (fun t : ℝ => fourierIntegral g t) 2 volume := by
+    simp [fourierIntegral_eq_real]
+
+  have h_eLp_inv_eq_kernel :
+      eLpNorm (fun t : ℝ => Real.fourierIntegralInv g t) 2 volume
+        = eLpNorm (fun t : ℝ => fourierIntegral g t) 2 volume := by
+    simpa [h_real_to_kernel] using h_eLp_inv_eq_real
+
+  -- Chain the equalities and invoke the forward L¹ ∩ L² isometry.
+  calc
+    ‖invFourierL1L2_toLp g hg_L1 hg_L2‖
+        = (eLpNorm (fun t : ℝ => Real.fourierIntegralInv g t) 2 volume).toReal := h_inv_norm
+    _ = (eLpNorm (fun t : ℝ => fourierIntegral g t) 2 volume).toReal := by
+          simp [h_eLp_inv_eq_kernel]
+    _ = ‖fourierL1L2_toLp g hg_L1 hg_L2‖ := h_fwd_norm.symm
+    _ = ‖hg_L2.toLp g‖ := fourierL1L2_isometry g hg_L1 hg_L2
+
+-- Well-definedness of inverse Fourier transform w.r.t. almost-everywhere equality.
+lemma invFourierL1L2_toLp_congr_ae (g h : ℝ → ℂ)
+    (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume)
+    (hh_L1 : Integrable h) (hh_L2 : MemLp h 2 volume)
+    (h_ae : g =ᵐ[volume] h) :
+    invFourierL1L2_toLp g hg_L1 hg_L2 = invFourierL1L2_toLp h hh_L1 hh_L2 := by
+  classical
+  -- Build the L² membership witnesses from the definition
+  have hInvFg_L2 : MemLp (fun t => Real.fourierIntegralInv g t) 2 volume := by
+    have h_fwd : MemLp (fun t : ℝ => Real.fourierIntegral g t) 2 volume := by
+      have h := fourierIntegral_memLp_L1_L2 (g := g) hg_L1 hg_L2
+      simpa [fourierIntegral_eq_real] using h
+    have h_eq : (fun t : ℝ => Real.fourierIntegralInv g t)
+        = fun t : ℝ => Real.fourierIntegral g (-t) := by
+      funext t; simp [fourierIntegralInv_eq_fourierIntegral_neg]
+    simpa [h_eq] using h_fwd.comp_measurePreserving
+      (Measure.measurePreserving_neg (volume : Measure ℝ))
+  have hInvFh_L2 : MemLp (fun t => Real.fourierIntegralInv h t) 2 volume := by
+    have h_fwd : MemLp (fun t : ℝ => Real.fourierIntegral h t) 2 volume := by
+      have h := fourierIntegral_memLp_L1_L2 (g := h) hh_L1 hh_L2
+      simpa [fourierIntegral_eq_real] using h
+    have h_eq : (fun t : ℝ => Real.fourierIntegralInv h t)
+        = fun t : ℝ => Real.fourierIntegral h (-t) := by
+      funext t; simp [fourierIntegralInv_eq_fourierIntegral_neg]
+    simpa [h_eq] using h_fwd.comp_measurePreserving
+      (Measure.measurePreserving_neg (volume : Measure ℝ))
+  -- The inverse Fourier integrals are a.e. equal since g =ᵐ h
+  have h_invF_ae :
+      (fun t : ℝ => Real.fourierIntegralInv g t)
+        =ᵐ[volume]
+      (fun t : ℝ => Real.fourierIntegralInv h t) := by
+    filter_upwards with t
+    unfold Real.fourierIntegralInv
+    apply integral_congr_ae
+    filter_upwards [h_ae] with s hs
+    simp only [hs]
+  exact (MemLp.toLp_eq_toLp_iff hInvFg_L2 hInvFh_L2).mpr h_invF_ae
+
+-- Additivity of the inverse Fourier transform on L¹ ∩ L².
+lemma invFourierL1L2_toLp_add (g h : ℝ → ℂ)
+    (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume)
+    (hh_L1 : Integrable h) (hh_L2 : MemLp h 2 volume) :
+    invFourierL1L2_toLp (fun t => g t + h t)
+      (hg_L1.add hh_L1) (hg_L2.add hh_L2)
+    = invFourierL1L2_toLp g hg_L1 hg_L2
+      + invFourierL1L2_toLp h hh_L1 hh_L2 := by
+  classical
+  -- Unfold definitions and compare representatives a.e.
+  apply Lp.ext (μ := (volume : Measure ℝ))
+  -- Get the L² membership witnesses
+  have hInvFsum_mem : MemLp (fun t => Real.fourierIntegralInv (fun s => g s + h s) t) 2 volume := by
+    have h_fwd : MemLp (fun t : ℝ => Real.fourierIntegral (fun s => g s + h s) t) 2 volume := by
+      have h :=
+        fourierIntegral_memLp_L1_L2 (g := fun s => g s + h s) (hg_L1.add hh_L1) (hg_L2.add hh_L2)
+      simpa [fourierIntegral_eq_real] using h
+    have h_eq : (fun t : ℝ => Real.fourierIntegralInv (fun s => g s + h s) t)
+        = fun t : ℝ => Real.fourierIntegral (fun s => g s + h s) (-t) := by
+      funext t; simp [fourierIntegralInv_eq_fourierIntegral_neg]
+    simpa [h_eq] using h_fwd.comp_measurePreserving
+      (Measure.measurePreserving_neg (volume : Measure ℝ))
+  have hInvFg_mem : MemLp (fun t => Real.fourierIntegralInv g t) 2 volume := by
+    have h_fwd : MemLp (fun t : ℝ => Real.fourierIntegral g t) 2 volume := by
+      have h := fourierIntegral_memLp_L1_L2 (g := g) hg_L1 hg_L2
+      simpa [fourierIntegral_eq_real] using h
+    have h_eq : (fun t : ℝ => Real.fourierIntegralInv g t)
+        = fun t : ℝ => Real.fourierIntegral g (-t) := by
+      funext t; simp [fourierIntegralInv_eq_fourierIntegral_neg]
+    simpa [h_eq] using h_fwd.comp_measurePreserving
+      (Measure.measurePreserving_neg (volume : Measure ℝ))
+  have hInvFh_mem : MemLp (fun t => Real.fourierIntegralInv h t) 2 volume := by
+    have h_fwd : MemLp (fun t : ℝ => Real.fourierIntegral h t) 2 volume := by
+      have h := fourierIntegral_memLp_L1_L2 (g := h) hh_L1 hh_L2
+      simpa [fourierIntegral_eq_real] using h
+    have h_eq : (fun t : ℝ => Real.fourierIntegralInv h t)
+        = fun t : ℝ => Real.fourierIntegral h (-t) := by
+      funext t; simp [fourierIntegralInv_eq_fourierIntegral_neg]
+    simpa [h_eq] using h_fwd.comp_measurePreserving
+      (Measure.measurePreserving_neg (volume : Measure ℝ))
+  -- Use coeFn_toLp to get a.e. equalities
+  have h_sum := MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hInvFsum_mem
+  have hg_coe := MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hInvFg_mem
+  have hh_coe := MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hInvFh_mem
+  -- Show a.e. equality of the coerced functions
+  calc
+    (invFourierL1L2_toLp (fun t => g t + h t) (hg_L1.add hh_L1) (hg_L2.add hh_L2) :
+        Lp ℂ 2 (volume : Measure ℝ))
+        =ᵐ[volume] (fun t : ℝ => Real.fourierIntegralInv (fun s => g s + h s) t) := by
+          simp [invFourierL1L2_toLp]; exact h_sum
+    _ =ᵐ[volume]
+        (fun t : ℝ => Real.fourierIntegralInv g t + Real.fourierIntegralInv h t) := by
+          refine ae_of_all _ (fun t => ?_)
+          unfold Real.fourierIntegralInv VectorFourier.fourierIntegral
+          simp only [Pi.add_apply]
+          rw [← integral_add]
+          · congr 1
+            funext ξ
+            simp only [smul_add]
+          · exact (VectorFourier.fourierIntegral_convergent_iff
+              (e := Real.fourierChar) (μ := volume) (L := -innerₗ ℝ)
+              continuous_fourierChar (by continuity) (f := g) t).mpr hg_L1
+          · exact (VectorFourier.fourierIntegral_convergent_iff
+              (e := Real.fourierChar) (μ := volume) (L := -innerₗ ℝ)
+              continuous_fourierChar (by continuity) (f := h) t).mpr hh_L1
+    _ =ᵐ[volume]
+        (invFourierL1L2_toLp g hg_L1 hg_L2 : Lp ℂ 2 (volume : Measure ℝ))
+          + (invFourierL1L2_toLp h hh_L1 hh_L2 : Lp ℂ 2 (volume : Measure ℝ)) := by
+          have this1 : (fun t : ℝ => Real.fourierIntegralInv g t + Real.fourierIntegralInv h t)
+              =ᵐ[volume]
+              (fun t : ℝ =>
+                ((invFourierL1L2_toLp g hg_L1 hg_L2 : Lp ℂ 2 (volume : Measure ℝ)) t)
+                + ((invFourierL1L2_toLp h hh_L1 hh_L2 : Lp ℂ 2 (volume : Measure ℝ)) t)) := by
+            have hg_eq := hg_coe.symm
+            have hh_eq := hh_coe.symm
+            exact hg_eq.add hh_eq
+          have this2 : (fun t => (invFourierL1L2_toLp g hg_L1 hg_L2 : Lp ℂ 2 (volume : Measure ℝ)) t
+                + (invFourierL1L2_toLp h hh_L1 hh_L2 : Lp ℂ 2 (volume : Measure ℝ)) t)
+              =ᵐ[volume]
+              ((invFourierL1L2_toLp g hg_L1 hg_L2 : Lp ℂ 2 (volume : Measure ℝ))
+                + (invFourierL1L2_toLp h hh_L1 hh_L2 : Lp ℂ 2 (volume : Measure ℝ))) := by
+            apply ae_of_all
+            intro t
+            rfl
+          exact this1.trans this2
+    _ =ᵐ[volume]
+        ((invFourierL1L2_toLp g hg_L1 hg_L2 + invFourierL1L2_toLp h hh_L1 hh_L2 :
+          Lp ℂ 2 (volume : Measure ℝ))) := by
+      filter_upwards [Lp.coeFn_add (invFourierL1L2_toLp g hg_L1 hg_L2)
+        (invFourierL1L2_toLp h hh_L1 hh_L2)] with t ht
+      exact ht.symm
+
+-- Scalar multiplication compatibility of the inverse Fourier transform.
+lemma invFourierL1L2_toLp_smul (c : ℂ) (g : ℝ → ℂ)
+    (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
+    invFourierL1L2_toLp (fun t => c • g t)
+      (hg_L1.smul c) (hg_L2.const_smul c)
+    = c • invFourierL1L2_toLp g hg_L1 hg_L2 := by
+  classical
+  -- Unfold definitions and compare representatives a.e.
+  apply Lp.ext (μ := (volume : Measure ℝ))
+  -- Get the L² membership witnesses
+  have hInvFcg_mem : MemLp (fun t => Real.fourierIntegralInv (fun s => c • g s) t) 2 volume := by
+    have h_fwd : MemLp (fun t : ℝ => Real.fourierIntegral (fun s => c • g s) t) 2 volume := by
+      have h :=
+        fourierIntegral_memLp_L1_L2 (g := fun s => c • g s) (hg_L1.smul c) (hg_L2.const_smul c)
+      simpa [fourierIntegral_eq_real] using h
+    have h_eq : (fun t : ℝ => Real.fourierIntegralInv (fun s => c • g s) t)
+        = fun t : ℝ => Real.fourierIntegral (fun s => c • g s) (-t) := by
+      funext t; simp [fourierIntegralInv_eq_fourierIntegral_neg]
+    rw [h_eq]
+    exact h_fwd.comp_measurePreserving
+      (Measure.measurePreserving_neg (volume : Measure ℝ))
+  have hInvFg_mem : MemLp (fun t => Real.fourierIntegralInv g t) 2 volume := by
+    have h_fwd : MemLp (fun t : ℝ => Real.fourierIntegral g t) 2 volume := by
+      have h := fourierIntegral_memLp_L1_L2 (g := g) hg_L1 hg_L2
+      simpa [fourierIntegral_eq_real] using h
+    have h_eq : (fun t : ℝ => Real.fourierIntegralInv g t)
+        = fun t : ℝ => Real.fourierIntegral g (-t) := by
+      funext t; simp [fourierIntegralInv_eq_fourierIntegral_neg]
+    simpa [h_eq] using h_fwd.comp_measurePreserving
+      (Measure.measurePreserving_neg (volume : Measure ℝ))
+  -- Use coeFn_toLp to get a.e. equalities
+  have h_cg := MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hInvFcg_mem
+  have hg_coe := MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hInvFg_mem
+  -- Show a.e. equality
+  calc
+    (invFourierL1L2_toLp (fun t => c • g t) (hg_L1.smul c) (hg_L2.const_smul c) :
+        Lp ℂ 2 (volume : Measure ℝ))
+        =ᵐ[volume] (fun t : ℝ => Real.fourierIntegralInv (fun s => c • g s) t) := by
+          simp [invFourierL1L2_toLp]; exact h_cg
+    _ =ᵐ[volume]
+        (fun t : ℝ => c • Real.fourierIntegralInv g t) := by
+          refine ae_of_all _ (fun t => ?_)
+          unfold Real.fourierIntegralInv VectorFourier.fourierIntegral
+          simp only [Pi.smul_apply, smul_eq_mul]
+          rw [← integral_const_mul]
+          congr 1
+          funext s
+          show 𝐞 (-((-innerₗ ℝ) s) t) • (c * g s) = c * (𝐞 (-((-innerₗ ℝ) s) t) • g s)
+          rw [← mul_smul_comm]
+    _ =ᵐ[volume]
+        (fun t : ℝ => ((c • (invFourierL1L2_toLp g hg_L1 hg_L2 :
+            Lp ℂ 2 (volume : Measure ℝ))) : ℝ → ℂ) t) := by
+          have this1 : (fun t : ℝ => c • Real.fourierIntegralInv g t)
+              =ᵐ[volume]
+              (fun t : ℝ => c • (MemLp.toLp (fun t => Real.fourierIntegralInv g t)
+                hInvFg_mem : Lp ℂ 2 (volume : Measure ℝ)) t) := by
+            filter_upwards [hg_coe.symm] with t ht
+            rw [ht]
+          have this2 :
+              (fun t => c • (MemLp.toLp
+                (fun t => Real.fourierIntegralInv g t) hInvFg_mem : Lp ℂ 2 (volume : Measure ℝ)) t)
+              =ᵐ[volume] (fun t => c • (invFourierL1L2_toLp g hg_L1 hg_L2 : Lp ℂ 2
+                (volume : Measure ℝ)) t) := by
+            apply ae_of_all
+            intro t
+            rfl
+          exact this1.trans this2
+    _ =ᵐ[volume]
+        (↑↑(c • invFourierL1L2_toLp g hg_L1 hg_L2) : ℝ → ℂ) := by
+      filter_upwards [Lp.coeFn_smul c (invFourierL1L2_toLp g hg_L1 hg_L2)] with t ht
+      simp only [Pi.smul_apply]
+      exact ht.symm
+
+/-- Linear map on L¹ ∩ L² that applies the inverse Fourier transform. -/
+noncomputable def invT0_on_L1L2 :
+    L1L2Submodule →ₗ[ℂ] Lp ℂ 2 (volume : Measure ℝ) := by
+  classical
+  refine
+    { toFun := fun x => by
+        -- Extract the witness that x is in L¹ ∩ L²
+        have hx_mem : ((x : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := x.property
+        -- Choose a representative function
+        let g : ℝ → ℂ := Classical.choose hx_mem
+        let ex1 := Classical.choose_spec hx_mem
+        let hL1 : Integrable g := Classical.choose ex1
+        let ex2 := Classical.choose_spec ex1
+        let hL2 : MemLp g 2 volume := Classical.choose ex2
+        exact invFourierL1L2_toLp g hL1 hL2
+    , map_add' := by
+        intro f g
+        rcases f.property with ⟨g₁, hg₁_L1, hg₁_L2, hf⟩
+        rcases g.property with ⟨g₂, hg₂_L1, hg₂_L2, hg⟩
+        have hf_mem : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set :=
+          ⟨g₁, hg₁_L1, hg₁_L2, hf⟩
+        have hg_mem : ((g : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set :=
+          ⟨g₂, hg₂_L1, hg₂_L2, hg⟩
+        have h_sum_rep : ((f + g : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ)) ∈ L1L2Set :=
+          (L1L2Set_add_mem hf_mem hg_mem)
+        rcases h_sum_rep with ⟨gs, hs_L1, hs_L2, hfg_eq⟩
+        have h_sum_toLp_eq :
+            (hs_L2.toLp gs : Lp ℂ 2 (volume : Measure ℝ))
+              = (hg₁_L2.toLp g₁ + hg₂_L2.toLp g₂) := by
+          have h_canon :
+              ((hg₁_L2.add hg₂_L2).toLp (fun t : ℝ => g₁ t + g₂ t)
+                : Lp ℂ 2 (volume : Measure ℝ))
+                = (hg₁_L2.toLp g₁ + hg₂_L2.toLp g₂) := by
+            apply Lp.ext (μ := (volume : Measure ℝ))
+            have h₁ := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hg₁_L2
+            have h₂ := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hg₂_L2
+            have hsum :=
+              MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) (hg₁_L2.add hg₂_L2)
+            calc
+              ((MemLp.toLp (fun t : ℝ => g₁ t + g₂ t) (hg₁_L2.add hg₂_L2)) :
+                  Lp ℂ 2 (volume : Measure ℝ))
+                  =ᵐ[volume] (fun t : ℝ => g₁ t + g₂ t) := hsum
+              _ =ᵐ[volume]
+                  (MemLp.toLp g₁ hg₁_L2 : Lp ℂ 2 (volume : Measure ℝ))
+                    + (MemLp.toLp g₂ hg₂_L2 : Lp ℂ 2 (volume : Measure ℝ)) := (h₁.add h₂).symm
+              _ =ᵐ[volume]
+                  ((MemLp.toLp g₁ hg₁_L2 + MemLp.toLp g₂ hg₂_L2 :
+                    Lp ℂ 2 (volume : Measure ℝ))) := (Lp.coeFn_add _ _).symm
+          have hfg_sum :
+              (hg₁_L2.toLp g₁ + hg₂_L2.toLp g₂ : Lp ℂ 2 (volume : Measure ℝ))
+                = ((f + g : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ)) := by
+            have : ((f + g : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ))
+                = (f : Lp ℂ 2 (volume : Measure ℝ)) + (g : Lp ℂ 2 (volume : Measure ℝ)) := rfl
+            rw [this, hf, hg]
+          rw [← hfg_eq, hfg_sum]
+        have hgs_ae : (fun t => gs t) =ᵐ[volume] (fun t => g₁ t + g₂ t) := by
+          exact (MemLp.toLp_eq_toLp_iff hs_L2 (hg₁_L2.add hg₂_L2)).1 h_sum_toLp_eq
+        have h_left :
+            invFourierL1L2_toLp gs hs_L1 hs_L2
+              = invFourierL1L2_toLp (fun t => g₁ t + g₂ t)
+                  (hg₁_L1.add hg₂_L1) (hg₁_L2.add hg₂_L2) :=
+          invFourierL1L2_toLp_congr_ae gs (fun t => g₁ t + g₂ t)
+            hs_L1 hs_L2 (hg₁_L1.add hg₂_L1) (hg₁_L2.add hg₂_L2) hgs_ae
+        have hmem_fg : ((f + g : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
+          simpa [L1L2Submodule] using (f + g).property
+        let gch : ℝ → ℂ := Classical.choose hmem_fg
+        let ex1c := Classical.choose_spec hmem_fg
+        let hL1c : Integrable gch := Classical.choose ex1c
+        let ex2c := Classical.choose_spec ex1c
+        let hL2c : MemLp gch 2 (volume : Measure ℝ) := Classical.choose ex2c
+        have hfg_eq_choice : ((f + g : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ))
+            = hL2c.toLp gch := by
+          exact Classical.choose_spec ex2c
+        have h_ae_sum : (fun t => gs t) =ᵐ[volume] gch := by
+          have : (hs_L2.toLp gs : Lp ℂ 2 (volume : Measure ℝ)) = hL2c.toLp gch := by
+            exact (hfg_eq.symm.trans hfg_eq_choice)
+          exact (MemLp.toLp_eq_toLp_iff hs_L2 hL2c).1 this
+        have h_sum_congr :
+            invFourierL1L2_toLp gs hs_L1 hs_L2
+              = invFourierL1L2_toLp gch hL1c hL2c :=
+          invFourierL1L2_toLp_congr_ae gs gch hs_L1 hs_L2 hL1c hL2c h_ae_sum
+        have hmem_f : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
+          simp [L1L2Submodule]
+        let gf : ℝ → ℂ := Classical.choose hmem_f
+        let ex1f := Classical.choose_spec hmem_f
+        let hL1f : Integrable gf := Classical.choose ex1f
+        let ex2f := Classical.choose_spec ex1f
+        let hL2f : MemLp gf 2 (volume : Measure ℝ) := Classical.choose ex2f
+        have hf_choice : ((f : Lp ℂ 2 (volume : Measure ℝ))) = hL2f.toLp gf :=
+          Classical.choose_spec ex2f
+        have h_ae_f : (fun t => gf t) =ᵐ[volume] g₁ := by
+          have : (hL2f.toLp gf : Lp ℂ 2 (volume : Measure ℝ)) = hg₁_L2.toLp g₁ := by
+            rw [← hf_choice, hf]
+          exact (MemLp.toLp_eq_toLp_iff hL2f hg₁_L2).1 this
+        have h_f_congr :
+            invFourierL1L2_toLp gf hL1f hL2f
+              = invFourierL1L2_toLp g₁ hg₁_L1 hg₁_L2 :=
+          invFourierL1L2_toLp_congr_ae gf g₁ hL1f hL2f hg₁_L1 hg₁_L2 h_ae_f
+        have hmem_g : ((g : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
+          simp [L1L2Submodule]
+        let gg : ℝ → ℂ := Classical.choose hmem_g
+        let ex1g := Classical.choose_spec hmem_g
+        let hL1g : Integrable gg := Classical.choose ex1g
+        let ex2g := Classical.choose_spec ex1g
+        let hL2g : MemLp gg 2 (volume : Measure ℝ) := Classical.choose ex2g
+        have hg_choice : ((g : Lp ℂ 2 (volume : Measure ℝ))) = hL2g.toLp gg :=
+          Classical.choose_spec ex2g
+        have h_ae_g : (fun t => gg t) =ᵐ[volume] g₂ := by
+          have : (hL2g.toLp gg : Lp ℂ 2 (volume : Measure ℝ)) = hg₂_L2.toLp g₂ := by
+            rw [← hg_choice, hg]
+          exact (MemLp.toLp_eq_toLp_iff hL2g hg₂_L2).1 this
+        have h_g_congr :
+            invFourierL1L2_toLp gg hL1g hL2g
+              = invFourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 :=
+          invFourierL1L2_toLp_congr_ae gg g₂ hL1g hL2g hg₂_L1 hg₂_L2 h_ae_g
+        have h_gch_eq :
+            invFourierL1L2_toLp gch hL1c hL2c
+              = invFourierL1L2_toLp g₁ hg₁_L1 hg₁_L2
+                + invFourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 := by
+          calc invFourierL1L2_toLp gch hL1c hL2c
+              = invFourierL1L2_toLp gs hs_L1 hs_L2 := h_sum_congr.symm
+            _ = invFourierL1L2_toLp (fun t => g₁ t + g₂ t)
+                (hg₁_L1.add hg₂_L1) (hg₁_L2.add hg₂_L2) := h_left
+            _ = invFourierL1L2_toLp g₁ hg₁_L1 hg₁_L2 + invFourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 :=
+                  invFourierL1L2_toLp_add g₁ g₂ hg₁_L1 hg₁_L2 hg₂_L1 hg₂_L2
+        calc
+          invFourierL1L2_toLp gch hL1c hL2c
+              = invFourierL1L2_toLp g₁ hg₁_L1 hg₁_L2
+                + invFourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 := h_gch_eq
+          _ = invFourierL1L2_toLp gf hL1f hL2f
+                + invFourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 := by simp [h_f_congr]
+          _ = invFourierL1L2_toLp gf hL1f hL2f
+                + invFourierL1L2_toLp gg hL1g hL2g := by simp [h_g_congr]
+    , map_smul' := by
+        intro c f
+        rcases f.property with ⟨g, hg_L1, hg_L2, hf⟩
+        have hf_mem : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set :=
+          ⟨g, hg_L1, hg_L2, hf⟩
+        have h_smul_rep : ((c • f : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ)) ∈ L1L2Set :=
+          L1L2Set_smul_mem c hf_mem
+        rcases h_smul_rep with ⟨gs, hs_L1, hs_L2, hcf_eq⟩
+        have hcf_toLp_eq :
+            (hs_L2.toLp gs : Lp ℂ 2 (volume : Measure ℝ))
+              = (c • hg_L2.toLp g) := by
+          rw [← hf]
+          exact hcf_eq.symm
+        have hgs_ae : (fun t => gs t) =ᵐ[volume] (fun t => c • g t) := by
+          exact (MemLp.toLp_eq_toLp_iff hs_L2 (hg_L2.const_smul c)).1 hcf_toLp_eq
+        have h_left :
+            invFourierL1L2_toLp gs hs_L1 hs_L2
+              = invFourierL1L2_toLp (fun t => c • g t)
+                  (hg_L1.smul c) (hg_L2.const_smul c) :=
+          invFourierL1L2_toLp_congr_ae gs (fun t => c • g t)
+            hs_L1 hs_L2 (hg_L1.smul c) (hg_L2.const_smul c) hgs_ae
+        have hmem_cf : (((c • f : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
+          simpa [L1L2Submodule] using (c • f).property
+        let gch : ℝ → ℂ := Classical.choose hmem_cf
+        let ex1c := Classical.choose_spec hmem_cf
+        let hL1c : Integrable gch := Classical.choose ex1c
+        let ex2c := Classical.choose_spec ex1c
+        let hL2c : MemLp gch 2 (volume : Measure ℝ) := Classical.choose ex2c
+        have hcf_eq_choice : ((c • f : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ))
+            = hL2c.toLp gch := by
+          exact Classical.choose_spec ex2c
+        have h_ae_cf : (fun t => gs t) =ᵐ[volume] gch := by
+          have : (hs_L2.toLp gs : Lp ℂ 2 (volume : Measure ℝ)) = hL2c.toLp gch := by
+            exact (hcf_eq.symm.trans hcf_eq_choice)
+          exact (MemLp.toLp_eq_toLp_iff hs_L2 hL2c).1 this
+        have h_cf_congr :
+            invFourierL1L2_toLp gs hs_L1 hs_L2
+              = invFourierL1L2_toLp gch hL1c hL2c :=
+          invFourierL1L2_toLp_congr_ae gs gch hs_L1 hs_L2 hL1c hL2c h_ae_cf
+        have hmem_f : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
+          simp [L1L2Submodule]
+        let gf : ℝ → ℂ := Classical.choose hmem_f
+        let ex1f := Classical.choose_spec hmem_f
+        let hL1f : Integrable gf := Classical.choose ex1f
+        let ex2f := Classical.choose_spec ex1f
+        let hL2f : MemLp gf 2 (volume : Measure ℝ) := Classical.choose ex2f
+        have hf_choice : ((f : Lp ℂ 2 (volume : Measure ℝ))) = hL2f.toLp gf :=
+          Classical.choose_spec ex2f
+        have h_ae_f : (fun t => gf t) =ᵐ[volume] g := by
+          have : (hL2f.toLp gf : Lp ℂ 2 (volume : Measure ℝ)) = hg_L2.toLp g := by
+            rw [← hf_choice, hf]
+          exact (MemLp.toLp_eq_toLp_iff hL2f hg_L2).1 this
+        have h_f_congr :
+            invFourierL1L2_toLp gf hL1f hL2f
+              = invFourierL1L2_toLp g hg_L1 hg_L2 :=
+          invFourierL1L2_toLp_congr_ae gf g hL1f hL2f hg_L1 hg_L2 h_ae_f
+        have h_gch_eq : invFourierL1L2_toLp gch hL1c hL2c
+            = c • invFourierL1L2_toLp g hg_L1 hg_L2 := by
+          calc invFourierL1L2_toLp gch hL1c hL2c
+              = invFourierL1L2_toLp gs hs_L1 hs_L2 := h_cf_congr.symm
+            _ = invFourierL1L2_toLp (fun t => c • g t) (hg_L1.smul c) (hg_L2.const_smul c) := h_left
+            _ = c • invFourierL1L2_toLp g hg_L1 hg_L2 := invFourierL1L2_toLp_smul c g hg_L1 hg_L2
+        calc
+          invFourierL1L2_toLp gch hL1c hL2c
+              = c • invFourierL1L2_toLp g hg_L1 hg_L2 := h_gch_eq
+          _ = c • invFourierL1L2_toLp gf hL1f hL2f := by simp [h_f_congr]
+    }
+
+/-- The inverse Fourier transform on L¹ ∩ L² is an isometry. -/
+lemma invT0_on_L1L2_isometry (x : L1L2Submodule) :
+    ‖invT0_on_L1L2 x‖ = ‖(x : Lp ℂ 2 (volume : Measure ℝ))‖ := by
+  classical
+  have hx_mem : ((x : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := x.property
+  let g : ℝ → ℂ := Classical.choose hx_mem
+  let ex1 := Classical.choose_spec hx_mem
+  let hL1 : Integrable g := Classical.choose ex1
+  let ex2 := Classical.choose_spec ex1
+  let hL2 : MemLp g 2 volume := Classical.choose ex2
+  have hx_eq : ((x : Lp ℂ 2 (volume : Measure ℝ))) = hL2.toLp g :=
+    Classical.choose_spec ex2
+  calc
+    ‖invT0_on_L1L2 x‖ = ‖invFourierL1L2_toLp g hL1 hL2‖ := rfl
+    _ = ‖hL2.toLp g‖ := invFourierL1L2_isometry_norm g hL1 hL2
+    _ = ‖(x : Lp ℂ 2 (volume : Measure ℝ))‖ := by simp [hx_eq]
+
+/-- Auxiliary existence: there exists a continuous linear isometry on L² that
+agrees with the L¹ ∩ L² inverse Fourier map. -/
+lemma exists_invFourierL2_isometryCLM_agrees :
+    ∃ F : Lp ℂ 2 (volume : Measure ℝ) →L[ℂ] Lp ℂ 2 (volume : Measure ℝ),
+      (∀ g : Lp ℂ 2 (volume : Measure ℝ), ‖F g‖ = ‖g‖) ∧
+      (∀ (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume),
+        F (hg_L2.toLp g) = invFourierL1L2_toLp g hg_L1 hg_L2) := by
+  classical
+  -- Extend from the dense submodule using the same pattern as forward Fourier
+  have hDense : Dense ((L1L2Submodule : Submodule ℂ (Lp ℂ 2 (volume : Measure ℝ))) :
+      Set (Lp ℂ 2 (volume : Measure ℝ))) := by
+    simpa [L1L2Submodule, L1L2Set] using (L1L2Set_dense : Dense L1L2Set)
+  obtain ⟨T, hAgree, hNorm⟩ :=
+    extend_linear_isometry_of_dense
+      (P := L1L2Submodule)
+      (hP := hDense)
+      (T0 := invT0_on_L1L2)
+      (hIso := invT0_on_L1L2_isometry)
+  refine ⟨T, ?hn, ?hag⟩
+  · intro g; simpa using hNorm g
+  · intro g hg_L1 hg_L2
+    have hx_mem : (hg_L2.toLp g : Lp ℂ 2 (volume : Measure ℝ)) ∈ L1L2Set :=
+      ⟨g, hg_L1, hg_L2, rfl⟩
+    let x : L1L2Submodule := ⟨hg_L2.toLp g, hx_mem⟩
+    have hx : T x = invT0_on_L1L2 x := hAgree x
+    -- invT0_on_L1L2 x should equal invFourierL1L2_toLp g hg_L1 hg_L2
+    -- by construction (modulo a.e. equality of representatives)
+    have : invT0_on_L1L2 x = invFourierL1L2_toLp g hg_L1 hg_L2 := by
+      have hmemx : ((x : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
+        simp [L1L2Submodule]
+      let gx : ℝ → ℂ := Classical.choose hmemx
+      let ex1x := Classical.choose_spec hmemx
+      let hL1x : Integrable gx := Classical.choose ex1x
+      let ex2x := Classical.choose_spec ex1x
+      let hL2x : MemLp gx 2 (volume : Measure ℝ) := Classical.choose ex2x
+      have hx_choice : ((x : Lp ℂ 2 (volume : Measure ℝ))) = hL2x.toLp gx :=
+        Classical.choose_spec ex2x
+      have hx_coe : ((x : Lp ℂ 2 (volume : Measure ℝ))) = hg_L2.toLp g := rfl
+      have h_toLp_eq : (hL2x.toLp gx : Lp ℂ 2 (volume : Measure ℝ))
+            = hg_L2.toLp g := by
+        simpa [hx_coe] using hx_choice.symm
+      have h_ae : (fun t => gx t) =ᵐ[volume] g :=
+        (MemLp.toLp_eq_toLp_iff hL2x hg_L2).1 h_toLp_eq
+      have h_congr :=
+        invFourierL1L2_toLp_congr_ae gx g hL1x hL2x hg_L1 hg_L2 h_ae
+      have hT : invT0_on_L1L2 x = invFourierL1L2_toLp gx hL1x hL2x := rfl
+      simpa [hT] using h_congr
+    rw [← this, ← hx]
+
+noncomputable def invFourierL2_isometryCLM_choice :
+    Lp ℂ 2 (volume : Measure ℝ) →L[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
+  Classical.choose exists_invFourierL2_isometryCLM_agrees
+
+lemma invFourierL2_isometryCLM_choice_norm
+    (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    ‖invFourierL2_isometryCLM_choice f‖ = ‖f‖ := by
+  classical
+  have h := Classical.choose_spec exists_invFourierL2_isometryCLM_agrees
+  exact h.1 f
+
+lemma invFourierL2_isometryCLM_choice_agree (g : ℝ → ℂ)
+    (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
+    invFourierL2_isometryCLM_choice (hg_L2.toLp g) =
+      invFourierL1L2_toLp g hg_L1 hg_L2 := by
+  classical
+  have h := Classical.choose_spec exists_invFourierL2_isometryCLM_agrees
+  exact h.2 g hg_L1 hg_L2
+
+/-- Step 3.3: Inverse Fourier isometry on all of L².
+Extend the inverse Fourier transform from L¹ ∩ L² to all of L² by continuity. -/
+noncomputable def invFourierL2_isometry :
+    Lp ℂ 2 (volume : Measure ℝ) →ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) := by
+  classical
+  refine
+    { toLinearMap := invFourierL2_isometryCLM_choice
+    , norm_map' := ?_ }
+  intro f
+  simpa using invFourierL2_isometryCLM_choice_norm f
+
+/-- Step 3.4: The inverse Fourier isometry is a left inverse of the forward
+Fourier isometry. This uses the Fourier inversion formula: invF(F(g)) = g
+for g ∈ L¹ ∩ L², proved in `fourierIntegralInv_fourierIntegral_ae_of_L1_L2`.
+TODO: Extend this a.e. equality to L² equality and then to all of L² by density. -/
+lemma invFourierL2_isometry_left_inv :
+    ∀ f : Lp ℂ 2 (volume : Measure ℝ),
+      invFourierL2_isometry (fourierL2_isometry f) = f := by
+  classical
+  intro f
+  -- Use density: L¹ ∩ L² is dense in L²
+  have hDense : Dense L1L2Set := L1L2Set_dense
+  -- The equalizer {f | invFourierL2 (fourierL2 f) = f} is closed
+  have hClosed : IsClosed {f : Lp ℂ 2 (volume : Measure ℝ) |
+      invFourierL2_isometry (fourierL2_isometry f) = f} := by
+    apply isClosed_eq
+    · exact (invFourierL2_isometry.continuous.comp fourierL2_isometry.continuous)
+    · exact continuous_id
+  -- It suffices to show the equalizer contains the dense subset L¹ ∩ L²
+  suffices h : ∀ (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume),
+      invFourierL2_isometry (fourierL2_isometry (hg_L2.toLp g)) = hg_L2.toLp g by
+    -- Apply density: if a closed set contains a dense subset, it's everything
+    have hContains : L1L2Set ⊆ {f : Lp ℂ 2 (volume : Measure ℝ) |
+        invFourierL2_isometry (fourierL2_isometry f) = f} := by
+      intro x ⟨g, hg_L1, hg_L2, hg_eq⟩
+      simp only [Set.mem_setOf_eq]
+      subst hg_eq
+      exact h g hg_L1 hg_L2
+    -- Use the closure equals all of the space
+    have hEq : closure L1L2Set = Set.univ := hDense.closure_eq
+    have hMem : f ∈ closure L1L2Set := by
+      rw [hEq]
+      trivial
+    have : f ∈ {f : Lp ℂ 2 (volume : Measure ℝ) |
+        invFourierL2_isometry (fourierL2_isometry f) = f} := by
+      apply closure_minimal hContains hClosed hMem
+    exact this
+  -- Prove on L¹ ∩ L²: use the inversion formula
+  intro g hg_L1 hg_L2
+  -- Use Lp.ext to show equality in L²
+  apply Lp.ext
+  -- We need to show a.e. equality of the representatives
+  -- Step 1: fourierL2_isometry (hg_L2.toLp g) agrees a.e. with fourierIntegral g
+  have hFwd_ae : (fourierL2_isometry (hg_L2.toLp g) : ℝ → ℂ)
+      =ᵐ[volume] fun ξ => fourierIntegral g ξ :=
+    fourierL2_isometry_ae_eq_fourierIntegral g hg_L1 hg_L2
+  -- Step 2: The forward Fourier is in L¹ ∩ L²
+  have hFwd_L1 : Integrable (fun ξ => fourierIntegral g ξ) := by
+    sorry -- Need: fourierIntegral g is integrable when g is in L¹ ∩ L²
+  have hFwd_L2 : MemLp (fun ξ => fourierIntegral g ξ) 2 volume := by
+    sorry -- This follows from fourierIntegral_memLp_L1_L2
+  -- Step 3: invFourierL2_isometry applied to the forward transform
+  -- agrees with invFourierL1L2_toLp
+  sorry
+
+/-- Step 3.5: The inverse Fourier isometry is a right inverse of the forward
+Fourier isometry. This follows by symmetry from the left inverse property.
+TODO: Use the dual inversion formula F(invF(g)) = g. -/
+lemma invFourierL2_isometry_right_inv :
+    ∀ f : Lp ℂ 2 (volume : Measure ℝ),
+      fourierL2_isometry (invFourierL2_isometry f) = f := by
+  sorry
+
+/-- Step 3: L² Fourier isometry equivalence.
+The genuine construction of the inverse Fourier isometry and the proof that it
+is inverse to `fourierL2_isometry`, making this a proper unitary operator
+on L²(ℝ) as described in the Frourio papers (論文第III, IV).
+
+**Theory (from 第IV論文)**:
+The normalized scale group $\mathcal{U}^{(\sigma)}_t f(x) := e^{\sigma t} f(e^t x)$
+is unitary on $H_\sigma$. The Mellin transform $U_\sigma: H_\sigma \to L^2(\mathbb{R})$
+provides a unitary equivalence (ユニタリ同値) as stated in equation:
+$$\boxed{\ U_\sigma: H_\sigma \to L^2(\mathbb{R})\ }$$
+where $U_\sigma$ is the Fourier transform on the logarithmic scale.
+
+**Implementation**:
+This is constructed as a `LinearIsometryEquiv` by combining the forward
+Fourier isometry `fourierL2_isometry` with its inverse `invFourierL2_isometry`,
+and proving they satisfy the Fourier inversion formula on L²(ℝ). -/
 noncomputable def fourierL2_linearIsometryEquiv :
-    Lp ℂ 2 (volume : Measure ℝ) ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  LinearIsometryEquiv.refl ℂ (Lp ℂ 2 (volume : Measure ℝ))
+    Lp ℂ 2 (volume : Measure ℝ) ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) := by
+  refine
+    { toLinearEquiv :=
+        { toFun := fourierL2_isometry
+        , invFun := invFourierL2_isometry
+        , left_inv := invFourierL2_isometry_left_inv
+        , right_inv := invFourierL2_isometry_right_inv
+        , map_add' := fun f g => by simp [LinearIsometry.map_add]
+        , map_smul' := fun c f => by simp [LinearIsometry.map_smul] }
+    , norm_map' := fun f => fourierL2_isometry_norm f }
 
 /-- L² Fourier isometry equivalence on `Lp ℂ 2 (volume)`.
 This is the Plancherel unitary on `L²(ℝ)`.
