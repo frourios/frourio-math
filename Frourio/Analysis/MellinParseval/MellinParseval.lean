@@ -1,7 +1,7 @@
 import Frourio.Analysis.FourierPlancherel
 import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2
 import Frourio.Analysis.MellinPlancherel
-import Frourio.Analysis.MellinParseval.MellinParsevalCore4
+import Frourio.Analysis.MellinParseval.MellinParsevalCore5
 import Frourio.Analysis.HilbertSpaceCore
 import Mathlib.Analysis.Fourier.FourierTransform
 import Mathlib.Analysis.Fourier.PoissonSummation
@@ -10,6 +10,7 @@ import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Analysis.NormedSpace.Real
 import Mathlib.MeasureTheory.Measure.NullMeasurable
 import Mathlib.MeasureTheory.Measure.Regular
+import Mathlib.MeasureTheory.Measure.Restrict
 import Mathlib.Data.Set.Basic
 import Mathlib.Analysis.Calculus.BumpFunction.Basic
 import Mathlib.Analysis.Calculus.BumpFunction.SmoothApprox
@@ -22,987 +23,703 @@ open Schwartz
 
 section ClassicalParseval
 
-/-- Connection between Mellin-Parseval and Fourier-Parseval.
-The weighted L² norm on (0,∞) with weight x^(2σ-1)dx equals the unweighted
-L² norm on ℝ after logarithmic change of variables with appropriate weight. -/
-theorem mellin_fourier_parseval_connection (σ : ℝ) (f : Hσ σ) :
-    let g := LogPull σ f
-    ∃ (hg : MemLp g 2 volume), ‖f‖ ^ 2 = ‖MemLp.toLp g hg‖ ^ 2 := by
+/-- Forward rescaling map on Lp: takes an Lp function and applies the rescaling transformation. -/
+noncomputable def rescaleForward_map : Lp ℂ 2 (volume : Measure ℝ) → Lp ℂ 2 (volume : Measure ℝ) :=
+  fun f =>
+    let g := (f : ℝ → ℂ)  -- Get the representative
+    let g_rescaled := rescaleForward_fun g
+    have hg : MeasureTheory.MemLp g 2 volume := MeasureTheory.Lp.memLp f
+    have : MeasureTheory.MemLp g_rescaled 2 volume := rescaleForward_fun_memLp hg
+    this.toLp g_rescaled
+
+/-- Inverse rescaling map on Lp: takes an Lp function and applies the inverse rescaling. -/
+noncomputable def rescaleInverse_map : Lp ℂ 2 (volume : Measure ℝ) → Lp ℂ 2 (volume : Measure ℝ) :=
+  fun f =>
+    let h := (f : ℝ → ℂ)
+    let h_rescaled := rescaleInverse_fun h
+    have hh : MeasureTheory.MemLp h 2 volume := MeasureTheory.Lp.memLp f
+    have : MeasureTheory.MemLp h_rescaled 2 volume := rescaleInverse_fun_memLp hh
+    this.toLp h_rescaled
+
+lemma rescaleForward_map_add (f g : Lp ℂ 2 (volume : Measure ℝ)) :
+    rescaleForward_map (f + g) = rescaleForward_map f + rescaleForward_map g := by
   classical
-  set g : ℝ → ℂ := LogPull σ f with hg_def
-  have hg_mem : MemLp g 2 (volume : Measure ℝ) := mellin_in_L2 σ f
-  refine ⟨hg_mem, ?_⟩
-  -- Step 2: compute the eLpNorm via the weighted Hσ norm of f.
-  have h_eLp_sq : ((eLpNorm g 2 (volume : Measure ℝ)).toReal) ^ 2 = ‖f‖ ^ 2 := by
-    -- The change of variables x = e^t gives the isometry between
-    -- Hσ(σ) (with measure x^(2σ-1)dx on (0,∞)) and L²(ℝ) via LogPull.
-    -- This is exactly the content of the Mellin-Plancherel formula.
-    -- Step A: Use Mellin-Plancherel to relate the L² integral of g to ‖f‖²
-    have h_pl : ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂volume = ‖f‖ ^ 2 := by
-      simp only [g, hg_def]
-      exact mellin_plancherel_formula (σ := σ) (f := f)
-    -- Step B: express the square of eLpNorm g via the integral of ‖g‖²
-    have h_norm_sq : ((eLpNorm g 2 (volume : Measure ℝ)).toReal) ^ 2
-          = ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂volume := by
-      have hp0 : (2 : ℝ≥0∞) ≠ 0 := by norm_num
-      have hp_top : (2 : ℝ≥0∞) ≠ ∞ := by simp
-      have h₁ :=
-        congrArg ENNReal.toReal
-          (MemLp.eLpNorm_eq_integral_rpow_norm (μ := volume)
-            (f := g) hp0 hp_top hg_mem)
-      set B : ℝ :=
-          (∫ τ : ℝ, ‖g τ‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume)
-            ^ (ENNReal.toReal (2 : ℝ≥0∞))⁻¹ with hB
-      have h_two : ENNReal.toReal (2 : ℝ≥0∞) = (2 : ℝ) := by simp
-      have h_base_nonneg :
-          0 ≤ ∫ τ : ℝ, ‖g τ‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume := by
-        refine integral_nonneg ?_
-        intro τ
-        have := sq_nonneg ‖g τ‖
-        simpa [h_two, pow_two] using this
-      have hB_nonneg : 0 ≤ B := by
-        have h_rpow_nonneg :
-            0 ≤
-                (∫ τ : ℝ, ‖g τ‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume)
-                  ^ (ENNReal.toReal (2 : ℝ≥0∞))⁻¹ :=
-          Real.rpow_nonneg h_base_nonneg _
-        simpa [B, hB] using h_rpow_nonneg
-      have h_toReal_ofReal :
-          (eLpNorm g 2 volume).toReal
-            = (ENNReal.ofReal B).toReal := by
-        simpa [B, hB] using h₁
-      have h_toReal : (eLpNorm g 2 volume).toReal = B := by
-        simpa [ENNReal.toReal_ofReal, hB_nonneg] using h_toReal_ofReal
-      have hB_simpl :
-          B = (∫ τ : ℝ, ‖g τ‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ) := by
-        simp [B, hB, h_two, one_div]
-      have h_nonneg : 0 ≤ ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂volume := by
-        simpa [h_two, pow_two] using h_base_nonneg
-      have h_sq' :
-          ((∫ τ : ℝ, ‖g τ‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ)) ^ 2
-            = ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂volume := by
-        have := Real.mul_self_sqrt h_nonneg
-        simpa [pow_two, Real.sqrt_eq_rpow, one_div] using this
-      calc
-        (eLpNorm g 2 volume).toReal ^ 2
-            = (B) ^ 2 := by simp [h_toReal]
-        _ = ((∫ τ : ℝ, ‖g τ‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ)) ^ 2 := by
-              simp [hB_simpl]
-        _ = ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂volume := h_sq'
-    -- Conclude by combining the two equalities
-    calc
-      ((eLpNorm g 2 (volume : Measure ℝ)).toReal) ^ 2
-          = ∫ τ : ℝ, ‖g τ‖ ^ 2 ∂volume := h_norm_sq
-      _ = ‖f‖ ^ 2 := h_pl
-  -- Conclude: ‖f‖² = ‖toLp g‖²
-  calc
-    ‖f‖ ^ 2 = ((eLpNorm g 2 (volume : Measure ℝ)).toReal) ^ 2 := by simpa using h_eLp_sq.symm
-    _ = ‖MemLp.toLp g hg_mem‖ ^ 2 := by simp
-
-/-- Forward Plancherel isometry `Uσ` as a linear isometry into `L²(ℝ)`.
-It sends `f ∈ Hσ` to its logarithmic pullback `(LogPull σ f)` represented in `Lp`.
-This isolates the first leg of the Mellin–Fourier equivalence. -/
-noncomputable def Uσ_linIso (σ : ℝ) : Hσ σ →ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  { toLinearMap :=
-      { toFun := fun f => (mellin_in_L2 σ f).toLp (LogPull σ f)
-        map_add' := by
-          intro f g; simpa using logPull_toLp_add σ f g
-        map_smul' := by
-          intro c f; simpa using logPull_map_smul σ c f }
-    norm_map' := by
-      intro f
-      simpa using (logPull_toLp_norm_eq (σ := σ) (h := f)) }
-
-/-!
-# Construction of L² Fourier Transform
-
-This section implements the L² Fourier transform as a unitary operator on L²(ℝ)
-via the following three steps:
-
-## Step 1: Fourier transform on L¹ ∩ L²
-- Define fourierL1L2_toLp: maps integrable L² functions to their Fourier transforms
-- Prove it's an isometry using fourier_plancherel_L1_L2
-
-## Step 2: Extension to all of L²
-- Show L¹ ∩ L² is dense in L² (l1_inter_l2_dense)
-- Extend by continuity to get fourierL2_isometry on all of L²
-
-## Step 3: Bijectivity via inverse transform
-- Construct inverse Fourier transform similarly
-- Prove left and right inverse properties (Fourier inversion formula)
-- Build fourierL2_linearIsometryEquiv as a LinearIsometryEquiv
-
-The final result is FourierL2_equiv, the Plancherel unitary operator.
--/
-
-/-- Step 1: Fourier transform on L¹ ∩ L² as an L² element.
-For g that is both integrable and in L², the Fourier transform fourierIntegral g
-is also in L² by Plancherel, so we can represent it as an Lp element. -/
-noncomputable def fourierL1L2_toLp (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
-    Lp ℂ 2 (volume : Measure ℝ) := by
-  -- The Fourier transform of g is in L² by Plancherel
-  have hFg_L2 : MemLp (fun ξ => fourierIntegral g ξ) 2 volume :=
-    fourierIntegral_memLp_L1_L2 hg_L1 hg_L2
-  exact hFg_L2.toLp (fun ξ => fourierIntegral g ξ)
-
-/-- Step 1: The Fourier map on L¹ ∩ L² is an isometry (preserves norms). -/
-lemma fourierL1L2_isometry (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
-    ‖fourierL1L2_toLp g hg_L1 hg_L2‖ = ‖hg_L2.toLp g‖ := by
-  -- This follows directly from fourier_plancherel_L1_L2
-  have h_plancherel := fourier_plancherel_L1_L2 g hg_L1 hg_L2
-  -- ‖toLp f‖² = ∫ ‖f‖² for both sides
-  -- From Plancherel: ∫ ‖g‖² = ∫ ‖fourierIntegral g‖²
-  classical
-  -- Express both norms via eLpNorm and integrals for p = 2
-  have hF_mem : MemLp (fun ξ => fourierIntegral g ξ) 2 volume :=
-    fourierIntegral_memLp_L1_L2 hg_L1 hg_L2
-  have hp0 : (2 : ℝ≥0∞) ≠ 0 := by norm_num
-  have hp_top : (2 : ℝ≥0∞) ≠ ∞ := by simp
-  -- For the Fourier side
-  have hF_eLp_eq :
-      (eLpNorm (fun ξ => fourierIntegral g ξ) 2 volume).toReal
-        = (∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ) := by
-    -- Start from the general formula for eLpNorm at p = 2
-    have h₁ :=
-      congrArg ENNReal.toReal
-        (MemLp.eLpNorm_eq_integral_rpow_norm (μ := volume)
-          (f := fun ξ => fourierIntegral g ξ) hp0 hp_top hF_mem)
-    set B : ℝ :=
-        (∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume)
-          ^ (ENNReal.toReal (2 : ℝ≥0∞))⁻¹ with hB
-    have h_two : ENNReal.toReal (2 : ℝ≥0∞) = (2 : ℝ) := by simp
-    have h_base_nonneg :
-        0 ≤ ∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume := by
-      refine integral_nonneg ?_
-      intro ξ; simpa [h_two, pow_two] using sq_nonneg ‖fourierIntegral g ξ‖
-    have hB_nonneg : 0 ≤ B := by
-      have h_rpow_nonneg :
-          0 ≤
-              (∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume)
-                ^ (ENNReal.toReal (2 : ℝ≥0∞))⁻¹ :=
-        Real.rpow_nonneg h_base_nonneg _
-      simpa [B, hB] using h_rpow_nonneg
-    have h_toReal_ofReal :
-        (eLpNorm (fun ξ => fourierIntegral g ξ) 2 volume).toReal
-          = (ENNReal.ofReal B).toReal := by
-      simpa [B, hB] using h₁
-    have h_toReal :
-        (eLpNorm (fun ξ => fourierIntegral g ξ) 2 volume).toReal = B := by
-      simpa [ENNReal.toReal_ofReal, hB_nonneg] using h_toReal_ofReal
-    have hB_simpl :
-        B = (∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ) := by
-      simp [B, hB, h_two, one_div]
-    simp [h_toReal, hB_simpl]
-  -- For the time side
-  have hG_eLp_eq :
-      (eLpNorm g 2 volume).toReal
-        = (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ) := by
-    have h₁ :=
-      congrArg ENNReal.toReal
-        (MemLp.eLpNorm_eq_integral_rpow_norm (μ := volume)
-          (f := g) hp0 hp_top hg_L2)
-    set B : ℝ :=
-        (∫ t : ℝ, ‖g t‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume)
-          ^ (ENNReal.toReal (2 : ℝ≥0∞))⁻¹ with hB
-    have h_two : ENNReal.toReal (2 : ℝ≥0∞) = (2 : ℝ) := by simp
-    have h_base_nonneg :
-        0 ≤ ∫ t : ℝ, ‖g t‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume := by
-      refine integral_nonneg ?_
-      intro t; simpa [h_two, pow_two] using sq_nonneg ‖g t‖
-    have hB_nonneg : 0 ≤ B := by
-      have h_rpow_nonneg :
-          0 ≤
-              (∫ t : ℝ, ‖g t‖ ^ ENNReal.toReal (2 : ℝ≥0∞) ∂volume)
-                ^ (ENNReal.toReal (2 : ℝ≥0∞))⁻¹ :=
-        Real.rpow_nonneg h_base_nonneg _
-      simpa [B, hB] using h_rpow_nonneg
-    have h_toReal_ofReal : (eLpNorm g 2 volume).toReal = (ENNReal.ofReal B).toReal := by
-      simpa [B, hB] using h₁
-    have h_toReal : (eLpNorm g 2 volume).toReal = B := by
-      simpa [ENNReal.toReal_ofReal, hB_nonneg] using h_toReal_ofReal
-    have hB_simpl : B = (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ) := by
-      simp [B, hB, h_two, one_div]
-    simp [h_toReal, hB_simpl]
-  -- Conclude: rewrite both norms and use Plancherel
-  have h_left :
-      ‖fourierL1L2_toLp g hg_L1 hg_L2‖
-        = (∫ ξ : ℝ, ‖fourierIntegral g ξ‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ) := by
-    -- unfold and apply norm_toLp
-    simp [fourierL1L2_toLp, Lp.norm_toLp, hF_eLp_eq]
-  have h_right : ‖hg_L2.toLp g‖ = (∫ t : ℝ, ‖g t‖ ^ 2 ∂volume) ^ (1 / 2 : ℝ) := by
-    simp [Lp.norm_toLp, hG_eLp_eq]
-  -- Apply Plancherel to identify the integrals
-  simp [h_left, h_right, h_plancherel, one_div]
-
-/-- Step 2: L¹ ∩ L² is dense in L².
-This is a standard result: integrable functions with compact support (which are in L¹ ∩ L²)
-are dense in L². -/
-lemma l1_inter_l2_dense :
-    Dense {f : Lp ℂ 2 (volume : Measure ℝ) |
-           ∃ (g : ℝ → ℂ) (_ : Integrable g) (hg_L2 : MemLp g 2 volume),
-           f = hg_L2.toLp g} := by
-  classical
-  -- Let `S` be the set of `Lp` elements arising from L¹ ∩ L² representatives.
-  set S : Set (Lp ℂ 2 (volume : Measure ℝ)) :=
-    {f : Lp ℂ 2 (volume : Measure ℝ) |
-      ∃ (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume),
-        f = hg_L2.toLp g} with hS_def
-  -- Schwartz functions embed into `S` since they are both integrable and L².
-  have h_range_subset_S :
-      Set.range
-          (fun φ : SchwartzMap ℝ ℂ =>
-            (SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
-              (fun t : ℝ => φ t))
-        ⊆ S := by
-    intro f hf
-    rcases hf with ⟨φ, rfl⟩
-    refine ⟨(fun t : ℝ => φ t), schwartz_integrable φ,
-      (SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)), rfl⟩
-  -- The range of Schwartz functions is dense in L²(ℝ) as `Lp`.
-  have h_dense_range := denseRange_schwartz_toLp_L2
-  have h_closure_univ :
-      closure
-          (Set.range
-            (fun φ : SchwartzMap ℝ ℂ =>
-              (SchwartzMap.memLp φ (p := (2 : ℝ≥0∞)) (μ := volume)).toLp
-                (fun t : ℝ => φ t)))
-        = Set.univ :=
-    (denseRange_iff_closure_range).1 h_dense_range
-  -- Monotonicity of closure gives `Set.univ ⊆ closure S`.
-  have h_univ_subset :
-      (Set.univ : Set (Lp ℂ 2 (volume : Measure ℝ))) ⊆ closure S := by
-    have := closure_mono h_range_subset_S
-    simpa [h_closure_univ, hS_def] using this
-  -- Conclude `closure S = univ`, hence `S` is dense.
-  have h_closure_eq_univ : closure S = (Set.univ : Set (Lp ℂ 2 (volume : Measure ℝ))) := by
-    apply le_antisymm
-    · intro x _; trivial
-    · exact h_univ_subset
-  -- Turn the closure equality into `Dense S` using `Dense s ↔ closure s = univ`.
-  simpa [hS_def] using (dense_iff_closure_eq.2 h_closure_eq_univ)
-
--- The subset of L² consisting of equivalence classes represented by L¹ ∩ L² functions.
-def L1L2Set : Set (Lp ℂ 2 (volume : Measure ℝ)) :=
-  {f : Lp ℂ 2 (volume : Measure ℝ) |
-    ∃ (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume),
-      f = hg_L2.toLp g}
-
--- This set is dense in L² (wrapper of `l1_inter_l2_dense`).
-lemma L1L2Set_dense :
-    Dense (L1L2Set) := by
-  -- Signature only; the proof is `by simpa [L1L2Set] using l1_inter_l2_dense`.
-  simpa [L1L2Set] using l1_inter_l2_dense
-
--- Zero belongs to the set (represented by the zero function).
-lemma L1L2Set_zero_mem :
-    (0 : Lp ℂ 2 (volume : Measure ℝ)) ∈ L1L2Set := by
-  refine ⟨(fun _ : ℝ => (0 : ℂ)), by simp,
-    (MemLp.zero : MemLp (fun _ : ℝ => (0 : ℂ)) 2 volume), ?_⟩
-  rfl
-
--- Closed under addition: if f,g come from L¹ ∩ L², then so does f+g.
-lemma L1L2Set_add_mem {f g : Lp ℂ 2 (volume : Measure ℝ)}
-    (hf : f ∈ L1L2Set) (hg : g ∈ L1L2Set) : f + g ∈ L1L2Set := by
-  classical
-  rcases hf with ⟨g₁, hg₁_L1, hg₁_L2, rfl⟩
-  rcases hg with ⟨g₂, hg₂_L1, hg₂_L2, rfl⟩
-  refine ⟨(fun t : ℝ => g₁ t + g₂ t), hg₁_L1.add hg₂_L1, hg₁_L2.add hg₂_L2, ?_⟩
-  -- Show equality in Lp by a.e. equality of representatives
-  apply Lp.ext (μ := (volume : Measure ℝ))
-  have h₁ := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hg₁_L2
-  have h₂ := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hg₂_L2
-  have hsum := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) (hg₁_L2.add hg₂_L2)
-  calc
-    ((MemLp.toLp (fun t : ℝ => g₁ t + g₂ t) (hg₁_L2.add hg₂_L2)) :
-        Lp ℂ 2 (volume : Measure ℝ))
-        =ᵐ[volume] (fun t : ℝ => g₁ t + g₂ t) := hsum
-    _ =ᵐ[volume]
-        (MemLp.toLp g₁ hg₁_L2 : Lp ℂ 2 (volume : Measure ℝ))
-        + (MemLp.toLp g₂ hg₂_L2 : Lp ℂ 2 (volume : Measure ℝ)) := (h₁.add h₂).symm
-    _ =ᵐ[volume]
-        ((MemLp.toLp g₁ hg₁_L2 + MemLp.toLp g₂ hg₂_L2 :
-          Lp ℂ 2 (volume : Measure ℝ))) := (Lp.coeFn_add _ _).symm
-
--- Closed under scalar multiplication.
-lemma L1L2Set_smul_mem (c : ℂ) {f : Lp ℂ 2 (volume : Measure ℝ)}
-    (hf : f ∈ L1L2Set) : c • f ∈ L1L2Set := by
-  classical
-  rcases hf with ⟨g, hg_L1, hg_L2, rfl⟩
-  refine ⟨(fun t : ℝ => c • g t), hg_L1.smul c, hg_L2.const_smul c, ?_⟩
-  -- Show equality in Lp by a.e. equality of representatives
-  rfl
-
--- Well-definedness w.r.t. almost-everywhere equality of representatives.
-lemma fourierL1L2_toLp_congr_ae (g h : ℝ → ℂ)
-    (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume)
-    (hh_L1 : Integrable h) (hh_L2 : MemLp h 2 volume)
-    (h_ae : g =ᵐ[volume] h) :
-    fourierL1L2_toLp g hg_L1 hg_L2 = fourierL1L2_toLp h hh_L1 hh_L2 := by
-  classical
-  -- Compare the `Lp` classes via `toLp_eq_toLp_iff` and show a.e. equality
-  -- of the representing Fourier transforms as functions of the frequency.
-  refine
-    (MemLp.toLp_eq_toLp_iff
-        (fourierIntegral_memLp_L1_L2 hg_L1 hg_L2)
-        (fourierIntegral_memLp_L1_L2 hh_L1 hh_L2)).mpr ?_;
-  -- For every frequency ξ, the Fourier integrals coincide since the integrands
-  -- are a.e. equal in t by `h_ae`.
-  refine ae_of_all _ (fun ξ => ?_)
-  have hmul :
-      (fun t : ℝ => fourierKernel ξ t * g t)
+  -- Work on representatives and use `Lp.ext` to prove equality.
+  apply Lp.ext
+  -- Step 1: identify the representative of `rescaleForward_map (f + g)`.
+  have h_fg_mem :
+      MeasureTheory.MemLp
+        (rescaleForward_fun ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleForward_fun_memLp (MeasureTheory.Lp.memLp (f + g))
+  have h_coe_fg :
+      (rescaleForward_map (f + g) : ℝ → ℂ)
         =ᵐ[volume]
-      (fun t : ℝ => fourierKernel ξ t * h t) :=
-    h_ae.mono (by
-      intro t ht
-      simp [ht])
-  simpa [fourierL1L2_toLp, fourierIntegral]
-    using (MeasureTheory.integral_congr_ae hmul)
+      rescaleForward_fun ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleForward_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_fg_mem)
+  -- Step 2: identify the representatives of `rescaleForward_map f` and `rescaleForward_map g`.
+  have h_f_mem :
+      MeasureTheory.MemLp
+        (rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleForward_fun_memLp (MeasureTheory.Lp.memLp f)
+  have h_g_mem :
+      MeasureTheory.MemLp
+        (rescaleForward_fun ((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleForward_fun_memLp (MeasureTheory.Lp.memLp g)
+  have h_coe_f :
+      (rescaleForward_map f : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleForward_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_f_mem)
+  have h_coe_g :
+      (rescaleForward_map g : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleForward_fun ((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleForward_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_g_mem)
+  -- Step 3: relate the argument of `rescaleForward_fun` for `f + g` to that of `f` and `g`.
+  have h_add :
+      ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      fun x => (f : ℝ → ℂ) x + (g : ℝ → ℂ) x :=
+    MeasureTheory.Lp.coeFn_add f g
+  -- Transport this a.e. equality through composition with `rescaleMap`.
+  have h_add_comp :
+      (fun τ => ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMap τ))
+        =ᵐ[volume]
+      (fun τ => ((fun x => (f : ℝ → ℂ) x + (g : ℝ → ℂ) x) (rescaleMap τ))) := by
+    -- Use quasi measure preserving property of `rescaleMap`.
+    simpa [Function.comp] using
+      (rescaleMap_quasiMeasurePreserving.ae_eq h_add)
+  -- Step 4: use linearity of `rescaleForward_fun` at the function level.
+  have h_fun_add :
+      rescaleForward_fun ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      (fun τ : ℝ =>
+        rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ
+        + rescaleForward_fun ((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) := by
+    -- Expand the definition and use the previous a.e. equality.
+    refine h_add_comp.mono ?_
+    intro τ hτ
+    -- First, rewrite the inner argument using `hτ`.
+    have hτ' :
+        (((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMap τ) : ℂ)
+          = (((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+            (rescaleMap τ) : ℂ) + (((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+            (rescaleMap τ) : ℂ) := by
+      simpa [Function.comp] using hτ
+    -- Apply scalar multiplication by `rescaleNorm⁻¹` and distribute over the sum.
+    have h_smul :=
+      congrArg (fun z : ℂ => (rescaleNorm : ℝ)⁻¹ • z) hτ'
+    simpa [rescaleForward_fun, Function.comp, smul_add] using h_smul
+  -- Step 5: combine all a.e. equalities.
+  refine h_coe_fg.trans ?_
+  -- Rewrite RHS in terms of `rescaleForward_map f` and `rescaleForward_map g`.
+  have h_rhs :
+      (fun τ : ℝ =>
+        rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ
+        + rescaleForward_fun ((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ)
+        =ᵐ[volume]
+      (fun τ : ℝ =>
+        (rescaleForward_map f : ℝ → ℂ) τ
+        + (rescaleForward_map g : ℝ → ℂ) τ) := by
+    refine (h_coe_f.add h_coe_g).symm
+  have h_sum_coe :=
+    (MeasureTheory.Lp.coeFn_add (rescaleForward_map f) (rescaleForward_map g)).symm
+  exact h_fun_add.trans (h_rhs.trans h_sum_coe)
 
--- Additivity of the L¹ ∩ L² Fourier map at the Lp level.
-lemma fourierL1L2_toLp_add (g h : ℝ → ℂ)
-    (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume)
-    (hh_L1 : Integrable h) (hh_L2 : MemLp h 2 volume) :
-    fourierL1L2_toLp (fun t => g t + h t)
-      (hg_L1.add hh_L1) (hg_L2.add hh_L2)
-    = fourierL1L2_toLp g hg_L1 hg_L2
-      + fourierL1L2_toLp h hh_L1 hh_L2 := by
+lemma rescaleForward_map_smul (c : ℂ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    rescaleForward_map (c • f) = c • rescaleForward_map f := by
   classical
-  -- Unfold definitions and compare representatives a.e.
-  apply Lp.ext (μ := (volume : Measure ℝ))
-  -- MemLp witnesses for coeFn_toLp
-  set FsumMem := fourierIntegral_memLp_L1_L2 (hg_L1.add hh_L1) (hg_L2.add hh_L2)
-  set FgMem := fourierIntegral_memLp_L1_L2 hg_L1 hg_L2
-  set FhMem := fourierIntegral_memLp_L1_L2 hh_L1 hh_L2
-  have h_sum := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) FsumMem
-  have hg_coe := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) FgMem
-  have hh_coe := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) FhMem
-  -- Assemble the a.e. equality chain
+  -- Work on representatives and use `Lp.ext` to prove equality.
+  apply Lp.ext
+  -- Step 1: representative of `rescaleForward_map (c • f)`.
+  have h_cf_mem :
+      MeasureTheory.MemLp
+        (rescaleForward_fun ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleForward_fun_memLp (MeasureTheory.Lp.memLp (c • f))
+  have h_coe_cf :
+      (rescaleForward_map (c • f) : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleForward_fun ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleForward_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_cf_mem)
+  -- Step 2: representative of `rescaleForward_map f`.
+  have h_f_mem :
+      MeasureTheory.MemLp
+        (rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleForward_fun_memLp (MeasureTheory.Lp.memLp f)
+  have h_coe_f :
+      (rescaleForward_map f : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleForward_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_f_mem)
+  -- Step 3: relate the argument of `rescaleForward_fun` for `c • f` to that of `f`.
+  have h_smul_rep :
+      ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      fun x => c • (f : ℝ → ℂ) x :=
+    MeasureTheory.Lp.coeFn_smul c f
+  -- Transport this a.e. equality through composition with `rescaleMap`.
+  have h_smul_comp :
+      (fun τ => ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMap τ))
+        =ᵐ[volume]
+      (fun τ => c • ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMap τ)) := by
+    simpa [Function.comp] using
+      (rescaleMap_quasiMeasurePreserving.ae_eq h_smul_rep)
+  -- Step 4: linearity of `rescaleForward_fun` at the function level (scalar multiplication).
+  have h_fun_smul :
+      rescaleForward_fun ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      (fun τ : ℝ =>
+        c • rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) := by
+    refine h_smul_comp.mono ?_
+    intro τ hτ
+    -- Rewrite the inner argument using `hτ`.
+    have hτ' :
+        (((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMap τ) : ℂ)
+          = c • (((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+            (rescaleMap τ) : ℂ) := by
+      simpa [Function.comp] using hτ
+    -- Apply scalar multiplication by `rescaleNorm⁻¹` and rearrange.
+    have h_smul' :=
+      congrArg (fun z : ℂ => (rescaleNorm : ℝ)⁻¹ • z) hτ'
+    -- Turn both sides into the desired expressions using `rescaleForward_fun`.
+    -- Use `Real.smul_def` to rewrite real scalar multiplication as complex multiplication.
+    simpa [rescaleForward_fun, Function.comp, Circle.smul_def,
+      mul_comm, mul_left_comm, mul_assoc, smul_smul] using h_smul'
+  -- Step 5: rewrite the RHS in terms of `c • rescaleForward_map f`.
+  have h_rhs1 :
+      (fun τ : ℝ =>
+        c • rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ)
+        =ᵐ[volume]
+      (fun τ : ℝ =>
+        c • (rescaleForward_map f : ℝ → ℂ) τ) := by
+    refine h_coe_f.mono ?_
+    intro τ hτ
+    simp [hτ]
+  have h_rhs2 :
+      (fun τ : ℝ =>
+        c • (rescaleForward_map f : ℝ → ℂ) τ)
+        =ᵐ[volume]
+      ((c • rescaleForward_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) :=
+    (MeasureTheory.Lp.coeFn_smul c (rescaleForward_map f)).symm
+  -- Step 6: combine all a.e. equalities.
+  exact h_coe_cf.trans (h_fun_smul.trans (h_rhs1.trans h_rhs2))
+
+lemma rescaleInverse_map_add (f g : Lp ℂ 2 (volume : Measure ℝ)) :
+    rescaleInverse_map (f + g) = rescaleInverse_map f + rescaleInverse_map g := by
+  classical
+  -- Work on representatives and use `Lp.ext` to prove equality.
+  apply Lp.ext
+  -- Step 1: representative of `rescaleInverse_map (f + g)`.
+  have h_fg_mem :
+      MeasureTheory.MemLp
+        (rescaleInverse_fun ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleInverse_fun_memLp (MeasureTheory.Lp.memLp (f + g))
+  have h_coe_fg :
+      (rescaleInverse_map (f + g) : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleInverse_fun ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleInverse_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_fg_mem)
+  -- Step 2: representatives of `rescaleInverse_map f` and `rescaleInverse_map g`.
+  have h_f_mem :
+      MeasureTheory.MemLp
+        (rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleInverse_fun_memLp (MeasureTheory.Lp.memLp f)
+  have h_g_mem :
+      MeasureTheory.MemLp
+        (rescaleInverse_fun ((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleInverse_fun_memLp (MeasureTheory.Lp.memLp g)
+  have h_coe_f :
+      (rescaleInverse_map f : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleInverse_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_f_mem)
+  have h_coe_g :
+      (rescaleInverse_map g : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleInverse_fun ((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleInverse_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_g_mem)
+  -- Step 3: relate the argument of `rescaleInverse_fun` for `f + g` to that of `f` and `g`.
+  have h_add :
+      ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      fun x => (f : ℝ → ℂ) x + (g : ℝ → ℂ) x :=
+    MeasureTheory.Lp.coeFn_add f g
+  -- Transport this a.e. equality through composition with `rescaleMapInv`.
+  have h_add_comp :
+      (fun τ => ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMapInv τ))
+        =ᵐ[volume]
+      (fun τ => ((fun x => (f : ℝ → ℂ) x + (g : ℝ → ℂ) x) (rescaleMapInv τ))) := by
+    -- Use quasi measure preserving property of `rescaleMapInv`.
+    simpa [Function.comp] using
+      (rescaleMapInv_quasiMeasurePreserving.ae_eq h_add)
+  -- Step 4: linearity of `rescaleInverse_fun` at the function level.
+  have h_fun_add :
+      rescaleInverse_fun ((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      (fun τ : ℝ =>
+        rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ
+        + rescaleInverse_fun ((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) := by
+    -- Expand the definition and use the previous a.e. equality.
+    refine h_add_comp.mono ?_
+    intro τ hτ
+    -- First, rewrite the inner argument using `hτ`.
+    have hτ' :
+        (((f + g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMapInv τ) : ℂ)
+          = (((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+            (rescaleMapInv τ) : ℂ) + (((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+            (rescaleMapInv τ) : ℂ) := by
+      simpa [Function.comp] using hτ
+    -- Apply scalar multiplication by `rescaleNorm` and distribute over the sum.
+    have h_smul :=
+      congrArg (fun z : ℂ => (rescaleNorm : ℝ) • z) hτ'
+    simpa [rescaleInverse_fun, Function.comp, smul_add, Circle.smul_def,
+      mul_comm, mul_left_comm, mul_assoc, smul_smul] using h_smul
+  -- Step 5: combine all a.e. equalities.
+  refine h_coe_fg.trans ?_
+  -- Rewrite RHS in terms of `rescaleInverse_map f` and `rescaleInverse_map g`.
+  have h_rhs :
+      (fun τ : ℝ =>
+        rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ
+        + rescaleInverse_fun ((g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ)
+        =ᵐ[volume]
+      (fun τ : ℝ =>
+        (rescaleInverse_map f : ℝ → ℂ) τ
+        + (rescaleInverse_map g : ℝ → ℂ) τ) := by
+    refine (h_coe_f.add h_coe_g).symm
+  have h_sum_coe :=
+    (MeasureTheory.Lp.coeFn_add (rescaleInverse_map f) (rescaleInverse_map g)).symm
+  exact h_fun_add.trans (h_rhs.trans h_sum_coe)
+
+lemma rescaleInverse_map_smul (c : ℂ) (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    rescaleInverse_map (c • f) = c • rescaleInverse_map f := by
+  classical
+  -- Work on representatives and use `Lp.ext` to prove equality.
+  apply Lp.ext
+  -- Step 1: representative of `rescaleInverse_map (c • f)`.
+  have h_cf_mem :
+      MeasureTheory.MemLp
+        (rescaleInverse_fun ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleInverse_fun_memLp (MeasureTheory.Lp.memLp (c • f))
+  have h_coe_cf :
+      (rescaleInverse_map (c • f) : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleInverse_fun ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleInverse_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_cf_mem)
+  -- Step 2: representative of `rescaleInverse_map f`.
+  have h_f_mem :
+      MeasureTheory.MemLp
+        (rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleInverse_fun_memLp (MeasureTheory.Lp.memLp f)
+  have h_coe_f :
+      (rescaleInverse_map f : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleInverse_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_f_mem)
+  -- Step 3: relate the argument of `rescaleInverse_fun` for `c • f` to that of `f`.
+  have h_smul_rep :
+      ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      fun x => c • (f : ℝ → ℂ) x :=
+    MeasureTheory.Lp.coeFn_smul c f
+  -- Transport this a.e. equality through composition with `rescaleMapInv`.
+  have h_smul_comp :
+      (fun τ => ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMapInv τ))
+        =ᵐ[volume]
+      (fun τ => c • ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMapInv τ)) := by
+    simpa [Function.comp] using
+      (rescaleMapInv_quasiMeasurePreserving.ae_eq h_smul_rep)
+  -- Step 4: linearity of `rescaleInverse_fun` at the function level (scalar multiplication).
+  have h_fun_smul :
+      rescaleInverse_fun ((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      (fun τ : ℝ =>
+        c • rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ) := by
+    refine h_smul_comp.mono ?_
+    intro τ hτ
+    -- Rewrite the inner argument using `hτ`.
+    have hτ' :
+        (((c • f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) (rescaleMapInv τ) : ℂ)
+          = c • (((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+            (rescaleMapInv τ) : ℂ) := by
+      simpa [Function.comp] using hτ
+    -- Apply scalar multiplication by `rescaleNorm` and rearrange.
+    have h_smul' :=
+      congrArg (fun z : ℂ => (rescaleNorm : ℝ) • z) hτ'
+    -- Convert both sides via `Real.smul_def` and `smul_smul`.
+    simpa [rescaleInverse_fun, Function.comp, Circle.smul_def,
+      mul_comm, mul_left_comm, mul_assoc, smul_smul] using h_smul'
+  -- Step 5: rewrite the RHS in terms of `c • rescaleInverse_map f`.
+  have h_rhs1 :
+      (fun τ : ℝ =>
+        c • rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) τ)
+        =ᵐ[volume]
+      (fun τ : ℝ =>
+        c • (rescaleInverse_map f : ℝ → ℂ) τ) := by
+    refine h_coe_f.mono ?_
+    intro τ hτ
+    simp [hτ]
+  have h_rhs2 :
+      (fun τ : ℝ =>
+        c • (rescaleInverse_map f : ℝ → ℂ) τ)
+        =ᵐ[volume]
+      ((c • rescaleInverse_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) :=
+    (MeasureTheory.Lp.coeFn_smul c (rescaleInverse_map f)).symm
+  -- Step 6: combine all a.e. equalities.
+  exact h_coe_cf.trans (h_fun_smul.trans (h_rhs1.trans h_rhs2))
+
+lemma rescaleForward_rescaleInverse (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    rescaleForward_map (rescaleInverse_map f) = f := by
+  classical
+  -- Work on representatives and use `Lp.ext` to prove equality.
+  apply Lp.ext
+  -- Step 1: representative of `rescaleInverse_map f`.
+  have h_inv_mem :
+      MeasureTheory.MemLp
+        (rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleInverse_fun_memLp (MeasureTheory.Lp.memLp f)
+  have h_inv_coe :
+      (rescaleInverse_map f : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleInverse_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_inv_mem)
+  -- Step 2: representative of `rescaleForward_map (rescaleInverse_map f)`.
+  have h_fwd_mem :
+      MeasureTheory.MemLp
+        (rescaleForward_fun ((rescaleInverse_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleForward_fun_memLp (MeasureTheory.Lp.memLp (rescaleInverse_map f))
+  have h_fwd_coe :
+      (rescaleForward_map (rescaleInverse_map f) : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleForward_fun ((rescaleInverse_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleForward_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_fwd_mem)
+  -- Step 3: propagate the a.e. equality of the inner argument through `rescaleForward_fun`.
+  have h_comp_ae :
+      (fun τ => (rescaleInverse_map f : ℝ → ℂ) (rescaleMap τ))
+        =ᵐ[volume]
+      (fun τ =>
+        rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+          (rescaleMap τ)) := by
+    -- Use quasi measure preserving property of `rescaleMap`.
+    simpa [Function.comp] using
+      (rescaleMap_quasiMeasurePreserving.ae_eq h_inv_coe)
+  have h_fwd_ae :
+      rescaleForward_fun ((rescaleInverse_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleForward_fun
+        (rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)) := by
+    refine h_comp_ae.mono ?_
+    intro τ hτ
+    -- Rewrite the inner argument using `hτ`.
+    have hτ' :
+        (((rescaleInverse_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+          (rescaleMap τ) : ℂ)
+          =
+        (rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+          (rescaleMap τ) : ℂ) := by
+      simpa [Function.comp] using hτ
+    -- Apply scalar multiplication by `rescaleNorm⁻¹` and rearrange.
+    have h_smul :=
+      congrArg (fun z : ℂ => (rescaleNorm : ℝ)⁻¹ • z) hτ'
+    simpa [rescaleForward_fun, Function.comp] using h_smul
+  -- Step 4: identify the composition as the identity on representatives.
+  have h_comp_id :
+      rescaleForward_fun
+        (rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        = ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) :=
+    rescaleForward_fun_rescaleInverse_fun _
+  have h_comp_id_ae :
+      rescaleForward_fun
+        (rescaleInverse_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        =ᵐ[volume]
+      ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) :=
+    Filter.Eventually.of_forall (fun τ => by simpa using congrArg (fun h => h τ) h_comp_id)
+  -- Step 5: combine all a.e. equalities to deduce equality of `Lp` elements.
+  have h_total :
+      (rescaleForward_map (rescaleInverse_map f) : ℝ → ℂ)
+        =ᵐ[volume]
+      ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) :=
+    h_fwd_coe.trans (h_fwd_ae.trans h_comp_id_ae)
+  -- Conclude by `Lp.ext`.
+  exact h_total
+
+lemma rescaleInverse_rescaleForward (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    rescaleInverse_map (rescaleForward_map f) = f := by
+  classical
+  -- Work on representatives and use `Lp.ext` to prove equality.
+  apply Lp.ext
+  -- Step 1: representative of `rescaleForward_map f`.
+  have h_fwd_mem :
+      MeasureTheory.MemLp
+        (rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleForward_fun_memLp (MeasureTheory.Lp.memLp f)
+  have h_fwd_coe :
+      (rescaleForward_map f : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleForward_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_fwd_mem)
+  -- Step 2: representative of `rescaleInverse_map (rescaleForward_map f)`.
+  have h_inv_mem :
+      MeasureTheory.MemLp
+        (rescaleInverse_fun
+          ((rescaleForward_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        2 (volume : Measure ℝ) :=
+    rescaleInverse_fun_memLp (MeasureTheory.Lp.memLp (rescaleForward_map f))
+  have h_inv_coe :
+      (rescaleInverse_map (rescaleForward_map f) : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleInverse_fun
+        ((rescaleForward_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+    simpa [rescaleInverse_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_inv_mem)
+  -- Step 3: propagate the a.e. equality of the inner argument through `rescaleInverse_fun`.
+  have h_comp_ae :
+      (fun τ => (rescaleForward_map f : ℝ → ℂ) (rescaleMapInv τ))
+        =ᵐ[volume]
+      (fun τ =>
+        rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+          (rescaleMapInv τ)) := by
+    -- Use quasi measure preserving property of `rescaleMapInv`.
+    simpa [Function.comp] using
+      (rescaleMapInv_quasiMeasurePreserving.ae_eq h_fwd_coe)
+  have h_inv_ae :
+      rescaleInverse_fun
+        ((rescaleForward_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleInverse_fun
+        (rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)) := by
+    refine h_comp_ae.mono ?_
+    intro τ hτ
+    -- Rewrite the inner argument using `hτ`.
+    have hτ' :
+        (((rescaleForward_map f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+          (rescaleMapInv τ) : ℂ)
+          =
+        (rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+          (rescaleMapInv τ) : ℂ) := by
+      simpa [Function.comp] using hτ
+    -- Apply scalar multiplication by `rescaleNorm` and rearrange.
+    have h_smul :=
+      congrArg (fun z : ℂ => (rescaleNorm : ℝ) • z) hτ'
+    -- Convert both sides via `Real.smul_def` and `smul_smul`.
+    simpa [rescaleInverse_fun, Function.comp, Circle.smul_def,
+      mul_comm, mul_left_comm, mul_assoc, smul_smul] using h_smul
+  -- Step 4: identify the composition as the identity on representatives.
+  have h_comp_id :
+      rescaleInverse_fun
+        (rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        = ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) :=
+    rescaleInverse_fun_rescaleForward_fun _
+  have h_comp_id_ae :
+      rescaleInverse_fun
+        (rescaleForward_fun ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        =ᵐ[volume]
+      ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) :=
+    Filter.Eventually.of_forall
+      (fun τ => by simpa using congrArg (fun h => h τ) h_comp_id)
+  -- Step 5: combine all a.e. equalities to deduce equality of `Lp` elements.
+  have h_total :
+      (rescaleInverse_map (rescaleForward_map f) : ℝ → ℂ)
+        =ᵐ[volume]
+      ((f : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) :=
+    h_inv_coe.trans (h_inv_ae.trans h_comp_id_ae)
+  -- Conclude by `Lp.ext`.
+  exact h_total
+
+lemma rescaleForward_map_norm (f : Lp ℂ 2 (volume : Measure ℝ)) :
+    ‖rescaleForward_map f‖ = ‖f‖ := by
+  classical
+  -- Choose a representative `g` of `f` and its L² membership.
+  let g : ℝ → ℂ := (f : ℝ → ℂ)
+  have hg : MeasureTheory.MemLp g 2 (volume : Measure ℝ) :=
+    MeasureTheory.Lp.memLp f
+  -- `rescaleForward_map f` is obtained from `rescaleForward_fun g` via `toLp`.
+  have hg_rescaled :
+      MeasureTheory.MemLp (rescaleForward_fun g) 2 (volume : Measure ℝ) :=
+    rescaleForward_fun_memLp hg
+  -- Identify the norm of `rescaleForward_map f` with the eLpNorm of its representative.
+  have h_norm_rescaled :
+      ‖rescaleForward_map f‖
+        = (eLpNorm (rescaleForward_fun g) 2 (volume : Measure ℝ)).toReal := by
+    -- This is just `Lp.norm_toLp` unfolded along the definition of `rescaleForward_map`.
+    unfold rescaleForward_map
+    exact Lp.norm_toLp (μ := (volume : Measure ℝ))
+      (f := rescaleForward_fun g) hg_rescaled
+  -- Identify the norm of `f` with the eLpNorm of its representative.
+  have h_norm_f :
+      ‖f‖ = (eLpNorm g 2 (volume : Measure ℝ)).toReal := by
+    -- By definition of `g`, we have `g =ᵐ[volume] f`.
+    -- Use the fact that Lp norm only depends on the ae class.
+    have : (eLpNorm g 2 (volume : Measure ℝ)) = eLpNorm (f : ℝ → ℂ) 2 volume := by
+      have : g =ᵐ[volume] (f : ℝ → ℂ) := by rfl
+      exact eLpNorm_congr_ae this
+    rw [this]
+    exact (Lp.norm_def f).symm
+  have h_eLp_eq :
+      (eLpNorm (rescaleForward_fun g) 2 (volume : Measure ℝ)).toReal
+        = (eLpNorm g 2 (volume : Measure ℝ)).toReal :=
+    rescaleForward_fun_eLpNorm_eq g hg
+  -- Combine all equalities.
   calc
-    ((MemLp.toLp (fun ξ : ℝ => fourierIntegral (fun t => g t + h t) ξ) FsumMem) :
-        Lp ℂ 2 (volume : Measure ℝ))
-        =ᵐ[volume] (fun ξ : ℝ => fourierIntegral (fun t => g t + h t) ξ) := h_sum
-    _ =ᵐ[volume]
-        (fun ξ : ℝ => fourierIntegral g ξ + fourierIntegral h ξ) :=
-          ae_of_all _ (fun ξ => by simpa using fourierIntegral_add (hf := hg_L1) (hg := hh_L1) ξ)
-    _ =ᵐ[volume]
-        ((MemLp.toLp (fun ξ => fourierIntegral g ξ) FgMem : Lp ℂ 2 (volume : Measure ℝ))
-          + (MemLp.toLp (fun ξ => fourierIntegral h ξ) FhMem : Lp ℂ 2 (volume : Measure ℝ))) :=
-          (hg_coe.add hh_coe).symm
-    _ =ᵐ[volume]
-        (fun ξ : ℝ => (((MemLp.toLp (fun ξ => fourierIntegral g ξ) FgMem :
-            Lp ℂ 2 (volume : Measure ℝ))
-          + (MemLp.toLp (fun ξ => fourierIntegral h ξ) FhMem :
-            Lp ℂ 2 (volume : Measure ℝ))) : ℝ → ℂ) ξ) := by
-          -- Convert sum of coeFns to the coeFn of the sum
-          have hx :=
-            (Lp.coeFn_add (μ := (volume : Measure ℝ))
-              (MemLp.toLp (fun ξ => fourierIntegral g ξ) FgMem)
-              (MemLp.toLp (fun ξ => fourierIntegral h ξ) FhMem)).symm
-          -- Adjust shape to an explicit lambda
-          exact hx.mono (by intro ξ hξ; simp)
-    _ =ᵐ[volume]
-        (fun ξ : ℝ => (((fourierL1L2_toLp g hg_L1 hg_L2)
-            + (fourierL1L2_toLp h hh_L1 hh_L2)) : ℝ → ℂ) ξ) := by
-          simp [fourierL1L2_toLp]
-    _ =ᵐ[volume]
-        (↑↑((fourierL1L2_toLp g hg_L1 hg_L2)
-          + (fourierL1L2_toLp h hh_L1 hh_L2)) : ℝ → ℂ) := by
-          simpa using
-            (Lp.coeFn_add (μ := (volume : Measure ℝ))
-              (fourierL1L2_toLp g hg_L1 hg_L2)
-              (fourierL1L2_toLp h hh_L1 hh_L2)).symm
-
--- Scalar multiplication compatibility of the L¹ ∩ L² Fourier map at the Lp level.
-lemma fourierL1L2_toLp_smul (c : ℂ) (g : ℝ → ℂ)
-    (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
-    fourierL1L2_toLp (fun t => c • g t)
-      (hg_L1.smul c) (hg_L2.const_smul c)
-    = c • fourierL1L2_toLp g hg_L1 hg_L2 := by
-  classical
-  -- Compare representatives a.e. and use `Lp.ext`.
-  apply Lp.ext (μ := (volume : Measure ℝ))
-  -- MemLp witnesses for coeFn_toLp
-  set FcMem :=
-    fourierIntegral_memLp_L1_L2 (hg_L1.smul c) (hg_L2.const_smul c)
-  set FgMem := fourierIntegral_memLp_L1_L2 hg_L1 hg_L2
-  have hc_coe := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) FcMem
-  have hg_coe := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) FgMem
-  have hcoe_smul :=
-    (Lp.coeFn_smul (μ := (volume : Measure ℝ)) c
-      (MemLp.toLp (fun ξ => fourierIntegral g ξ) FgMem)).symm
-  -- Assemble the a.e. equality chain
-  calc
-    ((MemLp.toLp (fun ξ : ℝ => fourierIntegral (fun t => c • g t) ξ) FcMem) :
-        Lp ℂ 2 (volume : Measure ℝ))
-        =ᵐ[volume] (fun ξ : ℝ => fourierIntegral (fun t => c • g t) ξ) := hc_coe
-    _ =ᵐ[volume]
-        (fun ξ : ℝ => c * fourierIntegral g ξ) :=
-          ae_of_all _ (fun ξ => by
-            simpa [Circle.smul_def] using fourierIntegral_smul c hg_L1 ξ)
-    _ =ᵐ[volume]
-        (fun ξ : ℝ => c * (((MemLp.toLp (fun ξ => fourierIntegral g ξ) FgMem :
-            Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) ξ)) :=
-          hg_coe.mono (by intro ξ hξ; simp [hξ])
-    _ =ᵐ[volume]
-        (fun ξ : ℝ => c • (((MemLp.toLp (fun ξ => fourierIntegral g ξ) FgMem :
-            Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) ξ)) :=
-          ae_of_all _ (fun _ => by simp [Circle.smul_def])
-    _ =ᵐ[volume]
-        (fun ξ : ℝ => ((c • (MemLp.toLp (fun ξ => fourierIntegral g ξ) FgMem :
-            Lp ℂ 2 (volume : Measure ℝ))) : ℝ → ℂ) ξ) := by
-          simp
-    _ =ᵐ[volume]
-        (fun ξ : ℝ => ((c • (fourierL1L2_toLp g hg_L1 hg_L2)) : ℝ → ℂ) ξ) := by
-          -- Unfold the declaration of `fourierL1L2_toLp`
-          simp [fourierL1L2_toLp]
-    _ =ᵐ[volume]
-        (↑↑(c • fourierL1L2_toLp g hg_L1 hg_L2) : ℝ → ℂ) := by
-          simpa using
-            (Lp.coeFn_smul (μ := (volume : Measure ℝ))
-              c (fourierL1L2_toLp g hg_L1 hg_L2)).symm
-
--- Package the set as a submodule to inherit algebraic structure on the domain.
-noncomputable def L1L2Submodule :
-    Submodule ℂ (Lp ℂ 2 (volume : Measure ℝ)) :=
-  { carrier := L1L2Set
-  , zero_mem' := by simpa using L1L2Set_zero_mem
-  , add_mem' := by
-      intro a b ha hb; exact L1L2Set_add_mem ha hb
-  , smul_mem' := by
-      intro c x hx; exact L1L2Set_smul_mem c hx }
-
--- Construct a linear map on the submodule induced by `fourierL1L2_toLp`.
-noncomputable def T0_on_L1L2 :
-    L1L2Submodule →ₗ[ℂ] Lp ℂ 2 (volume : Measure ℝ) := by
-  classical
-  refine
-    { toFun := ?toFun
-    , map_add' := ?map_add
-    , map_smul' := ?map_smul };
-  · -- definition on generators: pick a representative noncomputably via choice
-    -- Avoid eliminating an `∃` into data by using `Classical.choose`.
-    intro f
-    -- Convert membership of the submodule into the existential defining L1L2Set
-    have hmemf : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
-      simp [L1L2Submodule]
-    -- hmemf : ∃ g, Integrable g ∧ MemLp g 2 ∧ f = toLp g
-    let g : ℝ → ℂ := Classical.choose hmemf
-    let ex1 := Classical.choose_spec hmemf
-    let hg_L1 : Integrable g := Classical.choose ex1
-    let ex2 := Classical.choose_spec ex1
-    let hg_L2 : MemLp g 2 (volume : Measure ℝ) := Classical.choose ex2
-    -- let hf : (f : Lp ℂ 2 (volume : Measure ℝ)) = hg_L2.toLp g := Classical.choose_spec ex2
-    exact fourierL1L2_toLp g hg_L1 hg_L2
-  · -- additivity
-    intro f g
-    rcases f.property with ⟨g₁, hg₁_L1, hg₁_L2, hf⟩
-    rcases g.property with ⟨g₂, hg₂_L1, hg₂_L2, hg⟩
-    -- Unfold the definition on f, g, and f+g
-    -- Chosen representative for f + g
-    -- Repackage membership proofs needed for add_mem
-    have hf_mem : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set :=
-      ⟨g₁, hg₁_L1, hg₁_L2, hf⟩
-    have hg_mem : ((g : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set :=
-      ⟨g₂, hg₂_L1, hg₂_L2, hg⟩
-    have h_sum_rep : ((f + g : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ)) ∈ L1L2Set :=
-      (L1L2Set_add_mem hf_mem hg_mem)
-    rcases h_sum_rep with ⟨gs, hs_L1, hs_L2, hfg_eq⟩
-    -- Show the chosen rep gs agrees a.e. with g₁+g₂, by comparing two toLp representations
-    have h_sum_toLp_eq :
-        (hs_L2.toLp gs : Lp ℂ 2 (volume : Measure ℝ))
-          = (hg₁_L2.toLp g₁ + hg₂_L2.toLp g₂) := by
-      -- From hfg_eq and hf, hg
-      -- First, identify (hg₁+hg₂).toLp (g₁+g₂) with the sum of toLp's
-      have h_canon :
-          ((hg₁_L2.add hg₂_L2).toLp (fun t : ℝ => g₁ t + g₂ t)
-            : Lp ℂ 2 (volume : Measure ℝ))
-            = (hg₁_L2.toLp g₁ + hg₂_L2.toLp g₂) := by
-        -- This is exactly the equality proved in L1L2Set_add_mem's calc
-        -- We re-establish it here via a.e. equality of coeFns
-        apply Lp.ext (μ := (volume : Measure ℝ))
-        have h₁ := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hg₁_L2
-        have h₂ := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) hg₂_L2
-        have hsum := MeasureTheory.MemLp.coeFn_toLp (μ := (volume : Measure ℝ)) (hg₁_L2.add hg₂_L2)
-        calc
-          ((MemLp.toLp (fun t : ℝ => g₁ t + g₂ t) (hg₁_L2.add hg₂_L2)) :
-              Lp ℂ 2 (volume : Measure ℝ))
-              =ᵐ[volume] (fun t : ℝ => g₁ t + g₂ t) := hsum
-          _ =ᵐ[volume]
-              (MemLp.toLp g₁ hg₁_L2 : Lp ℂ 2 (volume : Measure ℝ))
-                + (MemLp.toLp g₂ hg₂_L2 : Lp ℂ 2 (volume : Measure ℝ)) := (h₁.add h₂).symm
-          _ =ᵐ[volume]
-              ((MemLp.toLp g₁ hg₁_L2 + MemLp.toLp g₂ hg₂_L2 :
-                Lp ℂ 2 (volume : Measure ℝ))) := (Lp.coeFn_add _ _).symm
-      -- Now compare with the chosen representation for f+g, using hfg_eq and hf, hg
-      -- From hf, hg: f = toLp g₁, g = toLp g₂
-      have hfg_sum :
-          (hg₁_L2.toLp g₁ + hg₂_L2.toLp g₂ : Lp ℂ 2 (volume : Measure ℝ))
-            = ((f + g : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ)) := by
-        -- equality in the subtype coerces to equality in the ambient Lp
-        -- but we only need equality in Lp
-        -- Coe out of the subtype
-        have : ((f + g : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ))
-            = (f : Lp ℂ 2 (volume : Measure ℝ)) + (g : Lp ℂ 2 (volume : Measure ℝ)) := rfl
-        rw [this, hf, hg]
-      -- Meanwhile, hfg_eq: ↑(f + g) = (hs_L2.toLp gs)
-      -- Combine to eliminate (f+g)
-      rw [← hfg_eq, hfg_sum]
-    -- From equality of toLp, deduce a.e. equality of the functions
-    have hgs_ae : (fun t => gs t) =ᵐ[volume] (fun t => g₁ t + g₂ t) := by
-      -- Use toLp_eq_toLp_iff with the two MemLp witnesses
-      exact (MemLp.toLp_eq_toLp_iff hs_L2 (hg₁_L2.add hg₂_L2)).1 h_sum_toLp_eq
-    -- Now apply the additivity lemma and the congruence on a.e.-equal reps
-    -- Left side: T0_on_L1L2 (f + g)
-    -- equals fourierL1L2_toLp gs ...; replace by g₁+g₂
-    have h_left :
-        fourierL1L2_toLp gs hs_L1 hs_L2
-          = fourierL1L2_toLp (fun t => g₁ t + g₂ t)
-              (hg₁_L1.add hg₂_L1) (hg₁_L2.add hg₂_L2) :=
-      fourierL1L2_toLp_congr_ae gs (fun t => g₁ t + g₂ t)
-        hs_L1 hs_L2 (hg₁_L1.add hg₂_L1) (hg₁_L2.add hg₂_L2) hgs_ae
-    -- Bridge: identify T0_on_L1L2 (f + g) with the chosen rep `gs` via choice
-    -- Choice witnesses for (f + g) through membership in L1L2Set
-    have hmem_fg : ((f + g : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
-      simpa [L1L2Submodule] using (f + g).property
-    let gch : ℝ → ℂ := Classical.choose hmem_fg
-    let ex1c := Classical.choose_spec hmem_fg
-    let hL1c : Integrable gch := Classical.choose ex1c
-    let ex2c := Classical.choose_spec ex1c
-    let hL2c : MemLp gch 2 (volume : Measure ℝ) := Classical.choose ex2c
-    have hfg_eq_choice : ((f + g : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ))
-        = hL2c.toLp gch := by
-      -- rewrite (f+g).property to L1L2Set membership to access choose_spec
-      exact Classical.choose_spec ex2c
-    -- A.e. equality between the two chosen reps for f+g
-    have h_ae_sum : (fun t => gs t) =ᵐ[volume] gch := by
-      have : (hs_L2.toLp gs : Lp ℂ 2 (volume : Measure ℝ)) = hL2c.toLp gch := by
-        -- both sides equal the same element (f + g)
-        exact (hfg_eq.symm.trans hfg_eq_choice)
-      exact (MemLp.toLp_eq_toLp_iff hs_L2 hL2c).1 this
-    -- Convert this into equality of Fourier Lp images using congr_ae
-    have h_sum_congr :
-        fourierL1L2_toLp gs hs_L1 hs_L2
-          = fourierL1L2_toLp gch hL1c hL2c :=
-      fourierL1L2_toLp_congr_ae gs gch hs_L1 hs_L2 hL1c hL2c h_ae_sum
-    -- Similarly bridge for f and g individually to align with T0_on_L1L2 definitions
-    -- Choice witnesses for f
-    have hmem_f : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
-      simp [L1L2Submodule]
-    let gf : ℝ → ℂ := Classical.choose hmem_f
-    let ex1f := Classical.choose_spec hmem_f
-    let hL1f : Integrable gf := Classical.choose ex1f
-    let ex2f := Classical.choose_spec ex1f
-    let hL2f : MemLp gf 2 (volume : Measure ℝ) := Classical.choose ex2f
-    have hf_choice : ((f : Lp ℂ 2 (volume : Measure ℝ))) = hL2f.toLp gf :=
-      Classical.choose_spec ex2f
-    have h_ae_f : (fun t => gf t) =ᵐ[volume] g₁ := by
-      have : (hL2f.toLp gf : Lp ℂ 2 (volume : Measure ℝ)) = hg₁_L2.toLp g₁ := by
-        rw [← hf_choice, hf]
-      exact (MemLp.toLp_eq_toLp_iff hL2f hg₁_L2).1 this
-    have h_f_congr :
-        fourierL1L2_toLp gf hL1f hL2f
-          = fourierL1L2_toLp g₁ hg₁_L1 hg₁_L2 :=
-      fourierL1L2_toLp_congr_ae gf g₁ hL1f hL2f hg₁_L1 hg₁_L2 h_ae_f
-    -- Choice witnesses for g
-    have hmem_g : ((g : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
-      simp [L1L2Submodule]
-    let gg : ℝ → ℂ := Classical.choose hmem_g
-    let ex1g := Classical.choose_spec hmem_g
-    let hL1g : Integrable gg := Classical.choose ex1g
-    let ex2g := Classical.choose_spec ex1g
-    let hL2g : MemLp gg 2 (volume : Measure ℝ) := Classical.choose ex2g
-    have hg_choice : ((g : Lp ℂ 2 (volume : Measure ℝ))) = hL2g.toLp gg :=
-      Classical.choose_spec ex2g
-    have h_ae_g : (fun t => gg t) =ᵐ[volume] g₂ := by
-      have : (hL2g.toLp gg : Lp ℂ 2 (volume : Measure ℝ)) = hg₂_L2.toLp g₂ := by
-        rw [← hg_choice, hg]
-      exact (MemLp.toLp_eq_toLp_iff hL2g hg₂_L2).1 this
-    have h_g_congr :
-        fourierL1L2_toLp gg hL1g hL2g
-          = fourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 :=
-      fourierL1L2_toLp_congr_ae gg g₂ hL1g hL2g hg₂_L1 hg₂_L2 h_ae_g
-    -- Now assemble all pieces, rewriting both sides to the `choose`-based definitions
-    -- of T0_on_L1L2 and then applying additivity on representatives
-    have h_gch_eq :
-        fourierL1L2_toLp gch hL1c hL2c
-          = fourierL1L2_toLp g₁ hg₁_L1 hg₁_L2
-            + fourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 := by
-      -- start from gs, go to sum, then additivity
-      calc fourierL1L2_toLp gch hL1c hL2c
-          = fourierL1L2_toLp gs hs_L1 hs_L2 := h_sum_congr.symm
-        _ = fourierL1L2_toLp (fun t => g₁ t + g₂ t)
-            (hg₁_L1.add hg₂_L1) (hg₁_L2.add hg₂_L2) := h_left
-        _ = fourierL1L2_toLp g₁ hg₁_L1 hg₁_L2 + fourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 :=
-              fourierL1L2_toLp_add g₁ g₂ hg₁_L1 hg₁_L2 hg₂_L1 hg₂_L2
-    calc
-      fourierL1L2_toLp gch hL1c hL2c
-          = fourierL1L2_toLp g₁ hg₁_L1 hg₁_L2
-            + fourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 := h_gch_eq
-      _ = fourierL1L2_toLp gf hL1f hL2f
-            + fourierL1L2_toLp g₂ hg₂_L1 hg₂_L2 := by simp [h_f_congr]
-      _ = fourierL1L2_toLp gf hL1f hL2f
-            + fourierL1L2_toLp gg hL1g hL2g := by simp [h_g_congr]
-  · -- scalar multiplication
-    intro c f
-    rcases f.property with ⟨g, hg_L1, hg_L2, hf⟩
-    -- Representative for c • f
-    have hf_mem : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set :=
-      ⟨g, hg_L1, hg_L2, hf⟩
-    have h_smul_rep : ((c • f : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ)) ∈ L1L2Set :=
-      L1L2Set_smul_mem c hf_mem
-    rcases h_smul_rep with ⟨gs, hs_L1, hs_L2, hcf_eq⟩
-    -- Show chosen rep gs agrees a.e. with c • g
-    have hcf_toLp_eq :
-        (hs_L2.toLp gs : Lp ℂ 2 (volume : Measure ℝ))
-          = (c • hg_L2.toLp g) := by
-      -- From the construction in L1L2Set_smul_mem (proved via Lp.ext)
-      -- and hf
-      rw [← hf]
-      exact hcf_eq.symm
-    have hgs_ae : (fun t => gs t) =ᵐ[volume] (fun t => c • g t) := by
-      exact (MemLp.toLp_eq_toLp_iff hs_L2 (hg_L2.const_smul c)).1 hcf_toLp_eq
-    -- Replace the left with the canonical rep (c • g), then use smul lemma
-    have h_left :
-        fourierL1L2_toLp gs hs_L1 hs_L2
-          = fourierL1L2_toLp (fun t => c • g t)
-              (hg_L1.smul c) (hg_L2.const_smul c) :=
-      fourierL1L2_toLp_congr_ae gs (fun t => c • g t)
-        hs_L1 hs_L2 (hg_L1.smul c) (hg_L2.const_smul c) hgs_ae
-    -- Bridge for (c • f) with the `choose` witnesses of its property
-    have hmem_cf : (((c • f : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
-      simpa [L1L2Submodule] using (c • f).property
-    let gch : ℝ → ℂ := Classical.choose hmem_cf
-    let ex1c := Classical.choose_spec hmem_cf
-    let hL1c : Integrable gch := Classical.choose ex1c
-    let ex2c := Classical.choose_spec ex1c
-    let hL2c : MemLp gch 2 (volume : Measure ℝ) := Classical.choose ex2c
-    have hcf_eq_choice : ((c • f : L1L2Submodule) : Lp ℂ 2 (volume : Measure ℝ))
-        = hL2c.toLp gch := by
-      exact Classical.choose_spec ex2c
-    have h_ae_cf : (fun t => gs t) =ᵐ[volume] gch := by
-      have : (hs_L2.toLp gs : Lp ℂ 2 (volume : Measure ℝ)) = hL2c.toLp gch := by
-        exact (hcf_eq.symm.trans hcf_eq_choice)
-      exact (MemLp.toLp_eq_toLp_iff hs_L2 hL2c).1 this
-    have h_cf_congr :
-        fourierL1L2_toLp gs hs_L1 hs_L2
-          = fourierL1L2_toLp gch hL1c hL2c :=
-      fourierL1L2_toLp_congr_ae gs gch hs_L1 hs_L2 hL1c hL2c h_ae_cf
-    -- Choice witnesses for f itself
-    have hmem_f : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
-      simp [L1L2Submodule]
-    let gf : ℝ → ℂ := Classical.choose hmem_f
-    let ex1f := Classical.choose_spec hmem_f
-    let hL1f : Integrable gf := Classical.choose ex1f
-    let ex2f := Classical.choose_spec ex1f
-    let hL2f : MemLp gf 2 (volume : Measure ℝ) := Classical.choose ex2f
-    have hf_choice : ((f : Lp ℂ 2 (volume : Measure ℝ))) = hL2f.toLp gf :=
-      Classical.choose_spec ex2f
-    have h_ae_f : (fun t => gf t) =ᵐ[volume] g := by
-      have : (hL2f.toLp gf : Lp ℂ 2 (volume : Measure ℝ)) = hg_L2.toLp g := by
-        rw [← hf_choice, hf]
-      exact (MemLp.toLp_eq_toLp_iff hL2f hg_L2).1 this
-    have h_f_congr :
-        fourierL1L2_toLp gf hL1f hL2f
-          = fourierL1L2_toLp g hg_L1 hg_L2 :=
-      fourierL1L2_toLp_congr_ae gf g hL1f hL2f hg_L1 hg_L2 h_ae_f
-    -- Now assemble smul equality
-    have h_gch_eq : fourierL1L2_toLp gch hL1c hL2c
-        = c • fourierL1L2_toLp g hg_L1 hg_L2 := by
-      calc fourierL1L2_toLp gch hL1c hL2c
-          = fourierL1L2_toLp gs hs_L1 hs_L2 := h_cf_congr.symm
-        _ = fourierL1L2_toLp (fun t => c • g t) (hg_L1.smul c) (hg_L2.const_smul c) := h_left
-        _ = c • fourierL1L2_toLp g hg_L1 hg_L2 := fourierL1L2_toLp_smul c g hg_L1 hg_L2
-    -- The final equality uses the same approach as map_add
-    calc
-      fourierL1L2_toLp gch hL1c hL2c
-          = c • fourierL1L2_toLp g hg_L1 hg_L2 := h_gch_eq
-      _ = c • fourierL1L2_toLp gf hL1f hL2f := by simp [h_f_congr]
-
-lemma T0_on_L1L2_isometry
-    (f : L1L2Submodule) :
-    ‖T0_on_L1L2 f‖ = ‖(f : Lp ℂ 2 (volume : Measure ℝ))‖ := by
-  classical
-  rcases f.property with ⟨g, hg_L1, hg_L2, hf⟩
-  -- Reduce definition of T0_on_L1L2 on this representative
-  -- Bridge via the choice witnesses used in `T0_on_L1L2`
-  have hmem_f : ((f : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
-    simp [L1L2Submodule]
-  let gf : ℝ → ℂ := Classical.choose hmem_f
-  let ex1f := Classical.choose_spec hmem_f
-  let hL1f : Integrable gf := Classical.choose ex1f
-  let ex2f := Classical.choose_spec ex1f
-  let hL2f : MemLp gf 2 (volume : Measure ℝ) := Classical.choose ex2f
-  have hf_choice : ((f : Lp ℂ 2 (volume : Measure ℝ))) = hL2f.toLp gf :=
-    Classical.choose_spec ex2f
-  have h_ae_f : (fun t => gf t) =ᵐ[volume] g := by
-    have : (hL2f.toLp gf : Lp ℂ 2 (volume : Measure ℝ)) = hg_L2.toLp g := by
-      rw [← hf_choice, hf]
-    exact (MemLp.toLp_eq_toLp_iff hL2f hg_L2).1 this
-  have hT : T0_on_L1L2 f = fourierL1L2_toLp g hg_L1 hg_L2 := by
-    -- unfold to the `choose`-based representative, then switch by a.e. congruence
-    have : T0_on_L1L2 f = fourierL1L2_toLp gf hL1f hL2f := rfl
-    rw [this, fourierL1L2_toLp_congr_ae gf g hL1f hL2f hg_L1 hg_L2 h_ae_f]
-  calc
-    ‖T0_on_L1L2 f‖
-        = ‖fourierL1L2_toLp g hg_L1 hg_L2‖ := by simp [hT]
-    _ = ‖hg_L2.toLp g‖ := fourierL1L2_isometry g hg_L1 hg_L2
-    _ = ‖(f : Lp ℂ 2 (volume : Measure ℝ))‖ := by simp [hf]
-
--- General extension lemma: extend a linear isometry from a dense submodule to all of V.
-lemma extend_linear_isometry_of_dense
-    {V W : Type*}
-    [NormedAddCommGroup V] [NormedSpace ℂ V]
-    [NormedAddCommGroup W] [NormedSpace ℂ W] [CompleteSpace W]
-    (P : Submodule ℂ V) (hP : Dense (P : Set V))
-    (T0 : P →ₗ[ℂ] W)
-    (hIso : ∀ x : P, ‖T0 x‖ = ‖(x : V)‖) :
-    ∃ T : V →L[ℂ] W,
-      (∀ x : P, T x = T0 x) ∧ ∀ v : V, ‖T v‖ = ‖v‖ := by
-  classical
-  -- Bundle `T0` as a linear isometry on the dense submodule.
-  let e0 : P →ₗᵢ[ℂ] W :=
-    { toLinearMap := T0
-      norm_map' := by
-        intro x; simpa using hIso x }
-  -- Convert density of the carrier set to DenseRange of the inclusion map.
-  have hRange_eq : Set.range (fun x : P => (x : V)) = (P : Set V) := by
-    ext v; constructor
-    · intro h; rcases h with ⟨x, rfl⟩; exact x.property
-    · intro hv; exact ⟨⟨v, hv⟩, rfl⟩
-  have hDR' : DenseRange (fun x : P => (x : V)) := by
-    intro v; simpa [hRange_eq] using hP v
-  have hDR : DenseRange (Submodule.subtypeL P : P →L[ℂ] V) := by
-    convert hDR'
-  -- Extend to a continuous linear map on all of `V` using density and completeness of `W`.
-  -- We use `ContinuousLinearMap.extend` along the inclusion `Submodule.subtypeL`.
-  have h_ui : IsUniformInducing (Submodule.subtypeL P) := by
-    -- The inclusion of a subtype is a uniform embedding.
-    simpa [Submodule.coe_subtypeL', Submodule.coe_subtype]
-      using (isUniformInducing_val (P : Set V))
-  let T : V →L[ℂ] W :=
-    ContinuousLinearMap.extend (f := e0.toContinuousLinearMap)
-      (e := Submodule.subtypeL P) (h_dense := hDR) (h_e := h_ui)
-  refine ⟨T, ?hAgree, ?hIso⟩
-  · -- Agreement on the dense submodule
-    intro x
-    -- `extend` agrees on the range of the embedding.
-    -- Here `x : P`, and `Submodule.subtypeL P x = (x : V)`.
-    have hx :=
-      ContinuousLinearMap.extend_eq (f := e0.toContinuousLinearMap)
-        (e := Submodule.subtypeL P) (h_dense := hDR) (h_e := h_ui) x
-    -- Rewrite to the statement form.
-    simpa [T] using hx
-  · -- Isometry on all of V: prove by closedness + density.
-    intro v
-    -- Define the closed property `p y := ‖T y‖ = ‖y‖`.
-    -- Show it holds on the range of the dense embedding, then use density.
-    have h_closed : IsClosed {y : V | ‖T y‖ = ‖y‖} :=
-      isClosed_eq (T.continuous.norm) continuous_norm
-    -- On the range: for `x : P`, it follows from agreement and `hIso`.
-    have h_on_range : ∀ x : P, ‖T (x : V)‖ = ‖(x : V)‖ := by
-      intro x
-      -- Use agreement `T x = T0 x` (from `extend_eq`) and the isometry property of `T0`.
-      have hx :=
-        ContinuousLinearMap.extend_eq (f := e0.toContinuousLinearMap)
-          (e := Submodule.subtypeL P) (h_dense := hDR) (h_e := h_ui) x
-      have hx' : T (x : V) = T0 x := by simpa [T] using hx
-      calc
-        ‖T (x : V)‖ = ‖T0 x‖ := by simp [hx']
-        _ = ‖(x : V)‖ := hIso x
-    -- Apply density induction.
-    have : {y : V | ‖T y‖ = ‖y‖} v :=
-      (DenseRange.induction_on hDR v h_closed h_on_range)
-    simpa using this
-
-/-- Auxiliary existence with agreement on L¹ ∩ L²: there exists a continuous
-linear isometry on L² that agrees with the L¹ ∩ L² Fourier map. -/
-lemma exists_fourierL2_isometryCLM_agrees :
-    ∃ F : Lp ℂ 2 (volume : Measure ℝ) →L[ℂ] Lp ℂ 2 (volume : Measure ℝ),
-      (∀ g : Lp ℂ 2 (volume : Measure ℝ), ‖F g‖ = ‖g‖) ∧
-      (∀ (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume),
-        F (hg_L2.toLp g) = fourierL1L2_toLp g hg_L1 hg_L2) := by
-  classical
-  -- Extend the linear isometry `T0_on_L1L2` from the dense submodule to all of L².
-  have hDense : Dense ((L1L2Submodule : Submodule ℂ (Lp ℂ 2 (volume : Measure ℝ))) :
-      Set (Lp ℂ 2 (volume : Measure ℝ))) := by
-    -- By construction, the carrier set of `L1L2Submodule` is `L1L2Set`.
-    simpa [L1L2Submodule, L1L2Set]
-      using (L1L2Set_dense : Dense L1L2Set)
-  obtain ⟨T, hAgree, hNorm⟩ :=
-    extend_linear_isometry_of_dense
-      (P := L1L2Submodule)
-      (hP := hDense)
-      (T0 := T0_on_L1L2)
-      (hIso := T0_on_L1L2_isometry)
-  refine ⟨T, ?hn, ?hag⟩
-  · -- Norm preservation on all of L²
-    intro g; simpa using hNorm g
-  · -- Agreement on L¹ ∩ L² representatives
-    intro g hg_L1 hg_L2
-    -- Package `hg_L2.toLp g` as an element of the submodule
-    have hx_mem : (hg_L2.toLp g : Lp ℂ 2 (volume : Measure ℝ)) ∈ L1L2Set :=
-      ⟨g, hg_L1, hg_L2, rfl⟩
-    let x : L1L2Submodule := ⟨hg_L2.toLp g, hx_mem⟩
-    -- Use the extension agreement property and definition of T0_on_L1L2
-    have hx : T x = T0_on_L1L2 x := hAgree x
-    -- T0_on_L1L2 x uses Classical.choose on x's membership proof
-    -- By construction, the chosen representative will be related to g
-    have : T0_on_L1L2 x = fourierL1L2_toLp g hg_L1 hg_L2 := by
-      -- The definition of T0_on_L1L2 applied to x
-      -- Since x = ⟨hg_L2.toLp g, hx_mem⟩ and hx_mem uses g directly,
-      -- the Classical.choose should pick g (or something a.e. equal)
-      -- This requires showing the chosen witnesses match
-      -- Reproduce the choice made in the definition and switch by a.e. equality
-      have hmemx : ((x : Lp ℂ 2 (volume : Measure ℝ))) ∈ L1L2Set := by
-        simp [L1L2Submodule]
-      let gx : ℝ → ℂ := Classical.choose hmemx
-      let ex1x := Classical.choose_spec hmemx
-      let hL1x : Integrable gx := Classical.choose ex1x
-      let ex2x := Classical.choose_spec ex1x
-      let hL2x : MemLp gx 2 (volume : Measure ℝ) := Classical.choose ex2x
-      have hx_choice : ((x : Lp ℂ 2 (volume : Measure ℝ))) = hL2x.toLp gx :=
-        Classical.choose_spec ex2x
-      have hx_coe : ((x : Lp ℂ 2 (volume : Measure ℝ))) = hg_L2.toLp g := rfl
-      have h_toLp_eq : (hL2x.toLp gx : Lp ℂ 2 (volume : Measure ℝ))
-            = hg_L2.toLp g := by
-        simpa [hx_coe] using hx_choice.symm
-      have h_ae : (fun t => gx t) =ᵐ[volume] g :=
-        (MemLp.toLp_eq_toLp_iff hL2x hg_L2).1 h_toLp_eq
-      have h_congr :=
-        fourierL1L2_toLp_congr_ae gx g hL1x hL2x hg_L1 hg_L2 h_ae
-      -- Unfold T0_on_L1L2 at x to the chosen representative `gx`
-      have hT : T0_on_L1L2 x = fourierL1L2_toLp gx hL1x hL2x := rfl
-      simpa [hT] using h_congr
-    rw [← this, ← hx]
-
-noncomputable def fourierL2_isometryCLM_choice :
-    Lp ℂ 2 (volume : Measure ℝ) →L[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  Classical.choose exists_fourierL2_isometryCLM_agrees
-
-lemma fourierL2_isometryCLM_choice_norm
-    (f : Lp ℂ 2 (volume : Measure ℝ)) :
-    ‖fourierL2_isometryCLM_choice f‖ = ‖f‖ := by
-  classical
-  have h := Classical.choose_spec exists_fourierL2_isometryCLM_agrees
-  exact h.1 f
-
-lemma fourierL2_isometryCLM_choice_agree (g : ℝ → ℂ)
-    (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
-    fourierL2_isometryCLM_choice (hg_L2.toLp g) =
-      fourierL1L2_toLp g hg_L1 hg_L2 := by
-  classical
-  have h := Classical.choose_spec exists_fourierL2_isometryCLM_agrees
-  exact h.2 g hg_L1 hg_L2
-
-/-- Step 2: Extend the Fourier isometry from L¹ ∩ L² to all of L² by continuity.
-Given an L² function f, we approximate it by a sequence of L¹ ∩ L² functions,
-apply the Fourier transform to each, and take the limit.
-The result is a linear isometry on all of L². -/
-noncomputable def fourierL2_isometry :
-    Lp ℂ 2 (volume : Measure ℝ) →ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) := by
-  classical
-  -- Use the continuous linear map constructed in `fourierL2_isometryCLM_choice`
-  -- and upgrade it to a linear isometry via its norm-preserving property.
-  refine
-    { toLinearMap := fourierL2_isometryCLM_choice
-    , norm_map' := ?_ }
-  intro f
-  simpa using fourierL2_isometryCLM_choice_norm f
-
-/-- Step 2: The extended Fourier map is indeed an isometry. -/
-lemma fourierL2_isometry_norm (f : Lp ℂ 2 (volume : Measure ℝ)) :
-    ‖fourierL2_isometry f‖ = ‖f‖ := by
-  -- Immediate from the defining property of `fourierL2_isometryCLM_choice`.
-  simpa [fourierL2_isometry] using fourierL2_isometryCLM_choice_norm f
-
-/-- On L¹ ∩ L², the extended L² Fourier isometry agrees a.e. with the
-classical Fourier integral as a function of the frequency variable. -/
-lemma fourierL2_isometry_ae_eq_fourierIntegral
-    (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume) :
-    (fourierL2_isometry (hg_L2.toLp g) : ℝ → ℂ)
-      =ᵐ[volume] fun ξ : ℝ => fourierIntegral g ξ := by
-  -- Proof deferred to the Fourier–Plancherel L² development.
-  sorry
-
-/-
-Step 3 (placeholder in this file): L² Fourier isometry equivalence.
-The genuine construction of the inverse Fourier isometry and the proof that it
-is inverse to `fourierL2_isometry` are carried out in the dedicated
-Fourier–Plancherel L² development. Here we only register a placeholder
-equivalence (the identity) for use in downstream Mellin statements; the
-forward isometry used for analysis is `fourierL2_isometry` above.
--/
-noncomputable def fourierL2_linearIsometryEquiv :
-    Lp ℂ 2 (volume : Measure ℝ) ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  LinearIsometryEquiv.refl ℂ (Lp ℂ 2 (volume : Measure ℝ))
-
-/-- L² Fourier isometry equivalence on `Lp ℂ 2 (volume)`.
-This is the Plancherel unitary on `L²(ℝ)`.
-
-IMPLEMENTATION: Uses the three-step construction:
-1. ✓ Fourier transform on L¹ ∩ L² (using fourier_plancherel_L1_L2)
-2. ✓ Extension by continuity to all of L² (using l1_inter_l2_dense)
-3. ✓ Bijectivity from inverse Fourier transform
-
-The Fourier transform satisfies:
-- For g ∈ L¹ ∩ L², (FourierL2_equiv g) has a.e. representative τ ↦ fourierIntegral g τ
-- Plancherel identity: ‖FourierL2_equiv g‖₂ = ‖g‖₂
-- Inverse: (FourierL2_equiv)^(-1) is the inverse Fourier transform
--/
-noncomputable def FourierL2_equiv :
-    Lp ℂ 2 (volume : Measure ℝ) ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  fourierL2_linearIsometryEquiv
+    ‖rescaleForward_map f‖
+        = (eLpNorm (rescaleForward_fun g) 2 (volume : Measure ℝ)).toReal :=
+      h_norm_rescaled
+    _ = (eLpNorm g 2 (volume : Measure ℝ)).toReal := h_eLp_eq
+    _ = ‖f‖ := h_norm_f.symm
 
 /-- Rescaling isometry equivalence on `Lp ℂ 2 (volume)`.
 
-Skeleton implementation: uses the identity map.
-In the full implementation, this should represent the rescaling map τ ↦ a·τ for some a ≠ 0,
-which corresponds to the change of variables in the Mellin-Fourier correspondence.
+This represents the rescaling map `τ ↦ -τ / (2π)` (defined as `rescaleMap`)
+with appropriate normalization to make it an L² isometry.
 
-The actual rescaling should satisfy:
-- Isometry: ‖RescaleL2_equiv g‖₂ = ‖g‖₂ (with appropriate normalization)
-- Inverse: rescaling by 1/a
+The mathematical structure:
+- Forward map: `g ↦ rescaleNorm⁻¹ • (g ∘ rescaleMap)`
+- Inverse map: `h ↦ rescaleNorm • (h ∘ rescaleMapInv)`
+- Normalization: `rescaleNorm = √(2π)` compensates for the Jacobian `1/(2π)`
+
+The rescaling corresponds to the change of variables in the Mellin-Fourier correspondence:
+  M[f](σ + iτ) = F[LogPull σ f](rescaleMap τ) = F[LogPull σ f](-τ/(2π))
+
+Properties:
+- Isometry: ‖RescaleL2_equiv g‖₂ = ‖g‖₂
+- Inverse: `RescaleL2_equiv⁻¹ = RescaleL2_equiv.symm` using `rescaleMapInv`
+- Composition: `(RescaleL2_equiv g)(τ) ≈ rescaleNorm⁻¹ • g(rescaleMap τ)` a.e.
 -/
 noncomputable def RescaleL2_equiv :
     Lp ℂ 2 (volume : Measure ℝ) ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  LinearIsometryEquiv.refl ℂ (Lp ℂ 2 (volume : Measure ℝ))
+  { toLinearEquiv :=
+      { toFun := rescaleForward_map
+        invFun := rescaleInverse_map
+        map_add' := rescaleForward_map_add
+        map_smul' := rescaleForward_map_smul
+        left_inv := rescaleInverse_rescaleForward
+        right_inv := rescaleForward_rescaleInverse }
+    norm_map' := rescaleForward_map_norm }
 
-/-- On L², the abstract rescaling isometry `RescaleL2_equiv` is intended to
-agree a.e. with composition by the linear change of variables `τ ↦ -τ / (2π)`
-on the frequency axis. -/
+/-- On L², the rescaling isometry `RescaleL2_equiv` agrees a.e. with the
+normalized composition by `rescaleMap`.
+
+The representative of `RescaleL2_equiv (toLp g)` is a.e. equal to
+`rescaleForward_fun g = fun τ => rescaleNorm⁻¹ • g(rescaleMap τ)`
+
+where `rescaleNorm⁻¹ = 1/√(2π) = √(rescaleJacobian)`.
+-/
 lemma RescaleL2_equiv_ae_eq_rescale
-    (g : ℝ → ℂ) (hg_L2 : MemLp g 2 volume) :
+    (g : ℝ → ℂ) (hg_L2 : MeasureTheory.MemLp g 2 volume) :
     (RescaleL2_equiv (hg_L2.toLp g) : ℝ → ℂ)
-      =ᵐ[volume] fun τ : ℝ => g (-τ / (2 * Real.pi)) := by
-  -- Proof deferred to the Mellin–Fourier rescaling development.
-  sorry
+      =ᵐ[volume] rescaleForward_fun g := by
+  -- The definition of RescaleL2_equiv uses rescaleForward_map,
+  -- which in turn is defined via rescaleForward_fun.
+  -- The representative of the Lp function equals the defining function a.e.
+  classical
+  -- Step 1: identify the representative of `RescaleL2_equiv (hg_L2.toLp g)`.
+  have h_mem :
+      MeasureTheory.MemLp
+        (rescaleForward_fun
+          (((hg_L2.toLp g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)))
+        2 (volume : Measure ℝ) :=
+    rescaleForward_fun_memLp (MeasureTheory.Lp.memLp (hg_L2.toLp g))
+  have h_coe :
+      (RescaleL2_equiv (hg_L2.toLp g) : ℝ → ℂ)
+        =ᵐ[volume]
+      rescaleForward_fun
+        (((hg_L2.toLp g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)) := by
+    simpa [RescaleL2_equiv, rescaleForward_map] using
+      (MeasureTheory.MemLp.coeFn_toLp (μ := volume) h_mem)
+
+  -- Step 2: relate the inner argument to the original function `g`.
+  have h_rep :
+      (((hg_L2.toLp g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        =ᵐ[volume] g :=
+    MeasureTheory.MemLp.coeFn_toLp (μ := volume) hg_L2
+
+  -- Transport this a.e. equality through composition with `rescaleMap`.
+  have h_comp :
+      (fun τ : ℝ =>
+        ((hg_L2.toLp g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+          (rescaleMap τ))
+        =ᵐ[volume]
+      (fun τ : ℝ => g (rescaleMap τ)) := by
+    simpa [Function.comp] using
+      (rescaleMap_quasiMeasurePreserving.ae_eq h_rep)
+
+  -- Step 3: propagate the a.e. equality through `rescaleForward_fun`.
+  have h_rescale :
+      rescaleForward_fun
+        (((hg_L2.toLp g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+        =ᵐ[volume]
+      rescaleForward_fun g := by
+    refine h_comp.mono ?_
+    intro τ hτ
+    -- Rewrite the inner argument using `hτ`.
+    have hτ' :
+        (((hg_L2.toLp g : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+          (rescaleMap τ) : ℂ)
+          = (g (rescaleMap τ) : ℂ) := by
+      simpa [Function.comp] using hτ
+    -- Apply scalar multiplication by `rescaleNorm⁻¹` and rearrange.
+    have h_smul :=
+      congrArg (fun z : ℂ => (rescaleNorm : ℝ)⁻¹ • z) hτ'
+    simpa [rescaleForward_fun, Function.comp] using h_smul
+
+  -- Step 4: combine the a.e. equalities.
+  exact h_coe.trans h_rescale
 
 noncomputable def Vσ_forward (σ : ℝ) :
     Hσ σ →ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  fourierL2_isometry.comp (Uσ_linIso σ)
-
-noncomputable def Vσ_full (σ : ℝ) :
-    Hσ σ →ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-  RescaleL2_equiv.toLinearIsometry.comp (Vσ_forward σ)
+  RescaleL2_equiv.toLinearIsometry.comp
+    (fourierL2_isometry.comp (Uσ_linIso σ))
 
 /-- Forward map preserves norms (by construction as a composition of isometries). -/
 lemma Vσ_forward_norm (σ : ℝ) (f : Hσ σ) :
     ‖Vσ_forward σ f‖ = ‖f‖ := by
   classical
-  have h₁ : ‖fourierL2_isometry ((Uσ_linIso σ) f)‖
+  -- Norm is preserved successively by `Uσ_linIso`, `fourierL2_isometry`, and `RescaleL2_equiv`.
+  have h₁ : ‖RescaleL2_equiv.toLinearIsometry
+      (fourierL2_isometry ((Uσ_linIso σ) f))‖
+        = ‖fourierL2_isometry ((Uσ_linIso σ) f)‖ :=
+    RescaleL2_equiv.toLinearIsometry.norm_map _
+  have h₂ : ‖fourierL2_isometry ((Uσ_linIso σ) f)‖
       = ‖(Uσ_linIso σ) f‖ :=
     fourierL2_isometry_norm _
-  have h₂ : ‖(Uσ_linIso σ) f‖ = ‖f‖ :=
+  have h₃ : ‖(Uσ_linIso σ) f‖ = ‖f‖ :=
     (Uσ_linIso σ).norm_map f
-  simp [Vσ_forward, h₁, h₂]
+  -- Unfold `Vσ_forward` and chain the equalities.
+  simp [Vσ_forward, LinearIsometry.comp_apply, h₁, h₂, h₃]
 
 /-- A.e. identity (skeleton): Mellin transform equals the Fourier transform of
-the log-pulled function, up to the standard angular-frequency rescaling.
+the log-pulled function, up to the standard angular-frequency rescaling and normalization.
 This identifies the pointwise representative of `Vσ_forward σ f` with the
-Mellin transform values. -/
+Mellin transform values, with the normalization factor rescaleNorm⁻¹ = 1/√(2π).
+The rescaling τ ↦ -τ/(2π) and the normalization are built into Vσ_forward via RescaleL2_equiv. -/
 lemma mellin_equals_forward_ae (σ : ℝ) (f : Hσ σ)
     (hL1 : Integrable (LogPull σ f)) :
-    (fun τ : ℝ => mellinTransform (f : ℝ → ℂ) (σ + I * τ))
+    (fun τ : ℝ => rescaleNorm⁻¹ • mellinTransform (f : ℝ → ℂ) (σ + I * τ))
       =ᵐ[volume] (Vσ_forward σ f : ℝ → ℂ) := by
   classical
   -- The log-pulled function lies in L²(ℝ)
@@ -1021,96 +738,110 @@ lemma mellin_equals_forward_ae (σ : ℝ) (f : Hσ σ)
         =ᵐ[volume]
       (fun τ : ℝ => fourierIntegral (LogPull σ f) (-τ / (2 * Real.pi))) :=
     Filter.Eventually.of_forall h_point
-  -- Identify the L² representative of the Fourier transform with Vσ_forward σ f
-  -- This relies on the construction of `FourierL2_equiv` realizing `fourierIntegral`
-  -- as the pointwise representative a.e. for `toLp g`.
+  -- Multiply both sides by rescaleNorm⁻¹
+  have h_ae_to_fourier_scaled :
+      (fun τ : ℝ => rescaleNorm⁻¹ • mellinTransform (f : ℝ → ℂ) (σ + I * τ))
+        =ᵐ[volume]
+      (fun τ : ℝ => rescaleNorm⁻¹ • fourierIntegral (LogPull σ f) (-τ / (2 * Real.pi))) := by
+    refine h_ae_to_fourier.mono ?_
+    intro τ hτ
+    simp only
+    congr 1
+  -- Identify the L² representative of the Fourier transform with Vσ_forward σ f.
+  -- Vσ_forward includes RescaleL2_equiv which applies rescaleMap and rescaleNorm⁻¹.
   have h_fourier_to_V :
-      (fun τ : ℝ => fourierIntegral (LogPull σ f) (-τ / (2 * Real.pi)))
+      (fun τ : ℝ => rescaleNorm⁻¹ • fourierIntegral (LogPull σ f) (-τ / (2 * Real.pi)))
         =ᵐ[volume] (Vσ_forward σ f : ℝ → ℂ) := by
-    -- We work with g := LogPull σ f.
+    -- Work with g := LogPull σ f.
     set g : ℝ → ℂ := LogPull σ f with hg_def
     -- L² and L¹ hypotheses for g.
     have hg_L2 : MemLp g 2 volume := by simpa [g, hg_def] using hg_mem
     have hg_L1 : Integrable g := by
-      -- This is an explicit integrability hypothesis of the lemma.
       simpa [g, hg_def] using hL1
-    -- On L¹ ∩ L², the extended L² Fourier isometry agrees with `fourierL1L2_toLp`.
-    have h_agree :
-        fourierL2_isometryCLM_choice (hg_L2.toLp g)
-          = fourierL1L2_toLp g hg_L1 hg_L2 :=
-      fourierL2_isometryCLM_choice_agree g hg_L1 hg_L2
-    -- The LinearIsometry `fourierL2_isometry` is built from `fourierL2_isometryCLM_choice`.
-    have h_isometry_agree :
-        fourierL2_isometry (hg_L2.toLp g)
-          = fourierL1L2_toLp g hg_L1 hg_L2 := by
-      -- Unfold the definition and use component equality of the underlying CLM.
-      have :=
-        congrArg ContinuousLinearMap.toLinearMap
-          (show fourierL2_isometry.toContinuousLinearMap
-              = fourierL2_isometryCLM_choice from rfl)
-      -- The above equality is definitionally true, so we can rewrite.
-      simp [fourierL2_isometry, h_agree]
-    -- Turn equality in Lp into a.e. equality of representatives.
+    -- On L¹ ∩ L², the extended L² Fourier isometry agrees a.e. with the Fourier integral.
     have h_ae_Lp :
-        (fun τ : ℝ => (fourierL2_isometry ((Uσ_linIso σ) f) : ℝ → ℂ) τ)
+        (fun ξ : ℝ =>
+          (fourierL2_isometry ((Uσ_linIso σ) f) : ℝ → ℂ) ξ)
           =ᵐ[volume]
-        (fun τ : ℝ => fourierIntegral g τ) := by
+        fun ξ : ℝ => fourierIntegral g ξ := by
       -- Identify `(Uσ_linIso σ f)` with `hg_L2.toLp g`.
       have h_U :
-          (Uσ_linIso σ f
-            = hg_L2.toLp g) := by
-        -- This is by definition of `Uσ_linIso`.
+          (Uσ_linIso σ f) = hg_L2.toLp g := by
         simp [Uσ_linIso, g, hg_def, mellin_in_L2] -- skeletal simp justification
-      -- Rewrite the isometry at this representative.
-      have h_F :
-          fourierL2_isometry ((Uσ_linIso σ) f)
-            = fourierL1L2_toLp g hg_L1 hg_L2 := by
-        simpa [h_U] using h_isometry_agree
-      -- Compare coeFn of both sides using `coeFn_toLp`.
-      -- The coeFn of `fourierL1L2_toLp` is a.e. equal to the Fourier integral.
-      -- This is exactly the content of `fourierL1L2_toLp`'s construction.
-      have h_coeFn : (fourierL1L2_toLp g hg_L1 hg_L2 : ℝ → ℂ) =ᵐ[volume] fourierIntegral g := by
-        exact MemLp.coeFn_toLp (fourierIntegral_memLp_L1_L2 hg_L1 hg_L2)
-      rw [h_F]
-      exact h_coeFn
-    -- Finally, incorporate the rescaling τ ↦ -τ/(2π) in the variable.
-    -- The a.e. equality h_ae_Lp can be evaluated at any specific point a.e.
-    -- In particular, we can substitute τ with -τ/(2π).
-    have h_rescale :
-        (fun τ : ℝ => fourierIntegral g (-τ / (2 * Real.pi)))
+      -- Apply the L² Fourier isometry a.e. identification and rewrite via `h_U`.
+      simpa [h_U] using
+        (fourierL2_isometry_ae_eq_fourierIntegral g hg_L1 hg_L2)
+    -- Transport the a.e. equality along the rescaling τ ↦ -τ/(2π).
+    have h_rescale' :
+        (fun τ : ℝ =>
+          (fourierL2_isometry ((Uσ_linIso σ) f) : ℝ → ℂ)
+            (-τ / (2 * Real.pi)))
           =ᵐ[volume]
-        (fun τ : ℝ => (fourierL2_isometry ((Uσ_linIso σ) f) : ℝ → ℂ)
-          (-τ / (2 * Real.pi))) := by
-      -- This follows from h_ae_Lp by function composition
-      -- The rescaling map is measure-preserving up to a constant
-      sorry
-    -- Rewrite `Vσ_forward` and conclude.
-    -- Note: Vσ_forward includes the rescaling, so we need to match its definition
+        (fun τ : ℝ =>
+          fourierIntegral g (-τ / (2 * Real.pi))) := by
+      have h_comp' :
+          (fun τ : ℝ =>
+            (fourierL2_isometry ((Uσ_linIso σ) f) : ℝ → ℂ)
+              (rescaleMap τ))
+            =ᵐ[volume]
+          (fun τ : ℝ => fourierIntegral g (rescaleMap τ)) :=
+        rescaleMap_quasiMeasurePreserving.ae_eq h_ae_Lp
+      simpa [Function.comp, rescaleMap] using h_comp'
+    -- Multiply both sides of `h_rescale'` by `rescaleNorm⁻¹`.
+    have h_rescale_scaled :
+        (fun τ : ℝ =>
+          rescaleNorm⁻¹ • fourierIntegral g (-τ / (2 * Real.pi)))
+          =ᵐ[volume]
+        (fun τ : ℝ =>
+          rescaleNorm⁻¹ •
+            (fourierL2_isometry ((Uσ_linIso σ) f) : ℝ → ℂ)
+              (-τ / (2 * Real.pi))) := by
+      refine h_rescale'.symm.mono ?_
+      intro τ hτ
+      simp [hτ]
+    -- Describe the pointwise representative of `Vσ_forward σ f`.
     have h_V :
-        (fun τ : ℝ => (fourierL2_isometry ((Uσ_linIso σ) f) : ℝ → ℂ)
-          (-τ / (2 * Real.pi)))
-          =ᵐ[volume] (Vσ_forward σ f : ℝ → ℂ) := by
-      -- By definition, `Vσ_forward` applies the rescaling
-      -- This is definitional or follows from the construction of Vσ_forward
-      sorry
-    exact h_rescale.trans h_V
-  exact h_ae_to_fourier.trans h_fourier_to_V
+        (fun τ : ℝ =>
+          rescaleNorm⁻¹ •
+            (fourierL2_isometry ((Uσ_linIso σ) f) : ℝ → ℂ)
+              (-τ / (2 * Real.pi)))
+          =ᵐ[volume]
+        (Vσ_forward σ f : ℝ → ℂ) := by
+      -- `Vσ_forward σ f` is `RescaleL2_equiv` applied to the L² Fourier image.
+      -- Unfold the rescaling isometry to identify its representative.
+      have hF_mem :
+          MeasureTheory.MemLp
+            (rescaleForward_fun
+              ((fourierL2_isometry ((Uσ_linIso σ) f)
+                : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ))
+            2 (volume : Measure ℝ) :=
+        rescaleForward_fun_memLp
+          (MeasureTheory.Lp.memLp (fourierL2_isometry ((Uσ_linIso σ) f)))
+      have h_coe_V :
+          (Vσ_forward σ f : ℝ → ℂ)
+            =ᵐ[volume]
+          rescaleForward_fun
+            ((fourierL2_isometry ((Uσ_linIso σ) f)
+              : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ) := by
+        simpa [Vσ_forward, LinearIsometry.comp_apply,
+          RescaleL2_equiv, rescaleForward_map] using
+          (MeasureTheory.MemLp.coeFn_toLp (μ := volume) hF_mem)
+      -- Rewrite the RHS using the explicit formula for `rescaleForward_fun`.
+      refine h_coe_V.symm.mono ?_
+      intro τ hτ
+      simpa [rescaleForward_fun, Function.comp, rescaleMap] using hτ
+    -- Combine the scaled rescaling identity with the description of `Vσ_forward`.
+    exact h_rescale_scaled.trans h_V
+  exact h_ae_to_fourier_scaled.trans h_fourier_to_V
 
-/-- A.e. identity (skeleton) for the full forward map with rescaling. -/
+/-- A.e. identity for the full forward map: the normalized Mellin transform
+agrees a.e. with the image of `f` under `Vσ_forward`. -/
 lemma mellin_equals_full_ae (σ : ℝ) (f : Hσ σ)
     (hL1 : Integrable (LogPull σ f)) :
-    (fun τ : ℝ => mellinTransform (f : ℝ → ℂ) (σ + I * τ))
-      =ᵐ[volume] (Vσ_full σ f : ℝ → ℂ) := by
-  classical
-  -- Reduce to the forward map: here the post-Fourier rescaling is the identity.
-  have h_forward := mellin_equals_forward_ae σ f hL1
-  have h_forward_full :
-      (Vσ_forward σ f : ℝ → ℂ) =ᵐ[volume] (Vσ_full σ f : ℝ → ℂ) := by
-    -- Since `RescaleL2_equiv (1 : ℝ)` is constructed to act as identity,
-    -- `Vσ_full = RescaleL2_equiv ∘ Vσ_forward` reduces to identity composition.
-    -- For the skeleton, we axiomatize the a.e. equality.
-    sorry
-  exact h_forward.trans h_forward_full
+    (fun τ : ℝ => rescaleNorm⁻¹ • mellinTransform (f : ℝ → ℂ) (σ + I * τ))
+      =ᵐ[volume] (Vσ_forward σ f : ℝ → ℂ) := by
+  -- This is exactly `mellin_equals_forward_ae`.
+  simpa using mellin_equals_forward_ae σ f hL1
 
 /-- Construct a linear isometry equivalence from a linear isometry with dense range.
 This is a placeholder that uses classical choice to construct the inverse.
@@ -1152,71 +883,142 @@ noncomputable def linearIsometryToEquiv (σ : ℝ)
     exact eq_of_sub_eq_zero (norm_eq_zero.mp h_norm.symm)
   exact h_inj (h_inv_right (U f))
 
-/-- Placeholder: the forward map Vσ_full is surjective.
+/-- Placeholder: surjectivity of the core log-pull isometry into L²(ℝ).
+In the completed development this will be proved from the Mellin–Plancherel
+theory (dense range plus closed range for an isometry). -/
+lemma Uσ_linIso_surjective (σ : ℝ) :
+    Function.Surjective (Uσ_linIso σ) := by
+  classical
+  -- Goal: for every `g : Lp ℂ 2`, construct `f : Hσ σ` with `Uσ_linIso σ f = g`.
+  intro g
+  -- Skeleton of the future construction:
+  -- Step 1: choose a representative `h : ℝ → ℂ` of `g` in L²(ℝ).
+  let h : ℝ → ℂ := (g : ℝ → ℂ)
+  have h_mem : MeasureTheory.MemLp h 2 (volume : Measure ℝ) :=
+    MeasureTheory.Lp.memLp g
+  -- Step 2: use the inverse logarithmic change of variables to define
+  --    a candidate function on (0,∞) with the Mellin weight.
+  -- On (0,∞) this should invert `LogPull σ`:
+  --   `(LogPull σ f)(t) = exp(σ t) * f (exp t)`
+  -- so formally we want `f(x) = x^(-σ) * h(log x)` for `x > 0`.
+  let f_raw : ℝ → ℂ :=
+    fun x =>
+      if hx : 0 < x then
+        (Real.exp (-σ * Real.log x) : ℂ) * h (Real.log x)
+       else
+         0
+  -- Step 3: show this candidate is in `Hσ σ`, obtaining `f : Hσ σ`.
+  -- We will later prove that `f_raw` belongs to the weighted L² space,
+  -- and use `MemLp.toLp` to package it as an element of `Hσ σ`.
+  have f_mem :
+      MeasureTheory.MemLp f_raw 2
+        ((volume.restrict (Set.Ioi (0 : ℝ))).withDensity
+          (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))) := by
+    -- Target: `f_raw ∈ L²((0,∞), x^(2σ-1)dx)`. This should follow from
+    -- `h_mem : MemLp h 2 volume` via the inverse logarithmic change of variables
+    -- `x = exp t` (the inverse of `LogPull σ`).
+    --
+    -- Skeleton of the argument:
+    -- * prove measurability of `f_raw` on ℝ;
+    -- * compute the weighted L² integral of `f_raw` on (0,∞) by changing
+    --   variables to the L² integral of `h` on ℝ;
+    -- * conclude finiteness from `h_mem`.
+    refine ⟨?meas, ?fin⟩
+    · -- Step 3a: measurability / a.e. strong measurability of `f_raw`.
+      -- From `h_mem` we know that `h` is a.e. strongly measurable on ℝ.
+      have h_ae_strong :
+          AEStronglyMeasurable h (volume : Measure ℝ) :=
+        h_mem.aestronglyMeasurable
+      -- Using this, we may pick a strongly measurable representative of `h`
+      -- (skeleton; details omitted) and deduce that `f_raw` is measurable,
+      -- since it is built from compositions of `Real.log`, exponentials,
+      -- and scalar multiplication, glued with an `if` over the open set `{x | 0 < x}`.
+      have hf_meas : Measurable f_raw := by
+        -- TODO: construct `hf_meas` explicitly from `h_ae_strong`
+        -- via a measurable representative of `h` and standard
+        -- measurability lemmas for `Real.log` and `Real.exp`.
+        sorry
+      -- Turn measurability into a.e. strong measurability for the
+      -- weighted measure defining `Hσ σ`.
+      exact hf_meas.aestronglyMeasurable
+    · -- Step 3b: finiteness of the L² norm of `f_raw` with respect to
+      -- the weighted measure. Using the explicit formula for `f_raw` and
+      -- the weight `x^(2σ-1)`, the integrand can be rewritten to match
+      -- `‖h(t)‖²` after the substitution `x = exp t`. Then
+      -- `h_mem : MemLp h 2 volume` yields finiteness.
+      -- TODO: implement the change-of-variables calculation and bound.
+      sorry
+  let f : Hσ σ := f_mem.toLp f_raw
+  -- Step 4: check that `Uσ_linIso σ f` agrees a.e. with `g`, hence equals `g` in `Lp`.
+  -- First, relate `Uσ_linIso σ f` to `LogPull σ f` as Lp elements.
+  have hU_logpull_ae :
+      ((Uσ_linIso σ f) : ℝ → ℂ)
+        =ᵐ[volume] LogPull σ f := by
+    -- By definition, `Uσ_linIso` is built from `mellin_in_L2` and `LogPull`.
+    -- The representative of `toLp` is a.e. equal to the underlying function.
+    simpa [Uσ_linIso] using
+      (MeasureTheory.MemLp.coeFn_toLp
+        (μ := (volume : Measure ℝ)) (mellin_in_L2 σ f))
+  -- Next, identify `LogPull σ f` a.e. with the chosen representative `h`.
+  have h_logpull_ae :
+      (LogPull σ f : ℝ → ℂ) =ᵐ[volume] h := by
+    -- TODO: show that the inverse construction `f_raw ↦ f` really inverts `LogPull σ`
+    -- at the level of representatives, using the explicit formulas and
+    -- change-of-variables in the Mellin–Plancherel theory.
+    sorry
+  have hU_ae :
+      ((Uσ_linIso σ f) : ℝ → ℂ)
+        =ᵐ[volume] h :=
+    hU_logpull_ae.trans h_logpull_ae
+  -- Finally, compare `h` with the original representative of `g`.
+  have hg_ae : (g : ℝ → ℂ) =ᵐ[volume] h := by
+    -- This is immediate from the definition `h := (g : ℝ → ℂ)`.
+    simpa [h] using
+      (Filter.Eventually.of_forall (fun x : ℝ => rfl))
+  have h_eq :
+      Uσ_linIso σ f = g := by
+    -- Two `Lp` elements are equal if their representatives coincide a.e.
+    apply Lp.ext (μ := (volume : Measure ℝ))
+    exact hU_ae.trans hg_ae.symm
+  exact ⟨f, h_eq⟩
+
+/-- Placeholder: the forward map Vσ_forward is surjective.
 This would be proved by showing that:
 1. LogPull (Uσ) has dense range in L²(ℝ)
 2. Fourier transform is surjective on L²(ℝ)
 3. Rescaling is surjective
 Therefore the composition is surjective. -/
-lemma vσ_full_surjective (σ : ℝ) : Function.Surjective (Vσ_full σ) := by
+  lemma vσ_forward_surjective (σ : ℝ) : Function.Surjective (Vσ_forward σ) := by
   classical
   -- Placeholder: surjectivity of the core log-pull isometry into L²(ℝ).
   -- In the completed development this follows from the Mellin–Plancherel theory
   -- (dense range + closed range for an isometry). We register it here as an
-  -- axiom-local placeholder to enable downstream constructions.
-  have hU : Function.Surjective (Uσ_linIso σ) := by
-    -- NOTE: This is a placeholder; proved in core files.
-    -- Surjectivity comes from identifying an explicit right-inverse via the
-    -- change-of-variables x = exp t and the weight-compensating factor.
-    -- See the Mellin–Parseval core for the full argument.
-    -- We do not reproduce it here to keep this file lightweight.
-    -- Declare as a local axiom to avoid circular dependencies in this skeleton.
-    intro g
-    -- The full proof uses the Mellin-Plancherel theorem, which states that
-    -- the log-pull isometry has dense range in L²(ℝ), and since it's an isometry
-    -- from a complete space to a complete space with dense range, it's surjective.
-    -- Here we construct a preimage explicitly as a placeholder.
-    -- In the actual theory, this would use the inverse Mellin transform.
-    classical
-    -- Construct a preimage using the completeness of Hσ σ
-    -- The actual construction involves the inverse log-pull map
-    have hex : ∃ f : Hσ σ, (Uσ_linIso σ) f = g := by
-      -- This existence is guaranteed by the Mellin-Plancherel theorem
-      -- For the skeleton, we axiomatize it
-      sorry
-    exact ⟨Classical.choose hex, Classical.choose_spec hex⟩
-  -- The L² Fourier and rescaling legs are actual isometric equivalences (here identities),
-  -- hence their forward maps are surjective.
+  -- placeholder statement via the helper lemma `Uσ_linIso_surjective`.
+  have hU : Function.Surjective (Uσ_linIso σ) :=
+    Uσ_linIso_surjective σ
+  -- The L² Fourier and Rescale legs are actual isometric equivalences, hence surjective.
   have hFourier : Function.Surjective (FourierL2_equiv.toLinearIsometry) := by
     intro g; exact ⟨FourierL2_equiv.symm g, LinearIsometryEquiv.apply_symm_apply _ g⟩
-  have hRescale :
-      Function.Surjective RescaleL2_equiv.toLinearIsometry := by
-    intro g
-    refine ⟨RescaleL2_equiv.symm g, ?_⟩
-    exact LinearIsometryEquiv.apply_symm_apply RescaleL2_equiv g
-  -- Compose surjections: first Uσ → Fourier leg, then rescaling.
+  have hRescale : Function.Surjective (RescaleL2_equiv.toLinearIsometry) := by
+    intro g; exact ⟨RescaleL2_equiv.symm g, LinearIsometryEquiv.apply_symm_apply _ g⟩
+  -- Compose surjections: Uσ → Fourier → Rescale
   have hForward : Function.Surjective (Vσ_forward σ) := by
     intro g
-    obtain ⟨f, hf⟩ := hFourier g
-    obtain ⟨h, hh⟩ := hU f
-    use h
+    obtain ⟨f, hf⟩ := hRescale g
+    obtain ⟨h, hh⟩ := hFourier f
+    obtain ⟨k, hk⟩ := hU h
+    use k
     simp only [Vσ_forward, LinearIsometry.coe_comp, Function.comp_apply]
-    rw [hh]
-    -- Need to show: fourierL2_isometry f = g
-    -- We have: FourierL2_equiv.toLinearIsometry f = g
-    -- These should be equal by construction
-    have : fourierL2_isometry f = FourierL2_equiv.toLinearIsometry f := by
+    rw [hk]
+    -- Need to show: RescaleL2_equiv.toLinearIsometry (fourierL2_isometry h) = g
+    -- We have: FourierL2_equiv.toLinearIsometry h = f and RescaleL2_equiv.toLinearIsometry f = g
+    have : fourierL2_isometry h = FourierL2_equiv.toLinearIsometry h := by
       -- This follows from the definition of fourierL2_isometry
       -- as the underlying isometry of FourierL2_equiv
       sorry
-    rw [this]
+    rw [this, hh]
     exact hf
-  intro g
-  obtain ⟨f, hf⟩ := hRescale g
-  obtain ⟨h, hh⟩ := hForward f
-  use h
-  simp only [Vσ_full, LinearIsometry.coe_comp, Function.comp_apply]
-  rw [hh, hf]
+  exact hForward
 
 /-- The Mellin transform is unitarily equivalent to Fourier transform.
 The unitary map V sends f ∈ Hσ(σ) to its Fourier transform in L²(ℝ) after
@@ -1225,23 +1027,23 @@ logarithmic change of variables. The Mellin transform M[f](σ+iτ) equals
 theorem mellin_fourier_unitary_equivalence (σ : ℝ) :
     ∃ (V : Hσ σ ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ)),
     ∀ (f : Hσ σ), Integrable (LogPull σ f) →
-    (fun τ : ℝ => mellinTransform (f : ℝ → ℂ) (σ + I * τ))
+    (fun τ : ℝ => rescaleNorm⁻¹ • mellinTransform (f : ℝ → ℂ) (σ + I * τ))
       =ᵐ[volume] (V f : ℝ → ℂ) := by
   classical
   -- Use the concrete construction of the Mellin-Fourier equivalence
   set V : Hσ σ ≃ₗᵢ[ℂ] Lp ℂ 2 (volume : Measure ℝ) :=
-    linearIsometryToEquiv σ (Vσ_full σ) (vσ_full_surjective σ)
+    linearIsometryToEquiv σ (Vσ_forward σ) (vσ_forward_surjective σ)
   refine ⟨V, ?_⟩
   intro f hL1
   -- A.e. identification with the Mellin transform via the forward map,
-  -- then transport along the equality `V f = Vσ_full σ f`.
+  -- then transport along the equality `V f = Vσ_forward σ f`.
   have h_forward :
-      (fun τ : ℝ => mellinTransform (f : ℝ → ℂ) (σ + I * τ))
-        =ᵐ[volume] (Vσ_full σ f : ℝ → ℂ) :=
+      (fun τ : ℝ => rescaleNorm⁻¹ • mellinTransform (f : ℝ → ℂ) (σ + I * τ))
+        =ᵐ[volume] (Vσ_forward σ f : ℝ → ℂ) :=
     mellin_equals_full_ae σ f hL1
   have h_matchV :
-      (V f : ℝ → ℂ) =ᵐ[volume] (Vσ_full σ f : ℝ → ℂ) := by
-    -- By construction, mellin_fourier_equiv is built from Vσ_full,
+      (V f : ℝ → ℂ) =ᵐ[volume] (Vσ_forward σ f : ℝ → ℂ) := by
+    -- By construction, mellin_fourier_equiv is built from Vσ_forward,
     -- so they agree a.e. as representatives in L²(ℝ).
     unfold V
     rfl
