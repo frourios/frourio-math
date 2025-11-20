@@ -1,9 +1,7 @@
 import Frourio.Analysis.FourierPlancherel
-import Frourio.Analysis.FourierInverseAE
 import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2Core6
 import Frourio.Analysis.Gaussian
 import Frourio.Analysis.HilbertSpace
-import Frourio.Analysis.MellinParseval.MellinParsevalCore0
 import Frourio.Analysis.SchwartzDensity.SchwartzDensity
 import Frourio.Analysis.SchwartzDensityLp.SchwartzDensityLp
 import Mathlib.Analysis.Distribution.FourierSchwartz
@@ -223,14 +221,26 @@ lemma fourierIntegralInv_fourierIntegral_ae_of_L1_L2
       exact congr_fun (h_invFφ_eq_φ n) t
     simp_rw [h_eq]
     exact hφ_tendsto_L2
-
-  set invFg : ℝ → ℂ :=
-    fun t => Real.fourierIntegralInv (fun ξ : ℝ => Frourio.fourierIntegral g ξ) t
-
-  have h_invFg_ae : invFg =ᵐ[volume] g := by
-    simpa [invFg] using
-      fourierIntegralInv_fourierIntegral_ae_L1_L2 g hg_L1 hg_L2
-
-  simpa [invFg] using h_invFg_ae
+  -- Step 9: L²–level identification of `invF(F(g))` with `g`.
+  --
+  -- At this point we have constructed:
+  --   • a Fourier–side L² representative `Fg` of `F[g]`,
+  --   • an approximation `φ n → g` in L¹ ∩ L² with `invF(F(φ n)) = φ n`,
+  --   • L² convergence `invF(F(φ n)) → g`.
+  --
+  -- The remaining task is to identify the L² inverse Fourier transform
+  -- of `Fg` with the pointwise inverse Fourier integral
+  --   t ↦ Real.fourierIntegralInv (fun ξ => Frourio.fourierIntegral g ξ) t,
+  -- and then use uniqueness of L² limits to conclude that this function
+  -- agrees with `g` almost everywhere.
+  --
+  -- Implementing this last identification requires a careful development of
+  -- the L² inverse Fourier isometry independent of the present lemma
+  -- (for example via `invFourierL1L2_toLp` and its extension to L²), and then
+  -- showing that its representative on L¹ ∩ L² coincides a.e. with the
+  -- explicit inverse integral used here.  That theory is not yet fully
+  -- implemented in this file, so we record the reduction and leave the
+  -- final L² identification as a placeholder.
+  sorry
 
 end Frourio

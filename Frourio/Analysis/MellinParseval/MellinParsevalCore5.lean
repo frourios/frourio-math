@@ -1598,23 +1598,88 @@ lemma invFourierL2_isometry_left_inv :
         invFourierL2_isometry (fourierL2_isometry f) = f} := by
       apply closure_minimal hContains hClosed hMem
     exact this
-  -- Prove on L¹ ∩ L²: use the inversion formula
   intro g hg_L1 hg_L2
-  -- Use Lp.ext to show equality in L²
-  apply Lp.ext
-  -- We need to show a.e. equality of the representatives
-  -- Step 1: fourierL2_isometry (hg_L2.toLp g) agrees a.e. with fourierIntegral g
-  have hFwd_ae : (fourierL2_isometry (hg_L2.toLp g) : ℝ → ℂ)
-      =ᵐ[volume] fun ξ => fourierIntegral g ξ :=
-    fourierL2_isometry_ae_eq_fourierIntegral g hg_L1 hg_L2
-  -- Step 2: The forward Fourier is in L¹ ∩ L²
-  have hFwd_L1 : Integrable (fun ξ => fourierIntegral g ξ) := by
-    sorry -- Need: fourierIntegral g is integrable when g is in L¹ ∩ L²
-  have hFwd_L2 : MemLp (fun ξ => fourierIntegral g ξ) 2 volume := by
-    sorry -- This follows from fourierIntegral_memLp_L1_L2
-  -- Step 3: invFourierL2_isometry applied to the forward transform
-  -- agrees with invFourierL1L2_toLp
-  sorry
+  -- Step 1: Approximate g by Schwartz functions in L¹ ∩ L².
+  obtain ⟨φ, hφ_L1, hφ_L2, hφ_tendsto_L1, hφ_tendsto_L2⟩ :=
+    Frourio.exists_schwartz_L1_L2_approx g hg_L1 hg_L2
+
+  -- Step 2: Show convergence of φ_n to g in L².
+  have h_phi_to_g :
+      Filter.Tendsto (fun n => (hφ_L2 n).toLp (φ n)) Filter.atTop (𝓝 (hg_L2.toLp g)) := by
+    rw [Lp.tendsto_Lp_iff_tendsto_eLpNorm']
+    convert hφ_tendsto_L2 using 1
+    ext n
+    rw [← eLpNorm_neg]
+    rw [neg_sub]
+    apply eLpNorm_congr_ae
+    filter_upwards [Lp.coeFn_sub (hg_L2.toLp g) ((hφ_L2 n).toLp (φ n)),
+                    MemLp.coeFn_toLp (hφ_L2 n),
+                    MemLp.coeFn_toLp hg_L2] with x h_sub h_phi h_g
+    simp only [Pi.sub_apply, h_g, h_phi]
+
+  -- Step 3: Show convergence of F(φ_n) to F(g) in L².
+  have h_Fphi_to_Fg : Filter.Tendsto (fun n => fourierL2_isometry ((hφ_L2 n).toLp (φ n)))
+      Filter.atTop (𝓝 (fourierL2_isometry (hg_L2.toLp g))) :=
+    (fourierL2_isometry.continuous.tendsto (hg_L2.toLp g)).comp h_phi_to_g
+
+  -- Step 4: Show that for Schwartz functions, invF(F(φ_n)) = φ_n.
+  have h_inv_F_phi : ∀ n, invFourierL2_isometry (fourierL2_isometry ((hφ_L2 n).toLp (φ n)))
+      = (hφ_L2 n).toLp (φ n) := by
+    intro n
+    let ψ := φ n
+    have hψ_S : SchwartzMap ℝ ℂ := φ n
+    let hFψ_S : SchwartzMap ℝ ℂ := SchwartzMap.fourierTransformCLM ℂ ψ
+    have hFψ_L1 : Integrable hFψ_S := hFψ_S.integrable
+    have hFψ_L2 : MemLp hFψ_S 2 volume := hFψ_S.memLp 2
+
+    -- fourierL2_isometry agrees with fourierIntegral on L¹ ∩ L²
+    have h_F_eq : fourierL2_isometry ((hφ_L2 n).toLp ψ) = hFψ_L2.toLp hFψ_S := by
+      apply Lp.ext (μ := volume)
+      have h1 := fourierL2_isometry_ae_eq_fourierIntegral ψ (hφ_L1 n) (hφ_L2 n)
+      have h2 := MemLp.coeFn_toLp hFψ_L2
+      have h_eq_pt : (fun ξ => fourierIntegral ψ ξ) = hFψ_S := by
+        ext ξ
+        rw [← fourierIntegral_eq_real]
+        rw [SchwartzMap.fourierTransformCLM_apply]
+      rw [h_eq_pt] at h1
+      exact h1.trans h2.symm
+    rw [h_F_eq]
+
+    -- invFourierL2_isometry agrees with invFourierL1L2_toLp on L¹ ∩ L²
+    have h_inv_eq : invFourierL2_isometry (hFψ_L2.toLp hFψ_S)
+        = invFourierL1L2_toLp hFψ_S hFψ_L1 hFψ_L2 := by
+      apply invFourierL2_isometryCLM_choice_agree
+    rw [h_inv_eq]
+
+    -- invFourierL1L2_toLp corresponds to the inverse Fourier integral
+    apply Lp.ext (μ := volume)
+    unfold invFourierL1L2_toLp
+    refine (MemLp.coeFn_toLp _).trans ?_
+    refine (Filter.EventuallyEq.trans ?_ (MemLp.coeFn_toLp (hφ_L2 n)).symm)
+    filter_upwards with t
+    have h_inv := fourierIntegralInv_fourierIntegral_schwartz ψ
+    rw [← congr_fun h_inv t]
+    congr 1
+    ext ξ
+    show hFψ_S ξ = fourierIntegral (fun t ↦ ψ t) ξ
+    rw [← fourierIntegral_eq_real]
+    rfl
+
+  -- Step 5: Conclusion by uniqueness of limits.
+  -- LHS converges to invFourierL2_isometry (F(g))
+  have h_lim_lhs :
+      Filter.Tendsto (fun n => invFourierL2_isometry (fourierL2_isometry ((hφ_L2 n).toLp (φ n))))
+      Filter.atTop (𝓝 (invFourierL2_isometry (fourierL2_isometry (hg_L2.toLp g)))) :=
+    (invFourierL2_isometry.continuous.tendsto _).comp h_Fphi_to_Fg
+
+  -- RHS converges to g
+  have h_lim_rhs :
+      Filter.Tendsto (fun n => invFourierL2_isometry (fourierL2_isometry ((hφ_L2 n).toLp (φ n))))
+      Filter.atTop (𝓝 (hg_L2.toLp g)) := by
+    simp only [h_inv_F_phi]
+    exact h_phi_to_g
+
+  exact tendsto_nhds_unique h_lim_lhs h_lim_rhs
 
 /-- Step 3.5: The inverse Fourier isometry is a right inverse of the forward
 Fourier isometry. This follows by symmetry from the left inverse property.
@@ -1622,7 +1687,185 @@ TODO: Use the dual inversion formula F(invF(g)) = g. -/
 lemma invFourierL2_isometry_right_inv :
     ∀ f : Lp ℂ 2 (volume : Measure ℝ),
       fourierL2_isometry (invFourierL2_isometry f) = f := by
-  sorry
+  classical
+  intro f
+  -- Use density: L¹ ∩ L² is dense in L²
+  have hDense : Dense L1L2Set := L1L2Set_dense
+  -- The equalizer {f | F(invF(f)) = f} is closed
+  have hClosed : IsClosed {f : Lp ℂ 2 (volume : Measure ℝ) |
+      fourierL2_isometry (invFourierL2_isometry f) = f} := by
+    apply isClosed_eq
+    · exact (fourierL2_isometry.continuous.comp invFourierL2_isometry.continuous)
+    · exact continuous_id
+  -- It suffices to show the equalizer contains the dense subset L¹ ∩ L²
+  suffices h : ∀ (g : ℝ → ℂ) (hg_L1 : Integrable g) (hg_L2 : MemLp g 2 volume),
+      fourierL2_isometry (invFourierL2_isometry (hg_L2.toLp g)) = hg_L2.toLp g by
+    -- Apply density
+    have hContains : L1L2Set ⊆ {f : Lp ℂ 2 (volume : Measure ℝ) |
+        fourierL2_isometry (invFourierL2_isometry f) = f} := by
+      intro x ⟨g, hg_L1, hg_L2, hg_eq⟩
+      simp only [Set.mem_setOf_eq]
+      subst hg_eq
+      exact h g hg_L1 hg_L2
+    apply closure_minimal hContains hClosed (hDense.closure_eq ▸ Set.mem_univ f)
+
+  intro g hg_L1 hg_L2
+  -- Step 1: Approximate g by Schwartz functions in L¹ ∩ L².
+  obtain ⟨φ, hφ_L1, hφ_L2, hφ_tendsto_L1, hφ_tendsto_L2⟩ :=
+    Frourio.exists_schwartz_L1_L2_approx g hg_L1 hg_L2
+
+  -- Step 2: Show convergence of φ_n to g in L².
+  have h_phi_to_g :
+      Filter.Tendsto (fun n => (hφ_L2 n).toLp (φ n)) Filter.atTop (𝓝 (hg_L2.toLp g)) := by
+    rw [Lp.tendsto_Lp_iff_tendsto_eLpNorm']
+    convert hφ_tendsto_L2 using 1
+    ext n
+    rw [← eLpNorm_neg]
+    rw [neg_sub]
+    apply eLpNorm_congr_ae
+    filter_upwards [Lp.coeFn_sub (hg_L2.toLp g) ((hφ_L2 n).toLp (φ n)),
+                    MemLp.coeFn_toLp (hφ_L2 n),
+                    MemLp.coeFn_toLp hg_L2] with x h_sub h_phi h_g
+    simp only [Pi.sub_apply, h_g, h_phi]
+
+  -- Step 3: Show convergence of invF(φ_n) to invF(g) in L².
+  have h_invFphi_to_invFg : Filter.Tendsto (fun n => invFourierL2_isometry ((hφ_L2 n).toLp (φ n)))
+      Filter.atTop (𝓝 (invFourierL2_isometry (hg_L2.toLp g))) :=
+    (invFourierL2_isometry.continuous.tendsto (hg_L2.toLp g)).comp h_phi_to_g
+
+  -- Step 4: Show that for Schwartz functions, F(invF(φ_n)) = φ_n.
+  have h_F_invF_phi : ∀ n, fourierL2_isometry (invFourierL2_isometry ((hφ_L2 n).toLp (φ n)))
+      = (hφ_L2 n).toLp (φ n) := by
+    intro n
+    let ψ := φ n
+    -- invFourierL2_isometry agrees with invFourierL1L2_toLp on L¹ ∩ L²
+    have h_inv_eq : invFourierL2_isometry ((hφ_L2 n).toLp ψ)
+        = invFourierL1L2_toLp ψ (hφ_L1 n) (hφ_L2 n) := by
+      apply invFourierL2_isometryCLM_choice_agree
+
+    -- invFourierL1L2_toLp corresponds to the inverse Fourier integral
+    -- Let invPsi = Real.fourierIntegralInv ψ
+    let invPsi := fun t => Real.fourierIntegralInv (fun x => ψ x) t
+
+    -- invPsi is in L2 because it's the inverse Fourier transform of a Schwartz function
+    have h_invPsi_L2 : MemLp invPsi 2 volume := by
+      have h_eq : invPsi = fun t => Real.fourierIntegral (fun x => ψ x) (-t) := by
+          funext t; simp [invPsi, fourierIntegralInv_eq_fourierIntegral_neg]
+      rw [h_eq]
+      let hF_S : SchwartzMap ℝ ℂ := SchwartzMap.fourierTransformCLM ℂ ψ
+      have hF_L2 : MemLp hF_S 2 volume := hF_S.memLp 2
+      have h_eq2 : (fun t => Real.fourierIntegral (fun x => ψ x) (-t)) = (fun t => hF_S (-t)) := by
+        ext t
+        show 𝓕 (fun x => ψ x) (-t) = hF_S (-t)
+        simp only [hF_S]
+        rfl
+      rw [h_eq2]
+      exact hF_L2.comp_measurePreserving (Measure.measurePreserving_neg volume)
+
+    have h_inv_Lp_eq : invFourierL1L2_toLp ψ (hφ_L1 n) (hφ_L2 n) = h_invPsi_L2.toLp invPsi := by
+      -- Both sides are toLp of the same function (invPsi), just with different MemLp proofs
+      -- So they are equal in Lp
+      apply Lp.ext (μ := volume)
+      unfold invFourierL1L2_toLp
+      -- The definition gives us some MemLp proof and toLp of (fun t => Real.fourierIntegralInv ψ t)
+      -- which is exactly invPsi
+      refine (MemLp.coeFn_toLp _).trans ?_
+      refine (Filter.EventuallyEq.trans ?_ (MemLp.coeFn_toLp h_invPsi_L2).symm)
+      filter_upwards with t
+      -- Both are the same value: Real.fourierIntegralInv ψ t
+      show Real.fourierIntegralInv (fun x => ψ x) t = invPsi t
+      rfl
+
+    rw [h_inv_eq, h_inv_Lp_eq]
+
+    -- Now apply fourierL2_isometry
+    -- Since invPsi is in L1 (it's Schwartz), we can use fourierL2_isometry_ae_eq_fourierIntegral
+
+    have h_invPsi_L1 : Integrable invPsi volume := by
+      have h_eq : invPsi = fun t => Real.fourierIntegral (fun x => ψ x) (-t) := by
+        funext t; simp [invPsi, fourierIntegralInv_eq_fourierIntegral_neg]
+      rw [h_eq]
+      let hF_S : SchwartzMap ℝ ℂ := SchwartzMap.fourierTransformCLM ℂ ψ
+      have hF_L1 : Integrable hF_S volume := hF_S.integrable
+      have h_eq2 : (fun t => Real.fourierIntegral (fun x => ψ x) (-t)) = (fun t => hF_S (-t)) := by
+        ext t; rfl
+      rw [h_eq2]
+      have : Integrable (hF_S ∘ Neg.neg) volume := by
+        have h_mp := Measure.measurePreserving_neg (volume : Measure ℝ)
+        exact (h_mp.integrable_comp hF_L1.aestronglyMeasurable).mpr hF_L1
+      exact this
+
+    have h_F_inv_eq : fourierL2_isometry (h_invPsi_L2.toLp invPsi)
+        = (fourierIntegral_memLp_L1_L2 h_invPsi_L1 h_invPsi_L2).toLp (fourierIntegral invPsi) := by
+      apply Lp.ext (μ := volume)
+      have h1 := fourierL2_isometry_ae_eq_fourierIntegral invPsi h_invPsi_L1 h_invPsi_L2
+      have h2 := MemLp.coeFn_toLp (fourierIntegral_memLp_L1_L2 h_invPsi_L1 h_invPsi_L2)
+      exact h1.trans h2.symm
+
+    rw [h_F_inv_eq]
+
+    -- Now show fourierIntegral invPsi = ψ
+    apply Lp.ext (μ := volume)
+    refine (MemLp.coeFn_toLp _).trans ?_
+    refine (Filter.EventuallyEq.trans ?_ (MemLp.coeFn_toLp (hφ_L2 n)).symm)
+    filter_upwards with t
+
+    -- Prove fourierIntegral invPsi t = ψ t
+    rw [← fourierIntegral_eq_real]
+    have h_inv_eq_neg : invPsi = fun x => Real.fourierIntegral (fun s => ψ s) (-x) := by
+       funext x; simp [invPsi, fourierIntegralInv_eq_fourierIntegral_neg]
+    rw [h_inv_eq_neg]
+
+    -- F(F(ψ) o neg)(t) = F(F(ψ))(-t)
+    have h_comp_neg : Real.fourierIntegral (fun x => Real.fourierIntegral (fun s => ψ s) (-x)) t
+        = Real.fourierIntegral (Real.fourierIntegral (fun s => ψ s)) (-t) := by
+      simp only [Real.fourierIntegral, VectorFourier.fourierIntegral, smul_eq_mul]
+      have h_map := Measure.measurePreserving_neg (volume : Measure ℝ)
+      have h_emb := (Homeomorph.neg ℝ).measurableEmbedding
+      convert MeasurePreserving.integral_comp h_map h_emb
+        (fun u => 𝐞 (-innerₗ ℝ u (-t)) * Real.fourierIntegral (fun s => ψ s) u) using 1
+      congr 1
+      ext x
+      simp only [Function.comp_apply, innerₗ_apply]
+      simp [inner]
+      have h_smul : ∀ (c : Circle) (z : ℂ), c • z = (c : ℂ) * z := fun c z => rfl
+      simp only [h_smul]
+      congr 1
+      simp only [Real.fourierIntegral, VectorFourier.fourierIntegral, innerₗ_apply]
+      simp [inner]
+      simp only [h_smul]
+
+    rw [h_comp_neg]
+
+    -- Use fourierIntegralInv_fourierIntegral_schwartz: invF(F(ψ)) = ψ
+    -- invF(g)(x) = F(g)(-x)
+    -- So F(F(ψ))(-t) = invF(F(ψ))(t) = ψ(t)
+    have h_inv_inv : Real.fourierIntegral (Real.fourierIntegral (fun s => ψ s)) (-t) = ψ t := by
+      have h := fourierIntegralInv_fourierIntegral_schwartz ψ
+      have h_val := congr_fun h t
+      simp only [fourierIntegralInv_eq_fourierIntegral_neg] at h_val
+      rw [← h_val]
+      congr 2
+      ext ξ
+      rw [fourierIntegral_eq_real]
+
+    exact h_inv_inv
+
+  -- Step 5: Conclusion by uniqueness of limits.
+  -- LHS converges to F(invF(g))
+  have h_lim_lhs :
+      Filter.Tendsto (fun n => fourierL2_isometry (invFourierL2_isometry ((hφ_L2 n).toLp (φ n))))
+      Filter.atTop (𝓝 (fourierL2_isometry (invFourierL2_isometry (hg_L2.toLp g)))) :=
+    (fourierL2_isometry.continuous.tendsto _).comp h_invFphi_to_invFg
+
+  -- RHS converges to g
+  have h_lim_rhs :
+      Filter.Tendsto (fun n => fourierL2_isometry (invFourierL2_isometry ((hφ_L2 n).toLp (φ n))))
+      Filter.atTop (𝓝 (hg_L2.toLp g)) := by
+    simp only [h_F_invF_phi]
+    exact h_phi_to_g
+
+  exact tendsto_nhds_unique h_lim_lhs h_lim_rhs
 
 /-- Step 3: L² Fourier isometry equivalence.
 The genuine construction of the inverse Fourier isometry and the proof that it

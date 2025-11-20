@@ -1,5 +1,4 @@
 import Frourio.Analysis.FourierPlancherel
-import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2
 import Frourio.Analysis.MellinPlancherel
 import Frourio.Analysis.MellinParseval.MellinParsevalCore1
 import Frourio.Analysis.HilbertSpaceCore
