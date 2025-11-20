@@ -4,7 +4,7 @@ import Mathlib.Data.Complex.Basic
 namespace Frourio
 
 /-!
-Appendix E: Mellin–Sobolev algebra skeleton (H^s_×)
+Appendix E: Mellin–Sobolev algebra (H^s_×)
 
 We provide lightweight signatures only, avoiding heavy analysis. The
 carrier is modeled as `ℝ → ℂ`, with a placeholder norm. Algebraicity

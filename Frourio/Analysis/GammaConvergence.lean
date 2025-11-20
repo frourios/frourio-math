@@ -180,7 +180,6 @@ lemma critical_line_energy_minimum (σ : ℝ) [RHMinimizationCharacterization] :
   -- This deep statement is provided as an abstract hypothesis via a typeclass below.
   -- See `RHMinimizationCharacterization.critical_min`.
   intro h
-  -- Use the characterization axiom encapsulated as a typeclass
   exact RHMinimizationCharacterization.critical_min σ h
 
 end RHCriterion

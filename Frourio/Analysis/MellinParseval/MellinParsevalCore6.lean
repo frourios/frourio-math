@@ -711,7 +711,7 @@ lemma Vσ_forward_norm (σ : ℝ) (f : Hσ σ) :
   -- Unfold `Vσ_forward` and chain the equalities.
   simp [Vσ_forward, LinearIsometry.comp_apply, h₁, h₂, h₃]
 
-/-- A.e. identity (skeleton): Mellin transform equals the Fourier transform of
+/-- A.e. identity: Mellin transform equals the Fourier transform of
 the log-pulled function, up to the standard angular-frequency rescaling and normalization.
 This identifies the pointwise representative of `Vσ_forward σ f` with the
 Mellin transform values, with the normalization factor rescaleNorm⁻¹ = 1/√(2π).
@@ -882,7 +882,7 @@ noncomputable def linearIsometryToEquiv (σ : ℝ)
     exact eq_of_sub_eq_zero (norm_eq_zero.mp h_norm.symm)
   exact h_inj (h_inv_right (U f))
 
-/-- Inverse change-of-variables skeleton for the logarithmic map.
+/-- Inverse change-of-variables for the logarithmic map.
 
 For a given measurable `h : ℝ → ℂ`, consider the inverse-log pullback
 `f_raw x = exp(-σ log x) * h (log x)` on `(0,∞)` (extended by `0` outside),
@@ -1567,7 +1567,7 @@ lemma Uσ_linIso_surjective (σ : ℝ) :
         -- Change of variables x = exp t: the weighted integral for `f_raw`
         -- equals the unweighted L² integral of `h` on ℝ.
         have hIf_eq_Ih : If = Ih := by
-          -- Use the global inverse change-of-variables skeleton lemma,
+          -- Use the global inverse change-of-variables lemma,
           -- which mirrors `LogPull_sq_integral_eq` but in reverse.
           -- First, record measurability of h.
           have h_sm : StronglyMeasurable h := by

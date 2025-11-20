@@ -152,7 +152,7 @@ by
   exact evi_contraction_sq_from_gronwall P u v hu hv Hineq2 Hgr
 
 /--
-EVI contraction (named theorem form, P0 skeleton).
+EVI contraction (named theorem form).
 
 Proof strategy: Assume the squared-distance Dini inequality and a Grönwall
 exponential decay statement for `W t = d2 (u t) (v t)`. This yields a
@@ -198,7 +198,7 @@ by
   -- Then bridge to linear distance via the concrete bridge (B1)
   exact bridge_contraction_concrete P u v hSq
 
-/- Mixed-error bound skeleton for a pair (u, v). The `bound` field can
+/- Mixed-error bound for a pair (u, v). The `bound` field can
 encode any intended inequality along a selected geodesic; we keep it
 abstract at this stage. -/
 structure MixedErrorBound (X : Type*) [PseudoMetricSpace X]
@@ -226,7 +226,7 @@ def eviSumNoError {X : Type*} [PseudoMetricSpace X]
       + P.lam * d2 (u t) (v t) ≤ 0
 
 /--
-Squared-distance synchronization with error (P0 skeleton).
+Squared-distance synchronization with error.
 
 Assume a mixed EVI inequality with error term `η` for `W t = d2(u t, v t)`
 and an inhomogeneous Grönwall lemma. Then

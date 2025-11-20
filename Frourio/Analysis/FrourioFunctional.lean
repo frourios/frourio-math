@@ -13,7 +13,7 @@ import Frourio.Analysis.MinimizingMovement
 namespace Frourio
 
 /-!
-Functional layer (PLFA/EDE/EVI/JKO bridge skeleton)
+Functional layer (PLFA/EDE/EVI/JKO bridge)
 
 This module introduces a lightweight functional container and constants
 to connect the FG8 framework with the existing analysis layer. The goal

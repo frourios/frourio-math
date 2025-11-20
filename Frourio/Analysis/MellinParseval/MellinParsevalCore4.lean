@@ -234,7 +234,7 @@ lemma logPull_toLp_add (σ : ℝ) (f g : Hσ σ) :
     refine this.trans ?_
     refine Filter.Eventually.of_forall ?_
     intro t; simp [LogPull, Complex.ofReal_exp]
-  -- AE equality for LogPull under addition (skeleton lemma), lifted to cexp form.
+  -- AE equality for LogPull under addition, lifted to cexp form.
   have h_add_ae_base :
       (fun t : ℝ => LogPull σ (f + g) t)
         =ᵐ[volume]
@@ -559,7 +559,6 @@ lemma logPull_linearMap_continuous (σ : ℝ)
     (L : Hσ σ →ₗ[ℂ] Lp ℂ 2 (volume : Measure ℝ))
     (hL : ∀ f : Hσ σ, L f = (mellin_in_L2 σ f).toLp (LogPull σ f)) : Continuous L := by
   classical
-  -- Strategy (skeleton):
   -- 1) From the Mellin–Plancherel theory, we obtain a global bound
   --    of the form ∀ h, ‖L h‖ ≤ ‖h‖ (indeed, equality by isometry).
   -- 2) This implies `L` is 1-Lipschitz: dist(L x, L y) ≤ dist(x, y), hence continuous.
@@ -597,7 +596,7 @@ lemma exists_logPull_isometryCLM (σ : ℝ) :
   let T : Hσ σ →L[ℂ] Lp ℂ 2 (volume : Measure ℝ) := ⟨L, hcont⟩
   refine ⟨T, ?_⟩
   intro f
-  -- Norm equality via Plancherel for LogPull (skeleton)
+  -- Norm equality via Plancherel for LogPull
   -- Expected: ‖T f‖ = ‖f‖ from `mellin_plancherel_formula` specialized to LogPull
   simpa [T, L] using (logPull_toLp_norm_eq (σ := σ) (h := f))
 

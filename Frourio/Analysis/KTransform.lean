@@ -4,7 +4,7 @@ import Mathlib.Topology.MetricSpace.Basic
 namespace Frourio
 
 /-!
-FG8 A3: K-transform skeleton and basic model
+FG8 A3: K-transform and basic model
 
 This module introduces a lightweight `KTransform` structure capturing the
 multi-point transform `𝒦_σ` as a map into (signed) kernels on `ℝ` together

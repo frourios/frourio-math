@@ -602,7 +602,6 @@ theorem M_K_norm_le (K : ℝ → ℂ)
     classical
     set Mess : ℝ≥0∞ := essSup (fun x => (‖K x‖₊ : ℝ≥0∞)) volume
     have hM_fin : Mess < ∞ := hK_bdd
-    -- Reuse the L² inequality skeleton
     have hInt :=
       (show
         (∫⁻ x, ((‖(K x * (g : ℝ → ℂ) x)‖₊ : ℝ≥0∞) ^ (2 : ℕ)) ∂volume)

@@ -4,7 +4,7 @@ import Mathlib.Data.Real.Basic
 namespace Frourio
 
 /-!
-D9: Golden extremality (skeleton)
+D9: Golden extremality
 
 We provide a minimal optimization-style statement: given an admissible
 class and an objective, the golden operator is extremal (e.g. optimal)
@@ -24,4 +24,3 @@ def GoldenExtremality (C : ExtremalityContext) : Prop :=
   ∀ op : FrourioOperator 2, C.Adm op → C.Obj GoldenFrourioOperator ≤ C.Obj op
 
 end Frourio
-

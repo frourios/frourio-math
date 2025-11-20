@@ -59,7 +59,7 @@ noncomputable def modFun (ξ : ℝ) (g : ℝ → ℂ) : ℝ → ℂ :=
   fun t => Complex.exp (Complex.I * (ξ : ℂ) * (t : ℂ)) * g t
 
 /-!
-Step 1: translation map and basic measurability/measure-preserving skeleton.
+Step 1: translation map and basic measurability/measure-preserving.
 These will support the manual lifting to `Lp` in subsequent steps.
 -/
 

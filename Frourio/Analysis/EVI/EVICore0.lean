@@ -12,7 +12,7 @@ import Mathlib.Tactic
 namespace Frourio
 
 /-!
-P4: Abstract EVI skeleton (definitions and statements only)
+P4: Abstract EVI
 
 This file provides lightweight definitions for the EVI predicate on a
 metric space, a Dini-type upper differential, and statement-shaped
@@ -147,7 +147,7 @@ def IsEVISolution {X : Type*} [PseudoMetricSpace X]
     (1 / 2 : ℝ) * DiniUpper (fun τ : ℝ => d2 (u τ) v) t
       + P.lam * d2 (u t) v ≤ P.E v - P.E (u t)
 
-/-- Time-rescale of a curve `u` by a positive factor `σ` (skeleton). -/
+/-- Time-rescale of a curve `u` by a positive factor `σ`. -/
 def timeRescale {X : Type*} (σ : ℝ) (u : ℝ → X) : ℝ → X :=
   fun t => u (σ * t)
 

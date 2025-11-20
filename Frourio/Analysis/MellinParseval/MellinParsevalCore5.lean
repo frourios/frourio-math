@@ -1,5 +1,4 @@
 import Frourio.Analysis.FourierPlancherel
-import Frourio.Analysis.FourierPlancherelL2.FourierPlancherelL2
 import Frourio.Analysis.MellinPlancherel
 import Frourio.Analysis.MellinParseval.MellinParsevalCore4
 import Frourio.Analysis.HilbertSpaceCore
@@ -1562,10 +1561,7 @@ noncomputable def invFourierL2_isometry :
   intro f
   simpa using invFourierL2_isometryCLM_choice_norm f
 
-/-- Step 3.4: The inverse Fourier isometry is a left inverse of the forward
-Fourier isometry. This uses the Fourier inversion formula: invF(F(g)) = g
-for g ∈ L¹ ∩ L², proved in `fourierIntegralInv_fourierIntegral_ae_of_L1_L2`.
-TODO: Extend this a.e. equality to L² equality and then to all of L² by density. -/
+/-- Step 3.4: The inverse Fourier isometry is a left inverse of the forward Fourier isometry. -/
 lemma invFourierL2_isometry_left_inv :
     ∀ f : Lp ℂ 2 (volume : Measure ℝ),
       invFourierL2_isometry (fourierL2_isometry f) = f := by

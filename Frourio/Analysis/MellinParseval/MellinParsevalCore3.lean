@@ -93,7 +93,7 @@ lemma integrable_fourierIntegral_rescale_sq_norm
   -- Convert finiteness across the rescaling identity to obtain the target.
   -- The right-hand side is finite; hence so is the left-hand side.
   -- Package as `HasFiniteIntegral` for the τ-integrand.
-  -- Strategy skeleton:
+
   -- 1) Work with nonnegativity to switch to `lintegral` via `hasFiniteIntegral_iff_ofReal`.
   -- 2) Use change of variables on the lintegral side to relate τ- and ξ-integrals.
   -- 3) Conclude from `h_unscaled_fin` (the ξ-side finiteness).
@@ -122,7 +122,7 @@ lemma integrable_fourierIntegral_rescale_sq_norm
   refine (hasFiniteIntegral_iff_ofReal (μ := volume)
       (f := fun τ : ℝ => Fτ τ) h_nonneg_ae_τ).2 ?_
 
-  -- Change of variables on the lintegral side (skeleton step):
+  -- Change of variables on the lintegral side:
   -- One can show the exact scaling identity at the level of lintegrals:
   --   ∫⁻ τ, ofReal (Fτ τ) = ofReal (|(-1 / (2π))⁻¹|) * ∫⁻ ξ, ofReal (Fξ ξ),
   -- by applying the change of variables τ ↦ (-1 / (2π)) * τ.
@@ -186,7 +186,7 @@ lemma integrable_mellin_norm_sq_add (σ : ℝ) (f g : Hσ σ)
   set G : ℝ → ℂ :=
     fun τ => mellinTransform (g : ℝ → ℂ) (σ + I * (τ : ℂ)) with hG
 
-  -- Strong measurability of the target integrand (skeleton: deferred).
+  -- Strong measurability of the target integrand.
   have h_meas_F : AEStronglyMeasurable F volume := by
     -- Express F via a Fourier integral of a measurable function and use
     -- `integral_prod_right'` to get a.e.-strong measurability.
@@ -946,7 +946,7 @@ lemma integrable_mellin_norm_sq_sub (σ : ℝ) (f g : Hσ σ)
   have h_int_majorant : Integrable
       (fun τ : ℝ => ((2 * (‖F τ‖ ^ 2 + ‖G τ‖ ^ 2) : ℝ) : ℂ)) volume := by
     -- Reduce to the unscaled sum via const_mul, then rewrite `(2:ℂ) * ofReal r = ofReal (2*r)`.
-    -- First, integrability of the unscaled sum (skeleton: combine the two squares).
+    -- First, integrability of the unscaled sum.
     have h_int_sum : Integrable
         (fun τ : ℝ => (((‖F τ‖ ^ 2 + ‖G τ‖ ^ 2 : ℝ)) : ℂ)) volume := by
       -- Combine integrability of the two squares and identify with `ofReal` of the sum.

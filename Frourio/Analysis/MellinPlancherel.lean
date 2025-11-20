@@ -221,7 +221,7 @@ definition of `Hσ`. -/
 lemma mellin_in_L2 (σ : ℝ) (f : Hσ σ) :
     MemLp (LogPull σ f) 2 (volume : Measure ℝ) := by
   refine ⟨(LogPull_measurable σ f).aestronglyMeasurable, ?_⟩
-  -- Finite L² norm (skeleton): reduce to the weighted integral on (0,∞)
+  -- Finite L² norm: reduce to the weighted integral on (0,∞)
   -- via `LogPull_sq_integral_eq`, then appeal to the Hσ finiteness.
   -- We structure the proof without completing the final bound here.
   have hp_ne_zero : (2 : ℝ≥0∞) ≠ 0 := by norm_num
@@ -294,7 +294,7 @@ theorem mellin_plancherel_formula (σ : ℝ) (f : Hσ σ) :
   -- Abbreviate g := LogPull σ f
   set g : ℝ → ℂ := LogPull σ f with hg
 
-  -- Step 1: g is in L²(ℝ). We record this as a skeleton placeholder.
+  -- Step 1: g is in L²(ℝ).
   -- In the project, this follows from the change-of-variables lemma and the
   -- definition of Hσ; see Parseval development for a full proof.
   have hMem : MemLp g 2 (volume : Measure ℝ) := by

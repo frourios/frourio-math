@@ -39,7 +39,7 @@ def FGData.toEVI {X : Type*} [PseudoMetricSpace X] [MeasurableSpace X]
   { E := FG.E, lam := FG.lam }
 
 /-!
-Scale action skeleton. The fields are `Prop`-valued to capture
+Scale action. The fields are `Prop`-valued to capture
 requirements without committing to concrete constructions yet.
 
 • `Λ`: scale factor (typically Λ > 1; the positivity/large-ness is

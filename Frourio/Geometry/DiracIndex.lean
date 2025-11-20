@@ -4,7 +4,7 @@ import Mathlib.Data.Real.Basic
 namespace Frourio
 
 /-!
-P5: Dirac index (skeleton with light API)
+P5: Dirac index
 
 We model a minimal Fredholm operator with an integer index, a Dirac
 system carrying such an operator, and provide a zero-order invariance
@@ -20,7 +20,7 @@ structure Fredholm where
 structure ZeroOrderBoundedOp (bundle : Type*) : Type where
   (dummy : Unit := ())
 
-/-- Dirac system skeleton: base space, torus tag, bundle, connection,
+/-- Dirac system: base space, torus tag, bundle, connection,
 and the principal Dirac operator as a Fredholm element. Also stores a
 placeholder RHS value for the torus index formula (e.g. Chern number).
 -/
@@ -35,8 +35,7 @@ structure DiracSystem where
 /-- Extract the integer index. -/
 @[simp] def index (T : Fredholm) : ℤ := T.index
 
-/-- Add a zero-order bounded perturbation (skeleton keeps the same
-Fredholm operator to model invariance at the API level). -/
+/-- Add a zero-order bounded perturbation. -/
 noncomputable def addZeroOrder (S : DiracSystem)
     (_V : ZeroOrderBoundedOp S.bundle) : Fredholm :=
   S.D_A

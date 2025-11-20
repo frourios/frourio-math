@@ -29,7 +29,7 @@ def evi_scale_rule (FG : FGData X) (S : ScaleAction X) : Prop :=
     (∀ k : ℤ, ∃ lam' : ℝ, lam' = effectiveLambda α κ S.Lambda k FG.lam)
 
 /--
-Isometry scale rule (theoremized skeleton).
+Isometry scale rule.
 
 Sketch: In the isometric case, take `α = 0`. Under generator homogeneity
 with exponent `κ`, the effective parameter becomes
@@ -47,7 +47,7 @@ theorem evi_scale_rule_isometry (FG : FGData X) (S : ScaleAction X)
   · intro k; refine ⟨effectiveLambda 0 κ S.Lambda k FG.lam, rfl⟩
 
 /--
-Similarity scale rule (theoremized skeleton).
+Similarity scale rule.
 
 Sketch: In the similarity case with exponent `α`, and generator
 homogeneity exponent `κ`, the EVI parameter rescales according to

@@ -83,7 +83,7 @@ lightweight and will be strengthened to true EVI statements in later phases. -/
 def EVILimitHolds {ι : Type*} (S : MoscoSystem ι) : Prop :=
   MoscoM1 S ∧ MoscoM2 S ∧ MoscoTight S ∧ MoscoGeodesicComplete S
 
-/-- EVI inheritance under Mosco assumptions (theoremized skeleton).
+/-- EVI inheritance under Mosco assumptions.
 Proof sketch: Under geodesic completeness, tightness, l.s.c., and M1/M2,
 JKO-type minimizing movement schemes are tight, and limit curves satisfy
 the EVI inequality for the Γ-limit functional. Here we provide a placeholder

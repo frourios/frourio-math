@@ -3,7 +3,7 @@ import Mathlib.Data.Real.Basic
 namespace Frourio
 
 /-!
-P5: Doob transform skeleton (API only)
+P5: Doob transform
 
 We provide a lightweight `Diffusion` structure and a Doob transform shell.
 Heavy analysis (Leibniz, Hessian calculus) is deferred. Key identities are

@@ -495,7 +495,7 @@ def matrixJordanDiagProp {A : Type*} [CommRing A]
               - (algebraMap A (Matrix (Fin 2) (Fin 2) A) (σ a)) * J = 0)
 
 /--
-Multi-generator σ-PBW extension skeleton.
+Multi-generator σ-PBW extension.
 `ι` indexes the generators `Δ i`, each equipped with its own ring endomorphism `σ i`
 and σ-derivation `δ i`.
 -/

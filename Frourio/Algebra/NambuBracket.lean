@@ -5,7 +5,7 @@ import Frourio.Analysis.MellinSobolev
 namespace Frourio
 
 /-!
-D8: Nambu 3-bracket (difference approximation) — skeleton
+D8: Nambu 3-bracket (difference approximation)
 
 We introduce a minimal interface for a family of difference-derivation
 operators `L_i` (i=1,2,3), a placeholder Nambu bracket built from them,
