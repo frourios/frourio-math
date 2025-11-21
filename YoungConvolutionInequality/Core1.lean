@@ -1,7 +1,3 @@
-import Frourio.Analysis.HolderInequality.HolderInequality
-import Frourio.Analysis.SchwartzDensityLp.MinkowskiIntegral
-import Frourio.Analysis.SchwartzDensityLp.FubiniSection
-import Frourio.Analysis.YoungInequality.YoungInequalityCore0
 import Mathlib.Analysis.Convolution
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Group.Integral
@@ -10,6 +6,7 @@ import Mathlib.MeasureTheory.Integral.Bochner.L1
 import Mathlib.MeasureTheory.Integral.Bochner.VitaliCaratheodory
 import Mathlib.MeasureTheory.Measure.Haar.Basic
 import Mathlib.Order.LiminfLimsup
+import YoungConvolutionInequality.Core0
 
 noncomputable section
 

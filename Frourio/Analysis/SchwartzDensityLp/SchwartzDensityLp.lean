@@ -1,7 +1,7 @@
 import Frourio.Analysis.SchwartzDensityLp.SchwartzDensityLpCore0
 import Frourio.Analysis.SchwartzDensityLp.ConvolutionTheory
 import Frourio.Analysis.SchwartzDensityLp.ApproximateIdentity
-import Frourio.Analysis.YoungInequality.YoungInequality
+import Frourio.Analysis.SchwartzDensityLp.YoungInequality
 import Mathlib.Analysis.Distribution.SchwartzSpace
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.Topology.Algebra.Support

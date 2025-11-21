@@ -1,6 +1,6 @@
 import Frourio.Analysis.SchwartzDensityLp.ConvolutionTheory
 import Frourio.Analysis.SchwartzDensityLp.SchwartzDensityLpCore0
-import Frourio.Analysis.YoungInequality.YoungInequality
+import Frourio.Analysis.SchwartzDensityLp.YoungInequality
 import Mathlib.Analysis.Convolution
 import Mathlib.Analysis.Calculus.BumpFunction.Basic
 import Mathlib.MeasureTheory.Measure.OpenPos

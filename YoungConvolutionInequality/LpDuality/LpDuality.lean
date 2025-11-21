@@ -1,9 +1,9 @@
-import Frourio.Analysis.HolderInequality.HolderInequality
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Real.Sign
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Function.LpSpace.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import YoungConvolutionInequality.HolderInequality.HolderInequality
 
 /-!
 # Duality arguments for `L^p` spaces

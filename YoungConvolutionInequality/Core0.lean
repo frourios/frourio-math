@@ -1,5 +1,3 @@
-import Frourio.Analysis.SchwartzDensityLp.MinkowskiIntegral
-import Frourio.Analysis.SchwartzDensityLp.FubiniSection
 import Mathlib.Analysis.Convolution
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Group.Integral
@@ -7,6 +5,8 @@ import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.L1
 import Mathlib.MeasureTheory.Integral.Bochner.VitaliCaratheodory
 import Mathlib.MeasureTheory.Measure.Haar.Basic
+import YoungConvolutionInequality.MinkowskiIntegral.MinkowskiIntegral
+import YoungConvolutionInequality.FubiniSection.FubiniSection
 
 noncomputable section
 

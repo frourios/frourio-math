@@ -112,6 +112,166 @@ theorem conjugate_exponent_unique
           simpa [one_div] using this
 
 /--
+**Existence of the canonical conjugate exponent.**
+
+For every exponent r with 1 ≤ r ≤ ∞, the canonical choice `r.conjExponent`
+forms a conjugate pair with r in the sense of `IsConjugateExponent`.
+
+Mathematically this expresses the identity
+
+  1 / r + 1 / r.conjExponent = 1
+
+in the ENNReal setting.  The detailed proof will be supplied later by
+bridging to the corresponding mathlib notion of conjugate exponents.
+-/
+lemma conjugateExponent_isConjugate (r : ℝ≥0∞) (hr : 1 ≤ r) :
+    IsConjugateExponent r r.conjExponent := by
+  classical
+  -- We proceed by a case split on the exponent `r`.  The three cases
+  -- correspond exactly to the three disjuncts in the definition of
+  -- `IsConjugateExponent`:
+  --   * `r = 1`      → endpoint pair `(1, ∞)`;
+  --   * `r = ∞`      → endpoint pair `(∞, 1)`;
+  --   * `1 < r < ∞`  → genuine Hölder regime with
+  --       `1 < r.conjExponent`, `r.conjExponent < ∞`,
+  --       and `1 / r + 1 / r.conjExponent = 1`.
+  by_cases hr1 : r = 1
+  · -- Endpoint case `r = 1`.  Using the characterization of the
+    -- canonical conjugate exponent in mathlib, one shows that
+    --
+    --   (1 : ℝ≥0∞).conjExponent = ∞
+    --
+    -- and hence we are in the first constructor of
+    -- `IsConjugateExponent`, namely `p = 1 ∧ q = ∞`.
+    -- After rewriting with `subst`, the goal becomes
+    --
+    --   IsConjugateExponent 1 1.conjExponent,
+    --
+    -- which will later be discharged by appealing to the endpoint
+    -- lemma for `conjExponent`.
+    subst hr1
+    -- At `r = 1` the canonical conjugate exponent is `∞`:
+    --   (1 : ℝ≥0∞).conjExponent = 1 + (1 - 1)⁻¹ = 1 + 0⁻¹ = ∞.
+    exact Or.inl ⟨rfl, by simp [ENNReal.conjExponent]⟩
+  · by_cases hrTop : r = ∞
+    · -- Endpoint case `r = ∞`.  Here one uses the dual endpoint
+      -- identity
+      --
+      --   (∞ : ℝ≥0∞).conjExponent = 1
+      --
+      -- so that the pair `(∞, 1)` satisfies the second constructor in
+      -- `IsConjugateExponent`, namely `p = ∞ ∧ q = 1`.  After
+      -- rewriting the goal with `subst`, we obtain
+      --
+      --   IsConjugateExponent ∞ ∞.conjExponent,
+      --
+      -- and the desired conclusion follows from the corresponding
+      -- mathlib lemma about the conjugate of `∞`.
+      subst hrTop
+      -- At `r = ∞` the canonical conjugate exponent is `1`:
+      --   (∞ : ℝ≥0∞).conjExponent = 1 + (∞ - 1)⁻¹ = 1 + 0 = 1.
+      refine Or.inr <| Or.inl ?_
+      refine ⟨rfl, ?_⟩
+      simp [ENNReal.conjExponent]
+    · -- Genuine Hölder regime: `r` is strictly between `1` and `∞`.
+      -- In this situation mathlib provides:
+      --
+      --   1 < r,          r < ∞,
+      --   1 < r.conjExponent,
+      --   r.conjExponent < ∞,
+      --   1 / r + 1 / r.conjExponent = 1.
+      --
+      -- These inequalities and the reciprocal identity allow us to
+      -- inhabit the third constructor of `IsConjugateExponent`:
+      --
+      --   ⟨1 < r, r < ∞,
+      --    1 < r.conjExponent, r.conjExponent < ∞,
+      --    1 / r + 1 / r.conjExponent = 1⟩.
+      --
+      -- The detailed derivation from the library lemmas on
+      -- `conjExponent` will be filled in later.
+      -- TODO: fill in the strict-inequality Hölder case.
+      have hr_lt_top : r < ∞ := by
+        -- In this branch we are assuming `r ≠ ∞`, which is equivalent
+        -- to `r < ∞` in `ℝ≥0∞`.
+        simpa [lt_top_iff_ne_top] using hrTop
+      have hr_gt_one : 1 < r := by
+        -- From `hr : 1 ≤ r` and `hr1 : r ≠ 1`, we deduce `1 < r`.
+        exact lt_of_le_of_ne hr (by simpa [eq_comm] using hr1)
+      have hq_bounds :
+          1 < r.conjExponent ∧ r.conjExponent < ∞ := by
+        -- We use the explicit ENNReal formula
+        --   r.conjExponent = 1 + (r - 1)⁻¹.
+        -- In the genuine Hölder regime `1 < r < ∞` the quantity
+        -- `r - 1` is strictly positive and finite, hence so is its
+        -- inverse.  Adding this positive, finite quantity to `1`
+        -- yields an exponent strictly larger than `1` and still
+        -- finite.
+        have h_sub_pos : 0 < r - 1 := by
+          -- `r - 1` is positive because `r > 1`.
+          exact tsub_pos_iff_lt.mpr hr_gt_one
+        have h_sub_ne_zero : r - 1 ≠ 0 := ne_of_gt h_sub_pos
+        -- The inverse of a finite ENNReal is strictly positive.
+        have h_inv_pos : 0 < (r - 1)⁻¹ := by
+          -- From `r < ∞` we deduce `r - 1 < ∞`, hence `(r - 1) ≠ ∞`
+          -- and so its inverse is positive.
+          have h_lt_top' : r - 1 < ∞ :=
+            lt_of_le_of_lt tsub_le_self hr_lt_top
+          exact ENNReal.inv_pos.mpr (ne_of_lt h_lt_top')
+        -- The inverse of a nonzero ENNReal is finite (not `∞`).
+        have h_inv_ne_top : (r - 1)⁻¹ ≠ ∞ :=
+          (ENNReal.inv_ne_top).2 h_sub_ne_zero
+        -- First, obtain the strict lower bound `1 < r.conjExponent`.
+        have h_one_lt : 1 < r.conjExponent := by
+          -- Since `(r - 1)⁻¹ > 0`, adding it to `1` yields a
+          -- strictly larger exponent.
+          have h_add : 1 < 1 + (r - 1)⁻¹ := by
+            -- From `0 < (r - 1)⁻¹` we deduce
+            --   1 + 0 < 1 + (r - 1)⁻¹,
+            -- and simplify the left-hand side.
+            have := ENNReal.add_lt_add_left (by norm_num : (1 : ℝ≥0∞) ≠ ∞) h_inv_pos
+            simpa using this
+          simpa [ENNReal.conjExponent, add_comm, add_left_comm, add_assoc] using h_add
+        -- Second, obtain the finiteness bound `r.conjExponent < ∞`.
+        have h_lt_top : r.conjExponent < ∞ := by
+          -- If `1 + (r - 1)⁻¹` were `∞`, then `(r - 1)⁻¹` itself would
+          -- have to be `∞`, contradicting `h_inv_ne_top`.
+          have h_ne_top : r.conjExponent ≠ ∞ := by
+            intro h_top
+            have : (r - 1)⁻¹ = ∞ := by
+              -- In `ℝ≥0∞`, the only way `1 + a = ∞` is that `a = ∞`.
+              -- We record this via rewriting and simplification.
+              have := congrArg (fun x => x - (1 : ℝ≥0∞)) h_top
+              -- The preceding line is a conceptual placeholder; in
+              -- the final development this step will be replaced by
+              -- the standard `simp`-based argument using the algebraic
+              -- lemmas for ENNReal addition and `top`.
+              -- For the present skeleton we simply appeal to the
+              -- explicit description of `conjExponent`.
+              simpa [ENNReal.conjExponent, add_comm, add_left_comm, add_assoc] using this
+            exact h_inv_ne_top this
+          exact (lt_top_iff_ne_top).2 h_ne_top
+        exact ⟨h_one_lt, h_lt_top⟩
+      obtain ⟨hq_gt_one, hq_lt_top⟩ := hq_bounds
+      have h_sum :
+          1 / r + 1 / r.conjExponent = (1 : ℝ≥0∞) := by
+        -- Use the `HolderConjugate` structure from mathlib: for
+        -- `1 ≤ r` we have that `r` and `r.conjExponent` are Hölder
+        -- conjugate exponents in the ENNReal sense, which yields
+        -- the reciprocal identity on inverses.
+        have hHC : ENNReal.HolderConjugate r r.conjExponent :=
+          ENNReal.HolderConjugate.conjExponent (p := r) hr
+        -- Register `hHC` as a typeclass instance locally.
+        have h_inv :
+            r⁻¹ + r.conjExponent⁻¹ = (1 : ℝ≥0∞) := by
+          haveI : ENNReal.HolderConjugate r r.conjExponent := hHC
+          simpa using
+            (ENNReal.HolderConjugate.inv_add_inv_eq_one (p := r) (q := r.conjExponent))
+        simpa [one_div] using h_inv
+      exact Or.inr <|
+        Or.inr ⟨hr_gt_one, hr_lt_top, hq_gt_one, hq_lt_top, h_sum⟩
+
+/--
 **Conjugate relation is symmetric.**
 
 If p and q are conjugate exponents, then so are q and p.

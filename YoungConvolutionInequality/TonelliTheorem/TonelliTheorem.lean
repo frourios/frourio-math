@@ -3,9 +3,9 @@ import Mathlib.MeasureTheory.Integral.Bochner.Basic
 import Mathlib.MeasureTheory.Measure.Prod
 import Mathlib.MeasureTheory.Measure.Haar.Basic
 import Mathlib.MeasureTheory.Group.Arithmetic
-import Frourio.Analysis.SchwartzDensityLp.FubiniSection
-import Frourio.Analysis.HolderInequality.HolderInequalityCore
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
+import YoungConvolutionInequality.FubiniSection.FubiniSection
+import YoungConvolutionInequality.HolderInequality.HolderInequalityCore
 
 /-!
 # Tonelli's Theorem for Convolution Kernels
@@ -427,15 +427,172 @@ theorem tonelli_ae_section_lt_top_of_aemeasurable_right
 
 end AEMeasurableTonelli
 
+/-
+Additional Tonelli/Fubini helper lemmas for real-valued kernels.
+These provide signatures (without proofs) for bridging from ENNReal-valued
+Tonelli statements to Bochner integrability of real-valued sections and
+their outer integrals. The detailed proofs will be supplied where needed.
+-/
+
+/--
+From product finiteness for an `AEMeasurable` nonnegative real-valued kernel on `μ.prod μ`,
+deduce that for a.e. `x`, the section `y ↦ H (x, y)` is Bochner integrable (as an ℝ-valued
+function).
+-/
+lemma ae_integrable_left_of_lintegral_ofReal_lt_top
+    {G : Type*} [MeasurableSpace G] (μ : Measure G) [SFinite μ]
+    {H : G × G → ℝ}
+    (hH_nonneg : ∀ p, 0 ≤ H p)
+    (hH_aemeas : AEMeasurable H (μ.prod μ))
+    (hH_int :
+      ∫⁻ p, ENNReal.ofReal (H p) ∂(μ.prod μ) < ∞) :
+    ∀ᵐ x ∂μ, Integrable (fun y => H (x, y)) μ := by
+  classical
+  -- Step 1: apply the ℝ≥0∞-valued Tonelli consequence to the kernel `ofReal ∘ H`.
+  have hH_ofReal_aemeas :
+      AEMeasurable (fun p : G × G => ENNReal.ofReal (H p)) (μ.prod μ) :=
+    hH_aemeas.ennreal_ofReal
+  have h_section_lt_top :
+      ∀ᵐ x ∂μ, ∫⁻ y, ENNReal.ofReal (H (x, y)) ∂μ < ∞ :=
+    tonelli_ae_section_lt_top_of_aemeasurable_left
+      (μ := μ) (f := fun p : G × G => ENNReal.ofReal (H p))
+      hH_ofReal_aemeas hH_int
+  -- Step 1a: a.e. strong measurability of the sections x ↦ H (x, ·).
+  have h_section_aesm :
+      ∀ᵐ x ∂μ, AEStronglyMeasurable (fun y => H (x, y)) μ := by
+    -- Extract a measurable representative H' of H on μ.prod μ.
+    rcases hH_aemeas with ⟨H', hH'_meas, hH_eq⟩
+    -- From H = H' a.e. on μ.prod μ, deduce a.e. equality on almost every fibre.
+    have h_section_ae :
+        ∀ᵐ x ∂μ, (fun y => H' (x, y)) =ᵐ[μ] fun y => H (x, y) := by
+      have h_curry :
+          ∀ᵐ x ∂μ, (fun y => H (x, y)) =ᵐ[μ] fun y => H' (x, y) :=
+        Measure.ae_ae_eq_curry_of_prod (μ := μ) (ν := μ) hH_eq
+      refine h_curry.mono ?_
+      intro x hx
+      simpa using hx.symm
+    -- Sections of the measurable representative are measurable.
+    have hH'_section_meas :
+        ∀ x, Measurable fun y => H' (x, y) := fun x =>
+      hH'_meas.comp (measurable_const.prodMk measurable_id)
+    -- Package measurability and a.e. equality into AEStronglyMeasurable for H(x, ·).
+    refine h_section_ae.mono ?_
+    intro x hx
+    exact (hH'_section_meas x).aestronglyMeasurable.congr hx
+  -- Step 2: from finiteness of the `ofReal` lintegral and nonnegativity,
+  -- deduce Bochner integrability of the real-valued sections.
+  refine (h_section_lt_top.and h_section_aesm).mono ?_
+  intro x hx
+  rcases hx with ⟨hx, hx_aesm⟩
+  -- Rewrite the integrand using `‖H (x, y)‖ = H (x, y)` (since `H ≥ 0`).
+  have h_eq :
+      (fun y => ENNReal.ofReal (H (x, y))) =
+        fun y => ENNReal.ofReal ‖H (x, y)‖ := by
+    funext y
+    have h_nonneg : 0 ≤ H (x, y) := hH_nonneg (x, y)
+    have h_abs : |H (x, y)| = H (x, y) := abs_of_nonneg h_nonneg
+    simp [Real.norm_eq_abs, h_abs]
+  have hx_norm :
+      ∫⁻ y, ENNReal.ofReal ‖H (x, y)‖ ∂μ < ∞ := by
+    simpa [h_eq] using hx
+  -- Use the standard Bochner criterion for integrability via the lintegral of the norm.
+  -- Integrable is AEStronglyMeasurable ∧ HasFiniteIntegral
+  have hx_hasFinite : HasFiniteIntegral (fun y => H (x, y)) μ := by
+    -- HasFiniteIntegral means ∫⁻ y, ‖H (x, y)‖ₑ ∂μ < ⊤
+    have h_enorm_eq : (fun y => ‖H (x, y)‖ₑ) = fun y => ENNReal.ofReal ‖H (x, y)‖ := by
+      funext y
+      exact (ofReal_norm_eq_enorm (H (x, y))).symm
+    simpa [HasFiniteIntegral, h_enorm_eq] using hx_norm
+  exact ⟨hx_aesm, hx_hasFinite⟩
+
+/--
+From product finiteness for an `AEMeasurable` nonnegative real-valued kernel on `μ.prod μ`,
+deduce that the outer integral `x ↦ ∫ y, H (x, y) dμ` is Bochner integrable on `μ`.
+-/
+lemma integrable_left_integral_of_lintegral_ofReal_lt_top
+    {G : Type*} [MeasurableSpace G] (μ : Measure G) [SFinite μ]
+    {H : G × G → ℝ}
+    (hH_nonneg : ∀ p, 0 ≤ H p)
+    (hH_aemeas : AEMeasurable H (μ.prod μ))
+    (hH_int :
+      ∫⁻ p, ENNReal.ofReal (H p) ∂(μ.prod μ) < ∞) :
+    Integrable (fun x => ∫ y, H (x, y) ∂μ) μ := by
+  classical
+  -- First, upgrade to Bochner integrability of H on the product space.
+  have hH_eq_ofReal_norm :
+      (fun p : G × G => ENNReal.ofReal (H p)) =
+        fun p => ENNReal.ofReal ‖H p‖ := by
+    funext p
+    have h_nonneg : 0 ≤ H p := hH_nonneg p
+    have h_abs : |H p| = H p := abs_of_nonneg h_nonneg
+    simp [h_abs, Real.norm_eq_abs]
+  have hH_norm_int :
+      ∫⁻ p, ENNReal.ofReal ‖H p‖ ∂(μ.prod μ) < ∞ := by
+    simpa [hH_eq_ofReal_norm] using hH_int
+  have hH_meas : AEStronglyMeasurable H (μ.prod μ) :=
+    hH_aemeas.aestronglyMeasurable
+  have hH_hasFinite : HasFiniteIntegral H (μ.prod μ) := by
+    -- Translate the finiteness of the ofReal-lintegral into HasFiniteIntegral.
+    have h_enorm_eq :
+        (fun p : G × G => ‖H p‖ₑ)
+          = fun p => ENNReal.ofReal ‖H p‖ := by
+      funext p
+      exact (ofReal_norm_eq_enorm (H p)).symm
+    simpa [HasFiniteIntegral, h_enorm_eq] using hH_norm_int
+  have hH_int_prod : Integrable H (μ.prod μ) :=
+    ⟨hH_meas, hH_hasFinite⟩
+  -- Use the product integrability to control the fibrewise integrals.
+  have h_prod_info :=
+    (integrable_prod_iff (μ := μ) (ν := μ)
+        (f := H) hH_meas).mp hH_int_prod
+  have h_section_int :
+      ∀ᵐ x ∂μ, Integrable (fun y => H (x, y)) μ := by
+    simpa using h_prod_info.1
+  have h_majorant_int :
+      Integrable (fun x => ∫ y, ‖H (x, y)‖ ∂μ) μ := by
+    simpa using h_prod_info.2
+  -- Measurability of the outer integral x ↦ ∫ H (x, y) dμ.
+  have h_integral_meas :
+      AEStronglyMeasurable (fun x => ∫ y, H (x, y) ∂μ) μ := by
+    simpa using
+      (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+        (μ := μ) (ν := μ) (f := H) hH_meas)
+  have h_norm_meas :
+      AEStronglyMeasurable (fun x => ‖∫ y, H (x, y) ∂μ‖) μ :=
+    h_integral_meas.norm
+  -- Pointwise bound: norm of the fibrewise integral is dominated by the integral of norms.
+  have h_pointwise :
+      (fun x => ‖∫ y, H (x, y) ∂μ‖)
+        ≤ᵐ[μ] fun x => ∫ y, ‖H (x, y)‖ ∂μ := by
+    refine h_section_int.mono ?_
+    intro x hx
+    have hx_bound :=
+      norm_integral_le_integral_norm (μ := μ) (f := fun y => H (x, y))
+    simpa using hx_bound
+  -- Basic integrability of the norm of the outer integral.
+  have h_norm_integrable :
+      Integrable (fun x => ‖∫ y, H (x, y) ∂μ‖) μ := by
+    refine Integrable.mono' h_majorant_int h_norm_meas ?_
+    simpa using h_pointwise
+  -- Package as integrability of the real-valued function x ↦ ∫ H (x, y) dμ.
+  set Gfun : G → ℝ := fun x => ∫ y, H (x, y) ∂μ with hG_def
+  have hG_meas : AEStronglyMeasurable Gfun μ := h_integral_meas
+  have hG_hasFinite : HasFiniteIntegral Gfun μ := by
+    -- From integrability of the norm of Gfun, deduce finiteness for Gfun itself.
+    have h_fin_norm : HasFiniteIntegral (fun x => ‖Gfun x‖) μ :=
+      h_norm_integrable.hasFiniteIntegral
+    simpa [Gfun, HasFiniteIntegral] using h_fin_norm
+  exact ⟨hG_meas, hG_hasFinite⟩
+
 /-!
-## L²×L¹ Convolution: Fiberwise Integrability (signature)
+## L²×L¹ Convolution: Fiberwise Integrability
 
 We record a lemma signature stating that if `f ∈ L²(μ)` and `g ∈ L¹(μ)`, then for almost every
 `x`, the section `y ↦ f (x - y) * g y` is integrable. The proof combines Tonelli/Fubini with
 the Cauchy–Schwarz inequality applied to the finite measure with density `|g|`.
 -/
 
-/-- Fiberwise integrability for L²×L¹ convolution kernels (signature only). -/
+/-- Fiberwise integrability for L²×L¹ convolution kernels. -/
 theorem convolution_fiber_integrable_L2_L1
     {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
     [MeasurableAdd₂ G] [MeasurableNeg G]

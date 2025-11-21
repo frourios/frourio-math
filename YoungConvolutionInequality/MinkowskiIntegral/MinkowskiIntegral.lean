@@ -3,8 +3,8 @@ import Mathlib.Analysis.Convex.Integral
 import Mathlib.MeasureTheory.Function.L1Space.Integrable
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
-import Frourio.Analysis.HolderInequality.HolderInequality
-import Frourio.Analysis.SchwartzDensityLp.LpDuality
+import YoungConvolutionInequality.HolderInequality.HolderInequality
+import YoungConvolutionInequality.LpDuality.LpDuality
 
 /-!
 # Minkowski's Integral Inequality
@@ -274,6 +274,300 @@ theorem minkowski_integral_inequality_ennreal
       using (hF_prod.prod_left_ae (μ := μ) (ν := ν))
   exact
     minkowski_integral_inequality p hp hp_ne_top F hF hF_prod hF_int hF_memLp hF_norm
+
+/--
+**Minkowski's integral inequality with eLpNorm (variant).**
+
+This version is stated with the same hypotheses as `minkowski_integral_inequality_ennreal`,
+but it is organised to make later applications (in particular convolution bounds) more
+convenient.  In particular, the proof is split into the cases `p = 1` and `1 < p < ∞`
+in a way that mirrors the real-valued argument.
+-/
+theorem minkowski_integral_inequality_ennreal_noProd
+    [MeasurableSpace E] [BorelSpace E] [NormedSpace ℝ E]
+    (p : ℝ≥0∞) (hp : 1 ≤ p) (hp_ne_top : p ≠ ∞)
+    (F : α → β → E)
+    (hF : AEStronglyMeasurable (Function.uncurry F) (μ.prod ν))
+    (hF_prod : Integrable (Function.uncurry F) (μ.prod ν))
+    (hF_memLp : ∀ᵐ y ∂ν, MemLp (fun x => F x y) p μ)
+    (hF_norm : Integrable (fun y => (eLpNorm (fun x => F x y) p μ).toReal) ν) :
+    eLpNorm (fun x => ∫ y, F x y ∂ν) p μ ≤
+      ENNReal.ofReal (∫ y, (eLpNorm (fun x => F x y) p μ).toReal ∂ν) := by
+  classical
+  -- Basic measurability for the outer integral in x.
+  have h_meas :
+      AEStronglyMeasurable (fun x => ∫ y, F x y ∂ν) μ := by
+    simpa using
+      (MeasureTheory.AEStronglyMeasurable.integral_prod_right'
+        (μ := μ) (ν := ν) (f := Function.uncurry F) hF)
+
+  -- Auxiliary scalar function given by the norm of the fibrewise integral.
+  set g : α → ℝ := fun x => ‖∫ y, F x y ∂ν‖ with hg_def
+
+  -- Right-hand side scalar bound.
+  set B : ℝ := ∫ y, (eLpNorm (fun x => F x y) p μ).toReal ∂ν with hB_def
+
+  have hB_nonneg : 0 ≤ B := by
+    -- Nonnegativity of the integral of the fibrewise Lᵖ-norms.
+    have : 0 ≤ ∫ y, (eLpNorm (fun x => F x y) p μ).toReal ∂ν :=
+      integral_nonneg (fun _ => ENNReal.toReal_nonneg)
+    simpa [B, hB_def] using this
+
+  -- Exclude the degenerate exponent p = 0.
+  have hp_ne_zero : p ≠ 0 := by
+    intro h
+    have : (1 : ℝ≥0∞) ≤ 0 := by simp [h] at hp
+    exact (not_le_of_gt (zero_lt_one : (0 : ℝ≥0∞) < 1)) this
+
+  -- Rewrite the left-hand side eLpNorm in terms of a lintegral.
+  have h_lhs_rewrite :
+      eLpNorm (fun x => ∫ y, F x y ∂ν) p μ =
+        (∫⁻ x, ‖∫ y, F x y ∂ν‖ₑ ^ p.toReal ∂μ) ^ (1 / p.toReal) := by
+    simpa using
+      (eLpNorm_eq_lintegral_rpow_enorm
+        (μ := μ) (f := fun x => ∫ y, F x y ∂ν)
+        hp_ne_zero hp_ne_top)
+
+  -- Split into the cases p = 1 and 1 < p < ∞, as in the real-valued proof.
+  by_cases hp_eq_one : p = 1
+  · -- Skeleton for the case `p = 1`.
+    subst hp_eq_one
+    /-
+    In this regime the L¹-seminorm is given by a single lintegral of `‖·‖`,
+    and we can reduce the claim to the already established
+    `minkowski_integral_inequality_one_ennreal` together with a comparison
+    between the double lintegral of the kernel norm and the integral of the
+    fibrewise L¹-norms.
+    -/
+
+    -- Step 1: apply the basic ENNReal Minkowski inequality for p = 1.
+    have h_basic :
+        eLpNorm (fun x => ∫ y, F x y ∂ν) 1 μ ≤
+          ∫⁻ x, ∫⁻ y, (‖F x y‖₊ : ℝ≥0∞) ∂ν ∂μ :=
+      minkowski_integral_inequality_one_ennreal
+        (μ := μ) (ν := ν) (E := E) F hF
+
+    -- Step 2: relate the double lintegral on the right-hand side to the
+    -- integral of the fibrewise L¹-norms encoded by `hF_memLp` and `hF_norm`.
+    have h_rewrite_rhs :
+        (∫⁻ x, ∫⁻ y, (‖F x y‖₊ : ℝ≥0∞) ∂ν ∂μ) ≤
+          ENNReal.ofReal B := by
+      -- Step 2.1: swap the order of integration for the nonnegative kernel.
+      have h_swap :
+          (∫⁻ x, ∫⁻ y, (‖F x y‖₊ : ℝ≥0∞) ∂ν ∂μ) =
+            ∫⁻ y, ∫⁻ x, (‖F x y‖₊ : ℝ≥0∞) ∂μ ∂ν := by
+        /-
+        This will use the standard Fubini/Tonelli lemma for lintegrals
+        of nonnegative kernels on `μ.prod ν`, applied to the function
+          (x, y) ↦ ‖F x y‖₊.
+        The required measurability follows from `hF`.
+        -/
+        -- Measurability of the nonnegative kernel `(x, y) ↦ ‖F x y‖₊`.
+        have h_kernel_aemeasurable' :
+            AEMeasurable
+              (Function.uncurry fun x y => (‖F x y‖₊ : ℝ≥0∞)) (μ.prod ν) := by
+          -- View the kernel norm as composition of `F` with
+          -- `z ↦ (‖z‖₊ : ℝ≥0∞)`, which is measurable.
+          have hF_aemeasurable :
+              AEMeasurable (Function.uncurry F) (μ.prod ν) :=
+            hF.aemeasurable
+          have h_meas :
+              Measurable fun z : E =>
+                ((‖z‖₊ : ℝ≥0) : ℝ≥0∞) :=
+            (measurable_coe_nnreal_ennreal.comp measurable_nnnorm)
+          simpa [Function.uncurry] using
+            h_meas.comp_aemeasurable hF_aemeasurable
+        simpa [Function.uncurry] using
+          MeasureTheory.lintegral_lintegral_swap
+            (μ := μ) (ν := ν) h_kernel_aemeasurable'
+
+      -- Step 2.2: identify the inner lintegral with the fibrewise L¹-seminorm.
+      have h_inner_eq :
+          ∀ᵐ y ∂ν,
+            ∫⁻ x, (‖F x y‖₊ : ℝ≥0∞) ∂μ =
+              eLpNorm (fun x => F x y) 1 μ := by
+        /-
+        For almost every y, the section `x ↦ F x y` belongs to `L¹(μ)` by
+        `hF_memLp`, and the eLpNorm at exponent 1 is given by the lintegral
+        of the enorm `‖·‖ₑ`.  This yields the desired identity.
+        -/
+        refine hF_memLp.mono ?_
+        intro y hy
+        have h_eq :=
+          (MeasureTheory.eLpNorm_one_eq_lintegral_enorm
+            (μ := μ) (f := fun x => F x y))
+        -- `‖·‖ₑ` is definitionally `(‖·‖₊ : ℝ≥0∞)`.
+        simpa using h_eq.symm
+
+      -- Step 2.3: rewrite the outer lintegral in y using `h_inner_eq`.
+      have h_lintegral_eq :
+          (∫⁻ y, ∫⁻ x, (‖F x y‖₊ : ℝ≥0∞) ∂μ ∂ν) =
+            ∫⁻ y, eLpNorm (fun x => F x y) 1 μ ∂ν := by
+        /-
+        Apply `lintegral_congr_ae` to replace the inner integrand by its
+        fibrewise eLpNorm, using `h_inner_eq`.
+        -/
+        refine MeasureTheory.lintegral_congr_ae ?_
+        exact h_inner_eq
+
+      -- Step 2.4: control the resulting lintegral in terms of `B`.
+      have h_lintegral_le :
+          (∫⁻ y, eLpNorm (fun x => F x y) 1 μ ∂ν) ≤
+            ENNReal.ofReal B := by
+        /-
+        Here we use the fact that the function
+          y ↦ (eLpNorm (fun x => F x y) 1 μ).toReal
+        is integrable (`hF_norm`), so that the lintegral of
+          y ↦ eLpNorm (fun x => F x y) 1 μ
+        coincides with `ENNReal.ofReal` applied to `B`.  This yields the
+        desired inequality (in fact, an equality) on the right-hand side.
+        -/
+        -- Step 2.4a: relate the lintegral of the eLpNorms to the integral of
+        -- their real-valued `toReal` versions via `ofReal_integral_eq_lintegral_ofReal`.
+        have h_nonneg :
+            0 ≤ᵐ[ν]
+              fun y => (eLpNorm (fun x => F x y) 1 μ).toReal :=
+          Filter.Eventually.of_forall fun _ => ENNReal.toReal_nonneg
+        have h_ofReal_integral :
+            ∫⁻ y,
+                ENNReal.ofReal
+                  ((eLpNorm (fun x => F x y) 1 μ).toReal) ∂ν =
+              ENNReal.ofReal
+                (∫ y, (eLpNorm (fun x => F x y) 1 μ).toReal ∂ν) := by
+          have h_eq :=
+            (MeasureTheory.ofReal_integral_eq_lintegral_ofReal
+              (μ := ν)
+              (f := fun y =>
+                (eLpNorm (fun x => F x y) 1 μ).toReal)
+              hF_norm h_nonneg)
+          exact h_eq.symm
+        -- Step 2.4b: a.e. identification of `eLpNorm` with `ENNReal.ofReal ∘ toReal`.
+        have h_ne_top :
+            ∀ᵐ y ∂ν, eLpNorm (fun x => F x y) 1 μ ≠ ∞ :=
+          hF_memLp.mono fun y hy => hy.eLpNorm_ne_top
+        have h_lintegral_eq' :
+            ∫⁻ y, eLpNorm (fun x => F x y) 1 μ ∂ν =
+              ∫⁻ y,
+                ENNReal.ofReal
+                  ((eLpNorm (fun x => F x y) 1 μ).toReal) ∂ν := by
+          refine MeasureTheory.lintegral_congr_ae ?_
+          filter_upwards [h_ne_top] with y hy
+          have h :=
+            ENNReal.ofReal_toReal hy
+          -- `ofReal (‖·‖ₑ.toReal) = ‖·‖ₑ`, so we rewrite accordingly.
+          simpa using h.symm
+        -- Step 2.4c: combine the two identities to identify the lintegral
+        -- with `ENNReal.ofReal B`, and hence obtain the desired inequality.
+        have h_lintegral_eq_B :
+            ∫⁻ y, eLpNorm (fun x => F x y) 1 μ ∂ν =
+              ENNReal.ofReal B := by
+          calc
+            ∫⁻ y, eLpNorm (fun x => F x y) 1 μ ∂ν
+                =
+                  ∫⁻ y,
+                    ENNReal.ofReal
+                      ((eLpNorm (fun x => F x y) 1 μ).toReal) ∂ν :=
+              h_lintegral_eq'
+            _ =
+                ENNReal.ofReal
+                  (∫ y, (eLpNorm (fun x => F x y) 1 μ).toReal ∂ν) :=
+              h_ofReal_integral
+            _ = ENNReal.ofReal B := by
+              simp [B, hB_def]
+        -- Turn the equality into the required inequality.
+        simp [h_lintegral_eq_B]
+
+      -- Step 2.5: assemble the pieces.
+      have h_bound :
+          (∫⁻ x, ∫⁻ y, (‖F x y‖₊ : ℝ≥0∞) ∂ν ∂μ) ≤
+            ENNReal.ofReal B := by
+        /-
+        Rewrite the double lintegral using `h_swap` and `h_lintegral_eq`,
+        then apply the bound `h_lintegral_le` on the resulting expression.
+        -/
+        have h_chain :
+            (∫⁻ x, ∫⁻ y, (‖F x y‖₊ : ℝ≥0∞) ∂ν ∂μ) =
+              ∫⁻ y, eLpNorm (fun x => F x y) 1 μ ∂ν :=
+          h_swap.trans h_lintegral_eq
+        -- Transport the inequality `h_lintegral_le` along this equality.
+        simpa [h_chain.symm] using h_lintegral_le
+      exact h_bound
+
+    -- Step 3: combine the two bounds and rewrite the right-hand side as in
+    -- the statement (with p specialized to 1).
+    have h_final :
+        eLpNorm (fun x => ∫ y, F x y ∂ν) 1 μ ≤
+          ENNReal.ofReal (∫ y, (eLpNorm (fun x => F x y) 1 μ).toReal ∂ν) := by
+      have := h_basic.trans h_rewrite_rhs
+      simpa [B, hB_def] using this
+
+    -- Conclude in the case p = 1.
+    simpa using h_final
+  · -- Skeleton for the case `1 < p < ∞`.
+    /-
+    When `1 < p < ∞`, we plan to adapt the duality-based proof from
+    `minkowski_integral_inequality`, using:
+      * the dual exponent q with `IsConjugateExponent p q`,
+      * the Lᵖ–Lᵠ pairing bound obtained from `hF_memLp` and `hF_norm`,
+      * and the norm characterization via the supremum over dual pairings.
+
+    The detailed implementation closely mirrors the existing proof of
+    `minkowski_integral_inequality`, now phrased directly in terms of the
+    scalar function `g` and the bound `B`.
+    -/
+    have hp_one_lt : 1 < p :=
+      lt_of_le_of_ne' hp (by simpa [eq_comm] using hp_eq_one)
+    have hp_lt_top : p < ∞ :=
+      lt_of_le_of_ne le_top hp_ne_top
+    obtain ⟨q, hpq, -⟩ :=
+      conjugate_exponent_formula (p := p) hp_one_lt hp_lt_top
+    have hq_gt_one : 1 < q := by
+      rcases hpq with hpq | hpq
+      · rcases hpq with ⟨hp_eq, _⟩
+        simp [hp_eq] at hp_one_lt
+      · rcases hpq with hpq | hpq
+        · rcases hpq with ⟨hp_eq, _⟩
+          simpa [hp_eq] using hp_lt_top.ne
+        · rcases hpq with ⟨_, _, hq, _, _⟩
+          exact hq
+    -- `g` belongs to `L^p(μ)` thanks to the product-space information.
+    have hg_mem : MemLp g p μ :=
+      SchwartzDensityLp.memLp_norm_integral (μ := μ) (ν := ν) (p := p)
+        hp hp_ne_top hF hF_prod hF_memLp hF_norm
+    -- Duality-based bound on the pairings against `L^q` unit ball.
+    have h_pairing_bound :
+        ∀ φ : α → ℝ,
+          MemLp φ q μ →
+          (eLpNorm φ q μ).toReal ≤ 1 →
+          Integrable (fun x => g x * φ x) μ →
+          |∫ x, g x * φ x ∂μ| ≤ B := by
+      intro φ hφ_mem hφ_norm _hφ_int
+      have h_est :=
+        holder_kernel_pairing_bound (μ := μ) (ν := ν)
+          (p := p) (q := q) hpq
+          hF hF_prod hF_memLp hF_norm hφ_mem
+      have h_mul :
+          (eLpNorm φ q μ).toReal * B ≤ B := by
+        have := mul_le_mul_of_nonneg_right hφ_norm hB_nonneg
+        simpa [mul_comm, mul_left_comm, mul_assoc]
+          using this
+      exact h_est.trans h_mul
+    -- Control the `L^p` norm of `g` using the duality lemma.
+    have h_norm_le :
+        (eLpNorm g p μ).toReal ≤ B :=
+      SchwartzDensityLp.lp_duality_norm_le_of_pairing_bound (μ := μ)
+        (p := p) (q := q)
+        hp_one_lt hq_gt_one hpq hg_mem h_pairing_bound
+    have h_ne_top :
+        eLpNorm (fun x => ∫ y, F x y ∂ν) p μ ≠ ∞ := by
+      have hg_ne_top := hg_mem.eLpNorm_ne_top
+      simpa [g]
+        using hg_ne_top
+    have h_toReal_le :
+        (eLpNorm (fun x => ∫ y, F x y ∂ν) p μ).toReal ≤ B := by
+      simpa [g] using h_norm_le
+    exact
+      (le_ofReal_iff_toReal_le h_ne_top hB_nonneg).2 h_toReal_le
 
 end MinkowskiGeneral
 
@@ -1176,3 +1470,117 @@ theorem minkowski_integral_convolution_bound
     integral_congr_ae h_pointwise
   simpa [h_integral_eq]
     using h_minkowski
+
+section ConvolutionPreparatory
+
+variable {G : Type*} [NormedAddCommGroup G] [MeasurableSpace G]
+variable (μG : Measure G) [SFinite μG] [IsFiniteMeasure μG] [μG.IsAddRightInvariant]
+variable [MeasurableAdd₂ G] [MeasurableNeg G]
+variable {p q : ℝ≥0∞}
+variable (f g : G → ℂ)
+
+/-- Integrability of the real-valued convolution kernel built from the norms
+of two `MemLp` functions.  This lemma is intended for use on product spaces
+`μ × μ` when applying Minkowski's integral inequality in the convolution
+setting. -/
+lemma integrable_convolution_norm_kernel_of_memLp
+    (hp : 1 ≤ p) (hq : 1 ≤ q)
+    (hf : MemLp f p μG) (hg : MemLp g q μG) :
+    Integrable
+      (fun p : G × G => ‖f (p.1 - p.2)‖ * ‖g p.2‖)
+      (μG.prod μG) := by
+  classical
+  -- First upgrade the `MemLp` hypotheses to L¹-integrability.
+  have hf_L1 : MemLp f 1 μG :=
+    hf.mono_exponent (p := (1 : ℝ≥0∞)) (q := p) hp
+  have hg_L1 : MemLp g 1 μG :=
+    hg.mono_exponent (p := (1 : ℝ≥0∞)) (q := q) hq
+  have hf_int : Integrable f μG :=
+    (memLp_one_iff_integrable).1 hf_L1
+  have hg_int : Integrable g μG :=
+    (memLp_one_iff_integrable).1 hg_L1
+  -- Use the complex-valued kernel integrability and pass to norms.
+  have h_kernel :
+      Integrable
+        (fun p : G × G => f (p.1 - p.2) * g p.2)
+        (μG.prod μG) :=
+    convolution_kernel_integrable (μ := μG) (f := f) (g := g) hf_int hg_int
+  have h_kernel_norm :
+      Integrable
+        (fun p : G × G => ‖f (p.1 - p.2) * g p.2‖)
+        (μG.prod μG) :=
+    h_kernel.norm
+  -- Rewrite the norm of the product in terms of the product of norms.
+  have h_rewrite :
+      (fun p : G × G => ‖f (p.1 - p.2) * g p.2‖) =
+        fun p : G × G => ‖f (p.1 - p.2)‖ * ‖g p.2‖ := by
+    funext p
+    simp [norm_mul]
+  simpa [h_rewrite] using h_kernel_norm
+
+/-- Complex-valued version of `integrable_convolution_norm_kernel_of_memLp`,
+obtained by viewing the real-valued kernel as a function with values in `ℂ`.
+This is the form directly used to supply the `Integrable` hypothesis
+`hF_prod_int` in `minkowski_for_convolution`. -/
+lemma integrable_convolution_norm_kernel_complex_of_memLp
+    (hp : 1 ≤ p) (hq : 1 ≤ q)
+    (hf : MemLp f p μG) (hg : MemLp g q μG) :
+    Integrable
+      (fun p : G × G =>
+        (‖f (p.1 - p.2)‖ * ‖g p.2‖ : ℂ))
+      (μG.prod μG) := by
+  classical
+  -- Work via a real-valued kernel and then view it in `ℂ`.
+  set K : G × G → ℝ :=
+    fun p => ‖f (p.1 - p.2)‖ * ‖g p.2‖
+  have h_real :
+      Integrable K (μG.prod μG) :=
+    integrable_convolution_norm_kernel_of_memLp
+      (μG := μG) (f := f) (g := g) hp hq hf hg
+  -- Measurability of the complexified kernel.
+  have h_meas :
+      AEStronglyMeasurable (fun p : G × G => (K p : ℂ)) (μG.prod μG) :=
+    Complex.continuous_ofReal.comp_aestronglyMeasurable
+      h_real.aestronglyMeasurable
+  -- Finite integral of the norm: reduce to the real-valued case.
+  have h_fin :
+      (∫⁻ p : G × G, ‖(K p : ℂ)‖ₑ ∂(μG.prod μG)) < ∞ := by
+    -- Identify the ENNReal-valued integrand with the real kernel's one.
+    have h_eq :
+        (fun p : G × G => ‖(K p : ℂ)‖ₑ) =
+          fun p : G × G => ‖K p‖ₑ := by
+      funext p
+      -- Rewrite both sides in terms of `ENNReal.ofReal` and compare norms.
+      have h₁ :
+          ‖(K p : ℂ)‖ₑ = ENNReal.ofReal ‖(K p : ℂ)‖ := by
+        simpa using
+          (ofReal_norm_eq_enorm (K p : ℂ)).symm
+      have h₂ :
+          ‖K p‖ₑ = ENNReal.ofReal ‖K p‖ := by
+        simpa using
+          (ofReal_norm_eq_enorm (K p)).symm
+      have h_norm :
+          ‖(K p : ℂ)‖ = ‖K p‖ := by
+        -- Norms agree when viewing a real as a complex number.
+        simp [Real.norm_eq_abs]
+      calc
+        ‖(K p : ℂ)‖ₑ
+            = ENNReal.ofReal ‖(K p : ℂ)‖ := h₁
+        _ = ENNReal.ofReal ‖K p‖ := by simp [h_norm]
+        _ = ‖K p‖ₑ := h₂.symm
+    -- Use the finiteness from the real-valued integrable kernel.
+    simpa [HasFiniteIntegral, h_eq] using h_real.hasFiniteIntegral
+  -- Identify the stated kernel with `(K p : ℂ)`.
+  have h_congr :
+      (fun p : G × G =>
+        (‖f (p.1 - p.2)‖ * ‖g p.2‖ : ℂ))
+        = fun p : G × G => (K p : ℂ) := by
+    funext p
+    simp [K]
+  -- Conclude by transporting integrability along this identification.
+  have h_complex :
+      Integrable (fun p : G × G => (K p : ℂ)) (μG.prod μG) :=
+    ⟨h_meas, h_fin⟩
+  simpa [h_congr] using h_complex
+
+end ConvolutionPreparatory

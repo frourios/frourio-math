@@ -1,4 +1,3 @@
-import Frourio.Analysis.HolderInequality.HolderInequalityCore
 import Mathlib.Analysis.Convolution
 import Mathlib.MeasureTheory.Function.LpSeminorm.Basic
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
@@ -7,6 +6,7 @@ import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Analysis.MeanInequalities
 import Mathlib.Data.Real.ConjExponents
 import Mathlib.MeasureTheory.Function.L1Space.Integrable
+import YoungConvolutionInequality.HolderInequality.HolderInequalityCore
 
 open MeasureTheory ENNReal NNReal
 open scoped ENNReal BigOperators
