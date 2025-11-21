@@ -1,11 +1,13 @@
-import Mathlib.Analysis.SpecialFunctions.Exp
-import Mathlib.Analysis.SpecialFunctions.Log.Basic
-import Mathlib.Data.Real.Pi.Bounds
-import Mathlib.Topology.Basic
-
-open Real
+import Mathlib.Data.Real.Basic
+import Mathlib.MeasureTheory.Measure.ProbabilityMeasure
+import Mathlib.MeasureTheory.Integral.Lebesgue.Basic
+import Mathlib.MeasureTheory.Integral.Lebesgue.Norm
+import Mathlib.MeasureTheory.Integral.IntegrableOn
+import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 
 namespace Frourio
+
+open MeasureTheory
 
 /-!
 # Exponential Decay Lemmas
@@ -162,5 +164,16 @@ theorem general_exponential_bound (A B ε : ℝ) (hB : 0 < B) (hε : 0 < ε) :
   refine ⟨N, ?_⟩
   intro n hn
   exact hN n hn
+
+/-- Integral bound for Gaussian tails outside an interval.
+For a Gaussian centered at τ₀ with width parameter (n+1)⁻¹,
+the L² mass of the tail outside {τ | |τ - τ₀| ≤ ε} decays
+exponentially in n. This is crucial for proving concentration
+of Mellin traces at golden lattice points. -/
+lemma gaussian_tail_bound_integral (τ₀ : ℝ) (n : ℕ) (ε : ℝ) (hε : 0 < ε) :
+    ∃ C : ℝ, 0 < C ∧
+    ∫ τ in {τ | |τ - τ₀| > ε}, Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
+      ≤ C * Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
+  sorry
 
 end Frourio

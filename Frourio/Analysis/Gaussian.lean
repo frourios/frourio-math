@@ -1258,4 +1258,16 @@ lemma gaussian_norm_const_le_alt_const_for_large_n (n : ℕ) (hn : 2 ≤ n) :
   rw [hL, hR]
   exact hineq_linear
 
+/-- Construction of Gaussian window functions with prescribed center and width.
+For any center τ₀ and index n, we construct a normalized Gaussian window function
+in L²(ℝ) that is concentrated around τ₀ with width proportional to 1/(n+1).
+The Gaussian decay ensures exponential tails. -/
+lemma gaussian_window_construction (σ : ℝ) (τ₀ : ℝ) (n : ℕ) :
+    ∃ (w : Lp ℂ 2 (volume : Measure ℝ)) (C : ℝ),
+    ‖w‖ = 1 ∧
+    0 < C ∧
+    (∀ τ : ℝ, ∃ f : ℝ → ℂ, w =ᵐ[volume] f ∧
+      ‖f τ‖ ≤ C * Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2)) := by
+  sorry
+
 end Frourio
