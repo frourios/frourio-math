@@ -14,6 +14,252 @@ namespace Frourio
 
 open MeasureTheory
 
+/-- Mellin–Plancherel tail control for Gaussian-generated test functions.
+
+If `f : Hσ σ` is built from a normalized Gaussian window centered at `τ₀` with
+width parameter `(n+1)⁻¹`, then the L²-mass of `LogPull σ f` outside any fixed
+neighborhood of `τ₀` is bounded by the corresponding Gaussian tail integral.
+This is the analytic bridge between Gaussian tails on the τ-side and tail
+estimates for Mellin traces. -/
+lemma LogPull_gaussian_tail_bound
+    (σ τ₀ : ℝ) (ε : ℝ) (n : ℕ) (f : Hσ σ) (Cw : ℝ)
+    (h_pointwise :
+      ∀ τ : ℝ, ‖(LogPull σ f) τ‖^2 ≤ Cw *
+        Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2)) :
+    ∃ C_tail : ℝ, 0 < C_tail ∧
+      ∫ τ, ‖(LogPull σ f) τ‖^2
+        ∂(volume.restrict {τ : ℝ | |τ - τ₀| > ε})
+        ≤ C_tail * Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
+  classical
+  -- Abbreviate the squared modulus of the Mellin-side test function.
+  set g : ℝ → ℝ := fun τ => ‖(LogPull σ f) τ‖^2 with hg_def
+  -- Abbreviate the Gaussian envelope appearing in the pointwise bound.
+  set G : ℝ → ℝ :=
+    fun τ => Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) with hG_def
+  -- The tail set around τ₀ where we measure the L²-mass.
+  set S : Set ℝ := {τ : ℝ | |τ - τ₀| > ε} with hS_def
+
+  -- Step 1: rewrite the statement in terms of `g` and `G`.
+  -- The assumption `h_pointwise` becomes a clean comparison `g ≤ Cw • G`.
+  have h_pointwise' :
+      ∀ τ : ℝ, g τ ≤ Cw * G τ := by
+    intro τ
+    simpa [g, hg_def, G, hG_def] using h_pointwise τ
+
+  -- Step 2: control the Gaussian tail integral using the abstract
+  -- Gaussian tail lemma from `ExponentialDecay.lean`.
+  -- This yields a constant `C_gauss` such that
+  --   ∫_S G ≤ C_gauss * exp (-ε² (n+1)²).
+  obtain ⟨C_gauss, hC_gauss_pos, hC_gauss_bound⟩ :=
+    gaussian_tail_bound_integral τ₀ n ε
+
+  -- Step 3: compare the integral of `g` over `S` with that of `G` using
+  -- the pointwise inequality `h_pointwise'` and monotonicity of the
+  -- integral.  We work with the restricted measure `volume.restrict S`
+  -- and then rewrite back to set integrals.
+  have h_int_le :
+      ∫ τ in S, g τ ∂(volume : Measure ℝ)
+        ≤ Cw * ∫ τ in S, G τ ∂(volume : Measure ℝ) := by
+    -- Treat `g` and `Cw • G` as functions on the restricted measure.
+    -- First, turn the pointwise bound into an a.e. bound for
+    -- `volume.restrict S`.
+    have h_ae :
+        (fun τ => g τ) ≤ᵐ[volume.restrict S]
+          (fun τ => Cw * G τ) := by
+      have h0 :
+          ∀ᵐ τ ∂(volume.restrict S), g τ ≤ Cw * G τ := by
+        -- `h_pointwise'` holds for all τ, hence in particular a.e. on `S`.
+        refine Filter.Eventually.of_forall ?_
+        intro τ
+        exact h_pointwise' τ
+      simpa using h0
+
+    -- Integrability of `g` on `S`.  Analytically, this follows from the
+    -- Mellin–Plancherel isometry, which implies that `LogPull σ f` lies
+    -- in `L²(ℝ)` and hence that `‖LogPull σ f‖²` is integrable.
+    have hInt_g :
+        Integrable g (volume.restrict S) := by
+      -- First, use the Mellin–Plancherel L² lemma to see that
+      -- `LogPull σ f` is in `L²(ℝ)`.
+      have hMem :
+          MemLp (LogPull σ f) 2 (volume : Measure ℝ) := by
+        simpa using mellin_in_L2 σ f
+      -- Hence the squared norm is integrable on ℝ.
+      have hInt_sq :
+          Integrable (fun τ : ℝ => ‖LogPull σ f τ‖ ^ 2)
+            (volume : Measure ℝ) := by
+        have := (memLp_two_iff_integrable_sq_norm hMem.1).1 hMem
+        simpa [pow_two] using this
+      -- Our `g` is exactly this squared norm, so it is integrable on ℝ.
+      have hInt_g_full :
+          Integrable g (volume : Measure ℝ) := by
+        simpa [g, hg_def] using hInt_sq
+      -- Restrict the integrability to the subset `S`.
+      simpa using hInt_g_full.restrict (s := S)
+
+    -- Integrability of the Gaussian envelope on `S`.  This comes from
+    -- the global integrability of Gaussians and stability under
+    -- translation and restriction.
+    have hInt_G :
+        Integrable (fun τ => Cw * G τ) (volume.restrict S) := by
+      -- First, obtain global integrability of the centered Gaussian
+      -- with coefficient `(n+1)^2`.
+      have h_coeff_pos :
+          0 < (n + 1 : ℝ) ^ 2 := by
+        have h_pos : (0 : ℝ) < (n + 1 : ℝ) := by
+          exact_mod_cast Nat.succ_pos n
+        have := mul_pos h_pos h_pos
+        simpa [pow_two] using this
+      have hInt_base :
+          Integrable
+            (fun t : ℝ =>
+              Real.exp (-(t ^ 2) * (n + 1 : ℝ) ^ 2))
+            (volume : Measure ℝ) := by
+        -- `integrable_exp_neg_mul_sq` is the standard Gaussian
+        -- integrability lemma with integrand `exp (-b * t^2)`.  We use it
+        -- with `b = (n+1)^2` and then commute factors in the product.
+        have h :=
+          (integrable_exp_neg_mul_sq
+            (b := (n + 1 : ℝ) ^ 2) h_coeff_pos)
+        -- The integrands differ only by commutativity/associativity of `*`.
+        simpa [mul_comm, mul_left_comm, mul_assoc] using h
+      -- Translate the integrand to the Gaussian centered at `τ₀`.
+      have hInt_shift :
+          Integrable
+            (fun τ : ℝ =>
+              Real.exp (-( (τ - τ₀) ^ 2) * (n + 1 : ℝ) ^ 2))
+            (volume : Measure ℝ) := by
+        -- Translation preserves integrability.
+        simpa [sub_eq_add_neg] using
+          hInt_base.comp_add_right (-τ₀)
+      -- Our envelope `G` is exactly this shifted Gaussian.
+      have hInt_G_full :
+          Integrable G (volume : Measure ℝ) := by
+        -- Identify the integrands definitionally.
+        simpa [G, hG_def, pow_two, mul_comm, mul_left_comm, mul_assoc]
+          using hInt_shift
+      -- Restrict to the tail set `S`.
+      have hInt_G_restrict :
+          Integrable G (volume.restrict S) := by
+        simpa using hInt_G_full.restrict (s := S)
+      -- Finally, multiply by the constant `Cw`.
+      simpa [G, hG_def] using hInt_G_restrict.const_mul Cw
+
+    -- Apply monotonicity of the integral with respect to a.e. ≤.
+    have h_mono :=
+      MeasureTheory.integral_mono_ae hInt_g hInt_G h_ae
+
+    -- Rewrite both sides in terms of set integrals over `S` and pull
+    -- the constant `Cw` outside the Gaussian integral.
+    have h_left :
+        ∫ τ in S, g τ ∂(volume : Measure ℝ)
+          = ∫ τ, g τ ∂(volume.restrict S) := by
+      simp [S, hS_def]
+
+    have h_right :
+        ∫ τ, Cw * G τ ∂(volume.restrict S)
+          = Cw * ∫ τ in S, G τ ∂(volume : Measure ℝ) := by
+      -- `integral_const_mul` for the restricted measure moves `Cw`
+      -- outside the integral; then we identify the set integral.
+      have h_const :
+          ∫ τ, Cw * G τ ∂(volume.restrict S)
+            = Cw * ∫ τ, G τ ∂(volume.restrict S) := by
+        simpa using
+          (MeasureTheory.integral_const_mul
+            (μ := volume.restrict S) (r := Cw) (f := fun τ => G τ))
+      have h_set :
+          ∫ τ, G τ ∂(volume.restrict S)
+            = ∫ τ in S, G τ ∂(volume : Measure ℝ) := by
+        simp [S, hS_def]
+      -- Combine the two equalities.
+      simpa [h_set, mul_comm, mul_left_comm, mul_assoc] using h_const
+
+    -- Transport `h_mono` to the desired inequality using `h_left` and `h_right`.
+    have h_mono' :
+        ∫ τ in S, g τ ∂(volume : Measure ℝ)
+          ≤ Cw * ∫ τ in S, G τ ∂(volume : Measure ℝ) := by
+      -- First rewrite the left-hand side of `h_mono` via `h_left.symm`.
+      have h1 :
+          ∫ τ in S, g τ ∂(volume : Measure ℝ)
+            ≤ ∫ τ, Cw * G τ ∂(volume.restrict S) := by
+        simpa [h_left.symm] using h_mono
+      -- Then rewrite the right-hand side using `h_right`.
+      simpa [h_right] using h1
+    exact h_mono'
+
+  -- Step 4: combine the Gaussian tail bound with the comparison of
+  -- integrals.  We pick an explicit positive constant depending on `Cw`
+  -- and `C_gauss`.
+  refine ⟨(abs Cw + 1) * C_gauss, ?_, ?_⟩
+  · -- Positivity of `C_tail`.
+    have h_abs_nonneg : 0 ≤ abs Cw := abs_nonneg Cw
+    have h_sum_pos : 0 < abs Cw + 1 := by
+      exact add_pos_of_nonneg_of_pos h_abs_nonneg (by norm_num)
+    exact mul_pos h_sum_pos hC_gauss_pos
+  · -- Main tail inequality.
+    -- First rewrite the left-hand side in terms of `g` and `S`.
+    have h_left :
+        ∫ τ, ‖(LogPull σ f) τ‖^2
+          ∂(volume.restrict S)
+          =
+        ∫ τ in S, g τ ∂(volume : Measure ℝ) := by
+      -- `restrict` integral coincides with the set integral over `S`.
+      simp [g, hg_def, S, hS_def]
+    -- Use `h_int_le` and the Gaussian tail bound.
+    calc
+      ∫ τ, ‖(LogPull σ f) τ‖^2
+        ∂(volume.restrict S)
+          = ∫ τ in S, g τ ∂(volume : Measure ℝ) := h_left
+      _ ≤ Cw * ∫ τ in S, G τ ∂(volume : Measure ℝ) := h_int_le
+      _ ≤ abs Cw * ∫ τ in S, G τ ∂(volume : Measure ℝ) := by
+        -- Replace `Cw` by `|Cw|` using that the Gaussian tail integral is
+        -- nonnegative.
+        have h_intG_nonneg :
+            0 ≤ ∫ τ in S, G τ ∂(volume : Measure ℝ) := by
+          -- Work with the restricted measure on `S`.
+          have hG_nonneg : ∀ τ : ℝ, 0 ≤ G τ := by
+            intro τ
+            have : 0 ≤ Real.exp (-(τ - τ₀) ^ 2 * (n + 1 : ℝ) ^ 2) :=
+              Real.exp_nonneg _
+            simpa [G, hG_def] using this
+          have h_restrict_nonneg :
+              0 ≤ ∫ τ, G τ ∂(volume.restrict S) :=
+            integral_nonneg fun τ => hG_nonneg τ
+          -- Relate the set integral to the integral over the restricted measure.
+          have h_eq :
+              ∫ τ in S, G τ ∂(volume : Measure ℝ)
+                = ∫ τ, G τ ∂(volume.restrict S) := by
+            simp [S, hS_def]
+          simpa [h_eq] using h_restrict_nonneg
+        have hCw_le_abs : Cw ≤ abs Cw := le_abs_self Cw
+        exact mul_le_mul_of_nonneg_right hCw_le_abs h_intG_nonneg
+      _ ≤ abs Cw * (C_gauss * Real.exp (-ε^2 * (n + 1 : ℝ)^2)) := by
+        -- Apply `hC_gauss_bound` and multiply by the nonnegative scalar `|Cw|`.
+        have h_bound := hC_gauss_bound
+        have h_abs_nonneg : 0 ≤ abs Cw := abs_nonneg Cw
+        exact mul_le_mul_of_nonneg_left h_bound h_abs_nonneg
+      _ ≤ (abs Cw + 1) * C_gauss * Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
+        -- Enlarge the constant from `|Cw| * C_gauss` to
+        -- `( |Cw| + 1 ) * C_gauss`.
+        have hC_le :
+            abs Cw ≤ abs Cw + 1 := by
+          have h_one_pos : (0 : ℝ) < 1 := by norm_num
+          have h0 : abs Cw ≤ abs Cw + 1 := by
+            linarith [abs_nonneg Cw]
+          exact h0
+        have h_factor_nonneg :
+            0 ≤ C_gauss * Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
+          have h1 : 0 ≤ C_gauss := le_of_lt hC_gauss_pos
+          have h2 : 0 ≤ Real.exp (-ε^2 * (n + 1 : ℝ)^2) :=
+            Real.exp_nonneg _
+          exact mul_nonneg h1 h2
+        -- Use monotonicity of multiplication by the nonnegative factor
+        -- `C_gauss * exp(…)`.
+        have :=
+          mul_le_mul_of_nonneg_right hC_le h_factor_nonneg
+        -- Rearrange the products to match the target expression.
+        simpa [mul_comm, mul_left_comm, mul_assoc] using this
+
 variable [ZetaLineAPI]
 
 /-- RH predicate: all nontrivial zeros lie on Re s = 1/2.
@@ -333,12 +579,17 @@ theorem exists_golden_peak_proof (σ : ℝ) : exists_golden_peak σ := by
 
   have h_variational : ∀ n (y : Hσ σ), Qζσ σ (f_seq n) ≤ Qζσ σ y + δ_seq n := by
     intro n y
-    -- Proving that the Gaussian test functions f_seq n are approximate minimizers
-    -- requires showing they achieve near-optimal energy in the variational sense.
-    -- This follows from the concentration property and the Γ-convergence framework,
-    -- but requires the full construction details of construct_test_function.
-    -- For the structural proof, we defer this to the axiom/sorry.
-    sorry
+    -- From the construction, each f_seq n has small energy:
+    have h_small : Qζσ σ (f_seq n) ≤ δ_seq n := hE_bound n
+    -- Positivity gives a uniform lower bound Qζσ σ y ≥ 0 for all y.
+    have h_nonneg : 0 ≤ Qζσ σ y := Qζσ_pos σ y
+    -- Hence δ_seq n ≤ Qζσ σ y + δ_seq n.
+    have h_delta_le : δ_seq n ≤ Qζσ σ y + δ_seq n := by
+      have := add_le_add_right h_nonneg (δ_seq n)
+      -- 0 + δ ≤ Qζσ σ y + δ
+      simpa [zero_add, add_comm, add_left_comm, add_assoc] using this
+    -- Chain the inequalities.
+    exact le_trans h_small h_delta_le
 
   let F : GoldenTestSeq σ := {
     f := f_seq
@@ -363,160 +614,115 @@ theorem exists_golden_peak_proof (σ : ℝ) : exists_golden_peak σ := by
   -- 2. The Mellin-Plancherel isometry to transfer this to Hσ
   -- 3. The fact that δ_seq n = 1/(n+1) → 0
 
-  -- Step 5a: Use gaussian_tail_bound to find when the tail is small
-  -- We want the integral of the Gaussian tail to be less than ε
-  -- gaussian_tail_bound_integral gives us the exponential decay we need
+  -- Step 5a: Use gaussian_tail_bound_integral to find the tail bound for each n
+  -- We construct the bound locally for each n rather than trying to use a uniform constant
 
-  -- For each n, we have a Gaussian window with width parameter (n+1)
-  -- The tail bound is controlled by gaussian_tail_bound_integral
-  -- which gives: ∫ τ in {τ | |τ - τ₀| > ε}, exp(-(τ-τ₀)²·(n+1)²) ≤ C·exp(-ε²·(n+1)²)
+  -- Step 5b: Find N such that the exponential decay dominates
+  -- We need to show that for sufficiently large n, the product
+  -- C_n * exp(-ε² * (n+1)²) becomes arbitrarily small
 
-  -- Step 5b: Find N such that the bound is less than ε
-  -- We need: C * exp(-ε² * (n+1)²) < ε for n ≥ N
+  -- The key insight: even though C_n may grow with n, the exponential decay
+  -- exp(-ε² * (n+1)²) dominates any polynomial growth of C_n
 
-  -- Using gaussian_tail_bound_integral for some fixed parameters
-  obtain ⟨C, hC_pos, _h_bound⟩ := gaussian_tail_bound_integral τ₀ 0 ε
+  -- Use general_exponential_bound with a placeholder constant
+  -- (we'll construct the actual bound using local constants)
+  have h_exp_decay : ∀ C_pos : ℝ, 0 < C_pos →
+      ∃ N : ℕ, ∀ n : ℕ, n ≥ N →
+        C_pos * Real.exp (-ε^2 * (n + 1 : ℝ)^2) < ε := by
+    intro C_pos hC_pos
+    have hε2_pos : 0 < ε^2 := sq_pos_of_pos hε
+    have h_bound := general_exponential_bound C_pos (ε^2) ε hε2_pos hε
+    obtain ⟨N, hN⟩ := h_bound
+    use N
+    intro n hn
+    -- We need to relate (n+1)² to n² for the bound
+    have h_sq_mono : (n : ℝ)^2 ≤ (n + 1 : ℝ)^2 := by
+      have : (0 : ℝ) ≤ (n : ℝ) := Nat.cast_nonneg n
+      have : 0 ≤ 2 * (n : ℝ) + 1 := by linarith
+      have h_eq : (n + 1 : ℝ)^2 - (n : ℝ)^2 = 2 * (n : ℝ) + 1 := by ring
+      exact sub_nonneg.mp (by simpa [h_eq] using this)
+    have h_neg : (-ε^2) ≤ 0 := by
+      have : 0 < ε^2 := sq_pos_of_pos hε
+      linarith
+    have h_exp_mono :
+        Real.exp (-ε^2 * (n + 1 : ℝ)^2) ≤ Real.exp (-ε^2 * (n : ℝ)^2) := by
+      apply Real.exp_le_exp.mpr
+      exact mul_le_mul_of_nonpos_left h_sq_mono h_neg
+    calc C_pos * Real.exp (-ε^2 * (n + 1 : ℝ)^2)
+        ≤ C_pos * Real.exp (-ε^2 * (n : ℝ)^2) := by
+          apply mul_le_mul_of_nonneg_left h_exp_mono (le_of_lt hC_pos)
+      _ < ε := hN n hn
 
-  -- Now we use general_exponential_bound to find when C * exp(-ε² * n²) < ε
-  have h_exp_bound : ∃ N : ℕ, ∀ n : ℕ, n ≥ N →
-      C * Real.exp (-ε^2 * (n : ℝ)^2) < ε := by
-    have hε2_pos : 0 < ε^2 := by
-      exact sq_pos_of_pos hε
-    exact general_exponential_bound C (ε^2) ε hε2_pos hε
+  -- Now we use the uniform bound to establish that C_n is uniformly bounded
+  -- Combined with exponential decay, this gives us the needed convergence
+  obtain ⟨C₀, hC₀_pos, h_uniform⟩ := gaussian_tail_uniform_bound τ₀ ε hε
 
-  obtain ⟨N, hN⟩ := h_exp_bound
+  -- For uniformly bounded C_n, we can find N such that
+  -- C₀ * exp(-ε² * (n+1)²) is arbitrarily small
+  -- This is simpler than the polynomial case - just exponential decay
+  have h_uniform_exp_decay : ∃ N : ℕ, ∀ n : ℕ, n ≥ N →
+      C₀ * Real.exp (-ε^2 * (n + 1 : ℝ)^2) < ε := by
+    exact h_exp_decay C₀ hC₀_pos
+
+  obtain ⟨N, hN_uniform_decay⟩ := h_uniform_exp_decay
 
   use N
 
   intro n hn
 
   -- For n ≥ N, we need to show the integral of ‖LogPull σ (F.f n) τ‖² over the tail is < ε
-  -- This follows from:
-  -- 1. The Gaussian form of F.f n (from gaussian_form)
-  -- 2. The tail bound from gaussian_tail_bound_integral
-  -- 3. The exponential decay bound hN
 
   -- Use the Gaussian form of F.f n
   obtain ⟨_τ_center, w, hw_norm⟩ := h_gaussian_form n
 
-  -- The key idea: LogPull σ (F.f n) has most of its L² mass concentrated near τ₀
-  -- because F.f n is constructed from a Gaussian window centered at τ₀
-
-  -- By the construction in construct_test_function and the properties of h_windows,
-  -- the L² norm of LogPull over the tail region is bounded by the Gaussian tail integral
-
-  -- Apply gaussian_tail_bound_integral for this specific n
+  -- (Optional) local tail constant from `gaussian_tail_bound_integral`.
+  -- We keep it for future refinements, but the concentration argument
+  -- below only needs the uniform bound `C₀`.
   obtain ⟨C_n, hC_n_pos, h_tail_bound_n⟩ := gaussian_tail_bound_integral τ₀ n ε
 
-  -- The tail integral is bounded by the exponential decay
-  have h_decay : C_n * Real.exp (-ε^2 * (n + 1 : ℝ)^2) < ε := by
-    -- We need to connect this to our bound hN
-    -- Note: hN gives us C * exp(-ε² * n²) < ε for n ≥ N
-    -- We need to show C_n * exp(-ε² * (n+1)²) < ε
+  -- The key observation: the uniform bound `C₀` and exponential decay
+  -- give a concrete inequality of the form
+  --   C₀ * exp(-ε² * (n+1)²) < ε
+  -- for all sufficiently large `n`.
+  have h_decay : C₀ * Real.exp (-ε^2 * (n + 1 : ℝ)^2) < ε :=
+    hN_uniform_decay n hn
 
-    -- For a complete proof, we would show C_n ≤ C for all n, or derive similar bounds
-    -- The Gaussian tail bounds have uniform constants, so this is achievable
-
-    -- Key inequality: exp(-ε² * (n+1)²) ≤ exp(-ε² * n²) is actually backwards!
-    -- Since (n+1)² > n², we have -ε²(n+1)² < -ε²n², so exp(-ε²(n+1)²) < exp(-ε²n²)
-    -- This means the decay gets stronger as n increases, which is what we want
-
-    have h_stronger_decay : Real.exp (-ε^2 * (n + 1 : ℝ)^2) < Real.exp (-ε^2 * (n : ℝ)^2) := by
-      apply Real.exp_lt_exp.mpr
-      have h_sq : (n : ℝ)^2 < (n + 1 : ℝ)^2 := by
-        have h_lt : (n : ℝ) < (n : ℝ) + 1 := by linarith
-        exact sq_lt_sq' (by linarith) h_lt
-      have h_ε2_pos : 0 < ε^2 := sq_pos_of_pos hε
-      nlinarith
-
-    -- Using the fact that C and C_n are related (both come from Gaussian integrals)
-    -- and the stronger exponential decay, we can establish the bound
-
-    -- We have: C_n * exp(-ε² * (n+1)²) < C_n * exp(-ε² * n²)
-    have h_bound_cn : C_n * Real.exp (-ε^2 * (n + 1 : ℝ)^2)
-        < C_n * Real.exp (-ε^2 * (n : ℝ)^2) := by
-      apply mul_lt_mul_of_pos_left h_stronger_decay hC_n_pos
-
-    -- If we can show C_n * exp(-ε² * n²) ≤ C * exp(-ε² * n²), then combined with hN we're done
-    -- The key is that Gaussian tail constants are uniformly bounded
-    -- For the proof structure, we observe that:
-    -- 1. Both C and C_n come from gaussian_tail_bound_integral
-    -- 2. The constants are bounded uniformly for Gaussian tails
-    -- 3. The exponential decay dominates any polynomial factors
-
-    -- We can use the fact that for large enough n, the exponential decay dominates
-    -- and we can absorb C_n into the error bound
-
-    -- Since hN tells us C * exp(-ε² * n²) < ε for n ≥ N,
-    -- and C_n is bounded (say C_n ≤ C' for some C'),
-    -- we have C_n * exp(-ε² * (n+1)²) < C' * exp(-ε² * (n+1)²)
-
-    -- For large enough n (which we have since n ≥ N), the exponential decay
-    -- exp(-ε² * (n+1)²) << exp(-ε² * n²) * (ε/C')
-    -- This gives us the desired bound
-
-    -- The complete argument requires uniform bounds on Gaussian constants,
-    -- which is a standard result in analysis
-    calc C_n * Real.exp (-ε^2 * (n + 1 : ℝ)^2)
-        < C_n * Real.exp (-ε^2 * (n : ℝ)^2) := h_bound_cn
-      _ < ε := by
-          -- This follows from the assumption that n ≥ N and the properties
-          -- of Gaussian tail bounds. For the structural proof:
-          by_cases h_compare : C_n ≤ C
-          · -- If C_n ≤ C, then C_n * exp(...) ≤ C * exp(...) < ε by hN
-            calc C_n * Real.exp (-ε^2 * (n : ℝ)^2)
-                ≤ C * Real.exp (-ε^2 * (n : ℝ)^2) := by
-                  apply mul_le_mul_of_nonneg_right h_compare
-                  exact le_of_lt (Real.exp_pos _)
-              _ < ε := hN n hn
-          · -- If C < C_n, we need a different argument
-            -- This case requires showing uniform bounds on Gaussian constants
-            -- In practice, C_n ≤ C for the construction used
-            push_neg at h_compare
-            -- For the structural framework, we assume uniform Gaussian bounds
-            sorry
-
-  -- Now we show the integral over the tail is less than ε
-  -- The integral ∫ τ in {|τ-τ₀|>ε}, ‖LogPull σ (F.f n) τ‖² is bounded by the Gaussian tail
-  -- which by h_decay is less than ε
-
-  -- The final step requires the Mellin-Plancherel isometry to connect
-  -- the L² norm of LogPull to the Gaussian integral bound
-
-  -- By construction from construct_test_function and h_windows:
-  -- 1. F.f n is built from a Gaussian window w centered at τ₀
-  -- 2. LogPull σ (F.f n) has L² mass concentrated where w is concentrated
-  -- 3. The Gaussian decay of w gives exponential tail bounds
-
-  -- The key inequality chain:
-  -- ∫ τ in {|τ-τ₀|>ε}, ‖LogPull σ (F.f n) τ‖² dτ
-  --   ≤ C · ∫ τ in {|τ-τ₀|>ε}, |w(τ)|² dτ                    (by Mellin-Plancherel)
-  --   ≤ C · ∫ τ in {|τ-τ₀|>ε}, exp(-(τ-τ₀)²·(n+1)²) dτ      (by Gaussian form)
-  --   ≤ C · C_n · exp(-ε²·(n+1)²)                           (by h_tail_bound_n)
-  --   < ε                                                    (by h_decay)
-
-  -- For the complete proof, we would:
-  -- 1. Apply mellin_isometry_L2 to relate LogPull norm to window norm
-  -- 2. Use the Gaussian decay bound from h_windows
-  -- 3. Apply h_tail_bound_n to bound the tail integral
-  -- 4. Use h_decay to conclude
-
-  -- The Mellin-Plancherel isometry and the explicit Gaussian construction
-  -- are the key technical ingredients. These are standard in harmonic analysis
-  -- but require the full development of the Mellin transform machinery.
-
-  -- For now, we note that this is the correct structure and the bound follows
-  -- from combining the Gaussian tail estimate with the Mellin isometry
   have h_tail_small : (∫ τ, ‖(LogPull σ (F.f n)) τ‖^2
       ∂(volume.restrict {τ | |τ - τ₀| > ε})) < ε := by
-    -- This follows from the chain of inequalities above
-    -- The proof would use:
-    -- - mellin_isometry_L2 (or similar) for the Mellin-Plancherel step
-    -- - Properties of Gaussian windows from h_windows
-    -- - The tail bound h_tail_bound_n
-    -- - The decay estimate h_decay
-    -- All of these are established in the construction
-    sorry
+    -- Step 1: obtain a pointwise Gaussian envelope for `LogPull σ (F.f n)`.
+    -- Analytically, this comes from:
+    --  * the Gaussian window construction `h_windows`,
+    --  * the way `f_seq n` is built from that window in `construct_test_function`,
+    --  * and the Mellin–Plancherel isometry.
+    have h_pointwise :
+        ∃ Cw : ℝ, 0 < Cw ∧
+          ∀ τ : ℝ,
+            ‖(LogPull σ (F.f n)) τ‖^2
+              ≤ Cw * Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) := by
+      -- Placeholder for the detailed Gaussian/Mellin construction.
+      -- This is where one shows that `LogPull σ (F.f n)` is dominated by a
+      -- Gaussian profile of width `(n+1)⁻¹` centered at `τ₀`.
+      sorry
+
+    rcases h_pointwise with ⟨Cw, hCw_pos, h_pointwise_bound⟩
+
+    -- Step 2: apply the abstract Mellin–Plancherel tail lemma to get a tail bound
+    -- in terms of a Gaussian integral.
+    obtain ⟨C_tail, hC_tail_pos, hC_tail_bound⟩ :=
+      LogPull_gaussian_tail_bound (σ := σ) (τ₀ := τ₀) (ε := ε) (n := n)
+        (f := F.f n) (Cw := Cw) (h_pointwise := h_pointwise_bound)
+
+    -- Step 3: use exponential decay to make the tail bound < ε.
+    -- For fixed `σ, τ₀, ε`, the constants `C_tail` can be chosen uniformly in `n`
+    -- (by combining Gaussian tail bounds with the Mellin isometry). This yields
+    -- an `N` such that `C_tail * exp(-ε^2 (n+1)^2) < ε` for all `n ≥ N`.
+    have h_decay_tail :
+        C_tail * Real.exp (-ε^2 * (n + 1 : ℝ)^2) < ε := by
+      -- Placeholder: proved using a uniform bound on `C_tail` in `n` together
+      -- with `general_exponential_bound`.
+      sorry
+
+    exact lt_of_le_of_lt hC_tail_bound h_decay_tail
 
   exact h_tail_small
 
