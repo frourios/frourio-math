@@ -1009,7 +1009,7 @@ lemma gaussian_series_block_bound
         (∑ k ∈ Finset.Icc n (n + 1000), Real.exp (-(k : ℝ)^2))
           ≤ C * Real.exp (-(n : ℝ)^2))
     (h_n₀_ge_ε : (n₀ : ℝ) ≥ ε)
-    (h_n₀ : 10 ≤ n₀) :
+    (h_n₀ : 1 ≤ n₀) :
     (∑' m : ℕ, Real.exp (-(n₀ + m : ℝ)^2))
       ≤ (C + 1) * Real.exp (-(n₀ : ℝ)^2) := by
   classical
@@ -1189,44 +1189,43 @@ lemma gaussian_series_block_bound
         (∑ j ∈ Finset.range (B - 1),
           1001 * Real.exp (-(n₀ + 1001 * (j + 1) : ℝ)^2)) := by
       simpa using higher_blocks_negligible (n₀ := n₀) (B := B)
-    -- Step 4: use extreme Gaussian decay for `n₀ ≥ 10` to show that
+    -- Step 4: use extreme Gaussian decay for `n₀ ≥ 1` to show that
     -- the series of block maxima is dominated by `exp(-n₀²)`.  The
-    -- numerical computations in `gaussian_decay_test2.js` demonstrate
+    -- numerical computations in `verify_n0_constraint_corrected.js` demonstrate
     -- that the ratio between successive block sums is astronomically
     -- small (essentially geometric with tiny ratio), so that the total
-    -- sum over all `j ≥ 0` is well within `exp(-n₀²)` once `n₀ ≥ 10`.
+    -- sum over all `j ≥ 0` is well within `exp(-n₀²)` once `n₀ ≥ 1`.
     have h_blocks_small :
         (∑ j ∈ Finset.range (B - 1),
           1001 * Real.exp (-(n₀ + 1001 * (j + 1) : ℝ)^2))
           ≤ Real.exp (-(n₀ : ℝ)^2) := by
       -- We bound the block maxima by a rapidly decaying geometric series.
       -- Define the geometric ratio corresponding to the linear term
-      -- `2 * 10 * 1001 = 20020` in the exponent.
-      let r : ℝ := Real.exp (-(20020 : ℝ))
+      -- `2 * n₀ * 1001` in the exponent (for n₀=1, this is 2002).
+      let r : ℝ := Real.exp (-(2 * (n₀ : ℝ) * 1001))
       have hr_pos : 0 < r := by
-        have : 0 < Real.exp (-(20020 : ℝ)) := Real.exp_pos _
-        simpa [r] using this
+        simp [r]
+        exact Real.exp_pos _
       have hr_nonneg : 0 ≤ r := le_of_lt hr_pos
       have hr_lt_one : r < 1 := by
-        -- Since `20020 > 0`, we have `1 < exp 20020`, hence `exp (-20020) < 1`.
-        have hpos : (0 : ℝ) < 20020 := by norm_num
-        have h_exp_gt : 1 < Real.exp (20020 : ℝ) :=
-          (Real.one_lt_exp_iff.mpr hpos)
-        have h_inv_pos : 0 < (Real.exp (20020 : ℝ))⁻¹ :=
-          inv_pos.mpr (Real.exp_pos _)
-        have h_mul :=
-          mul_lt_mul_of_pos_right h_exp_gt h_inv_pos
-        -- `1 * exp (-20020) < exp 20020 * exp (-20020) = 1`.
-        simpa [r, Real.exp_neg, one_div, mul_comm, mul_left_comm,
-          mul_assoc] using h_mul
+        -- Since `2 * n₀ * 1001 > 0`, we have `exp (-(2*n₀*1001)) < 1`.
+        have hpos : (0 : ℝ) < 2 * (n₀ : ℝ) * 1001 := by
+          have hn0_pos : 0 < (n₀ : ℝ) := by
+            have : (1 : ℝ) ≤ (n₀ : ℝ) := by exact_mod_cast h_n₀
+            linarith
+          positivity
+        have : Real.exp (-(2 * (n₀ : ℝ) * 1001)) < Real.exp 0 := by
+          apply Real.exp_lt_exp.mpr
+          linarith
+        simpa [r] using this
       -- For each block index `j`, relate the Gaussian term to the geometric term.
       have h_term_bound :
           ∀ j : ℕ,
             Real.exp (-(n₀ + 1001 * (j + 1) : ℝ)^2)
               ≤ Real.exp (-(n₀ : ℝ)^2) * r ^ (j + 1) := by
         intro j
-        -- Use `n₀ ≥ 10` and positivity to bound the exponent linearly in `j`.
-        have h_n0_real : (10 : ℝ) ≤ (n₀ : ℝ) := by
+        -- Use `n₀ ≥ 1` and positivity to bound the exponent linearly in `j`.
+        have h_n0_real : (1 : ℝ) ≤ (n₀ : ℝ) := by
           exact_mod_cast h_n₀
         have h_t_nonneg :
             0 ≤ (1001 : ℝ) * ((j : ℝ) + 1) := by
@@ -1244,11 +1243,11 @@ lemma gaussian_series_block_bound
           ring
         have h_lin :
             2 * (n₀ : ℝ) * (1001 * ((j : ℝ) + 1))
-              ≥ 2 * (10 : ℝ) * (1001 * ((j : ℝ) + 1)) := by
-          have h10_le_n0 :
-              (10 : ℝ) ≤ (n₀ : ℝ) := h_n0_real
+              ≥ 2 * (1 : ℝ) * (1001 * ((j : ℝ) + 1)) := by
+          have h1_le_n0 :
+              (1 : ℝ) ≤ (n₀ : ℝ) := h_n0_real
           have h_mul :=
-            mul_le_mul_of_nonneg_right h10_le_n0 h_t_nonneg
+            mul_le_mul_of_nonneg_right h1_le_n0 h_t_nonneg
           have := mul_le_mul_of_nonneg_left h_mul (by norm_num : (0 : ℝ) ≤ 2)
           simpa [mul_comm, mul_left_comm, mul_assoc] using this
         have h_sq_nonneg :
@@ -1258,56 +1257,54 @@ lemma gaussian_series_block_bound
           exact mul_nonneg h1001_nonneg this
         have h_sq_ge :
             ((n₀ : ℝ) + 1001 * ((j : ℝ) + 1)) ^ 2
-              ≥ (n₀ : ℝ) ^ 2 + (20020 : ℝ) * ((j : ℝ) + 1) := by
+              ≥ (n₀ : ℝ) ^ 2 + 2 * (n₀ : ℝ) * 1001 * ((j : ℝ) + 1) := by
           have :=
             add_le_add (add_le_add (le_refl ((n₀ : ℝ) ^ 2)) h_lin) h_sq_nonneg
-          -- `20020 = 2 * 10 * 1001`.
-          have h20020 : (20020 : ℝ) = 2 * 10 * 1001 := by norm_num
           calc ((n₀ : ℝ) + 1001 * ((j : ℝ) + 1)) ^ 2
               = (n₀ : ℝ) ^ 2 + 2 * (n₀ : ℝ) * (1001 * ((j : ℝ) + 1)) +
                 (1001 * ((j : ℝ) + 1)) ^ 2 := h_expansion
-            _ ≥ (n₀ : ℝ) ^ 2 + 2 * 10 * (1001 * ((j : ℝ) + 1)) + 0 := by linarith
-            _ = (n₀ : ℝ) ^ 2 + 20020 * ((j : ℝ) + 1) := by rw [h20020]; ring
+            _ ≥ (n₀ : ℝ) ^ 2 + 2 * (n₀ : ℝ) * (1001 * ((j : ℝ) + 1)) + 0 := by linarith
+            _ = (n₀ : ℝ) ^ 2 + 2 * (n₀ : ℝ) * 1001 * ((j : ℝ) + 1) := by ring
         -- Convert the inequality on squares into an inequality on exponents.
         have h_exp_arg :
             -((n₀ : ℝ) + 1001 * (j + 1 : ℝ)) ^ 2
-              ≤ -(n₀ : ℝ) ^ 2 - (20020 : ℝ) * (j + 1 : ℝ) := by
+              ≤ -(n₀ : ℝ) ^ 2 - 2 * (n₀ : ℝ) * 1001 * (j + 1 : ℝ) := by
           have := neg_le_neg h_sq_ge
           have h_rw :
-              -( (n₀ : ℝ) ^ 2 + (20020 : ℝ) * ((j : ℝ) + 1))
-                = -(n₀ : ℝ) ^ 2 - (20020 : ℝ) * (j + 1 : ℝ) := by
+              -((n₀ : ℝ) ^ 2 + 2 * (n₀ : ℝ) * 1001 * ((j : ℝ) + 1))
+                = -(n₀ : ℝ) ^ 2 - 2 * (n₀ : ℝ) * 1001 * (j + 1 : ℝ) := by
             ring
           simpa [h_rw, add_comm, add_left_comm, add_assoc,
             mul_comm, mul_left_comm, mul_assoc] using this
         have h_exp_le :
             Real.exp (-(n₀ + 1001 * (j + 1 : ℝ)) ^ 2)
-              ≤ Real.exp (-(n₀ : ℝ) ^ 2 - (20020 : ℝ) * (j + 1 : ℝ)) :=
+              ≤ Real.exp (-(n₀ : ℝ) ^ 2 - 2 * (n₀ : ℝ) * 1001 * (j + 1 : ℝ)) :=
           Real.exp_le_exp.mpr h_exp_arg
         -- Rewrite the right-hand side via the geometric ratio `r`.
         have h_geom :
-            Real.exp (-(n₀ : ℝ) ^ 2 - (20020 : ℝ) * (j + 1 : ℝ))
+            Real.exp (-(n₀ : ℝ) ^ 2 - 2 * (n₀ : ℝ) * 1001 * (j + 1 : ℝ))
               = Real.exp (-(n₀ : ℝ) ^ 2) * r ^ (j + 1) := by
           have h1 :
-              Real.exp (-(n₀ : ℝ) ^ 2 - (20020 : ℝ) * (j + 1 : ℝ))
+              Real.exp (-(n₀ : ℝ) ^ 2 - 2 * (n₀ : ℝ) * 1001 * (j + 1 : ℝ))
                 = Real.exp (-(n₀ : ℝ) ^ 2)
-                    * Real.exp (-(20020 : ℝ) * (j + 1 : ℝ)) := by
+                    * Real.exp (-(2 * (n₀ : ℝ) * 1001) * (j + 1 : ℝ)) := by
             simpa [sub_eq_add_neg, add_comm, add_left_comm, add_assoc,
               mul_comm, mul_left_comm, mul_assoc] using
-              (Real.exp_add (-(n₀ : ℝ) ^ 2) (-(20020 : ℝ) * (j + 1 : ℝ)))
+              (Real.exp_add (-(n₀ : ℝ) ^ 2) (-(2 * (n₀ : ℝ) * 1001) * (j + 1 : ℝ)))
           have h2 :
-              Real.exp (-(20020 : ℝ) * (j + 1 : ℝ))
+              Real.exp (-(2 * (n₀ : ℝ) * 1001) * (j + 1 : ℝ))
                 = r ^ (j + 1) := by
-            -- `exp (-(20020) * (j+1)) = (exp (-(20020)))^(j+1) = r^(j+1)`.
+            -- `exp (-(2 * n₀ * 1001) * (j+1)) = (exp (-(2 * n₀ * 1001)))^(j+1) = r^(j+1)`.
             have :=
-              Real.exp_nat_mul (-(20020 : ℝ)) (j + 1)
+              Real.exp_nat_mul (-(2 * (n₀ : ℝ) * 1001)) (j + 1)
             have hmul :
-                (j + 1 : ℝ) * (-(20020 : ℝ))
-                  = -(20020 : ℝ) * (j + 1 : ℝ) := by
+                (j + 1 : ℝ) * (-(2 * (n₀ : ℝ) * 1001))
+                  = -(2 * (n₀ : ℝ) * 1001) * (j + 1 : ℝ) := by
               ring
-            calc Real.exp (-(20020 : ℝ) * (j + 1 : ℝ))
-                = Real.exp ((j + 1 : ℝ) * (-(20020 : ℝ))) := by rw [← hmul]
-              _ = Real.exp ((↑(j + 1) : ℝ) * (-(20020 : ℝ))) := by norm_cast
-              _ = Real.exp (-(20020 : ℝ)) ^ (j + 1) := this
+            calc Real.exp (-(2 * (n₀ : ℝ) * 1001) * (j + 1 : ℝ))
+                = Real.exp ((j + 1 : ℝ) * (-(2 * (n₀ : ℝ) * 1001))) := by rw [← hmul]
+              _ = Real.exp ((↑(j + 1) : ℝ) * (-(2 * (n₀ : ℝ) * 1001))) := by norm_cast
+              _ = Real.exp (-(2 * (n₀ : ℝ) * 1001)) ^ (j + 1) := this
               _ = r ^ (j + 1) := by simp only [r]
           simp only [h1, h2]
         exact le_trans h_exp_le (by simp [h_geom])
@@ -1370,39 +1367,42 @@ lemma gaussian_series_block_bound
         simpa [h_tsum_geom, mul_left_comm, mul_assoc] using
           le_trans this h'
       -- Now bound the numerical constant `1001 * r * (1 - r)⁻¹` by `1`.
-      have hr_le_alpha : r ≤ 1 / (20021 : ℝ) := by
-        -- From `add_one_le_exp`, `20020 + 1 ≤ exp 20020`, hence
-        -- `1 / exp 20020 ≤ 1 / 20021`, i.e. `exp (-20020) ≤ 1 / 20021`.
-        have h_add :
-            (20020 : ℝ) + 1 ≤ Real.exp (20020 : ℝ) := by
-          simpa [add_comm] using Real.add_one_le_exp (20020 : ℝ)
-        have h21_pos : 0 < (20021 : ℝ) := by norm_num
-        have h21_eq : (20020 : ℝ) + 1 = 20021 := by norm_num
-        have h_div :=
-          one_div_le_one_div_of_le h21_pos (h21_eq ▸ h_add)
-        have : (1 / Real.exp (20020 : ℝ)) = r := by
-          simp [r, Real.exp_neg, one_div]
-        simpa [this] using h_div
+      have hr_le_alpha : r ≤ 1 / (1002 : ℝ) := by
+        -- We need r = exp(-(2*n₀*1001)) ≤ 1/1002
+        -- Since n₀ ≥ 1, we have 2*n₀*1001 ≥ 2002
+        -- So exp(-(2*n₀*1001)) ≤ exp(-2002) < 1/1002
+        have hn0_bound : 2 * (n₀ : ℝ) * 1001 ≥ 2002 := by
+          have : (1 : ℝ) ≤ (n₀ : ℝ) := by exact_mod_cast h_n₀
+          nlinarith
+        have h_exp_mono : Real.exp (-(2 * (n₀ : ℝ) * 1001)) ≤ Real.exp (-2002) := by
+          apply Real.exp_le_exp.mpr
+          linarith
+        have h_2002_bound : Real.exp (-2002) < 1 / 1002 := by
+          -- exp(-2002) is astronomically small, far less than 1/1002
+          -- We use that exp(x) > x + 1 for x > 0, so exp(2002) > 2003
+          have : (2002 : ℝ) + 1 ≤ Real.exp (2002) := Real.add_one_le_exp _
+          have h_exp_large : (1002 : ℝ) + 1 ≤ Real.exp (2002) := by linarith
+          have : 1 / Real.exp (2002) ≤ 1 / 1003 := by
+            apply one_div_le_one_div_of_le <;> linarith
+          have : Real.exp (-2002) < 1 / 1002 := by
+            calc Real.exp (-2002) = 1 / Real.exp (2002) := by simp [Real.exp_neg]
+              _ ≤ 1 / 1003 := this
+              _ < 1 / 1002 := by norm_num
+          exact this
+        have : r < 1 / 1002 := calc r = Real.exp (-(2 * (n₀ : ℝ) * 1001)) := rfl
+          _ ≤ Real.exp (-2002) := h_exp_mono
+          _ < 1 / 1002 := h_2002_bound
+        exact le_of_lt this
       have h_const_le_one :
           1001 * r * (1 - r)⁻¹ ≤ (1 : ℝ) := by
-        -- First bound `r` by `1 / 20021` and then `1 - r` below by `1 - 1/20021`.
-        have h_alpha_pos : 0 < (1 / (20021 : ℝ)) := by
-          have h21_pos : 0 < (20021 : ℝ) := by norm_num
-          exact one_div_pos.mpr h21_pos
-        have h_one_minus_pos :
-            0 < 1 - (1 / (20021 : ℝ)) := by
-          -- `1 - 1/20021 = 20020/20021 > 0`.
-          have h21_pos : 0 < (20021 : ℝ) := by norm_num
-          have h_lt : (1 : ℝ) < (20021 : ℝ) := by norm_num
-          have h_lt_one : (1 : ℝ) / (20021 : ℝ) < 1 := by
-            rw [div_lt_one h21_pos]
-            exact h_lt
-          have := sub_pos.mpr h_lt_one
-          simpa using this
+        -- We have r ≤ 1/1002, so 1001*r ≤ 1001/1002 < 1
+        -- Hence 1001*r < 1 - r, giving 1001*r*(1-r)⁻¹ < 1
+        have h_alpha_pos : 0 < (1 / (1002 : ℝ)) := by norm_num
+        have h_one_minus_pos : 0 < 1 - (1 / (1002 : ℝ)) := by norm_num
         -- Use monotonicity of multiplication and inversion on positive reals.
         have h1 :
             1001 * r * (1 - r)⁻¹
-              ≤ 1001 * (1 / (20021 : ℝ)) * (1 - r)⁻¹ := by
+              ≤ 1001 * (1 / (1002 : ℝ)) * (1 - r)⁻¹ := by
           have h1001_nonneg : (0 : ℝ) ≤ 1001 := by norm_num
           have h_nonneg_inv :
               0 ≤ (1 - r)⁻¹ := by
@@ -1415,43 +1415,42 @@ lemma gaussian_series_block_bound
               h1001_nonneg
           calc 1001 * r * (1 - r)⁻¹
               = r * (1 - r)⁻¹ * 1001 := by ring
-            _ ≤ (1 / 20021) * (1 - r)⁻¹ * 1001 := this
-            _ = 1001 * (1 / 20021) * (1 - r)⁻¹ := by ring
+            _ ≤ (1 / 1002) * (1 - r)⁻¹ * 1001 := this
+            _ = 1001 * (1 / 1002) * (1 - r)⁻¹ := by ring
         have h2 :
-            1001 * (1 / (20021 : ℝ)) * (1 - r)⁻¹
-              ≤ 1001 * (1 / (20021 : ℝ))
-                  * (1 - (1 / (20021 : ℝ)))⁻¹ := by
-          -- Since `r ≤ 1/20021`, we have `1 - 1/20021 ≤ 1 - r`,
-          -- hence `(1 - r)⁻¹ ≤ (1 - 1/20021)⁻¹`.
-          have h_le : 1 - (1 / (20021 : ℝ)) ≤ 1 - r := by
+            1001 * (1 / (1002 : ℝ)) * (1 - r)⁻¹
+              ≤ 1001 * (1 / (1002 : ℝ))
+                  * (1 - (1 / (1002 : ℝ)))⁻¹ := by
+          -- Since `r ≤ 1/1002`, we have `1 - 1/1002 ≤ 1 - r`,
+          -- hence `(1 - r)⁻¹ ≤ (1 - 1/1002)⁻¹`.
+          have h_le : 1 - (1 / (1002 : ℝ)) ≤ 1 - r := by
             have := sub_le_sub_left hr_le_alpha (1 : ℝ)
             simpa [sub_eq_add_neg, add_comm, add_left_comm, add_assoc] using this
           have h1mr_pos : 0 < 1 - r := sub_pos.mpr hr_lt_one
           have h_inv_le :
-              (1 - r)⁻¹ ≤ (1 - (1 / (20021 : ℝ)))⁻¹ := by
+              (1 - r)⁻¹ ≤ (1 - (1 / (1002 : ℝ)))⁻¹ := by
             rw [inv_eq_one_div, inv_eq_one_div]
             exact div_le_div_of_nonneg_left
               (le_of_lt (by positivity : (0 : ℝ) < 1)) h_one_minus_pos h_le
           have h1001_nonneg : (0 : ℝ) ≤ 1001 := by norm_num
-          have h_alpha_nonneg : 0 ≤ (1 / (20021 : ℝ)) :=
+          have h_alpha_nonneg : 0 ≤ (1 / (1002 : ℝ)) :=
             le_of_lt h_alpha_pos
           have h_nonneg :
-              0 ≤ 1001 * (1 / (20021 : ℝ)) := by
+              0 ≤ 1001 * (1 / (1002 : ℝ)) := by
             exact mul_nonneg h1001_nonneg h_alpha_nonneg
           have :=
             mul_le_mul_of_nonneg_left h_inv_le h_nonneg
           simpa [mul_left_comm, mul_assoc] using this
         -- Compute the resulting constant explicitly and show it is ≤ 1.
         have h_const_val :
-            1001 * (1 / (20021 : ℝ))
-              * (1 - (1 / (20021 : ℝ)))⁻¹ = (1 : ℝ) / 20 := by
+            1001 * (1 / (1002 : ℝ))
+              * (1 - (1 / (1002 : ℝ)))⁻¹ = (1 : ℝ) := by
           norm_num
         have h_le_one' :
-            1001 * (1 / (20021 : ℝ))
-              * (1 - (1 / (20021 : ℝ)))⁻¹
+            1001 * (1 / (1002 : ℝ))
+              * (1 - (1 / (1002 : ℝ)))⁻¹
               ≤ (1 : ℝ) := by
           rw [h_const_val]
-          norm_num
         exact le_trans (le_trans h1 h2) h_le_one'
       -- Apply the constant bound to the geometric majorant.
       have h_final :
@@ -1633,7 +1632,7 @@ lemma gaussian_series_block_bound
 
 /-- Auxiliary lemma: control the Gaussian tail beyond an integer `n₀` by a discrete sum bound.
 Uses `higher_blocks_negligible` to account for contributions from higher-order blocks,
-giving a total bound of `(C + 1) * exp(-n₀²)` for `n₀ ≥ 10`. -/
+giving a total bound of `(C + 1) * exp(-n₀²)` for `n₀ ≥ 1`. -/
 lemma gaussian_one_sided_tail_discrete
     (ε : ℝ) (C : ℝ) (n₀ : ℕ)
     (hC_bound :
@@ -1641,7 +1640,7 @@ lemma gaussian_one_sided_tail_discrete
         (∑ k ∈ Finset.Icc n (n + 1000), Real.exp (-(k : ℝ)^2))
           ≤ C * Real.exp (-(n : ℝ)^2))
     (h_n₀_ge_ε : (n₀ : ℝ) ≥ ε)
-    (h_n₀ : 10 ≤ n₀) :
+    (h_n₀ : 1 ≤ n₀) :
     ∫ u in Set.Ioi (n₀ : ℝ), Real.exp (-u^2) ∂(volume : Measure ℝ)
       ≤ (C + 1) * Real.exp (-(n₀ : ℝ)^2) := by
   classical
@@ -1913,7 +1912,7 @@ lemma gaussian_one_sided_tail_discrete
   simpa [hf_def] using h_main
 
 /-- One-sided Gaussian tail bound on `(r, ∞)`, uniform for `r ≥ ε`. -/
-lemma gaussian_one_sided_tail_bound (ε : ℝ) (hε : 0 < ε) (hε_large : 10 ≤ ε) :
+lemma gaussian_one_sided_tail_bound (ε : ℝ) (hε : 0 < ε) :
     ∃ C : ℝ, 0 < C ∧
       ∀ r : ℝ, ε ≤ r →
         ∫ u in Set.Ioi r, Real.exp (-u^2) ∂(volume : Measure ℝ)
@@ -2065,12 +2064,15 @@ lemma gaussian_one_sided_tail_bound (ε : ℝ) (hε : 0 < ε) (hε_large : 10 �
     have h_r_le_n₀ : r ≤ (n₀ : ℝ) := h_n₀_ge_r
     -- Chain the two inequalities.
     exact le_trans hε_le_r h_r_le_n₀
-  have h_n₀ : 10 ≤ n₀ := by
-    -- For higher_blocks_negligible we need n₀ ≥ 10.
-    -- Since n₀ = ⌈r⌉ and r ≥ ε ≥ 10, we have n₀ ≥ ⌈ε⌉ ≥ ⌈10⌉ = 10.
-    have h_10_le_r : (10 : ℝ) ≤ r := le_trans hε_large hr
-    have h_10_le_n₀ : (10 : ℝ) ≤ (n₀ : ℝ) := le_trans h_10_le_r h_n₀_ge_r
-    exact Nat.cast_le.mp h_10_le_n₀
+  have h_n₀ : 1 ≤ n₀ := by
+    -- For gaussian_series_block_bound we need n₀ ≥ 1.
+    -- We have n₀ = ⌈r⌉ where r ≥ ε > 0, so n₀ ≥ 1.
+    have hr_pos : 0 < r := lt_of_lt_of_le hε hr
+    have h_n₀_pos : 0 < (n₀ : ℝ) := by
+      calc (0 : ℝ) < r := hr_pos
+        _ ≤ (n₀ : ℝ) := h_n₀_ge_r
+    have : 0 < n₀ := Nat.cast_pos.mp h_n₀_pos
+    omega
   -- Step 2b: decompose the integral over `(r, ∞)` into the first segment
   -- `(r, n₀]` plus the tail beyond `n₀`, then bound each piece.
   have h_split_int :
@@ -2994,8 +2996,8 @@ lemma gaussian_tail_split_symm (r : ℝ) (hr : 0 ≤ r) :
 /-- Standard Gaussian tail bound, uniform for all radii `r ≥ ε`.
 This will be used as the base one-dimensional estimate in
 `gaussian_tail_uniform_bound`.
-Requires `ε ≥ 10` for the precise bound using `higher_blocks_negligible`. -/
-lemma gaussian_tail_standard_uniform (ε : ℝ) (hε : 0 < ε) (hε_large : 10 ≤ ε) :
+Now proven for all ε > 0 (previously required ε ≥ 10). -/
+lemma gaussian_tail_standard_uniform (ε : ℝ) (hε : 0 < ε) :
     ∃ C₀ : ℝ, 0 < C₀ ∧
       ∀ r : ℝ, ε ≤ r →
         ∫ u in {u | |u| > r}, Real.exp (-u^2) ∂(volume : Measure ℝ)
@@ -3003,7 +3005,7 @@ lemma gaussian_tail_standard_uniform (ε : ℝ) (hε : 0 < ε) (hε_large : 10 �
   classical
   -- Obtain a one-sided tail bound on `(r, ∞)` and upgrade it to a
   -- two-sided bound on `{u | |u| > r}` using symmetry.
-  obtain ⟨C, hC_pos, hC⟩ := gaussian_one_sided_tail_bound ε hε hε_large
+  obtain ⟨C, hC_pos, hC⟩ := gaussian_one_sided_tail_bound ε hε
   refine ⟨2 * C, ?_, ?_⟩
   · -- Positivity of `C₀ = 2 * C`.
     have h2 : 0 < (2 : ℝ) := by norm_num
@@ -3188,6 +3190,9 @@ Proof plan for `gaussian_tail_uniform_bound`:
      by the direct argument described in Steps 2–4, rather than trying
      to extract monotonicity of the constants from the existing proof.
 -/
+-- Revised version: Proven for all ε > 0
+-- The exponential decay exp(-ε² * (n+1)²) dominates for all positive ε,
+-- as verified by numerical computation in verify_gaussian_tail_736.js
 lemma gaussian_tail_uniform_bound (τ₀ ε : ℝ) (hε : 0 < ε) :
     ∃ C₀ : ℝ, 0 < C₀ ∧
       ∀ n : ℕ, ∃ C_n : ℝ, 0 < C_n ∧ C_n ≤ C₀ ∧
@@ -3195,320 +3200,189 @@ lemma gaussian_tail_uniform_bound (τ₀ ε : ℝ) (hε : 0 < ε) :
           Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
           ≤ C_n * Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
   classical
-  -- We split into the cases `10 ≤ ε` and `ε < 10`.  In the first case
-  -- we can apply `gaussian_tail_standard_uniform` directly; in the
-  -- second case we will later absorb the finitely many small radii into
-  -- the constant (left as a proof obligation).
-  by_cases hε_large : (10 : ℝ) ≤ ε
-  · -- Main case: `ε` is large enough for the one-dimensional lemma.
-    -- Step 1: obtain a one-dimensional uniform bound for the standard Gaussian.
-    obtain ⟨C₀, hC₀_pos, hC₀_tail⟩ :=
-      gaussian_tail_standard_uniform ε hε hε_large
-    -- This `C₀` will be our global uniform bound.
-    refine ⟨C₀, hC₀_pos, ?_⟩
-    -- Step 2: for each `n`, define a local constant `C_n := (1/(n+1)) * C₀`.
-    intro n
-    let C_n : ℝ := (1 / (n + 1 : ℝ)) * C₀
-    have hR_pos : 0 < (n + 1 : ℝ) := by
-      exact_mod_cast Nat.succ_pos n
-    have hC_n_pos : 0 < C_n := by
-      -- Positivity of `C_n` from `C₀ > 0` and `1/(n+1) > 0`.
-      have h_inv_pos : 0 < (1 / (n + 1 : ℝ)) := by
-        -- Using that `n + 1 > 0`.
-        exact one_div_pos.mpr hR_pos
-      simpa [C_n, mul_comm] using mul_pos h_inv_pos hC₀_pos
-    refine ⟨C_n, hC_n_pos, ?_, ?_⟩
-    · -- Step 3: show `C_n ≤ C₀` using `0 < 1 / (n + 1) ≤ 1`.
-      have h_inv_le_one : (1 / (n + 1 : ℝ)) ≤ 1 := by
-        -- Since `1 ≤ (n+1)` for all `n`, dividing by the positive
-        -- number `(n+1)` gives `1/(n+1) ≤ 1`.
-        have h_le : (1 : ℝ) ≤ (n + 1 : ℝ) := by
-          have : (1 : ℕ) ≤ n + 1 := Nat.succ_le_succ (Nat.zero_le n)
-          exact_mod_cast this
-        have h :=
-          one_div_le_one_div_of_le (show (0 : ℝ) < (1 : ℝ) by norm_num) h_le
-        simpa [one_div] using h
-      have hC₀_nonneg : 0 ≤ C₀ := le_of_lt hC₀_pos
-      -- Monotonicity of multiplication by a nonnegative scalar.
-      have h_le : C_n ≤ 1 * C₀ := by
-        -- `C_n = (1/(n+1)) * C₀` and `1 * C₀ = C₀`.
-        have := mul_le_mul_of_nonneg_right h_inv_le_one hC₀_nonneg
-        -- Rewrite both sides in terms of `C_n` and `C₀`.
-        simpa [C_n] using this
-      simpa using h_le
-    · -- Step 4: use the scaling identity and the one-dimensional tail
-      -- bound to obtain the desired inequality.
-      -- First translate the integral to be centered at `0`:
-      --   τ ↦ t := τ - τ₀.
-      have h_translate :
-          ∫ τ in {τ | |τ - τ₀| > ε},
-            Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
-            =
-            ∫ t in {t | |t| > ε},
-              Real.exp (-t^2 * (n + 1 : ℝ)^2) ∂volume := by
-        classical
-        -- abbreviations for the integrand and the symmetric tail set
-        set f : ℝ → ℝ := fun t =>
-          Real.exp (-t^2 * (n + 1 : ℝ)^2) with hf_def
-        set S : Set ℝ := {τ : ℝ | |τ - τ₀| > ε} with hS_def
-        set T : Set ℝ := {t : ℝ | |t| > ε} with hT_def
-        have hS_meas : MeasurableSet S := by
-          -- `S = {τ | ε < |τ - τ₀|}` is an open set
-          have hopen : IsOpen {τ : ℝ | ε < |τ - τ₀|} :=
-            isOpen_lt continuous_const ((continuous_id.sub continuous_const).abs)
-          have : S = {τ : ℝ | ε < |τ - τ₀|} := by
-            ext τ
-            simp [S, hS_def, gt_iff_lt]
-          rw [this]
-          exact hopen.measurableSet
-        have hT_meas : MeasurableSet T := by
-          -- `T = {t | ε < |t|}` is an open set
-          have hopen : IsOpen {t : ℝ | ε < |t|} :=
-            isOpen_lt continuous_const continuous_abs
-          have : T = {t : ℝ | ε < |t|} := by
-            ext t
-            simp [T, hT_def, gt_iff_lt]
-          rw [this]
-          exact hopen.measurableSet
-        -- Rewrite the left-hand side as an integral over ℝ with an indicator.
-        have h_left :
-            ∫ τ in S, f (τ - τ₀) ∂volume =
-              ∫ τ, S.indicator (fun τ => f (τ - τ₀)) τ ∂volume := by
-          -- `integral_indicator` gives the desired identity.
-          simpa [S, hS_def] using
-            (MeasureTheory.integral_indicator
-              (μ := (volume : Measure ℝ))
-              (s := S) (f := fun τ => f (τ - τ₀)) hS_meas).symm
-        -- Identify this indicator with the shifted symmetric tail indicator.
-        have h_indicator :
-            S.indicator (fun τ => f (τ - τ₀)) =
-              fun τ => T.indicator f (τ - τ₀) := by
-          funext τ
-          by_cases h : |τ - τ₀| > ε
-          · -- inside the tail on both sides
-            have hS : τ ∈ S := by simpa [S, hS_def] using h
-            have hT : τ - τ₀ ∈ T := by
-              -- same condition written on the shifted variable
-              simpa [T, hT_def] using h
-            simp only [Set.indicator_of_mem hS, Set.indicator_of_mem hT]
-          · -- outside the tail on both sides
-            have hS : τ ∉ S := by simpa [S, hS_def] using h
-            have hT : τ - τ₀ ∉ T := by
-              simpa [T, hT_def] using h
-            simp only [Set.indicator_of_notMem hS, Set.indicator_of_notMem hT]
-        have h_left' :
-            ∫ τ in S, f (τ - τ₀) ∂volume =
-              ∫ τ, T.indicator f (τ - τ₀) ∂volume := by
-          refine h_left.trans ?_
-          -- replace the integrand using the pointwise identity above
-          refine MeasureTheory.integral_congr_ae ?_
-          exact Filter.Eventually.of_forall (fun τ => by
-            simp [h_indicator] )
-        -- Rewrite the right-hand side as an integral over ℝ with an indicator.
-        have h_right :
-            ∫ t in T, f t ∂volume =
-              ∫ t, T.indicator f t ∂volume := by
-          simpa [T, hT_def] using
-            (MeasureTheory.integral_indicator
-              (μ := (volume : Measure ℝ))
-              (s := T) (f := f) hT_meas).symm
-        -- Use translation invariance of Lebesgue measure: τ ↦ τ - τ₀.
-        have h_trans :
-            ∫ τ, T.indicator f (τ - τ₀) ∂volume =
-              ∫ t, T.indicator f t ∂volume := by
-          -- Apply `integral_add_left_eq_self` to the function
-          -- `x ↦ T.indicator f (x - τ₀)`.
-          simpa [T, hT_def, f, sub_eq_add_neg, add_comm, add_left_comm, add_assoc] using
-            (MeasureTheory.integral_add_left_eq_self
-              (μ := (volume : Measure ℝ))
-              (f := fun x => T.indicator f (x - τ₀)) τ₀).symm
-        -- Put everything together and unfold the abbreviations.
-        have h_final :
-            ∫ τ in S, f (τ - τ₀) ∂volume =
-              ∫ t in T, f t ∂volume := by
-          calc
-            ∫ τ in S, f (τ - τ₀) ∂volume
-                = ∫ τ, T.indicator f (τ - τ₀) ∂volume := h_left'
-            _ = ∫ t, T.indicator f t ∂volume := h_trans
-            _ = ∫ t in T, f t ∂volume := h_right.symm
-        simpa [S, hS_def, T, hT_def, f, sub_eq_add_neg] using h_final
-      -- Next apply the scaling lemma to pass to the standard Gaussian.
-      have h_scale := gaussian_tail_scale ε n
-      -- Combine translation and scaling.
-      have h_main :
-          ∫ τ in {τ | |τ - τ₀| > ε},
-            Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
-          =
-          (1 / (n + 1 : ℝ)) *
-            ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
-              Real.exp (-u^2) ∂volume := by
-        -- This is just `h_translate` followed by `h_scale`.
-        rw [h_translate, h_scale]
-      -- Apply the one-dimensional uniform bound with radius `r = ε * (n+1)`,
-      -- which satisfies `r ≥ ε` because `n+1 ≥ 1` and `ε > 0`.
-      have h_r_ge : ε ≤ ε * (n + 1 : ℝ) := by
-        -- Divide by `ε > 0` and use `1 ≤ (n+1)`.
-        have h_one_le : (1 : ℝ) ≤ (n + 1 : ℝ) := by
-          have : (1 : ℕ) ≤ n + 1 := Nat.succ_le_succ (Nat.zero_le n)
-          exact_mod_cast this
-        have h_pos : (0 : ℝ) < ε := hε
-        -- From `1 ≤ (n+1)` and `ε > 0` we get `ε ≤ ε * (n+1)`.
-        have := mul_le_mul_of_nonneg_left h_one_le (le_of_lt h_pos)
-        simpa [one_mul] using this
-      have h_tail :
-          ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
-            Real.exp (-u^2) ∂volume
-            ≤ C₀ * Real.exp (-(ε * (n + 1 : ℝ))^2) :=
-        hC₀_tail (ε * (n + 1 : ℝ)) h_r_ge
-      -- Finally, propagate the bound through the scaling factor
-      -- `(1/(n+1))` and rewrite the exponent.
-      have h_nonneg_scale : 0 ≤ (1 / (n + 1 : ℝ)) :=
-        le_of_lt (one_div_pos.mpr hR_pos)
-      calc
+  -- Step 1: obtain a one-dimensional uniform bound for the standard Gaussian.
+  obtain ⟨C₀, hC₀_pos, hC₀_tail⟩ :=
+    gaussian_tail_standard_uniform ε hε
+  -- This `C₀` will be our global uniform bound.
+  refine ⟨C₀, hC₀_pos, ?_⟩
+  -- Step 2: for each `n`, define a local constant `C_n := (1/(n+1)) * C₀`.
+  intro n
+  let C_n : ℝ := (1 / (n + 1 : ℝ)) * C₀
+  have hR_pos : 0 < (n + 1 : ℝ) := by
+    exact_mod_cast Nat.succ_pos n
+  have hC_n_pos : 0 < C_n := by
+    -- Positivity of `C_n` from `C₀ > 0` and `1/(n+1) > 0`.
+    have h_inv_pos : 0 < (1 / (n + 1 : ℝ)) := by
+      -- Using that `n + 1 > 0`.
+      exact one_div_pos.mpr hR_pos
+    simpa [C_n, mul_comm] using mul_pos h_inv_pos hC₀_pos
+  refine ⟨C_n, hC_n_pos, ?_, ?_⟩
+  · -- Step 3: show `C_n ≤ C₀` using `0 < 1 / (n + 1) ≤ 1`.
+    have h_inv_le_one : (1 / (n + 1 : ℝ)) ≤ 1 := by
+      -- Since `1 ≤ (n+1)` for all `n`, dividing by the positive
+      -- number `(n+1)` gives `1/(n+1) ≤ 1`.
+      have h_le : (1 : ℝ) ≤ (n + 1 : ℝ) := by
+        have : (1 : ℕ) ≤ n + 1 := Nat.succ_le_succ (Nat.zero_le n)
+        exact_mod_cast this
+      have h :=
+        one_div_le_one_div_of_le (show (0 : ℝ) < (1 : ℝ) by norm_num) h_le
+      simpa [one_div] using h
+    have hC₀_nonneg : 0 ≤ C₀ := le_of_lt hC₀_pos
+    -- Monotonicity of multiplication by a nonnegative scalar.
+    have h_le : C_n ≤ 1 * C₀ := by
+      -- `C_n = (1/(n+1)) * C₀` and `1 * C₀ = C₀`.
+      have := mul_le_mul_of_nonneg_right h_inv_le_one hC₀_nonneg
+      -- Rewrite both sides in terms of `C_n` and `C₀`.
+      simpa [C_n] using this
+    simpa using h_le
+  · -- Step 4: use the scaling identity and the one-dimensional tail
+    -- bound to obtain the desired inequality.
+    -- First translate the integral to be centered at `0`:
+    --   τ ↦ t := τ - τ₀.
+    have h_translate :
         ∫ τ in {τ | |τ - τ₀| > ε},
           Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
-            = (1 / (n + 1 : ℝ)) *
-                ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
-                  Real.exp (-u^2) ∂volume := h_main
-        _ ≤ (1 / (n + 1 : ℝ)) *
-                (C₀ * Real.exp (-(ε * (n + 1 : ℝ))^2)) := by
-              -- Multiply the one-dimensional tail bound by the
-              -- nonnegative scalar `1/(n+1)`.
-              have :=
-                mul_le_mul_of_nonneg_left h_tail h_nonneg_scale
-              simpa [mul_assoc] using this
-        _ = C_n * Real.exp (-(ε * (n + 1 : ℝ))^2) := by
-              -- By definition of `C_n`.
-              simp [C_n, mul_comm, mul_left_comm, mul_assoc]
-        _ = C_n * Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
-              -- Algebraic identity `(ε * (n+1))^2 = ε^2 * (n+1)^2`.
-              have : (ε * (n + 1 : ℝ))^2 = ε^2 * (n + 1 : ℝ)^2 := by
-                ring
-              simp [this]
-  · -- Secondary case: `ε < 10`.  Use a crude upper bound.
-    -- For small ε, we use the fact that the integral is bounded by
-    -- the total L¹ norm of the Gaussian, which is finite.
-    have hε_small : ε < (10 : ℝ) := lt_of_not_ge hε_large
-
-    -- The Gaussian integral ∫ exp(-t² * (n+1)²) dt = √π / (n+1)
-    -- So the tail integral is at most √π / (n+1)
-    -- We use a crude bound: for any ε > 0, the integral is bounded
-
-    -- Take C₀ to be a large constant that works for all ε < 10
-    -- We use C₀ = 2 (this is a very crude but safe bound)
-    refine ⟨2, by norm_num, ?_⟩
-    intro n
-
-    -- For each n, we take C_n = 2 / (n + 1)
-    let C_n : ℝ := 2 / (n + 1 : ℝ)
-    have hR_pos : 0 < (n + 1 : ℝ) := by exact_mod_cast Nat.succ_pos n
-    have hC_n_pos : 0 < C_n := by
-      unfold C_n
-      exact div_pos (by norm_num) hR_pos
-
-    refine ⟨C_n, hC_n_pos, ?_, ?_⟩
-
-    · -- Show C_n ≤ C₀ = 2
-      unfold C_n
-      have h_inv_le : (1 : ℝ) / (n + 1 : ℝ) ≤ 1 := by
-        have h_one_le : (1 : ℝ) ≤ (n + 1 : ℝ) := by
-          have : (1 : ℕ) ≤ n + 1 := Nat.succ_le_succ (Nat.zero_le n)
-          exact_mod_cast this
-        calc (1 : ℝ) / (n + 1 : ℝ)
-            ≤ 1 / 1 := by
-              apply div_le_div_of_nonneg_left
-              · norm_num
-              · norm_num
-              · exact h_one_le
-          _ = 1 := by norm_num
-      calc 2 / (n + 1 : ℝ)
-          = 2 * (1 / (n + 1 : ℝ)) := by ring
-        _ ≤ 2 * 1 := by
-          apply mul_le_mul_of_nonneg_left h_inv_le
-          norm_num
-        _ = 2 := by ring
-
-    · -- Show the integral bound
-      -- For ε < 10, we use a very crude bound:
-      -- The integral over the tail is at most the total integral.
-      -- Since ∫ exp(-t² * (n+1)²) dt = √π / (n+1),
-      -- and the tail is a subset, we have:
-      -- ∫_{|τ-τ₀| > ε} exp(-(τ-τ₀)² * (n+1)²) ≤ √π / (n+1)
-
-      -- We use an even cruder bound: the integral is at most 2 / (n+1)
-      -- This follows because √π < 2 and the tail is a subset of the whole space
-
-      -- The key inequality we need is:
-      -- ∫_{|τ-τ₀| > ε} exp(-(τ-τ₀)² * (n+1)²) ≤ C_n * exp(-ε² * (n+1)²)
-
-      -- Since exp(-ε² * (n+1)²) ≤ 1 for all ε > 0 and n,
-      -- it suffices to show the integral is ≤ C_n = 2 / (n+1)
-
-      -- The total integral ∫ exp(-t² * (n+1)²) dt = √π / (n+1) < 2 / (n+1)
-      -- So the tail integral (which is a subset) is also ≤ 2 / (n+1)
-
-      -- We use the fact that the Gaussian tail is bounded by the total mass
-      have h_exp_le_one : Real.exp (-ε^2 * (n + 1 : ℝ)^2) ≤ 1 := by
-        apply Real.exp_le_one_iff.mpr
-        have : ε^2 * (n + 1 : ℝ)^2 ≥ 0 := by
-          apply mul_nonneg
-          · apply sq_nonneg
-          · apply sq_nonneg
-        linarith
-
-      -- The integral is nonnegative
-      have h_integral_nonneg :
-          0 ≤ ∫ τ in {τ | |τ - τ₀| > ε},
-            Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume := by
-        apply MeasureTheory.integral_nonneg
-        intro τ
-        apply Real.exp_nonneg
-
-      -- Strategy: We use a very conservative bound that works for all ε < 10.
-      -- The key observation is that for ε > 0, the exponential factor
-      -- exp(-ε² * (n+1)²) provides significant room.
-
-      -- For ε ∈ (0, 10), we have ε² < 100, so:
-      -- exp(-ε² * (n+1)²) ≥ exp(-100 * (n+1)²)
-
-      -- The total Gaussian mass is ∫ exp(-t² * (n+1)²) dt = √π / (n+1) < 2 / (n+1)
-      -- So the tail integral satisfies:
-      -- ∫_{|t| > ε} exp(-t² * (n+1)²) ≤ √π / (n+1) < 2 / (n+1) = C_n
-
-      -- Now we need: C_n ≤ C_n * exp(-ε² * (n+1)²)
-      -- This is equivalent to: 1 ≤ exp(-ε² * (n+1)²)
-      -- which is FALSE in general!
-
-      -- The correct approach: we need a different bound.
-      -- Instead of C_n = 2/(n+1), we need C_n that grows with n
-      -- to compensate for the decay in exp(-ε² * (n+1)²).
-
-      -- For ε < 10 and any n, we can use the crude bound:
-      -- ∫_{|t| > ε} exp(-t² * (n+1)²) dt
-      --   ≤ ∫_{ℝ} exp(-t² * (n+1)²) dt
-      --   = √π / (n+1)
-
-      -- And we need to show this is ≤ C_n * exp(-ε² * (n+1)²)
-      -- With C_n = 2/(n+1), this becomes:
-      -- √π / (n+1) ≤ (2/(n+1)) * exp(-ε² * (n+1)²)
-      -- i.e., √π ≤ 2 * exp(-ε² * (n+1)²)
-
-      -- This is true when exp(-ε² * (n+1)²) ≥ √π / 2 ≈ 0.886
-      -- i.e., when -ε² * (n+1)² ≥ ln(√π/2) ≈ -0.121
-      -- i.e., when ε² * (n+1)² ≤ 0.121
-
-      -- For n = 0 and ε < 10: ε² < 100, so this fails!
-      -- We need a better constant C_n.
-
-      -- The proper fix: use C_n = (2 / (n+1)) * exp(100 * (n+1)²)
-      -- to account for the worst-case ε = 10.
-
-      -- For this sorry, we acknowledge that the current choice of C_n = 2/(n+1)
-      -- is insufficient, and a proper proof requires either:
-      -- 1. A more sophisticated constant C_n that depends on ε
-      -- 2. Gaussian tail integral bounds from advanced analysis
-      -- 3. Restricting to n ≥ some N₀
-
-      sorry
+          =
+          ∫ t in {t | |t| > ε},
+            Real.exp (-t^2 * (n + 1 : ℝ)^2) ∂volume := by
+      classical
+      -- abbreviations for the integrand and the symmetric tail set
+      set f : ℝ → ℝ := fun t =>
+        Real.exp (-t^2 * (n + 1 : ℝ)^2) with hf_def
+      set S : Set ℝ := {τ : ℝ | |τ - τ₀| > ε} with hS_def
+      set T : Set ℝ := {t : ℝ | |t| > ε} with hT_def
+      have hS_meas : MeasurableSet S := by
+        -- `S = {τ | ε < |τ - τ₀|}` is an open set
+        have hopen : IsOpen {τ : ℝ | ε < |τ - τ₀|} :=
+          isOpen_lt continuous_const ((continuous_id.sub continuous_const).abs)
+        have : S = {τ : ℝ | ε < |τ - τ₀|} := by
+          ext τ
+          simp [S, hS_def, gt_iff_lt]
+        rw [this]
+        exact hopen.measurableSet
+      have hT_meas : MeasurableSet T := by
+        -- `T = {t | ε < |t|}` is an open set
+        have hopen : IsOpen {t : ℝ | ε < |t|} :=
+          isOpen_lt continuous_const continuous_abs
+        have : T = {t : ℝ | ε < |t|} := by
+          ext t
+          simp [T, hT_def, gt_iff_lt]
+        rw [this]
+        exact hopen.measurableSet
+      -- Rewrite the left-hand side as an integral over ℝ with an indicator.
+      have h_left :
+          ∫ τ in S, f (τ - τ₀) ∂volume =
+            ∫ τ, S.indicator (fun τ => f (τ - τ₀)) τ ∂volume := by
+        -- `integral_indicator` gives the desired identity.
+        simpa [S, hS_def] using
+          (MeasureTheory.integral_indicator
+            (μ := (volume : Measure ℝ))
+            (s := S) (f := fun τ => f (τ - τ₀)) hS_meas).symm
+      -- Identify this indicator with the shifted symmetric tail indicator.
+      have h_indicator :
+          S.indicator (fun τ => f (τ - τ₀)) =
+            fun τ => T.indicator f (τ - τ₀) := by
+        funext τ
+        by_cases h : |τ - τ₀| > ε
+        · -- inside the tail on both sides
+          have hS : τ ∈ S := by simpa [S, hS_def] using h
+          have hT : τ - τ₀ ∈ T := by
+            -- same condition written on the shifted variable
+            simpa [T, hT_def] using h
+          simp only [Set.indicator_of_mem hS, Set.indicator_of_mem hT]
+        · -- outside the tail on both sides
+          have hS : τ ∉ S := by simpa [S, hS_def] using h
+          have hT : τ - τ₀ ∉ T := by
+            simpa [T, hT_def] using h
+          simp only [Set.indicator_of_notMem hS, Set.indicator_of_notMem hT]
+      have h_left' :
+          ∫ τ in S, f (τ - τ₀) ∂volume =
+            ∫ τ, T.indicator f (τ - τ₀) ∂volume := by
+        refine h_left.trans ?_
+        -- replace the integrand using the pointwise identity above
+        refine MeasureTheory.integral_congr_ae ?_
+        exact Filter.Eventually.of_forall (fun τ => by
+          simp [h_indicator] )
+      -- Rewrite the right-hand side as an integral over ℝ with an indicator.
+      have h_right :
+          ∫ t in T, f t ∂volume =
+            ∫ t, T.indicator f t ∂volume := by
+        simpa [T, hT_def] using
+          (MeasureTheory.integral_indicator
+            (μ := (volume : Measure ℝ))
+            (s := T) (f := f) hT_meas).symm
+      -- Use translation invariance of Lebesgue measure: τ ↦ τ - τ₀.
+      have h_trans :
+          ∫ τ, T.indicator f (τ - τ₀) ∂volume =
+            ∫ t, T.indicator f t ∂volume := by
+        -- Apply `integral_add_left_eq_self` to the function
+        -- `x ↦ T.indicator f (x - τ₀)`.
+        simpa [T, hT_def, f, sub_eq_add_neg, add_comm, add_left_comm, add_assoc] using
+          (MeasureTheory.integral_add_left_eq_self
+            (μ := (volume : Measure ℝ))
+            (f := fun x => T.indicator f (x - τ₀)) τ₀).symm
+      -- Put everything together and unfold the abbreviations.
+      have h_final :
+          ∫ τ in S, f (τ - τ₀) ∂volume =
+            ∫ t in T, f t ∂volume := by
+        calc
+          ∫ τ in S, f (τ - τ₀) ∂volume
+              = ∫ τ, T.indicator f (τ - τ₀) ∂volume := h_left'
+          _ = ∫ t, T.indicator f t ∂volume := h_trans
+          _ = ∫ t in T, f t ∂volume := h_right.symm
+      simpa [S, hS_def, T, hT_def, f, sub_eq_add_neg] using h_final
+    -- Next apply the scaling lemma to pass to the standard Gaussian.
+    have h_scale := gaussian_tail_scale ε n
+    -- Combine translation and scaling.
+    have h_main :
+        ∫ τ in {τ | |τ - τ₀| > ε},
+          Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
+        =
+        (1 / (n + 1 : ℝ)) *
+          ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
+            Real.exp (-u^2) ∂volume := by
+      -- This is just `h_translate` followed by `h_scale`.
+      rw [h_translate, h_scale]
+    -- Apply the one-dimensional uniform bound with radius `r = ε * (n+1)`,
+    -- which satisfies `r ≥ ε` because `n+1 ≥ 1` and `ε > 0`.
+    have h_r_ge : ε ≤ ε * (n + 1 : ℝ) := by
+      -- Divide by `ε > 0` and use `1 ≤ (n+1)`.
+      have h_one_le : (1 : ℝ) ≤ (n + 1 : ℝ) := by
+        have : (1 : ℕ) ≤ n + 1 := Nat.succ_le_succ (Nat.zero_le n)
+        exact_mod_cast this
+      have h_pos : (0 : ℝ) < ε := hε
+      -- From `1 ≤ (n+1)` and `ε > 0` we get `ε ≤ ε * (n+1)`.
+      have := mul_le_mul_of_nonneg_left h_one_le (le_of_lt h_pos)
+      simpa [one_mul] using this
+    have h_tail :
+        ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
+          Real.exp (-u^2) ∂volume
+          ≤ C₀ * Real.exp (-(ε * (n + 1 : ℝ))^2) :=
+      hC₀_tail (ε * (n + 1 : ℝ)) h_r_ge
+    -- Finally, propagate the bound through the scaling factor
+    -- `(1/(n+1))` and rewrite the exponent.
+    have h_nonneg_scale : 0 ≤ (1 / (n + 1 : ℝ)) :=
+      le_of_lt (one_div_pos.mpr hR_pos)
+    calc
+      ∫ τ in {τ | |τ - τ₀| > ε},
+        Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
+          = (1 / (n + 1 : ℝ)) *
+              ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
+                Real.exp (-u^2) ∂volume := h_main
+      _ ≤ (1 / (n + 1 : ℝ)) *
+              (C₀ * Real.exp (-(ε * (n + 1 : ℝ))^2)) := by
+            -- Multiply the one-dimensional tail bound by the
+            -- nonnegative scalar `1/(n+1)`.
+            have :=
+              mul_le_mul_of_nonneg_left h_tail h_nonneg_scale
+            simpa [mul_assoc] using this
+      _ = C_n * Real.exp (-(ε * (n + 1 : ℝ))^2) := by
+            -- By definition of `C_n`.
+            simp [C_n, mul_comm, mul_left_comm, mul_assoc]
+      _ = C_n * Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
+            -- Algebraic identity `(ε * (n+1))^2 = ε^2 * (n+1)^2`.
+            have : (ε * (n + 1 : ℝ))^2 = ε^2 * (n + 1 : ℝ)^2 := by
+              ring
+            simp [this]
 
 end Frourio

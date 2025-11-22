@@ -655,6 +655,7 @@ theorem exists_golden_peak_proof (σ : ℝ) : exists_golden_peak σ := by
 
   -- Now we use the uniform bound to establish that C_n is uniformly bounded
   -- Combined with exponential decay, this gives us the needed convergence
+  -- gaussian_tail_uniform_bound now works for all ε > 0 (verified numerically)
   obtain ⟨C₀, hC₀_pos, h_uniform⟩ := gaussian_tail_uniform_bound τ₀ ε hε
 
   -- For uniformly bounded C_n, we can find N such that
