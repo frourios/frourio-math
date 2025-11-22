@@ -1,4 +1,5 @@
 import Frourio.Analysis.MellinBasic
+import Frourio.Analysis.HilbertSpaceCore
 import Frourio.Analysis.MellinTransform
 import Frourio.Analysis.MellinPlancherelCore
 import Frourio.Basic
@@ -55,6 +56,353 @@ lemma LogPull_measurable (σ : ℝ) (f : Hσ σ) : Measurable (LogPull σ f) := 
     exact Real.measurable_exp.comp h_linear
   · -- measurability of `t ↦ f (exp t)`
     exact (Lp.stronglyMeasurable f).measurable.comp Real.measurable_exp
+
+/-!
+Helper lemma towards the Mellin–Plancherel isometry: if a function is
+almost everywhere zero with respect to a `withDensity` measure whose
+density is strictly positive a.e. on the base, then it is also almost
+everywhere zero with respect to the base measure itself.
+
+We keep the proof as a placeholder here, since it requires a careful
+analysis of null sets for `withDensity`. The structure of the proof
+will be reused when specializing to the concrete Mellin weights.
+-/
+lemma ae_zero_of_ae_zero_withDensity
+    {μ : Measure ℝ} {w : ℝ → ℝ≥0∞} {f : ℝ → ℂ}
+    (hpos : ∀ᵐ x ∂μ, 0 < w x)
+    (hw : AEMeasurable w μ)
+    (hf : f =ᵐ[μ.withDensity w] 0) :
+    f =ᵐ[μ] 0 := by
+  -- Step 1: express the a.e.-zero property in terms of the set
+  -- `A := {x | f x ≠ 0}`. From `hf`, we know that `A` has measure zero
+  -- with respect to `μ.withDensity w`.
+  classical
+  let A : Set ℝ := {x | f x ≠ 0}
+  have hA_zero_withDensity :
+      μ.withDensity w A = 0 := by
+    -- From `hf : f =ᵐ[μ.withDensity w] 0`, we know that
+    -- `f x = 0` holds for `μ.withDensity w`-almost every `x`. By the
+    -- `ae_iff` characterization, this means the set where `f x ≠ 0`
+    -- has `μ.withDensity w`-measure zero.
+    have hAE : ∀ᵐ x ∂μ.withDensity w, f x = 0 := hf
+    have hset : {x | ¬ f x = 0} = A := by
+      ext x; simp [A]
+    simpa [hset] using (ae_iff.1 hAE)
+
+  -- Step 2: use positivity of the weight `w` almost everywhere to show
+  -- that `μ A = 0` whenever `μ.withDensity w A = 0`. We do this by
+  -- transferring the a.e. equality along `withDensity` and using
+  -- positivity of `w` to discharge the implication.
+  have hA_zero : μ A = 0 := by
+    -- Start from the a.e. equality with respect to `μ.withDensity w`.
+    have hf_ae_withDensity : ∀ᵐ x ∂μ.withDensity w, f x = 0 := hf
+    -- Transfer this statement back to `μ` using `ae_withDensity_iff'`.
+    have hf_imp :
+        ∀ᵐ x ∂μ, w x ≠ 0 → f x = 0 :=
+      (MeasureTheory.ae_withDensity_iff'
+          (μ := μ) (f := w) (p := fun x => f x = 0) hw).1
+        hf_ae_withDensity
+    -- Positivity `0 < w x` a.e. implies `w x ≠ 0` a.e.
+    have hw_ne_zero : ∀ᵐ x ∂μ, w x ≠ 0 := by
+      refine hpos.mono ?_
+      intro x hx
+      exact ne_of_gt hx
+    -- Combine the implication with `w x ≠ 0` a.e. to obtain `f x = 0` a.e. w.r.t. `μ`.
+    have hf_ae_base : ∀ᵐ x ∂μ, f x = 0 := by
+      refine (hf_imp.and hw_ne_zero).mono ?_
+      intro x hx
+      exact hx.1 hx.2
+    -- Finally, translate this into the null-set statement for `A`.
+    have hset' : {x | ¬ f x = 0} = A := by
+      ext x; simp [A]
+    have h_meas_zero : μ {x : ℝ | ¬ f x = 0} = 0 :=
+      (ae_iff.1 hf_ae_base)
+    simpa [hset'] using h_meas_zero
+
+  -- Step 3: convert the null-set statement back into an a.e.-equality
+  -- `f = 0` with respect to `μ`.
+  have hf_ae : f =ᵐ[μ] 0 := by
+    -- Use the `ae_iff` characterization with the null set `A`.
+    -- The set where `f x ≠ 0` is exactly `A`, which has `μ`-measure zero
+    -- by `hA_zero`.
+    refine ae_iff.2 ?_
+    have hset : {x | f x ≠ 0} = A := by
+      ext x; simp [A]
+    simpa [hset]
+      using hA_zero
+  exact hf_ae
+
+
+/-!
+  Auxiliary lemma: If a function `f` is almost everywhere zero on `(0,∞)`
+  with respect to Lebesgue measure (restricted), then the composition
+  `t ↦ f (exp t)` is almost everywhere zero on ℝ. This is the measure-theoretic
+  content behind the change-of-variables map `x = exp t`.
+
+  The full proof will use the Jacobian-one-dimensional API and the fact that
+  `exp` is a C¹ diffeomorphism from ℝ onto `(0,∞)` with inverse `log`.
+-/
+lemma ae_zero_comp_exp_of_ae_zero_on_Ioi
+    {f : ℝ → ℂ}
+    (hf_meas : Measurable f)
+    (hf_restrict : f =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))] 0) :
+    (fun t : ℝ => f (Real.exp t))
+      =ᵐ[volume.restrict (Set.univ : Set ℝ)] 0 := by
+  classical
+  -- Work with the base measure on `(0,∞)`.
+  set μ0 : Measure ℝ := volume.restrict (Set.Ioi (0 : ℝ)) with hμ0
+
+  -- Step 1: the squared norm of f vanishes a.e. on `(0,∞)`.
+  have hf_zero : ∀ᵐ x ∂μ0, f x = 0 := by
+    simpa [hμ0] using hf_restrict
+
+  have hf_norm_sq_zero :
+      ∀ᵐ x ∂μ0, ‖f x‖^2 = 0 := by
+    refine hf_zero.mono ?_
+    intro x hx
+    simp [hx]
+
+  -- Step 2: the weighted squared norm is a.e. zero on `(0,∞)`.
+  have h_integrand_ae_zero :
+      ∀ᵐ x ∂μ0,
+        ENNReal.ofReal (‖f x‖^2) * ENNReal.ofReal (x ^ (-1 : ℝ))
+          = (0 : ℝ≥0∞) := by
+    refine hf_norm_sq_zero.mono ?_
+    intro x hx
+    simp [hx]
+
+  -- Hence the corresponding lintegral over `(0,∞)` vanishes.
+  have h_lintegral_zero :
+      ∫⁻ x, ENNReal.ofReal (‖f x‖^2) * ENNReal.ofReal (x ^ (-1 : ℝ))
+          ∂μ0 = 0 := by
+    have h_congr :
+        (fun x =>
+          ENNReal.ofReal (‖f x‖^2) * ENNReal.ofReal (x ^ (-1 : ℝ)))
+          =ᵐ[μ0] (fun _ => (0 : ℝ≥0∞)) := h_integrand_ae_zero
+    simpa using (lintegral_congr_ae (μ := μ0) h_congr)
+
+  -- Step 3: express the same lintegral via the change of variables x = exp t.
+  -- Define the ENNReal integrand on ℝ corresponding to t ↦ ‖f (exp t)‖².
+  set G : ℝ → ℝ≥0∞ :=
+    fun t => ENNReal.ofReal (‖f (Real.exp t)‖^2) with hG
+
+  have hG_meas : Measurable G := by
+    -- measurability of t ↦ f (exp t)
+    have h_meas_fexp : Measurable fun t : ℝ => f (Real.exp t) :=
+      hf_meas.comp Real.measurable_exp
+    have h_meas_norm : Measurable fun t : ℝ => ‖f (Real.exp t)‖ :=
+      h_meas_fexp.norm
+    have h_meas_sq : Measurable fun t : ℝ => ‖f (Real.exp t)‖^2 := by
+      simpa [pow_two] using h_meas_norm.mul h_meas_norm
+    simpa [hG] using (ENNReal.measurable_ofReal.comp h_meas_sq)
+
+  -- Apply the change-of-variables lemma with α = -1 and integrand G.
+  have h_change :=
+    lintegral_change_of_variables_exp
+      (α := (-1 : ℝ)) (f := G) hG_meas
+
+  -- Rewrite the left-hand side of the change-of-variables identity
+  -- to match the lintegral we already know is zero.
+  have h_exp_log :
+      ∀ᵐ x ∂μ0,
+        G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ))
+          = ENNReal.ofReal (‖f x‖^2) * ENNReal.ofReal (x ^ (-1 : ℝ)) := by
+    -- On `(0,∞)`, we have `exp (log x) = x`.
+    have h_mem : ∀ᵐ x ∂μ0, x ∈ Set.Ioi (0 : ℝ) := by
+      simpa [hμ0] using
+        (ae_restrict_mem (μ := volume) (s := Set.Ioi (0 : ℝ)))
+    refine h_mem.mono ?_
+    intro x hx
+    have hxpos : 0 < x := by simpa [Set.mem_Ioi] using hx
+    have hGx :
+        G (Real.log x)
+          = ENNReal.ofReal (‖f x‖^2) := by
+      simp [hG, Real.exp_log hxpos]
+    simp [hGx]
+
+  have h_LHS_eq :
+      ∫⁻ x, G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ)) ∂μ0
+        = ∫⁻ x, ENNReal.ofReal (‖f x‖^2) * ENNReal.ofReal (x ^ (-1 : ℝ)) ∂μ0 := by
+    have h_congr :
+        (fun x =>
+          G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ)))
+          =ᵐ[μ0]
+        (fun x =>
+          ENNReal.ofReal (‖f x‖^2) * ENNReal.ofReal (x ^ (-1 : ℝ))) :=
+      h_exp_log
+    exact lintegral_congr_ae (μ := μ0) h_congr
+
+  -- Use the change-of-variables identity with α = -1.
+  have h_change' :
+      ∫⁻ x, G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ)) ∂μ0
+        = ∫⁻ t, G t * ENNReal.ofReal (Real.exp ((-1 : ℝ) * t + t))
+            ∂volume := by
+    -- Start from the change-of-variables formula on `(0,∞)` and rewrite the
+    -- set-lintegral as a lintegral over the restricted measure `μ0`.
+    -- First, express the left-hand side of `h_change` as a lintegral over `μ0`.
+    have h_mem : ∀ᵐ x ∂μ0, x ∈ Set.Ioi (0 : ℝ) := by
+      simpa [μ0, hμ0] using
+        (ae_restrict_mem (μ := volume) (s := Set.Ioi (0 : ℝ)))
+    have h_ind :
+        (fun x =>
+          Set.indicator (Set.Ioi (0 : ℝ))
+            (fun x => G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ))) x)
+          =ᵐ[μ0]
+        (fun x => G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ))) := by
+      refine h_mem.mono ?_
+      intro x hx
+      simp [Set.indicator_of_mem hx]
+    -- Rewrite the set-lintegral as an indicator lintegral and compare a.e.
+    have h_left :
+        ∫⁻ x in Set.Ioi (0 : ℝ),
+          G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ))
+            ∂(volume.restrict (Set.Ioi (0 : ℝ)))
+          = ∫⁻ x, G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ)) ∂μ0 := by
+      -- By definition, `μ0 = volume.restrict (Ioi 0)`.
+      have := lintegral_congr_ae (μ := μ0) h_ind
+      -- Use the set-lintegral/indicator identity.
+      simp [μ0, hμ0, lintegral_indicator, measurableSet_Ioi]
+    -- Now combine with the original change-of-variables identity.
+    have := h_change
+    -- Replace the left-hand side using `h_left`.
+    have h_final :
+        ∫⁻ x, G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ)) ∂μ0
+          = ∫⁻ t, G t * ENNReal.ofReal (Real.exp ((-1 : ℝ) * t + t)) ∂volume := by
+      simpa [h_left, μ0, hμ0] using this
+    exact h_final
+
+  -- Combine the equalities to identify the lintegral of G on ℝ.
+  have h_G_lintegral_zero :
+      ∫⁻ t, G t * ENNReal.ofReal (Real.exp ((-1 : ℝ) * t + t))
+          ∂volume = 0 := by
+    -- Start from h_lintegral_zero and rewrite using h_LHS_eq
+    calc ∫⁻ t, G t * ENNReal.ofReal (Real.exp ((-1 : ℝ) * t + t)) ∂volume
+        = ∫⁻ x, G (Real.log x) * ENNReal.ofReal (x ^ (-1 : ℝ)) ∂μ0 := h_change'.symm
+      _ = ∫⁻ x, ENNReal.ofReal (‖f x‖^2) * ENNReal.ofReal (x ^ (-1 : ℝ)) ∂μ0 := h_LHS_eq
+      _ = 0 := h_lintegral_zero
+
+  -- Simplify the exponential factor: for α = -1, we have `(-1) * t + t = 0`.
+  have h_exp_simpl :
+      (fun t : ℝ =>
+        G t * ENNReal.ofReal (Real.exp ((-1 : ℝ) * t + t)))
+        = fun t => G t := by
+    funext t
+    have : (-1 : ℝ) * t + t = 0 := by ring
+    simp [this]
+
+  have h_G_lintegral_zero' :
+      ∫⁻ t, G t ∂volume = 0 := by
+    simpa [h_exp_simpl] using h_G_lintegral_zero
+
+  -- Step 4: apply `lintegral_eq_zero_iff'` to deduce `G = 0` a.e. on ℝ.
+  have hG_aemeas :
+      AEMeasurable G (volume : Measure ℝ) :=
+    hG_meas.aemeasurable
+
+  have hG_ae_zero :
+      (fun t : ℝ => G t)
+        =ᵐ[volume] (fun _ => (0 : ℝ≥0∞)) :=
+    (lintegral_eq_zero_iff' hG_aemeas).1 h_G_lintegral_zero'
+
+  -- Translate back from `G t = 0` to `f (exp t) = 0`.
+  have hf_comp_ae_zero :
+      (fun t : ℝ => f (Real.exp t))
+        =ᵐ[volume] (fun _ => (0 : ℂ)) := by
+    refine hG_ae_zero.mono ?_
+    intro t ht
+    -- From `ofReal (‖f (exp t)‖^2) = 0`, deduce `f (exp t) = 0`.
+    have h_sq_le_zero :
+        ‖f (Real.exp t)‖^2 ≤ 0 :=
+      (ENNReal.ofReal_eq_zero.1 (by simpa [G, hG] using ht))
+    have h_sq_ge_zero : 0 ≤ ‖f (Real.exp t)‖^2 :=
+      sq_nonneg _
+    have h_sq_zero : ‖f (Real.exp t)‖^2 = 0 :=
+      le_antisymm h_sq_le_zero h_sq_ge_zero
+    have h_norm_zero : ‖f (Real.exp t)‖ = 0 := by
+      -- From `a^2 = 0` we deduce `a = 0` in ℝ.
+      have := h_sq_zero
+      -- Rewrite `‖·‖^2` as `(‖·‖)^2`.
+      simpa [pow_two] using this
+    -- Use `norm_eq_zero` to conclude.
+    exact norm_eq_zero.1 h_norm_zero
+
+  -- Finally, identify `volume.restrict univ` with `volume`.
+  simpa using hf_comp_ae_zero
+
+/-- If a function is almost everywhere zero with respect to the weighted
+measure defining `Hσ`, then its composition with `exp` is almost everywhere
+zero on ℝ with respect to Lebesgue measure. This is the a.e. counterpart of
+the Mellin change-of-variables `x = exp t`. -/
+lemma ae_zero_comp_exp_of_ae_zero
+    (σ : ℝ) {f : ℝ → ℂ}
+    (hf_meas : Measurable f)
+    (hf : f =ᵐ[weightedMeasure σ] 0) :
+    (fun t => f (Real.exp t)) =ᵐ[volume] 0 := by
+  -- Step 1: reinterpret the a.e.-zero hypothesis on the base restricted measure.
+  -- Using `Hσ_measure_eq_weightedMeasure`, the weighted measure coincides with
+  -- the `withDensity` construction on `volume.restrict (Ioi 0)`.
+  have hf_base :
+      f
+        =ᵐ[(volume.restrict (Set.Ioi 0)).withDensity
+              (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))] 0 := by
+    -- This is just a change of measure along an equality of measures.
+    simpa [Hσ_measure_eq_weightedMeasure (σ := σ)] using hf
+
+  -- Step 2: upgrade to an a.e.-zero statement for Lebesgue measure restricted
+  -- to `(0,∞)`. This uses the fact that the density is positive a.e. on `Ioi 0`,
+  -- so `withDensity` is equivalent to the base restricted measure there.
+  have hf_restrict :
+      f =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))] 0 := by
+    -- We apply the abstract transfer lemma with `μ := volume.restrict (Ioi 0)`
+    -- and weight `w x = ofReal (x^(2σ-1))`, using positivity of the weight
+    -- almost everywhere on `(0,∞)`.
+    have hpos :
+        ∀ᵐ x ∂(volume.restrict (Set.Ioi (0 : ℝ))),
+          0 < ENNReal.ofReal (x ^ (2 * σ - 1)) := by
+      -- On `Ioi 0`, we know `0 < x`. We will use this to show that
+      -- `x ^ (2 * σ - 1)` is strictly positive as a real number, and then
+      -- lift this to `ℝ≥0∞` via `ENNReal.ofReal`.
+      refine
+        (ae_restrict_iff'
+          (measurableSet_Ioi : MeasurableSet (Set.Ioi (0 : ℝ)))).2 ?_
+      refine Filter.Eventually.of_forall ?_
+      intro x hx
+      -- Here `hx : x ∈ Ioi 0`, so `0 < x`.
+      have hxpos : 0 < x := by
+        simpa [Set.mem_Ioi] using hx
+      -- Positivity of the real power on `(0,∞)`
+      have hxpow : 0 < x ^ (2 * σ - 1) :=
+        Real.rpow_pos_of_pos hxpos (2 * σ - 1)
+      -- Lift positivity to `ℝ≥0∞` via `ofReal`
+      have h_ofReal : 0 < ENNReal.ofReal (x ^ (2 * σ - 1)) :=
+        ENNReal.ofReal_pos.mpr hxpow
+      simpa using h_ofReal
+    -- Measurability (hence a.e.-measurability) of the weight function.
+    have hw_meas : Measurable fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)) := by
+      measurability
+    have hw_aemeas :
+        AEMeasurable (fun x : ℝ => ENNReal.ofReal (x ^ (2 * σ - 1)))
+          (volume.restrict (Set.Ioi (0 : ℝ))) :=
+      hw_meas.aemeasurable
+    exact ae_zero_of_ae_zero_withDensity
+      (μ := volume.restrict (Set.Ioi (0 : ℝ)))
+      (w := fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))
+      (f := f) hpos hw_aemeas hf_base
+
+  -- Step 3: transport the a.e.-zero set along the exponential map `exp : ℝ → (0,∞)`.
+  -- The key analytic fact is that `exp` is a C¹ diffeomorphism with inverse `log`,
+  -- so the preimage of a null set in `(0,∞)` is null in ℝ. This will be shown
+  -- via the change-of-variables theorem already developed for Mellin–Plancherel.
+  have hf_comp_restrict :
+      (fun t : ℝ => f (Real.exp t))
+        =ᵐ[volume.restrict (Set.univ : Set ℝ)] 0 := by
+    -- Apply the auxiliary lemma that transfers the a.e.-zero property on
+    -- `(0,∞)` through the exponential change of variables.
+    exact ae_zero_comp_exp_of_ae_zero_on_Ioi
+      (f := f) hf_meas hf_restrict
+
+  -- Step 4: simplify the restriction to `univ` back to the full Lebesgue measure.
+  simpa using hf_comp_restrict
 
 lemma LogPull_norm_sq (σ : ℝ) (f : Hσ σ) (t : ℝ) :
     ‖LogPull σ f t‖^2

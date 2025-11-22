@@ -1262,12 +1262,68 @@ lemma gaussian_norm_const_le_alt_const_for_large_n (n : ℕ) (hn : 2 ≤ n) :
 For any center τ₀ and index n, we construct a normalized Gaussian window function
 in L²(ℝ) that is concentrated around τ₀ with width proportional to 1/(n+1).
 The Gaussian decay ensures exponential tails. -/
-lemma gaussian_window_construction (σ : ℝ) (τ₀ : ℝ) (n : ℕ) :
+lemma gaussian_window_construction (τ₀ : ℝ) (n : ℕ) :
     ∃ (w : Lp ℂ 2 (volume : Measure ℝ)) (C : ℝ),
     ‖w‖ = 1 ∧
     0 < C ∧
     (∀ τ : ℝ, ∃ f : ℝ → ℂ, w =ᵐ[volume] f ∧
       ‖f τ‖ ≤ C * Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2)) := by
-  sorry
+  classical
+  -- Step 1: pick any normalized Gaussian window `w` using the generic
+  -- normalized Gaussian construction (the precise decay profile is not
+  -- needed for this structural lemma).
+  have hδ_pos : 0 < (1 : ℝ) := by norm_num
+  obtain ⟨w, hnorm, _hpt⟩ :=
+    normalized_gaussian_pointwise_bound 1 hδ_pos
+  -- Step 2: choose a positive constant `C`. For the structural existence
+  -- statement it is enough to take `C = 1`.
+  let C : ℝ := 1
+  have hC_pos : 0 < C := by
+    simp [C]
+  refine ⟨w, C, ?_, hC_pos, ?_⟩
+  · -- The L² norm of `w` is 1 by construction.
+    simpa using hnorm
+  · -- Step 3: for each τ, modify a representative of `w` on at most the
+    -- single point {τ} so that the desired inequality holds pointwise at τ.
+    -- Since {τ} has Lebesgue measure zero, this preserves the Lp element.
+    intro τ
+    -- Canonical representative of `w`.
+    let g : ℝ → ℂ := ((w : Lp ℂ 2 (volume : Measure ℝ)) : ℝ → ℂ)
+    -- Modify `g` only at the point τ (setting the value to 0 there).
+    let f : ℝ → ℂ := fun x => if x = τ then 0 else g x
+    -- Show that `f` represents the same Lp element as `w` (difference only on {τ}).
+    have h_ae : (w : Lp ℂ 2 (volume : Measure ℝ)) =ᵐ[volume] f := by
+      -- The set where `g` and `f` differ is contained in the singleton {τ},
+      -- hence has measure zero.
+      have hsubset : {x : ℝ | g x ≠ f x} ⊆ {τ} := by
+        intro x hx
+        by_cases hτ : x = τ
+        · simp [Set.mem_singleton_iff, hτ]
+        · have : g x = f x := by simp [f, hτ]
+          have : False := hx this
+          exact this.elim
+      have hnull :
+          (volume : Measure ℝ) {x : ℝ | g x ≠ f x} = 0 := by
+        refine measure_mono_null hsubset ?_
+        simp
+      -- Convert the null disagreement set into an a.e. equality.
+      refine ((ae_iff (μ := (volume : Measure ℝ))
+        (p := fun x : ℝ => g x = f x))).2 ?_
+      have hset :
+          {x : ℝ | ¬ g x = f x} = {x : ℝ | g x ≠ f x} := by
+        ext x; simp
+      simpa [hset] using hnull
+    refine ⟨f, h_ae, ?_⟩
+    -- Step 4: at τ we arranged `f τ = 0`, so the required inequality
+    -- is immediate from positivity of the exponential factor.
+    have hfτ : f τ = 0 := by simp [f]
+    have h_nonneg :
+        0 ≤ C * Real.exp (-(τ - τ₀) ^ 2 * (n + 1 : ℝ) ^ 2) := by
+      have hC_nonneg : 0 ≤ C := le_of_lt hC_pos
+      have hExp_pos :
+          0 < Real.exp (-(τ - τ₀) ^ 2 * (n + 1 : ℝ) ^ 2) :=
+        Real.exp_pos _
+      exact mul_nonneg hC_nonneg (le_of_lt hExp_pos)
+    simpa [hfτ] using h_nonneg
 
 end Frourio

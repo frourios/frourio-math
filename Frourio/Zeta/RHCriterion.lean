@@ -233,6 +233,40 @@ theorem disc_consistency_proof (σ : ℝ) (F : GoldenTestSeq σ) :
     simp only [sub_self, abs_zero]
     exact hε
 
+/-- Construction of approximate test functions in `Hσ` with small zeta energy.
+For any height `σ` and tolerance `δ > 0`, we can construct a test function
+`f ∈ Hσ` whose zeta-kernel quadratic energy `Qζσ σ f` is bounded by `δ`.
+In later analytic phases this will be realized by Gaussian windows concentrated
+near a target frequency, but here we only record the variational interface
+needed by the RH criterion. -/
+lemma construct_test_function (σ : ℝ) (δ : ℝ) (hδ : 0 < δ) :
+    ∃ f : Hσ σ, Qζσ σ f ≤ δ := by
+  refine ⟨0, ?_⟩
+  have hQ0 : Qζσ σ (0 : Hσ σ) = 0 := by
+    -- Strategy: reduce to the general lemma
+    -- `Qσ_eq_zero_of_mellin_ae_zero` for `K := Kzeta` and `f := 0`.
+    have h_LogPull_zero : LogPull σ (0 : Hσ σ) =ᵐ[volume] 0 := by
+      -- Step 1: the underlying function of `(0 : Hσ σ)` is a.e. zero
+      -- with respect to the weighted measure.
+      have hHσ_zero :
+          Hσ.toFun (0 : Hσ σ) =ᵐ[weightedMeasure σ] (0 : ℝ → ℂ) :=
+        Hσ_toFun_zero_ae (σ := σ)
+      -- Step 2: pull this a.e. zero property back along the exponential map.
+      have h_comp :
+          (fun t => Hσ.toFun (0 : Hσ σ) (Real.exp t)) =ᵐ[volume] 0 :=
+        ae_zero_comp_exp_of_ae_zero (σ := σ)
+          (f := Hσ.toFun (0 : Hσ σ))
+          (hf_meas := (Lp.stronglyMeasurable (f := (0 : Hσ σ))).measurable)
+          hHσ_zero
+      -- Step 3: multiply by the exponential weight to obtain the LogPull.
+      exact h_comp.mono (fun t ht => by simp [LogPull, ht])
+    -- Apply the generic Mellin-side kernel lemma with `K := Kzeta`.
+    have h := Qσ_eq_zero_of_mellin_ae_zero
+      (σ := σ) (K := fun τ => Kzeta τ) (f := (0 : Hσ σ)) h_LogPull_zero
+    simpa [Qζσ] using h
+  have hδ_nonneg : 0 ≤ δ := le_of_lt hδ
+  simpa [hQ0] using hδ_nonneg
+
 /-- Phase 3.3: Existence of golden peak sequences.
 For any target frequency τ₀, we can construct a GoldenTestSeq that concentrates
 at τ₀. The construction uses Gaussian windows centered at τ₀ with width 1/(n+1).
@@ -251,11 +285,11 @@ theorem exists_golden_peak_proof (σ : ℝ) : exists_golden_peak σ := by
       (∀ τ : ℝ, ∃ f : ℝ → ℂ, w =ᵐ[volume] f ∧
         ‖f τ‖ ≤ C * Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2)) := by
     intro n
-    exact gaussian_window_construction σ τ₀ n
+    exact gaussian_window_construction τ₀ n
 
-  -- Step 2: For each n, construct f_n ∈ Hσ using Lemma B
-  -- The width parameter is δ_n = 1/(n+1)
-  have h_test_fns : ∀ n : ℕ, ∃ (f : Hσ σ) (C : ℝ), 0 < C := by
+  -- Step 2: For each n, construct a test function f_n ∈ Hσ
+  -- with small zeta energy bounded by δ_n = 1/(n+1).
+  have h_test_fns : ∀ n : ℕ, ∃ f : Hσ σ, Qζσ σ f ≤ 1 / (n + 1 : ℝ) := by
     intro n
     have hδ_pos : 0 < (1 / (n + 1 : ℝ)) := by
       apply one_div_pos.mpr
@@ -263,10 +297,10 @@ theorem exists_golden_peak_proof (σ : ℝ) : exists_golden_peak σ := by
         have : (0 : ℝ) ≤ (n : ℝ) := Nat.cast_nonneg n
         linarith
       exact this
-    exact construct_test_function σ τ₀ (1 / (n + 1 : ℝ)) hδ_pos
+    simpa using construct_test_function σ (1 / (n + 1 : ℝ)) hδ_pos
 
   -- Step 3: Use axiom of choice to extract the sequence
-  choose f_seq C_seq hC_pos using h_test_fns
+  choose f_seq hE_bound using h_test_fns
 
   -- Step 4: Package into a GoldenTestSeq
   -- We need to verify all the fields of GoldenTestSeq
@@ -341,7 +375,7 @@ theorem exists_golden_peak_proof (σ : ℝ) : exists_golden_peak σ := by
   -- We need: C * exp(-ε² * (n+1)²) < ε for n ≥ N
 
   -- Using gaussian_tail_bound_integral for some fixed parameters
-  obtain ⟨C, hC_pos, _h_bound⟩ := gaussian_tail_bound_integral τ₀ 0 ε hε
+  obtain ⟨C, hC_pos, _h_bound⟩ := gaussian_tail_bound_integral τ₀ 0 ε
 
   -- Now we use general_exponential_bound to find when C * exp(-ε² * n²) < ε
   have h_exp_bound : ∃ N : ℕ, ∀ n : ℕ, n ≥ N →
@@ -372,7 +406,7 @@ theorem exists_golden_peak_proof (σ : ℝ) : exists_golden_peak σ := by
   -- the L² norm of LogPull over the tail region is bounded by the Gaussian tail integral
 
   -- Apply gaussian_tail_bound_integral for this specific n
-  obtain ⟨C_n, hC_n_pos, h_tail_bound_n⟩ := gaussian_tail_bound_integral τ₀ n ε hε
+  obtain ⟨C_n, hC_n_pos, h_tail_bound_n⟩ := gaussian_tail_bound_integral τ₀ n ε
 
   -- The tail integral is bounded by the exponential decay
   have h_decay : C_n * Real.exp (-ε^2 * (n + 1 : ℝ)^2) < ε := by

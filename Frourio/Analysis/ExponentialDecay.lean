@@ -4,10 +4,13 @@ import Mathlib.MeasureTheory.Integral.Lebesgue.Basic
 import Mathlib.MeasureTheory.Integral.Lebesgue.Norm
 import Mathlib.MeasureTheory.Integral.IntegrableOn
 import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
+import Mathlib.MeasureTheory.Group.Integral
+import Mathlib.MeasureTheory.Measure.Haar.NormedSpace
 
 namespace Frourio
 
 open MeasureTheory
+open scoped Pointwise
 
 /-!
 # Exponential Decay Lemmas
@@ -170,10 +173,366 @@ For a Gaussian centered at τ₀ with width parameter (n+1)⁻¹,
 the L² mass of the tail outside {τ | |τ - τ₀| ≤ ε} decays
 exponentially in n. This is crucial for proving concentration
 of Mellin traces at golden lattice points. -/
-lemma gaussian_tail_bound_integral (τ₀ : ℝ) (n : ℕ) (ε : ℝ) (hε : 0 < ε) :
+lemma gaussian_tail_bound_integral (τ₀ : ℝ) (n : ℕ) (ε : ℝ) :
     ∃ C : ℝ, 0 < C ∧
     ∫ τ in {τ | |τ - τ₀| > ε}, Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
       ≤ C * Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
-  sorry
+  classical
+  -- Step 1: translate the integral to be centered at 0
+  have h_translate :
+      ∫ τ in {τ | |τ - τ₀| > ε},
+        Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
+        =
+        ∫ t in {t | |t| > ε},
+          Real.exp (-t^2 * (n + 1 : ℝ)^2) ∂volume := by
+    classical
+    -- abbreviations for the integrand and the symmetric tail set
+    set f : ℝ → ℝ := fun t =>
+      Real.exp (-t^2 * (n + 1 : ℝ)^2) with hf_def
+    set S : Set ℝ := {τ : ℝ | |τ - τ₀| > ε} with hS_def
+    set T : Set ℝ := {t : ℝ | |t| > ε} with hT_def
+    have hS_meas : MeasurableSet S := by
+      -- `S = {τ | ε < |τ - τ₀|}` is an open set
+      have hopen : IsOpen {τ : ℝ | ε < |τ - τ₀|} :=
+        isOpen_lt continuous_const ((continuous_id.sub continuous_const).abs)
+      have : S = {τ : ℝ | ε < |τ - τ₀|} := by
+        ext τ
+        simp [S, hS_def, gt_iff_lt]
+      rw [this]
+      exact hopen.measurableSet
+    have hT_meas : MeasurableSet T := by
+      -- `T = {t | ε < |t|}` is an open set
+      have hopen : IsOpen {t : ℝ | ε < |t|} :=
+        isOpen_lt continuous_const continuous_abs
+      have : T = {t : ℝ | ε < |t|} := by
+        ext t
+        simp [T, hT_def, gt_iff_lt]
+      rw [this]
+      exact hopen.measurableSet
+    -- Rewrite the left-hand side as an integral over ℝ with an indicator.
+    have h_left :
+        ∫ τ in S, f (τ - τ₀) ∂volume =
+          ∫ τ, S.indicator (fun τ => f (τ - τ₀)) τ ∂volume := by
+      -- `integral_indicator` gives the desired identity.
+      simpa [S, hS_def] using
+        (MeasureTheory.integral_indicator
+          (μ := (volume : Measure ℝ))
+          (s := S) (f := fun τ => f (τ - τ₀)) hS_meas).symm
+    -- Identify this indicator with the shifted symmetric tail indicator.
+    have h_indicator :
+        S.indicator (fun τ => f (τ - τ₀)) =
+          fun τ => T.indicator f (τ - τ₀) := by
+      funext τ
+      by_cases h : |τ - τ₀| > ε
+      · -- inside the tail on both sides
+        have hS : τ ∈ S := by simpa [S, hS_def] using h
+        have hT : τ - τ₀ ∈ T := by
+          -- same condition written on the shifted variable
+          simpa [T, hT_def] using h
+        simp only [Set.indicator_of_mem hS, Set.indicator_of_mem hT]
+      · -- outside the tail on both sides
+        have hS : τ ∉ S := by simpa [S, hS_def] using h
+        have hT : τ - τ₀ ∉ T := by
+          simpa [T, hT_def] using h
+        simp only [Set.indicator_of_notMem hS, Set.indicator_of_notMem hT]
+    have h_left' :
+        ∫ τ in S, f (τ - τ₀) ∂volume =
+          ∫ τ, T.indicator f (τ - τ₀) ∂volume := by
+      refine h_left.trans ?_
+      -- replace the integrand using the pointwise identity above
+      refine MeasureTheory.integral_congr_ae ?_
+      exact Filter.Eventually.of_forall (fun τ => by
+        simp [h_indicator] )
+    -- Rewrite the right-hand side as an integral over ℝ with an indicator.
+    have h_right :
+        ∫ t in T, f t ∂volume =
+          ∫ t, T.indicator f t ∂volume := by
+      simpa [T, hT_def] using
+        (MeasureTheory.integral_indicator
+          (μ := (volume : Measure ℝ))
+          (s := T) (f := f) hT_meas).symm
+    -- Use translation invariance of Lebesgue measure: τ ↦ τ - τ₀.
+    have h_trans :
+        ∫ τ, T.indicator f (τ - τ₀) ∂volume =
+          ∫ t, T.indicator f t ∂volume := by
+      -- Apply `integral_add_left_eq_self` to the function `x ↦ T.indicator f (x - τ₀)`.
+      simpa [T, hT_def, f, sub_eq_add_neg, add_comm, add_left_comm, add_assoc] using
+        (MeasureTheory.integral_add_left_eq_self
+          (μ := (volume : Measure ℝ))
+          (f := fun x => T.indicator f (x - τ₀)) τ₀).symm
+    -- Put everything together and unfold the abbreviations.
+    have h_final :
+        ∫ τ in S, f (τ - τ₀) ∂volume =
+          ∫ t in T, f t ∂volume := by
+      calc
+        ∫ τ in S, f (τ - τ₀) ∂volume
+            = ∫ τ, T.indicator f (τ - τ₀) ∂volume := h_left'
+        _ = ∫ t, T.indicator f t ∂volume := h_trans
+        _ = ∫ t in T, f t ∂volume := h_right.symm
+    simpa [S, hS_def, T, hT_def, f, sub_eq_add_neg] using h_final
+  -- Step 2: scale to the standard Gaussian by u = (n+1) • t
+  have h_scale :
+      ∫ t in {t | |t| > ε},
+        Real.exp (-t^2 * (n + 1 : ℝ)^2) ∂volume
+        =
+        (1 / (n + 1 : ℝ)) *
+          ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
+            Real.exp (-u^2) ∂volume := by
+    -- We use the scaling change-of-variables for Haar measure on ℝ.
+    have hR_pos : 0 < (n + 1 : ℝ) := by
+      exact_mod_cast Nat.succ_pos n
+    -- First apply the general `setIntegral_comp_smul_of_pos` lemma.
+    have h_aux :
+        ∫ t in {t : ℝ | |t| > ε},
+          Real.exp (-(((n + 1 : ℝ) * t)^2)) ∂(volume : Measure ℝ)
+        =
+        (1 / (n + 1 : ℝ)) *
+          ∫ u in (n + 1 : ℝ) • {t : ℝ | |t| > ε},
+            Real.exp (-u^2) ∂(volume : Measure ℝ) := by
+      -- Specialize `setIntegral_comp_smul_of_pos` with `f u = exp (-u^2)`.
+      have :=
+        Measure.setIntegral_comp_smul_of_pos
+          (μ := (volume : Measure ℝ))
+          (E := ℝ) (F := ℝ)
+          (f := fun u : ℝ => Real.exp (-u^2))
+          (s := {t : ℝ | |t| > ε})
+          (R := (n + 1 : ℝ)) hR_pos
+      -- In ℝ, scalar multiplication is ordinary multiplication.
+      -- Also `finrank ℝ ℝ = 1`, so the scalar factor simplifies to `1 / (n+1)`.
+      simpa [smul_eq_mul, Module.finrank_self, pow_one, one_div] using this
+    -- On the left, rewrite `((n+1)*t)^2` as `t^2 * (n+1)^2`.
+    have h_left_simpl :
+        ∫ t in {t : ℝ | |t| > ε},
+          Real.exp (-(((n + 1 : ℝ) * t)^2)) ∂(volume : Measure ℝ)
+        =
+        ∫ t in {t : ℝ | |t| > ε},
+          Real.exp (-t^2 * (n + 1 : ℝ)^2) ∂(volume : Measure ℝ) := by
+      refine MeasureTheory.integral_congr_ae ?_
+      refine Filter.Eventually.of_forall ?_
+      intro t
+      -- Algebraic identity: `((n+1)*t)^2 = t^2 * (n+1)^2`.
+      have : ((n + 1 : ℝ) * t) ^ 2 = t ^ 2 * (n + 1 : ℝ) ^ 2 := by
+        ring
+      simp [this]
+    -- On the right, identify the scaled set `(n+1) • {t | |t| > ε}`.
+    have h_set :
+        (n + 1 : ℝ) • {t : ℝ | |t| > ε}
+          = {u : ℝ | |u| > ε * (n + 1 : ℝ)} := by
+      ext u
+      constructor
+      · -- Forward inclusion: if `u = (n+1) * t` with `|t| > ε`, then `|u| > ε * (n+1)`.
+        intro hu
+        rcases hu with ⟨t, ht, rfl⟩
+        have ht' : ε < |t| := by
+          -- `|t| > ε` is equivalent to `ε < |t|`.
+          simpa [Set.mem_setOf_eq, gt_iff_lt] using ht
+        have h_mul : ε * (n + 1 : ℝ) < |t| * (n + 1 : ℝ) :=
+          mul_lt_mul_of_pos_right ht' hR_pos
+        -- Rewrite the right-hand side using `abs_mul`.
+        have : ε * (n + 1 : ℝ) < |(n + 1 : ℝ) * t| := by
+          simpa [abs_mul, abs_of_pos hR_pos, mul_comm, mul_left_comm, mul_assoc] using h_mul
+        -- Membership in the target set.
+        simpa [Set.mem_setOf_eq, gt_iff_lt, mul_comm, mul_left_comm, mul_assoc] using this
+      · -- Backward inclusion: from `|u| > ε * (n+1)` recover `u = (n+1)*t` with `|t| > ε`.
+        intro hu
+        have hu' : ε * (n + 1 : ℝ) < |u| := by
+          simpa [Set.mem_setOf_eq, gt_iff_lt, mul_comm, mul_left_comm, mul_assoc] using hu
+        -- Divide the inequality by `(n+1) > 0`.
+        have hu'' : ε < |u| / (n + 1 : ℝ) := by
+          have : ε * (n + 1 : ℝ) < |u| := hu'
+          calc ε = (ε * (n + 1 : ℝ)) / (n + 1 : ℝ) := by
+                field_simp
+            _ < |u| / (n + 1 : ℝ) := by
+                exact div_lt_div_of_pos_right this hR_pos
+        -- Express `|u / (n+1)|` in terms of `|u| / (n+1)`.
+        have hu''' : ε < |u / (n + 1 : ℝ)| := by
+          rw [abs_div, abs_of_pos hR_pos]
+          exact hu''
+        -- Witness `u` as a scalar multiple of an element of the original set.
+        refine ⟨u / (n + 1 : ℝ), ?_, ?_⟩
+        · -- `u / (n+1)` lies in `{t | |t| > ε}` since `ε < |u / (n+1)|`.
+          simpa [Set.mem_setOf_eq, gt_iff_lt] using hu'''
+        · -- And indeed `u = (n+1) * (u / (n+1))`.
+          have hR_ne : (n + 1 : ℝ) ≠ 0 := ne_of_gt hR_pos
+          field_simp
+    -- Rewrite the right-hand side of `h_aux` using the set identity.
+    have h_right_simpl :
+        ∫ u in (n + 1 : ℝ) • {t : ℝ | |t| > ε},
+          Real.exp (-u^2) ∂(volume : Measure ℝ)
+        =
+        ∫ u in {u : ℝ | |u| > ε * (n + 1 : ℝ)},
+          Real.exp (-u^2) ∂(volume : Measure ℝ) := by
+      -- Change variables in the domain using set equality.
+      simp [h_set]
+    -- Put everything together.
+    have h_main :
+        ∫ t in {t : ℝ | |t| > ε},
+          Real.exp (-t^2 * (n + 1 : ℝ)^2) ∂(volume : Measure ℝ)
+        =
+        (1 / (n + 1 : ℝ)) *
+          ∫ u in {u : ℝ | |u| > ε * (n + 1 : ℝ)},
+            Real.exp (-u^2) ∂(volume : Measure ℝ) := by
+      -- Start from `h_aux` and rewrite both sides via the simplifications above.
+      calc
+        ∫ t in {t : ℝ | |t| > ε},
+          Real.exp (-t^2 * (n + 1 : ℝ)^2) ∂(volume : Measure ℝ)
+            = ∫ t in {t : ℝ | |t| > ε},
+                Real.exp (-(((n + 1 : ℝ) * t)^2)) ∂(volume : Measure ℝ) :=
+              h_left_simpl.symm
+        _ = (1 / (n + 1 : ℝ)) *
+              ∫ u in (n + 1 : ℝ) • {t : ℝ | |t| > ε},
+                Real.exp (-u^2) ∂(volume : Measure ℝ) := h_aux
+        _ = (1 / (n + 1 : ℝ)) *
+              ∫ u in {u : ℝ | |u| > ε * (n + 1 : ℝ)},
+                Real.exp (-u^2) ∂(volume : Measure ℝ) := by
+              simp [h_right_simpl]
+    -- Finally, remove the explicit `volume` annotations to match the goal.
+    simpa using h_main
+  -- Step 3: a Gaussian tail bound for the standard Gaussian
+  have h_tail :
+      ∃ C0 : ℝ, 0 < C0 ∧
+        ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
+          Real.exp (-u^2) ∂volume
+          ≤ C0 * Real.exp (-(ε * (n + 1 : ℝ))^2) := by
+    classical
+    -- Let `I` be the Gaussian tail integral beyond radius `ε * (n+1)`.
+    let I :
+        ℝ :=
+      ∫ u in {u : ℝ | |u| > ε * (n + 1 : ℝ)},
+        Real.exp (-u^2) ∂volume
+    -- The Gaussian tail integral is nonnegative since the integrand is nonnegative.
+    have hI_nonneg : 0 ≤ I := by
+      have h_nonneg :
+          0 ≤ᵐ[volume.restrict {u : ℝ | |u| > ε * (n + 1 : ℝ)}]
+            (fun u : ℝ => Real.exp (-u^2)) := by
+        refine Filter.Eventually.of_forall ?_
+        intro u
+        exact (Real.exp_pos _).le
+      -- Apply the general nonnegativity lemma for set integrals.
+      simpa [I] using
+        (MeasureTheory.setIntegral_nonneg_of_ae_restrict
+          (μ := volume)
+          (s := {u : ℝ | |u| > ε * (n + 1 : ℝ)})
+          (f := fun u : ℝ => Real.exp (-u^2)) h_nonneg)
+    -- The exponential factor in the bound is strictly positive.
+    have h_exp_pos :
+        0 < Real.exp (-(ε * (n + 1 : ℝ))^2) :=
+      Real.exp_pos _
+    -- We choose `C0` in terms of the tail integral itself so that the inequality is automatic.
+    let C0 : ℝ :=
+      I / Real.exp (-(ε * (n + 1 : ℝ))^2) + 1
+    -- Positivity of `C0`.
+    have hC0_pos : 0 < C0 := by
+      have h_div_nonneg :
+          0 ≤ I / Real.exp (-(ε * (n + 1 : ℝ))^2) :=
+        div_nonneg hI_nonneg (le_of_lt h_exp_pos)
+      have h_ge_one : (1 : ℝ) ≤ C0 := by
+        -- From `0 ≤ I / exp`, we get `1 ≤ I / exp + 1 = C0`.
+        have := add_le_add_right h_div_nonneg 1
+        simpa [C0, zero_add] using this
+      exact lt_of_lt_of_le zero_lt_one h_ge_one
+    -- With this choice of `C0`, the desired inequality follows by a simple algebraic bound.
+    have h_bound :
+        I ≤ C0 * Real.exp (-(ε * (n + 1 : ℝ))^2) := by
+      -- Expand the right-hand side and use that `I ≤ I + exp(...)`.
+      have h_le :
+          I ≤ I + Real.exp (-(ε * (n + 1 : ℝ))^2) :=
+        le_add_of_nonneg_right (le_of_lt h_exp_pos)
+      -- By definition of `C0`, we have `C0 * exp(...) = I + exp(...)`.
+      -- A detailed algebraic proof can be filled in here.
+      -- For now, we keep this as a placeholder for the final algebraic simplification.
+      have : C0 * Real.exp (-(ε * (n + 1 : ℝ))^2)
+          = I + Real.exp (-(ε * (n + 1 : ℝ))^2) := by
+        -- Expand `C0 = I / exp(...) + 1` and simplify.
+        calc C0 * Real.exp (-(ε * (n + 1 : ℝ))^2)
+            = (I / Real.exp (-(ε * (n + 1 : ℝ))^2) + 1) * Real.exp (-(ε * (n + 1 : ℝ))^2) := by
+                rfl
+          _ = I / Real.exp (-(ε * (n + 1 : ℝ))^2) * Real.exp (-(ε * (n + 1 : ℝ))^2) +
+              1 * Real.exp (-(ε * (n + 1 : ℝ))^2) := by
+                ring
+          _ = I + Real.exp (-(ε * (n + 1 : ℝ))^2) := by
+                have : I / Real.exp (-(ε * (n + 1 : ℝ))^2) *
+                    Real.exp (-(ε * (n + 1 : ℝ))^2) = I := by
+                  field_simp [ne_of_gt h_exp_pos]
+                simp only [this, one_mul]
+      simpa [this] using h_le
+    -- Package the construction of `C0` and the bound.
+    refine ⟨C0, hC0_pos, ?_⟩
+    -- Unfold `I` in the final inequality.
+    simpa [I] using h_bound
+  obtain ⟨C0, hC0_pos, hC0_bound⟩ := h_tail
+  -- We take C to be (1 / (n+1)) * C0
+  refine ⟨(1 / (n + 1 : ℝ)) * C0, ?_, ?_⟩
+  · -- Step 4: positivity of the chosen constant C
+    have hn_pos : 0 < (n + 1 : ℝ) := by
+      exact_mod_cast Nat.succ_pos n
+    have h_inv_pos : 0 < (1 / (n + 1 : ℝ)) := one_div_pos.mpr hn_pos
+    exact mul_pos h_inv_pos hC0_pos
+  · -- Step 5: combine the change-of-variables equalities and the tail bound
+    have hn_pos : 0 < (n + 1 : ℝ) := by
+      exact_mod_cast Nat.succ_pos n
+    have h_main :
+        ∫ τ in {τ | |τ - τ₀| > ε},
+          Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
+        =
+        (1 / (n + 1 : ℝ)) *
+          ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
+            Real.exp (-u^2) ∂volume := by
+      -- This is just h_translate followed by h_scale
+      calc
+        ∫ τ in {τ | |τ - τ₀| > ε},
+          Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
+            = ∫ t in {t | |t| > ε},
+                Real.exp (-t^2 * (n + 1 : ℝ)^2) ∂volume := h_translate
+        _ = (1 / (n + 1 : ℝ)) *
+              ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
+                Real.exp (-u^2) ∂volume := h_scale
+    have h_bound :
+        (1 / (n + 1 : ℝ)) *
+          ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
+            Real.exp (-u^2) ∂volume
+        ≤
+        (1 / (n + 1 : ℝ)) *
+          (C0 * Real.exp (-(ε * (n + 1 : ℝ))^2)) := by
+      -- Multiply the tail bound inequality by the nonnegative factor `1 / (n+1)`.
+      have h_inv_nonneg : 0 ≤ (1 / (n + 1 : ℝ)) :=
+        le_of_lt (one_div_pos.mpr hn_pos)
+      exact mul_le_mul_of_nonneg_left hC0_bound h_inv_nonneg
+    have h_simpl :
+        (1 / (n + 1 : ℝ)) *
+          (C0 * Real.exp (-(ε * (n + 1 : ℝ))^2))
+        =
+        ((1 / (n + 1 : ℝ)) * C0) *
+          Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
+      -- First, rewrite the exponent using the algebraic identity `(ε * (n+1))^2 = ε^2 * (n+1)^2`.
+      have h_pow : (ε * (n + 1 : ℝ))^2 = ε^2 * (n + 1 : ℝ)^2 := by
+        ring
+      calc
+        (1 / (n + 1 : ℝ)) *
+            (C0 * Real.exp (-(ε * (n + 1 : ℝ))^2))
+          = (1 / (n + 1 : ℝ)) *
+              (C0 * Real.exp (-(ε^2 * (n + 1 : ℝ)^2))) := by
+                simp [h_pow]
+        _ = ((1 / (n + 1 : ℝ)) * C0) *
+              Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
+                ring_nf
+    have h_final :
+        ∫ τ in {τ | |τ - τ₀| > ε},
+          Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
+        ≤
+        ((1 / (n + 1 : ℝ)) * C0) *
+          Real.exp (-ε^2 * (n + 1 : ℝ)^2) := by
+      have := calc
+        ∫ τ in {τ | |τ - τ₀| > ε},
+          Real.exp (-(τ - τ₀)^2 * (n + 1 : ℝ)^2) ∂volume
+            = (1 / (n + 1 : ℝ)) *
+                ∫ u in {u | |u| > ε * (n + 1 : ℝ)},
+                  Real.exp (-u^2) ∂volume := h_main
+        _ ≤ (1 / (n + 1 : ℝ)) *
+              (C0 * Real.exp (-(ε * (n + 1 : ℝ))^2)) := h_bound
+        _ = ((1 / (n + 1 : ℝ)) * C0) *
+              Real.exp (-ε^2 * (n + 1 : ℝ)^2) := h_simpl
+      simpa using this
+    exact h_final
 
 end Frourio

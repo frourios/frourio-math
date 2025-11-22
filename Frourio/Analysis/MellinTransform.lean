@@ -405,13 +405,4 @@ We provide a constructive proof via the periodicity of `Complex.exp`.
 -- `div_eq_zero` and `eq_div_iff_mul_eq` style rewrites to keep the proof
 -- compact and robust on this toolchain.)
 
-/-- Construction of test functions in Hσ from Gaussian windows.
-Given a Gaussian window centered at τ₀ with decay parameter δ,
-we can construct a corresponding test function in the Mellin-Sobolev space Hσ.
-This axiom is referenced in the RH criterion proof and would be proven using
-Gaussian analysis and the Mellin-Plancherel isomorphism. -/
-lemma construct_test_function (σ : ℝ) (τ₀ : ℝ) (δ : ℝ) (hδ : 0 < δ) :
-    ∃ (f : Hσ σ) (C : ℝ), 0 < C := by
-  sorry
-
 end Frourio

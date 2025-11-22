@@ -156,6 +156,38 @@ theorem Hσ.cauchy_complete (σ : ℝ) (f : ℕ → Hσ σ) (hf : CauchySeq f) :
 
 end Completeness
 
+section ZeroElementAE
+
+/-- The underlying function represented by the zero element of `Hσ` is
+almost everywhere equal to `0` with respect to the weighted measure. -/
+lemma Hσ_toFun_zero_ae (σ : ℝ) :
+    Hσ.toFun (0 : Hσ σ) =ᵐ[weightedMeasure σ] (0 : ℝ → ℂ) := by
+  classical
+  -- View `Hσ σ` as an `Lp` space over its defining measure.
+  have hzero :
+      ((0 : Hσ σ) : ℝ → ℂ)
+        =ᵐ[(volume.restrict (Set.Ioi 0)).withDensity
+            (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))] 0 := by
+    -- This is the standard statement that the zero element of `Lp` is
+    -- represented by the a.e.-zero function.
+    exact
+      (Lp.coeFn_zero (E := ℂ)
+        (p := (2 : ℝ≥0∞))
+        (μ :=
+          (volume.restrict (Set.Ioi 0)).withDensity
+            (fun x => ENNReal.ofReal (x ^ (2 * σ - 1)))))
+  -- Transport the a.e. equality along the identification of measures.
+  have hzero_weighted :
+      ((0 : Hσ σ) : ℝ → ℂ)
+        =ᵐ[weightedMeasure σ] 0 := by
+    simpa [Hσ_measure_eq_weightedMeasure (σ := σ)]
+      using hzero
+  -- Rewrite the coercion in terms of `Hσ.toFun`.
+  simpa [Hσ.toFun]
+    using hzero_weighted
+
+end ZeroElementAE
+
 section MeasureFiniteness
 
 /-- Conditions for the weighted measure to be finite on bounded sets -/
